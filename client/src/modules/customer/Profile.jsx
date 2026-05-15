@@ -1,0 +1,179 @@
+import { Link } from 'react-router-dom';
+import Avatar from '../../components/Avatar.jsx';
+import Badge from '../../components/Badge.jsx';
+import Button from '../../components/Button.jsx';
+import Card from '../../components/Card.jsx';
+import Icon from '../../components/Icon.jsx';
+import { useApp } from '../../context/AppContext.jsx';
+
+// Customer profile — reached from the mobile bottom nav (and surfaced on
+// desktop via the avatar menu in the top nav).
+const SETTINGS = [
+  { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin' },
+  { id: 'payments', label: 'Phương thức thanh toán', icon: 'card' },
+  { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap' },
+  { id: 'notifications', label: 'Thông báo', icon: 'bell' },
+  { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/chat-admin' },
+  { id: 'settings', label: 'Cài đặt ứng dụng', icon: 'cog' },
+];
+
+export default function CustomerProfile() {
+  const { currentCustomer, orders, authedRoles, setAuthModal, pushToast } = useApp();
+
+  const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
+  const activeCount = orders.length - deliveredCount;
+
+  return (
+    <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
+      <div className="md:mb-base">
+        <div className="text-caption-uppercase text-body">Tài khoản</div>
+        <h1 className="text-display-md text-ink md:text-display-lg">Hồ sơ</h1>
+      </div>
+
+      {/* Identity */}
+      <Card padded className="flex items-center gap-sm">
+        {authedRoles.customer ? (
+          <>
+            <Avatar src={currentCustomer.avatar} name={currentCustomer.name} size="xl" />
+            <div className="flex-1 min-w-0">
+              <div className="text-title-md text-ink truncate">{currentCustomer.name}</div>
+              <div className="text-caption text-body truncate">{currentCustomer.email}</div>
+              <div className="text-caption text-body truncate">{currentCustomer.phone}</div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1">
+            <div className="text-title-md text-ink">Đăng nhập để có trải nghiệm đầy đủ</div>
+            <div className="text-caption text-body">
+              Lưu địa chỉ, theo dõi đơn hàng và giữ giỏ hàng giữa các thiết bị.
+            </div>
+            <div className="mt-sm flex gap-xs">
+              <Button onClick={() => setAuthModal({ open: true, mode: 'login' })}>Đăng nhập</Button>
+              <Button variant="secondary" onClick={() => setAuthModal({ open: true, mode: 'register' })}>
+                Đăng ký
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Order stats */}
+      <div className="grid grid-cols-2 gap-2">
+        <Stat label="Đơn hàng đang hoạt động" value={activeCount} icon="bike" link="/app/orders" />
+        <Stat label="Đã giao" value={deliveredCount} icon="check" link="/app/orders" />
+      </div>
+
+      {/* Address card */}
+      {authedRoles.customer && (
+        <Card padded>
+          <div className="flex items-center gap-sm">
+            <span className="grid h-10 w-10 place-items-center rounded-md bg-surface-strong text-ink">
+              <Icon name="pin" size={16} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-caption-uppercase text-body">Địa chỉ mặc định</div>
+              <div className="text-body-sm font-semibold text-ink truncate">
+                {currentCustomer.address}
+              </div>
+            </div>
+            <Icon name="edit" size={14} className="text-body" />
+          </div>
+        </Card>
+      )}
+
+      {/* Settings list */}
+      <Card padded={false}>
+        <ul className="divide-y divide-hairline">
+          {SETTINGS.map((it) => {
+            const inner = (
+              <>
+                <span className="grid h-9 w-9 place-items-center rounded-md bg-surface-strong text-ink">
+                  <Icon name={it.icon} size={16} />
+                </span>
+                <span className="flex-1 text-body-sm text-ink">{it.label}</span>
+                <Icon name="chevronRight" size={14} className="text-body" />
+              </>
+            );
+            return (
+              <li key={it.id}>
+                {it.link ? (
+                  <Link
+                    to={it.link}
+                    className="flex w-full items-center gap-sm px-base py-3 hover:bg-canvas-soft"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-sm px-base py-3 text-left hover:bg-canvas-soft"
+                    onClick={() =>
+                      pushToast({ kind: 'info', title: it.label, message: 'Chỉ là bản dùng thử — chưa được kết nối.' })
+                    }
+                  >
+                    {inner}
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+
+      {/* Other roles */}
+      <Card padded>
+        <div className="text-caption-uppercase text-body mb-sm">Các nền tảng khác</div>
+        <div className="grid grid-cols-3 gap-xs">
+          <RoleTile to="/merchant" icon="store" label="Quán ăn" />
+          <RoleTile to="/driver" icon="bike" label="Tài xế" />
+          <RoleTile to="/admin" icon="shield" label="Quản trị" />
+        </div>
+      </Card>
+
+      {authedRoles.customer && (
+        <Button
+          variant="secondary"
+          className="!text-error !border-error/40 hover:!bg-[#fbeaea]"
+          onClick={() =>
+            pushToast({ kind: 'info', title: 'Đã đăng xuất', message: 'Bạn đã đăng xuất.' })
+          }
+        >
+          Đăng xuất
+        </Button>
+      )}
+
+      <Badge tone="outline" className="mx-auto mt-xs">
+        NomNom v1.0 · Bản thử nghiệm
+      </Badge>
+    </div>
+  );
+}
+
+function Stat({ label, value, icon, link }) {
+  return (
+    <Link
+      to={link}
+      className="rounded-lg border border-hairline-strong bg-surface-card p-sm hover:shadow-soft transition-shadow"
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-caption-uppercase text-body">{label}</span>
+        <span className="grid h-7 w-7 place-items-center rounded-md bg-surface-strong text-body">
+          <Icon name={icon} size={12} />
+        </span>
+      </div>
+      <div className="mt-1 nums text-display-md text-ink leading-none">{value}</div>
+    </Link>
+  );
+}
+
+function RoleTile({ to, icon, label }) {
+  return (
+    <Link
+      to={to}
+      className="flex flex-col items-center gap-1 rounded-md border border-hairline-strong bg-surface-card py-sm hover:bg-canvas-soft"
+    >
+      <Icon name={icon} size={16} />
+      <span className="text-caption text-ink">{label}</span>
+    </Link>
+  );
+}
