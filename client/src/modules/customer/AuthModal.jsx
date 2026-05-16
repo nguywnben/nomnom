@@ -67,22 +67,24 @@ export default function AuthModal() {
             <>
               <Input
                 id="email"
-                label="Email"
                 type="email"
                 leadingIcon="mail"
+                placeholder="Email"
+                aria-label="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
               <Input
                 id="password"
-                label="Mật khẩu"
                 type="password"
                 leadingIcon="shield"
+                placeholder="Mật khẩu"
+                aria-label="Mật khẩu"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                hint={mode === 'login' ? 'Chế độ dùng thử — bất kỳ giá trị nào cũng được.' : 'Khuyến nghị từ 8+ ký tự.'}
+                hint={mode === 'login' ? 'Dùng email và mật khẩu đã đăng ký.' : 'Khuyến nghị từ 8+ ký tự.'}
               />
             </>
           )}
@@ -90,8 +92,9 @@ export default function AuthModal() {
           {tab === 'phone' && step === 'input' && (
             <Input
               id="phone"
-              label="Số điện thoại"
               leadingIcon="phone"
+              placeholder="Số điện thoại"
+              aria-label="Số điện thoại"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
@@ -102,14 +105,14 @@ export default function AuthModal() {
           {tab === 'phone' && step === 'otp' && (
             <Input
               id="otp"
-              label="Mã dùng một lần"
               leadingIcon="zap"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
-              placeholder="123456"
+              placeholder="Mã 6 chữ số"
+              aria-label="Mã dùng một lần"
               maxLength={6}
               required
-              hint="Chế độ dùng thử — bất kỳ 6 chữ số nào cũng được."
+              hint="Nhập mã OTP gửi đến điện thoại của bạn."
             />
           )}
 

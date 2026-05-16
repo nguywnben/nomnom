@@ -6,9 +6,15 @@ import logoImg from '../assets/logo.png';
 export default function Logo({ className, size = 'md', mono = true }) {
   const sz = size === 'lg' ? 'text-display-md' : size === 'sm' ? 'text-title-sm' : 'text-title-md';
   return (
-    <span className={clsx('inline-flex items-center gap-2 font-semibold', sz, className)}>
-      <img src={logoImg} alt="NomNom" className="h-6 w-6 rounded-sm object-contain" />
-      <span className={mono ? 'text-ink' : 'text-on-dark'}>
+    <span
+      className={clsx(
+        'inline-flex items-center gap-2 font-semibold leading-none',
+        sz,
+        className,
+      )}
+    >
+      <img src={logoImg} alt="" className="h-6 w-6 shrink-0 rounded-sm object-contain" aria-hidden />
+      <span className={clsx('leading-none', mono ? 'text-ink' : 'text-on-dark')}>
         nomnom<span className="text-text-link">.</span>
       </span>
     </span>

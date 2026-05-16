@@ -61,8 +61,9 @@ export default function Reviews() {
             <Textarea
               className="mt-base"
               rows={4}
-              label="Kể thêm cho chúng tôi (không bắt buộc)"
-              placeholder="Đế bánh Margherita hoàn hảo, rau húng quế hơi héo."
+              id="review-text"
+              placeholder="Kể thêm (không bắt buộc). Ví dụ: đế bánh Margherita hoàn hảo, rau húng quế hơi héo."
+              aria-label="Nội dung đánh giá"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />

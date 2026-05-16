@@ -1,5 +1,5 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Logo from '../../components/Logo.jsx';
@@ -14,19 +14,50 @@ const links = [
   { to: '/app/orders', label: 'Đơn hàng' },
 ];
 
+/** Trùng Landing: khi cuộn mới hiện nền thanh; đầu trang trong suốt trên hero. */
+const APP_HOME_HEADER_ELEVATE_AFTER_PX = 16;
+
 // top-nav per DESIGN.md — height 64, bg canvas, text ink, sticky.
+// Trên /app (trang chủ): fixed + overlay hero giống trang "/".
 // Hidden on mobile (replaced by <MobileTopBar /> + <MobileBottomNav />).
 export default function TopNav() {
   const nav = useNavigate();
+  const { pathname } = useLocation();
   const { cartCount, setCartOpen, authedRoles, setAuthModal, currentCustomer, setChatOpen } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [headerElevated, setHeaderElevated] = useState(false);
+
+  const isAppHome = pathname === '/app';
+  const heroOverlay = isAppHome;
+
+  useEffect(() => {
+    if (!isAppHome) return undefined;
+    const onScroll = () => {
+      setHeaderElevated(window.scrollY > APP_HOME_HEADER_ELEVATE_AFTER_PX);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [isAppHome]);
+
+  const onHeroDark = heroOverlay && !headerElevated;
 
   return (
-    <header className="sticky top-0 z-30 hidden border-b border-hairline bg-canvas/90 backdrop-blur md:block">
+    <header
+      className={clsx(
+        'hidden md:block',
+        heroOverlay ? 'fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300 ease-out' : 'sticky top-0 z-30',
+        heroOverlay
+          ? headerElevated
+            ? 'border-b border-hairline bg-canvas/90 backdrop-blur'
+            : 'border-b border-transparent bg-transparent'
+          : 'border-b border-hairline bg-canvas/90 backdrop-blur',
+      )}
+    >
       <div className="container-page flex h-16 items-center justify-between gap-base">
         <div className="flex items-center gap-xl">
-          <Link to="/app" aria-label="NomNom home">
-            <Logo />
+          <Link to="/app" aria-label="NomNom home" className="inline-flex shrink-0 items-center">
+            <Logo mono={!onHeroDark} />
           </Link>
           <nav className="hidden md:flex items-center gap-base">
             {links.map((l) => (
@@ -36,8 +67,14 @@ export default function TopNav() {
                 end={l.end}
                 className={({ isActive }) =>
                   clsx(
-                    'text-nav-link transition-colors',
-                    isActive ? 'text-ink' : 'text-body hover:text-ink',
+                    'text-nav-link transition-colors duration-300 ease-out',
+                    onHeroDark
+                      ? isActive
+                        ? 'font-semibold text-on-dark'
+                        : 'text-on-dark-soft hover:text-on-dark'
+                      : isActive
+                        ? 'text-ink'
+                        : 'text-body hover:text-ink',
                   )
                 }
               >
@@ -50,18 +87,43 @@ export default function TopNav() {
         {/* Address — center, desktop only */}
         <button
           onClick={() => nav('/app/search')}
-          className="hidden lg:flex items-center gap-2 rounded-md border border-hairline-strong bg-canvas px-sm py-2 text-body-sm text-ink hover:bg-canvas-soft min-w-[260px]"
+          className={clsx(
+            'hidden min-w-[260px] items-center gap-2 rounded-md px-sm py-2 text-body-sm transition-[background-color,border-color,color] duration-300 ease-out lg:flex',
+            onHeroDark
+              ? 'border border-canvas/30 bg-canvas/15 text-on-dark hover:bg-canvas/20'
+              : 'border border-hairline-strong bg-canvas text-ink hover:bg-canvas-soft',
+          )}
         >
           <Icon name="pin" size={14} />
           <span className="flex-1 truncate text-left">120 Wythe Ave, Brooklyn</span>
-          <Badge tone="outline">15 phút</Badge>
+          <Badge
+            tone="outline"
+            className={clsx(
+              onHeroDark &&
+                '!border-canvas/40 !bg-canvas/15 !text-on-dark transition-[background-color,border-color,color] duration-300 ease-out',
+            )}
+          >
+            15 phút
+          </Badge>
         </button>
 
         <div className="flex items-center gap-xs">
-          <IconButton icon="chat" label="Mở trò chuyện" onClick={() => setChatOpen(true)} />
+          <IconButton
+            icon="chat"
+            label="Mở trò chuyện"
+            onClick={() => setChatOpen(true)}
+            className={clsx(
+              onHeroDark && 'text-on-dark transition-colors duration-300 ease-out hover:bg-canvas/10',
+            )}
+          />
           <button
             onClick={() => setCartOpen(true)}
-            className="relative inline-flex h-10 items-center gap-2 rounded-md border border-hairline-strong bg-surface-card px-sm text-button text-ink hover:bg-canvas-soft"
+            className={clsx(
+              'relative inline-flex h-10 items-center gap-2 rounded-md px-sm text-button transition-[background-color,border-color,color] duration-300 ease-out',
+              onHeroDark
+                ? 'border border-canvas/30 bg-canvas/15 text-on-dark hover:bg-canvas/20'
+                : 'border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft',
+            )}
             aria-label="Mở giỏ hàng"
           >
             <Icon name="cart" size={16} />
@@ -113,6 +175,11 @@ export default function TopNav() {
               <Button
                 variant="secondary"
                 size="sm"
+                className={clsx(
+                  'transition-[background-color,border-color,color] duration-300 ease-out',
+                  onHeroDark &&
+                    '!border-canvas/30 !bg-canvas/15 !text-on-dark hover:!bg-canvas/20',
+                )}
                 onClick={() => setAuthModal({ open: true, mode: 'login' })}
               >
                 Đăng nhập

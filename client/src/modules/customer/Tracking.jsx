@@ -9,6 +9,7 @@ import Avatar from '../../components/Avatar.jsx';
 import MockMap from '../../components/MockMap.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { currentDriver, restaurants } from '../../data/mock.js';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 const STEPS = [
   { id: 'placed', label: 'Đã đặt', icon: 'check' },
@@ -123,7 +124,7 @@ export default function CustomerTracking() {
                     <div className="text-caption text-body">SL {i.quantity}</div>
                   </div>
                   <span className="nums text-body-sm text-ink">
-                    ${(i.price * i.quantity).toFixed(2)}
+                    {formatVnd(i.price * i.quantity)}
                   </span>
                 </div>
               ))}

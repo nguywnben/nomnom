@@ -12,6 +12,7 @@ import {
   currentMerchant,
   currentAdmin,
 } from '../data/mock.js';
+import { formatVnd } from '../lib/formatVnd.js';
 
 const AppContext = createContext(null);
 
@@ -91,7 +92,7 @@ export function AppProvider({ children }) {
     () => cart.items.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart.items],
   );
-  const deliveryFee = cart.items.length ? 2.49 : 0;
+  const deliveryFee = cart.items.length ? 62000 : 0;
   const discount = useMemo(() => {
     if (!appliedPromo) return 0;
     if (appliedPromo.kind === 'percent') return Math.min(cartSubtotal * (appliedPromo.amount / 100), appliedPromo.cap ?? 9e9);
@@ -233,7 +234,11 @@ export function AppProvider({ children }) {
         const order = ['to-merchant', 'at-merchant', 'to-customer', 'delivered'];
         const next = order[Math.min(order.indexOf(cur.step) + 1, order.length - 1)];
         if (next === 'delivered') {
-          pushToast({ kind: 'success', title: 'Đã giao hàng', message: `+${cur.earnings.toFixed(2)} USD đã vào ví` });
+          pushToast({
+            kind: 'success',
+            title: 'Đã giao hàng',
+            message: `+${formatVnd(cur.earnings)} đã vào ví`,
+          });
           setTimeout(() => setActiveDriverJob(null), 1500);
           return { ...cur, step: next, proofUrl };
         }
@@ -308,10 +313,10 @@ export function AppProvider({ children }) {
             id: ghostId,
             customerName: ['Mia C.', 'Owen T.', 'Lia D.', 'Rae P.'][Math.floor(Math.random() * 4)],
             items: [
-              { id: 'm1', name: 'Margherita', price: 12.5, quantity: 1 },
-              { id: 'm2', name: 'Iced Latte', price: 4.8, quantity: 1 },
+              { id: 'm1', name: 'Margherita', price: 338000, quantity: 1 },
+              { id: 'm2', name: 'Flat White', price: 120000, quantity: 1 },
             ],
-            total: 17.3,
+            total: 458000,
             placedAt: Date.now(),
             note: 'Làm ơn cho thêm khăn giấy',
             isNew: true,

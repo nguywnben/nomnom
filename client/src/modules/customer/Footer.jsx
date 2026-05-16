@@ -29,7 +29,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Logo />
             <p className="mt-xs text-body-sm text-body max-w-xs">
-              Một nguyên mẫu ứng dụng giao đồ ăn với cảm giác trải nghiệm tinh tế.
+              Giao đồ ăn nhanh, rõ ràng — NomNom đồng hành mỗi ngày cùng bạn.
             </p>
           </div>
           {groups.map((g) => (
@@ -50,7 +50,7 @@ export default function Footer() {
 
         <div className="mt-12 flex flex-col gap-xs border-t border-hairline pt-base md:flex-row md:items-center md:justify-between">
           <div className="text-body-sm text-body">
-            © {new Date().getFullYear()} NomNom. Bản thử nghiệm — chỉ có frontend.
+            © {new Date().getFullYear()} NomNom
           </div>
           <div className="flex items-center gap-base text-body-sm">
             <Link to="#" className="text-body hover:text-ink">Điều khoản</Link>

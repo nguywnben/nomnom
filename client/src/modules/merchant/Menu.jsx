@@ -9,6 +9,7 @@ import Modal from '../../components/Modal.jsx';
 import Switch from '../../components/Switch.jsx';
 import { restaurants } from '../../data/mock.js';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 export default function MerchantMenu() {
   const { currentMerchant, pushToast } = useApp();
@@ -60,8 +61,9 @@ export default function MerchantMenu() {
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Input
-            placeholder="Tìm kiếm thực đơn…"
             leadingIcon="search"
+            placeholder="Tìm kiếm thực đơn…"
+            aria-label="Tìm kiếm thực đơn"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-64"
@@ -84,7 +86,7 @@ export default function MerchantMenu() {
                     <div className="text-body-sm font-semibold text-ink truncate">{i.name}</div>
                     <div className="text-caption text-body line-clamp-2">{i.desc}</div>
                   </div>
-                  <span className="nums text-title-sm text-ink shrink-0">${i.price.toFixed(2)}</span>
+                  <span className="nums text-title-sm text-ink shrink-0">{formatVnd(i.price)}</span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1">
                   <Badge tone="outline">{i.category}</Badge>
@@ -135,7 +137,7 @@ export default function MerchantMenu() {
                 <Td>
                   <Badge tone="outline">{i.category}</Badge>
                 </Td>
-                <Td className="nums text-body-sm text-ink">${i.price.toFixed(2)}</Td>
+                <Td className="nums text-body-sm text-ink">{formatVnd(i.price)}</Td>
                 <Td>
                   <Switch
                     checked={i.inStock}
@@ -179,7 +181,7 @@ function ItemEditor({ open, onClose, onSave, item, categories }) {
     id: 'new',
     name: '',
     desc: '',
-    price: 12.0,
+    price: 300000,
     image: '',
     category: categories[0] ?? 'Classic',
     inStock: true,
@@ -240,28 +242,30 @@ function ItemEditor({ open, onClose, onSave, item, categories }) {
         </div>
         <div className="space-y-sm">
           <Input
-            label="Tên món"
+            placeholder="Tên món · ví dụ Margherita"
+            aria-label="Tên món"
             value={draft.name}
             onChange={(e) => setField('name', e.target.value)}
-            placeholder="Margherita"
           />
           <Textarea
-            label="Mô tả"
+            placeholder="Mô tả — ví dụ: Cà chua San Marzano, fior di latte, húng quế."
+            aria-label="Mô tả món"
             value={draft.desc}
             onChange={(e) => setField('desc', e.target.value)}
             rows={3}
-            placeholder="Cà chua San Marzano, fior di latte, húng quế."
           />
           <div className="grid grid-cols-2 gap-sm">
             <Input
-              label="Giá (USD)"
+              placeholder="Giá (VNĐ)"
+              aria-label="Giá đồng Việt Nam"
               type="number"
-              step="0.5"
+              step="1000"
+              min="0"
               value={draft.price}
               onChange={(e) => setField('price', Number(e.target.value))}
             />
             <Select
-              label="Danh mục"
+              aria-label="Danh mục"
               value={draft.category}
               onChange={(e) => setField('category', e.target.value)}
               options={[...categories, 'Danh mục mới']}

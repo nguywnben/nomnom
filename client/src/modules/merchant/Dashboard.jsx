@@ -16,6 +16,7 @@ import Skeleton from '../../components/Skeleton.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import { merchantDailyRevenue, merchantTopItems, restaurants } from '../../data/mock.js';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 export default function MerchantDashboard() {
   const { merchantOrders, currentMerchant } = useApp();
@@ -61,7 +62,7 @@ export default function MerchantDashboard() {
         <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Doanh thu hôm nay"
-            value={`$${todayRevenue.toLocaleString()}`}
+            value={formatVnd(todayRevenue)}
             delta="+12.4%"
             icon="cash"
             sub="so với hôm qua"
@@ -75,7 +76,7 @@ export default function MerchantDashboard() {
           />
           <StatCard
             label="Doanh thu tuần"
-            value={`$${weekRevenue.toLocaleString()}`}
+            value={formatVnd(weekRevenue)}
             delta="+8.1%"
             icon="trending"
             sub="so với tuần trước"
@@ -98,7 +99,7 @@ export default function MerchantDashboard() {
               <div className="text-caption-uppercase text-body">Doanh thu</div>
               <div className="text-title-md text-ink">7 ngày qua</div>
             </div>
-            <Badge tone="outline">tổng cộng ${weekRevenue.toLocaleString()}</Badge>
+            <Badge tone="outline">tổng cộng {formatVnd(weekRevenue)}</Badge>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -119,7 +120,7 @@ export default function MerchantDashboard() {
                     fontSize: 13,
                   }}
                   labelStyle={{ color: '#171717' }}
-                  formatter={(v) => [`$${v}`, 'Doanh thu']}
+                  formatter={(v) => [formatVnd(v), 'Doanh thu']}
                 />
                 <Area
                   type="monotone"
@@ -148,7 +149,7 @@ export default function MerchantDashboard() {
                   <div className="text-body-sm font-semibold text-ink">{it.name}</div>
                   <div className="text-caption text-body">đã bán {it.sold}</div>
                 </div>
-                <span className="nums text-body-sm text-ink">${it.revenue}</span>
+                <span className="nums text-body-sm text-ink">{formatVnd(it.revenue)}</span>
               </div>
             ))}
           </div>
@@ -201,7 +202,7 @@ export default function MerchantDashboard() {
                       {o.items.map((i) => `${i.quantity}× ${i.name}`).join(', ')}
                     </div>
                   </div>
-                  <span className="nums text-body-sm text-ink">${o.total.toFixed(2)}</span>
+                  <span className="nums text-body-sm text-ink">{formatVnd(o.total)}</span>
                 </li>
               ))}
           </ul>

@@ -8,6 +8,7 @@ import Image from '../../components/Image.jsx';
 import MockMap from '../../components/MockMap.jsx';
 import SwipeToConfirm from '../../components/SwipeToConfirm.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 // ---------------------------------------------------------------------------
 // Active Delivery — native driver-app pattern.
@@ -148,7 +149,7 @@ export default function ActiveDelivery() {
             </div>
             <div className="text-right">
               <div className="text-caption-uppercase text-body">Thu nhập</div>
-              <div className="nums text-title-sm text-ink">+${activeDriverJob.earnings.toFixed(2)}</div>
+              <div className="nums text-title-sm text-ink">+{formatVnd(activeDriverJob.earnings)}</div>
             </div>
           </div>
 

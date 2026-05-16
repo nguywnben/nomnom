@@ -17,6 +17,7 @@ import Card from '../../components/Card.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import Icon from '../../components/Icon.jsx';
 import { adminCityMix, adminGmvWeekly } from '../../data/mock.js';
+import { formatVnd, formatVndAxisBillions } from '../../lib/formatVnd.js';
 
 const COLORS = ['#171717', '#3b3b3b', '#60646c', '#a8c8e8', '#cfe7ff'];
 
@@ -24,6 +25,7 @@ export default function AdminOverview() {
   const last = adminGmvWeekly[adminGmvWeekly.length - 1];
   const prev = adminGmvWeekly[adminGmvWeekly.length - 2];
   const gmvDelta = (((last.gmv - prev.gmv) / prev.gmv) * 100).toFixed(1);
+  const gmvEightWeekTotal = adminGmvWeekly.reduce((s, w) => s + w.gmv, 0);
 
   return (
     <div className="space-y-base">
@@ -39,7 +41,7 @@ export default function AdminOverview() {
       <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="GMV (tuần này)"
-          value={`$${(last.gmv / 1000).toFixed(0)}k`}
+          value={formatVnd(last.gmv)}
           delta={`+${gmvDelta}%`}
           sub="so với tuần trước"
           icon="cash"
@@ -75,7 +77,7 @@ export default function AdminOverview() {
               <div className="text-caption-uppercase text-body">Xu hướng GMV</div>
               <div className="text-title-md text-ink">8 tuần qua</div>
             </div>
-            <Badge tone="outline">Tổng cộng $1.92M</Badge>
+            <Badge tone="outline">Tổng 8 tuần: {formatVnd(gmvEightWeekTotal)}</Badge>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -88,14 +90,14 @@ export default function AdminOverview() {
                 </defs>
                 <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
                 <XAxis dataKey="week" stroke="#999999" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#999999" tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v / 1000}k`} />
+                <YAxis stroke="#999999" tick={{ fontSize: 12 }} tickFormatter={(v) => formatVndAxisBillions(v)} />
                 <Tooltip
                   contentStyle={{
                     border: '1px solid #dcdee0',
                     borderRadius: 8,
                     fontSize: 13,
                   }}
-                  formatter={(v) => [`$${v.toLocaleString()}`, 'GMV']}
+                  formatter={(v) => [formatVnd(v), 'GMV']}
                 />
                 <Area type="monotone" dataKey="gmv" stroke="#171717" strokeWidth={2} fill="url(#gmv)" />
               </AreaChart>

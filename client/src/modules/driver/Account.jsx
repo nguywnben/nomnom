@@ -5,6 +5,7 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 // ---------------------------------------------------------------------------
 // Driver Account — the "Account" tab.
@@ -44,7 +45,7 @@ export default function DriverAccount() {
           </div>
         </div>
         <button
-          onClick={() => pushToast({ kind: 'info', title: 'Chỉnh sửa hồ sơ', message: 'Chỉ là bản dùng thử.' })}
+          onClick={() => pushToast({ kind: 'info', title: 'Chỉnh sửa hồ sơ', message: 'Tính năng đang được hoàn thiện.' })}
           className="rounded-md p-1 text-body hover:bg-canvas-soft hover:text-ink"
           aria-label="Chỉnh sửa hồ sơ"
         >
@@ -54,7 +55,7 @@ export default function DriverAccount() {
 
       {/* Quick stats */}
       <div className="grid grid-cols-3 gap-2">
-        <MiniStat label="Thu nhập" value="$721" />
+        <MiniStat label="Thu nhập" value={formatVnd(18500000)} />
         <MiniStat label="Chuyến xe" value="42" />
         <MiniStat label="Giờ" value="38h" />
       </div>
@@ -101,7 +102,7 @@ export default function DriverAccount() {
                       pushToast({
                         kind: 'info',
                         title: it.label,
-                        message: 'Chỉ là bản dùng thử — chưa được liên kết.',
+                        message: 'Tính năng đang được hoàn thiện.',
                       })
                     }
                     className="flex w-full items-center gap-sm px-sm py-2 hover:bg-canvas-soft text-left"

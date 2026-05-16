@@ -9,10 +9,11 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Input, { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { restaurants } from '../../data/mock.js';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 const PAYMENTS = [
   { id: 'card', label: 'Thẻ', detail: 'Visa ··· 4823', icon: 'card' },
-  { id: 'wallet', label: 'Ví điện tử', detail: 'Ví NomNom · $48.20', icon: 'wallet' },
+  { id: 'wallet', label: 'Ví điện tử', detail: 'Ví NomNom · 1.180.000 ₫', icon: 'wallet' },
   { id: 'cash', label: 'Thanh toán khi nhận hàng', detail: 'Thanh toán tiền mặt cho tài xế', icon: 'cash' },
 ];
 
@@ -110,21 +111,24 @@ export default function CustomerCheckout() {
             <div className="mb-sm text-title-md text-ink">Giao đến</div>
             <div className="flex flex-col gap-xs">
               <Input
-                label="Địa chỉ"
                 leadingIcon="pin"
+                placeholder="Địa chỉ"
+                aria-label="Địa chỉ"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
               <Input
-                label="Số điện thoại"
                 leadingIcon="phone"
+                placeholder="Số điện thoại"
+                aria-label="Số điện thoại"
                 value={currentCustomer.phone}
                 readOnly
                 hint="Tài xế có thể gọi số này để giao hàng."
               />
               <Textarea
-                label="Ghi chú giao hàng (không bắt buộc)"
-                placeholder="Mã cổng, lối vào tòa nhà, hướng dẫn nhận hàng…"
+                id="checkout-note"
+                placeholder="Ghi chú giao hàng (không bắt buộc). Mã cổng, lối vào tòa nhà, hướng dẫn nhận hàng…"
+                aria-label="Ghi chú giao hàng"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
@@ -165,7 +169,7 @@ export default function CustomerCheckout() {
             </div>
             {payment === 'card' && (
               <div className="mt-sm rounded-md border border-hairline bg-canvas-soft p-sm text-caption text-body">
-                Thanh toán bằng thẻ đôi khi thất bại trong bản dùng thử để mô phỏng nhà cung cấp thực tế — đây là thiết kế có chủ đích.
+                Giao dịch thẻ do đối tác thanh toán xử lý bảo mật.
               </div>
             )}
           </Card>
@@ -183,7 +187,7 @@ export default function CustomerCheckout() {
                     <div className="text-body-sm font-semibold text-ink">{i.name}</div>
                     <div className="text-caption text-body">SL {i.quantity}</div>
                   </div>
-                  <span className="nums text-body-sm text-ink">${(i.price * i.quantity).toFixed(2)}</span>
+                  <span className="nums text-body-sm text-ink">{formatVnd(i.price * i.quantity)}</span>
                 </div>
               ))}
             </div>
@@ -193,14 +197,14 @@ export default function CustomerCheckout() {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <Card padded className="flex flex-col gap-sm">
             <div className="text-title-md text-ink">Tổng cộng</div>
-            <Row label="Tạm tính" value={`$${cartSubtotal.toFixed(2)}`} />
-            <Row label="Phí giao hàng" value={`$${deliveryFee.toFixed(2)}`} />
-            {discount > 0 && <Row label="Khuyến mãi" value={`−$${discount.toFixed(2)}`} tone="success" />}
+            <Row label="Tạm tính" value={formatVnd(cartSubtotal)} />
+            <Row label="Phí giao hàng" value={formatVnd(deliveryFee)} />
+            {discount > 0 && <Row label="Khuyến mãi" value={`−${formatVnd(discount)}`} tone="success" />}
             <div className="my-2 h-px bg-hairline" />
-            <Row label="Tổng cộng" value={`$${cartTotal.toFixed(2)}`} bold />
+            <Row label="Tổng cộng" value={formatVnd(cartTotal)} bold />
             {/* Desktop place-order button — mobile uses the sticky bottom bar */}
             <Button onClick={onPlace} loading={placing} className="hidden lg:flex">
-              {placing ? 'Đang đặt hàng…' : `Đặt hàng — $${cartTotal.toFixed(2)}`}
+              {placing ? 'Đang đặt hàng…' : `Đặt hàng — ${formatVnd(cartTotal)}`}
             </Button>
             <p className="text-caption text-body">
               Bằng việc đặt đơn hàng này, bạn đồng ý với Điều khoản của NomNom.
@@ -215,7 +219,7 @@ export default function CustomerCheckout() {
         <div className="flex items-center gap-sm px-base py-sm">
           <div className="flex-1 leading-tight">
             <div className="text-caption-uppercase text-body">Tổng cộng</div>
-            <div className="nums text-title-md text-ink">${cartTotal.toFixed(2)}</div>
+            <div className="nums text-title-md text-ink">{formatVnd(cartTotal)}</div>
           </div>
           <Button size="lg" onClick={onPlace} loading={placing} className="flex-1 sm:flex-none">
             {placing ? 'Đang đặt hàng…' : 'Đặt hàng'}

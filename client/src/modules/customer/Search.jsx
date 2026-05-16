@@ -57,6 +57,7 @@ export default function CustomerSearch() {
         <Input
           leadingIcon="search"
           placeholder="Tìm kiếm quán ăn, món ăn, loại ẩm thực…"
+          aria-label="Tìm kiếm quán và món"
           className="flex-1"
           value={q}
           onChange={(e) => {

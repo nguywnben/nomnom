@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import ToastViewport from './components/Toast.jsx';
 import Landing from './pages/Landing.jsx';
+import PartnerFaq from './pages/PartnerFaq.jsx';
+import MerchantPartnerContact from './pages/MerchantPartnerContact.jsx';
 
 // Customer
 import CustomerLayout from './modules/customer/CustomerLayout.jsx';
@@ -44,6 +46,8 @@ export default function App() {
     <>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/faq" element={<PartnerFaq />} />
+        <Route path="/hop-tac" element={<MerchantPartnerContact />} />
 
         <Route path="/app" element={<CustomerLayout />}>
           <Route index element={<CustomerHome />} />

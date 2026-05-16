@@ -9,6 +9,7 @@ import Image from '../../components/Image.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 const SORTS = [
   { id: 'best', label: 'Phù hợp nhất', icon: 'zap' },
@@ -175,7 +176,7 @@ function JobCardSkeleton() {
 
 function JobCard({ job, onAccept }) {
   // perKm = useful proxy for "is this worth it"
-  const perKm = (job.earnings / job.distanceKm).toFixed(2);
+  const perKm = Math.round(job.earnings / job.distanceKm);
   return (
     <Card padded={false} className="p-sm">
       <div className="flex items-start gap-sm">
@@ -189,8 +190,8 @@ function JobCard({ job, onAccept }) {
               </div>
             </div>
             <div className="text-right shrink-0">
-              <div className="nums text-title-md text-ink leading-none">${job.earnings.toFixed(2)}</div>
-              <div className="text-caption text-body nums">${perKm}/km</div>
+              <div className="nums text-title-md text-ink leading-none">{formatVnd(job.earnings)}</div>
+              <div className="text-caption text-body nums">{formatVnd(perKm)}/km</div>
             </div>
           </div>
           <div className="mt-1 flex items-center gap-3 text-caption text-body">

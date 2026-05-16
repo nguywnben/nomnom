@@ -97,6 +97,7 @@ export default function AdminAccounts() {
           <Input
             leadingIcon="search"
             placeholder="Tìm tên, email, chủ sở hữu…"
+            aria-label="Tìm tài khoản"
             value={query}
             onChange={(e) => setQueryAndReset(e.target.value)}
             className="w-full md:ml-auto md:w-64"

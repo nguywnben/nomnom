@@ -7,6 +7,7 @@ import Avatar from '../../components/Avatar.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import { categories, helpers, restaurants } from '../../data/mock.js';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 // ---------------------------------------------------------------------------
 // Customer Home — native food-app composition.
@@ -80,7 +81,7 @@ export default function CustomerHome() {
           aria-hidden="true"
         />
 
-        <div className="container-page py-xxl md:py-section">
+        <div className="container-page pb-xxl pt-28 max-md:pt-[max(7rem,calc(env(safe-area-inset-top,0px)+5.5rem))] md:pt-32 md:pb-section">
           <div className="mx-auto max-w-2xl text-center">
             <span className="inline-flex items-center gap-1 rounded-pill bg-canvas/15 px-2.5 py-0.5 text-caption text-on-dark backdrop-blur">
               <Icon name="pin" size={12} />
@@ -186,13 +187,13 @@ export default function CustomerHome() {
             image={helpers.unsplash('photo-1565299624946-b28f40a0ae38', 1000)}
             tag="Sử dụng NOMNOM15"
             title="Giảm 15% cho đơn hàng đầu tiên"
-            sub="Mỗi khách hàng một mã khuyến mãi · Giảm tối đa 10$"
+            sub="Mỗi khách hàng một mã khuyến mãi · Giảm tối đa 250.000 ₫"
             cta="Nhận ngay"
           />
           <PromoBanner
             image={helpers.unsplash('photo-1551782450-a2132b4ba21d', 1000)}
             tag="Trưa · 11–2"
-            title="Miễn phí giao hàng cho đơn trên 20$"
+            title="Miễn phí giao hàng cho đơn từ 500.000 ₫"
             sub="Tránh giờ cao điểm văn phòng · T2–T6"
             cta="Đặt bữa trưa"
           />
@@ -416,7 +417,7 @@ function PromoBanner({ image, tag, title, sub, cta }) {
 
 function RestaurantCard({ restaurant: r }) {
   const promoBadge =
-    r.fee < 2 ? 'Phí 0$' : r.rating >= 4.8 ? 'Đánh giá cao' : r.priceLevel === 1 ? 'Giá tốt' : null;
+    r.fee < 50000 ? 'Phí giao thấp' : r.rating >= 4.8 ? 'Đánh giá cao' : r.priceLevel === 1 ? 'Giá tốt' : null;
   return (
     <Link
       to={`/app/restaurant/${r.id}`}
@@ -452,7 +453,7 @@ function RestaurantCard({ restaurant: r }) {
           </span>
           <span className="text-muted-soft">·</span>
           <span className="inline-flex items-center gap-1 nums">
-            phí giao ${r.fee.toFixed(2)}
+            phí giao {formatVnd(r.fee)}
           </span>
           <span className="text-muted-soft">·</span>
           <span className="inline-flex items-center gap-1 nums">{r.distanceKm} km</span>
@@ -483,7 +484,7 @@ function DishCard({ dish, onAdd }) {
       <div className="mt-2">
         <div className="flex items-start justify-between gap-2">
           <span className="text-body-sm font-semibold text-ink line-clamp-1">{dish.name}</span>
-          <span className="nums text-body-sm font-semibold text-ink">${dish.price.toFixed(2)}</span>
+          <span className="nums text-body-sm font-semibold text-ink">{formatVnd(dish.price)}</span>
         </div>
         <Link
           to={`/app/restaurant/${dish.restaurantId}`}

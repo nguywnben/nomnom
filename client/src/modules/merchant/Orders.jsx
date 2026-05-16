@@ -5,6 +5,7 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 const COLUMNS = [
   { key: 'new', label: 'Mới', tone: 'warning' },
@@ -114,7 +115,7 @@ function OrderCard({ order, stage, onAdvance, onReject }) {
               <span>
                 <span className="text-ink nums">{i.quantity}×</span> {i.name}
               </span>
-              <span className="nums text-body">${(i.price * i.quantity).toFixed(2)}</span>
+              <span className="nums text-body">{formatVnd(i.price * i.quantity)}</span>
             </li>
           ))}
         </ul>
@@ -125,7 +126,7 @@ function OrderCard({ order, stage, onAdvance, onReject }) {
         )}
         <div className="mt-sm flex items-center justify-between">
           <span className="text-caption text-body">Tổng cộng</span>
-          <span className="nums text-title-sm text-ink">${order.total.toFixed(2)}</span>
+          <span className="nums text-title-sm text-ink">{formatVnd(order.total)}</span>
         </div>
       </div>
       {action && (

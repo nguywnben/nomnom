@@ -87,6 +87,7 @@ export default function AdminLayout() {
               autoFocus
               leadingIcon="search"
               placeholder="Tìm kiếm…"
+              aria-label="Tìm kiếm trong quản trị"
               fieldClassName="h-10"
               className="flex-1"
               onBlur={() => setMobileSearchOpen(false)}
@@ -118,6 +119,7 @@ export default function AdminLayout() {
             <Input
               leadingIcon="search"
               placeholder="Tìm tài khoản, đơn hàng, giao dịch…"
+              aria-label="Tìm tài khoản, đơn hàng, giao dịch"
               className="w-full"
             />
           </div>

@@ -7,6 +7,7 @@ import Input from '../../components/Input.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 const STATUS_TONE = {
   pending: 'warning',
@@ -19,8 +20,8 @@ const PAGE_SIZE = 6;
 export default function AdminFinancial() {
   const { payouts, resolvePayout, commissionRate, setCommissionRate, pushToast } = useApp();
   const [draftRate, setDraftRate] = useState(commissionRate);
-  const [deliveryFee, setDeliveryFee] = useState(2.49);
-  const [minOrder, setMinOrder] = useState(10);
+  const [deliveryFee, setDeliveryFee] = useState(62000);
+  const [minOrder, setMinOrder] = useState(200000);
 
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
@@ -51,7 +52,7 @@ export default function AdminFinancial() {
     pushToast({
       kind: 'success',
       title: 'Đã cập nhật tỷ giá',
-      message: `Hoa hồng ${draftRate}% · Giao hàng $${deliveryFee.toFixed(2)} · Tối thiểu $${minOrder}`,
+      message: `Hoa hồng ${draftRate}% · Giao hàng ${formatVnd(deliveryFee)} · Tối thiểu ${formatVnd(minOrder)}`,
     });
   };
 
@@ -80,30 +81,33 @@ export default function AdminFinancial() {
           </div>
           <div className="grid gap-sm md:grid-cols-3">
             <Input
-              label="Hoa hồng (%)"
               type="number"
               step="0.5"
               value={draftRate}
               onChange={(e) => setDraftRate(Number(e.target.value))}
               leadingIcon="trending"
+              placeholder="Hoa hồng (%)"
+              aria-label="Hoa hồng phần trăm"
               hint="Tính trên mỗi đơn hàng hoàn tất."
             />
             <Input
-              label="Phí giao hàng mặc định ($)"
               type="number"
-              step="0.5"
+              step="1000"
               value={deliveryFee}
               onChange={(e) => setDeliveryFee(Number(e.target.value))}
               leadingIcon="bike"
+              placeholder="Phí giao mặc định (VNĐ)"
+              aria-label="Phí giao hàng mặc định VNĐ"
               hint="Nhà hàng có thể thay đổi."
             />
             <Input
-              label="Đơn hàng tối thiểu ($)"
               type="number"
-              step="1"
+              step="10000"
               value={minOrder}
               onChange={(e) => setMinOrder(Number(e.target.value))}
               leadingIcon="cart"
+              placeholder="Đơn tối thiểu (VNĐ)"
+              aria-label="Đơn hàng tối thiểu VNĐ"
               hint="Dưới mức này, ẩn thanh toán."
             />
           </div>
@@ -121,7 +125,7 @@ export default function AdminFinancial() {
           <div className="mt-sm space-y-2">
             <Row label="Đang chờ" value={`${pending.length}`} />
             <Row label="Đã duyệt tuần này" value={`${approved.length}`} />
-            <Row label="Tổng cộng đã xử lý" value={`$${total.toFixed(2)}`} bold />
+            <Row label="Tổng cộng đã xử lý" value={formatVnd(total)} bold />
           </div>
         </Card>
       </div>
@@ -144,6 +148,7 @@ export default function AdminFinancial() {
             <Input
               leadingIcon="search"
               placeholder="Tìm người nhận…"
+              aria-label="Tìm người nhận thanh toán"
               value={query}
               onChange={(e) => setQueryAndReset(e.target.value)}
               className="w-full md:w-56"
@@ -164,7 +169,7 @@ export default function AdminFinancial() {
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="nums text-title-sm text-ink">${p.amount.toFixed(2)}</div>
+                  <div className="nums text-title-sm text-ink">{formatVnd(p.amount)}</div>
                   <Badge tone={STATUS_TONE[p.status]} dot>{p.status}</Badge>
                 </div>
               </div>
@@ -187,7 +192,7 @@ export default function AdminFinancial() {
                       pushToast({
                         kind: 'success',
                         title: 'Đã phê duyệt thanh toán',
-                        message: `$${p.amount.toFixed(2)} cho ${p.name}`,
+                        message: `${formatVnd(p.amount)} cho ${p.name}`,
                       });
                     }}
                   >
@@ -218,7 +223,7 @@ export default function AdminFinancial() {
                 <Td>
                   <Badge tone={p.type === 'merchant' ? 'default' : 'outline'}>{p.type}</Badge>
                 </Td>
-                <Td className="nums text-body-sm text-ink">${p.amount.toFixed(2)}</Td>
+                <Td className="nums text-body-sm text-ink">{formatVnd(p.amount)}</Td>
                 <Td className="text-body-sm text-body">{p.requestedAt}</Td>
                 <Td>
                   <Badge tone={STATUS_TONE[p.status]} dot>{p.status}</Badge>
@@ -243,7 +248,7 @@ export default function AdminFinancial() {
                           pushToast({
                             kind: 'success',
                             title: 'Đã phê duyệt thanh toán',
-                            message: `$${p.amount.toFixed(2)} cho ${p.name}`,
+                            message: `${formatVnd(p.amount)} cho ${p.name}`,
                           });
                         }}
                       >

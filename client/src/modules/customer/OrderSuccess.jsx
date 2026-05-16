@@ -4,6 +4,7 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 export default function OrderSuccess() {
   const { id } = useParams();
@@ -30,12 +31,12 @@ export default function OrderSuccess() {
           <div className="flex flex-col divide-y divide-hairline">
             <Row label="Thời gian dự kiến" value="~28 phút" />
             <Row label="Thanh toán" value={order?.payment ?? 'card'} />
-            <Row label="Tạm tính" value={`$${order?.subtotal?.toFixed(2) ?? '0.00'}`} />
-            <Row label="Phí giao hàng" value={`$${order?.deliveryFee?.toFixed(2) ?? '0.00'}`} />
+            <Row label="Tạm tính" value={formatVnd(order?.subtotal ?? 0)} />
+            <Row label="Phí giao hàng" value={formatVnd(order?.deliveryFee ?? 0)} />
             {order?.discount > 0 && (
-              <Row label="Khuyến mãi" value={`−$${order.discount.toFixed(2)}`} tone="success" />
+              <Row label="Khuyến mãi" value={`−${formatVnd(order.discount)}`} tone="success" />
             )}
-            <Row label="Tổng cộng" value={`$${order?.total?.toFixed(2) ?? '0.00'}`} bold />
+            <Row label="Tổng cộng" value={formatVnd(order?.total ?? 0)} bold />
           </div>
         </Card>
 

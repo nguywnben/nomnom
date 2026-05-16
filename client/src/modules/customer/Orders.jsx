@@ -6,6 +6,7 @@ import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { restaurants } from '../../data/mock.js';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 const STATUS_TONE = {
   preparing: 'warning',
@@ -58,7 +59,7 @@ export default function CustomerOrders() {
                   <div className="mt-1 flex items-center gap-base text-caption text-body">
                     <span>#{o.id}</span>
                     <span>{new Date(o.placedAt).toLocaleString()}</span>
-                    <span className="nums">${o.total.toFixed(2)}</span>
+                    <span className="nums">{formatVnd(o.total)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-xs">

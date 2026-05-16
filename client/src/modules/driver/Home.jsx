@@ -7,6 +7,7 @@ import Switch from '../../components/Switch.jsx';
 import Image from '../../components/Image.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { driverDailyEarnings } from '../../data/mock.js';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 // ---------------------------------------------------------------------------
 // Driver Home — the main feed of the driver app.
@@ -44,8 +45,8 @@ export default function DriverHome() {
 
       {/* Earnings stat row */}
       <div className="grid grid-cols-2 gap-2">
-        <StatTile label="Thu nhập hôm nay" value={`$${today.toFixed(2)}`} icon="cash" />
-        <StatTile label="Tuần này" value={`$${week.toFixed(2)}`} icon="trending" />
+        <StatTile label="Thu nhập hôm nay" value={formatVnd(today)} icon="cash" />
+        <StatTile label="Tuần này" value={formatVnd(week)} icon="trending" />
       </div>
 
       {/* Active job */}
@@ -96,7 +97,7 @@ export default function DriverHome() {
                       <span className="text-body-sm font-semibold text-ink truncate">
                         {j.restaurantName}
                       </span>
-                      <span className="nums text-title-sm text-ink">${j.earnings.toFixed(2)}</span>
+                      <span className="nums text-title-sm text-ink">{formatVnd(j.earnings)}</span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-3 text-caption text-body">
                       <span className="inline-flex items-center gap-1">

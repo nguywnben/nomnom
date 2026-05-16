@@ -10,6 +10,7 @@ import Avatar from '../../components/Avatar.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { restaurants, sampleReviews } from '../../data/mock.js';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 export default function CustomerRestaurant() {
   const { id } = useParams();
@@ -92,7 +93,7 @@ export default function CustomerRestaurant() {
             <Icon name="pin" size={14} /> {r.distanceKm} km · {r.address}
           </span>
           <span className="inline-flex items-center gap-1 text-body">
-            <Icon name="cash" size={14} /> phí giao ${r.fee.toFixed(2)}
+            <Icon name="cash" size={14} /> phí giao {formatVnd(r.fee)}
           </span>
           <span className="ml-auto inline-flex items-center gap-1">
             {r.open ? (
@@ -208,7 +209,7 @@ function MenuCard({ item, onAdd, disabled }) {
       <div className="flex-1 p-base">
         <div className="flex items-start justify-between gap-2">
           <div className="text-title-md text-ink">{item.name}</div>
-          <span className="nums text-title-sm text-ink">${item.price.toFixed(2)}</span>
+          <span className="nums text-title-sm text-ink">{formatVnd(item.price)}</span>
         </div>
         <p className="mt-1 text-body-sm text-body line-clamp-2">{item.desc}</p>
         <div className="mt-2 flex flex-wrap items-center gap-1">

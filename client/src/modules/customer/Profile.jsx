@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import Avatar from '../../components/Avatar.jsx';
-import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -108,7 +107,7 @@ export default function CustomerProfile() {
                     type="button"
                     className="flex w-full items-center gap-sm px-base py-3 text-left hover:bg-canvas-soft"
                     onClick={() =>
-                      pushToast({ kind: 'info', title: it.label, message: 'Chỉ là bản dùng thử — chưa được kết nối.' })
+                      pushToast({ kind: 'info', title: it.label, message: 'Tính năng sẽ được cập nhật sớm.' })
                     }
                   >
                     {inner}
@@ -142,9 +141,6 @@ export default function CustomerProfile() {
         </Button>
       )}
 
-      <Badge tone="outline" className="mx-auto mt-xs">
-        NomNom v1.0 · Bản thử nghiệm
-      </Badge>
     </div>
   );
 }

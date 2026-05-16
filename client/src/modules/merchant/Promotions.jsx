@@ -5,6 +5,7 @@ import Card from '../../components/Card.jsx';
 import Input, { Select } from '../../components/Input.jsx';
 import { promoCodes as initial } from '../../data/mock.js';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 export default function MerchantPromotions() {
   const { pushToast } = useApp();
@@ -16,7 +17,7 @@ export default function MerchantPromotions() {
       uses: [42, 18, 67][i] ?? 24,
     })),
   );
-  const [draft, setDraft] = useState({ code: '', kind: 'percent', amount: 10, cap: 10 });
+  const [draft, setDraft] = useState({ code: '', kind: 'percent', amount: 15, cap: 250000 });
 
   const create = (e) => {
     e.preventDefault();
@@ -25,8 +26,8 @@ export default function MerchantPromotions() {
       code: draft.code.toUpperCase(),
       label:
         draft.kind === 'percent'
-          ? `Giảm ${draft.amount}%, tối đa $${draft.cap}.`
-          : `Giảm $${draft.amount}.`,
+          ? `Giảm ${draft.amount}%, tối đa ${formatVnd(draft.cap)}.`
+          : `Giảm ${formatVnd(draft.amount)}.`,
       kind: draft.kind,
       amount: Number(draft.amount),
       cap: Number(draft.cap),
@@ -35,7 +36,7 @@ export default function MerchantPromotions() {
     };
     setCodes((c) => [next, ...c]);
     pushToast({ kind: 'success', title: 'Đã tạo khuyến mãi', message: next.code });
-    setDraft({ code: '', kind: 'percent', amount: 10, cap: 10 });
+    setDraft({ code: '', kind: 'percent', amount: 15, cap: 250000 });
   };
 
   const togglePromo = (code) =>
@@ -143,13 +144,13 @@ export default function MerchantPromotions() {
           <div className="text-title-md text-ink mb-base">Tạo mã giảm giá</div>
           <form onSubmit={create} className="space-y-sm">
             <Input
-              label="Mã"
-              placeholder="LATE10"
+              placeholder="Mã · ví dụ LATE10"
+              aria-label="Mã khuyến mãi"
               value={draft.code}
               onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
             />
             <Select
-              label="Loại"
+              aria-label="Loại khuyến mãi"
               value={draft.kind}
               onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value }))}
               options={[
@@ -158,17 +159,19 @@ export default function MerchantPromotions() {
               ]}
             />
             <Input
-              label={draft.kind === 'percent' ? 'Phần trăm' : 'Số tiền ($)'}
               type="number"
               value={draft.amount}
               onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))}
+              placeholder={draft.kind === 'percent' ? 'Phần trăm giảm' : 'Số tiền giảm (VNĐ)'}
+              aria-label={draft.kind === 'percent' ? 'Phần trăm giảm' : 'Số tiền giảm'}
             />
             {draft.kind === 'percent' && (
               <Input
-                label="Giới hạn tối đa ($)"
                 type="number"
                 value={draft.cap}
                 onChange={(e) => setDraft((d) => ({ ...d, cap: e.target.value }))}
+                placeholder="Giới hạn tối đa (VNĐ)"
+                aria-label="Giới hạn giảm giá tối đa"
               />
             )}
             <Button type="submit" leadingIcon="zap" className="w-full">

@@ -9,6 +9,7 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Badge from '../../components/Badge.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { restaurants } from '../../data/mock.js';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 export default function CartDrawer() {
   const nav = useNavigate();
@@ -42,21 +43,21 @@ export default function CartDrawer() {
           <div className="flex flex-col gap-sm">
             <div className="flex items-center justify-between text-body-sm">
               <span className="text-body">Tạm tính</span>
-              <span className="nums text-ink">${cartSubtotal.toFixed(2)}</span>
+              <span className="nums text-ink">{formatVnd(cartSubtotal)}</span>
             </div>
             <div className="flex items-center justify-between text-body-sm">
               <span className="text-body">Phí giao hàng</span>
-              <span className="nums text-ink">${deliveryFee.toFixed(2)}</span>
+              <span className="nums text-ink">{formatVnd(deliveryFee)}</span>
             </div>
             {discount > 0 && (
               <div className="flex items-center justify-between text-body-sm">
                 <span className="text-success">Khuyến mãi</span>
-                <span className="nums text-success">−${discount.toFixed(2)}</span>
+                <span className="nums text-success">−{formatVnd(discount)}</span>
               </div>
             )}
             <div className="flex items-center justify-between border-t border-hairline pt-sm">
               <span className="text-title-sm text-ink">Tổng cộng</span>
-              <span className="nums text-display-sm text-ink">${cartTotal.toFixed(2)}</span>
+              <span className="nums text-display-sm text-ink">{formatVnd(cartTotal)}</span>
             </div>
             <Button
               className="mt-xs w-full"
@@ -95,7 +96,7 @@ export default function CartDrawer() {
             <div className="flex-1 min-w-0">
               <div className="text-body-sm font-semibold text-ink truncate">{restaurant.name}</div>
               <div className="text-caption text-body">
-                {restaurant.eta} · phí giao ${deliveryFee.toFixed(2)}
+                {restaurant.eta} · phí giao {formatVnd(deliveryFee)}
               </div>
             </div>
             <Badge tone="success" dot>Mở cửa</Badge>
@@ -115,7 +116,7 @@ export default function CartDrawer() {
                 <Image src={i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
                 <div className="flex-1 min-w-0">
                   <div className="text-body-sm font-semibold text-ink truncate">{i.name}</div>
-                  <div className="text-caption text-body">${i.price.toFixed(2)}</div>
+                  <div className="text-caption text-body">{formatVnd(i.price)}</div>
                 </div>
                 <div className="flex items-center gap-1">
                   <IconButton
@@ -169,6 +170,7 @@ export default function CartDrawer() {
                 <Input
                   className="flex-1"
                   placeholder="NOMNOM15"
+                  aria-label="Mã khuyến mãi"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value)}
                 />
