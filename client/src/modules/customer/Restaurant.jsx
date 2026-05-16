@@ -81,27 +81,81 @@ export default function CustomerRestaurant() {
 
       {/* Stats bar */}
       <section className="border-b border-hairline">
-        <div className="container-page flex flex-wrap items-center gap-base py-base text-body-sm">
-          <span className="inline-flex items-center gap-1 text-ink">
-            <Icon name="starFilled" size={14} /> <strong className="nums">{r.rating.toFixed(1)}</strong>
-            <span className="text-body">({r.reviewCount} đánh giá)</span>
-          </span>
-          <span className="inline-flex items-center gap-1 text-body">
-            <Icon name="clock" size={14} /> {r.eta}
-          </span>
-          <span className="inline-flex items-center gap-1 text-body">
-            <Icon name="pin" size={14} /> {r.distanceKm} km · {r.address}
-          </span>
-          <span className="inline-flex items-center gap-1 text-body">
-            <Icon name="cash" size={14} /> phí giao {formatVnd(r.fee)}
-          </span>
-          <span className="ml-auto inline-flex items-center gap-1">
-            {r.open ? (
-              <Badge tone="success" dot>Đang mở cửa</Badge>
-            ) : (
-              <Badge tone="error" dot>Đóng cửa</Badge>
-            )}
-          </span>
+        <div className="container-page py-base text-body-sm">
+          <div className="flex flex-col gap-3 md:hidden">
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex min-w-0 items-center gap-1 text-ink">
+                <Icon name="starFilled" size={14} className="shrink-0" />
+                <strong className="nums">{r.rating.toFixed(1)}</strong>
+                <span className="truncate text-body">({r.reviewCount} đánh giá)</span>
+              </span>
+              <span className="shrink-0">
+                {r.open ? (
+                  <Badge tone="success" dot>
+                    Đang mở cửa
+                  </Badge>
+                ) : (
+                  <Badge tone="error" dot>
+                    Đóng cửa
+                  </Badge>
+                )}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-hairline-strong bg-canvas-soft px-3 py-2">
+                <div className="text-caption text-body">Thời gian giao</div>
+                <div className="mt-1 inline-flex items-center gap-1.5 font-medium text-ink">
+                  <Icon name="clock" size={14} />
+                  {r.eta}
+                </div>
+              </div>
+              <div className="rounded-lg border border-hairline-strong bg-canvas-soft px-3 py-2">
+                <div className="text-caption text-body">Khoảng cách</div>
+                <div className="mt-1 inline-flex items-center gap-1.5 font-medium text-ink">
+                  <Icon name="pin" size={14} />
+                  {r.distanceKm} km
+                </div>
+              </div>
+              <div className="col-span-2 rounded-lg border border-hairline-strong bg-canvas-soft px-3 py-2">
+                <div className="text-caption text-body">Phí giao hàng</div>
+                <div className="mt-1 inline-flex items-center gap-1.5 font-medium text-ink">
+                  <Icon name="cash" size={14} />
+                  <span className="nums">{formatVnd(r.fee)}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 rounded-lg border border-hairline bg-surface-card px-3 py-2.5">
+              <Icon name="pin" size={14} className="mt-0.5 shrink-0 text-body" />
+              <span className="text-body leading-snug">{r.address}</span>
+            </div>
+          </div>
+
+          <div className="hidden md:flex md:flex-wrap md:items-center md:gap-base">
+            <span className="inline-flex items-center gap-1 text-ink">
+              <Icon name="starFilled" size={14} /> <strong className="nums">{r.rating.toFixed(1)}</strong>
+              <span className="text-body">({r.reviewCount} đánh giá)</span>
+            </span>
+            <span className="inline-flex items-center gap-1 text-body">
+              <Icon name="clock" size={14} /> {r.eta}
+            </span>
+            <span className="inline-flex items-center gap-1 text-body">
+              <Icon name="pin" size={14} /> {r.distanceKm} km · {r.address}
+            </span>
+            <span className="inline-flex items-center gap-1 text-body">
+              <Icon name="cash" size={14} /> phí giao {formatVnd(r.fee)}
+            </span>
+            <span className="ml-auto inline-flex items-center gap-1">
+              {r.open ? (
+                <Badge tone="success" dot>
+                  Đang mở cửa
+                </Badge>
+              ) : (
+                <Badge tone="error" dot>
+                  Đóng cửa
+                </Badge>
+              )}
+            </span>
+          </div>
         </div>
       </section>
 

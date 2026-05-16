@@ -16,6 +16,12 @@ import CustomerReviews from './modules/customer/Reviews.jsx';
 import CustomerCheckout from './modules/customer/Checkout.jsx';
 import CustomerOrderSuccess from './modules/customer/OrderSuccess.jsx';
 import CustomerProfile from './modules/customer/Profile.jsx';
+import CustomerProfileEdit from './modules/customer/profile/EditProfile.jsx';
+import CustomerProfileAddresses from './modules/customer/profile/Addresses.jsx';
+import CustomerProfilePayments from './modules/customer/profile/Payments.jsx';
+import CustomerProfilePromotions from './modules/customer/profile/Promotions.jsx';
+import CustomerProfileNotifications from './modules/customer/profile/Notifications.jsx';
+import CustomerProfileSettings from './modules/customer/profile/Settings.jsx';
 
 // Merchant
 import MerchantLayout from './modules/merchant/MerchantLayout.jsx';
@@ -59,6 +65,12 @@ export default function App() {
           <Route path="track/:id" element={<CustomerTracking />} />
           <Route path="reviews/:id" element={<CustomerReviews />} />
           <Route path="profile" element={<CustomerProfile />} />
+          <Route path="profile/edit" element={<CustomerProfileEdit />} />
+          <Route path="profile/addresses" element={<CustomerProfileAddresses />} />
+          <Route path="profile/payments" element={<CustomerProfilePayments />} />
+          <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
+          <Route path="profile/notifications" element={<CustomerProfileNotifications />} />
+          <Route path="profile/settings" element={<CustomerProfileSettings />} />
         </Route>
 
         <Route path="/merchant" element={<MerchantLayout />}>

@@ -31,19 +31,33 @@ export default function ChatWidget() {
       <button
         onClick={() => setChatOpen(!chatOpen)}
         className={clsx(
-          'fixed bottom-6 right-6 z-30 inline-flex h-12 items-center gap-2 rounded-pill bg-primary px-4 text-button text-on-primary shadow-soft-md transition-transform hover:bg-primary-active hover:scale-[1.02]',
+          'fixed z-30 inline-flex items-center rounded-pill bg-primary text-on-primary shadow-soft-md transition-transform hover:bg-primary-active hover:scale-[1.02]',
+          // Trên mobile: đặt cao hơn thanh nav (h-16) + safe-area để không che nội dung (vd. Hồ sơ)
+          'bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-3 h-10 gap-1.5 px-3 text-caption md:bottom-6 md:right-6 md:h-12 md:gap-2 md:px-4 md:text-button',
         )}
         aria-label="Mở chat"
       >
-        <Icon name="chat" size={16} />
-        <span>Chat</span>
-        <span className="grid h-5 min-w-5 place-items-center rounded-pill bg-on-primary text-ink px-1 text-caption nums">
+        <Icon name="chat" size={14} className="md:hidden" />
+        <Icon name="chat" size={16} className="hidden md:block" />
+        <span className="hidden md:inline">Chat</span>
+        <span
+          className={clsx(
+            'grid h-5 min-w-5 place-items-center rounded-pill bg-on-primary px-1 text-caption text-ink nums',
+            'max-md:h-4 max-md:min-w-4 max-md:text-[10px]',
+          )}
+        >
           {chats.reduce((s, c) => s + c.messages.length, 0)}
         </span>
       </button>
 
       {chatOpen && (
-        <div className="fixed bottom-20 right-6 z-30 flex h-[560px] w-[420px] max-w-[92vw] flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card shadow-soft-lg fade-in">
+        <div
+          className={clsx(
+            'fixed z-30 flex flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card shadow-soft-lg fade-in',
+            'bottom-[calc(5rem+3.25rem+env(safe-area-inset-bottom,0px))] right-3 h-[min(520px,calc(100dvh-9rem))] w-[min(420px,calc(100vw-1.5rem))]',
+            'md:bottom-20 md:right-6 md:h-[560px] md:w-[420px] md:max-w-[92vw]',
+          )}
+        >
           <header className="flex items-center gap-sm border-b border-hairline px-base py-sm">
             <Icon name="chat" size={16} />
             <div className="flex-1 min-w-0">

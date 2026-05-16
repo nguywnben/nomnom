@@ -82,6 +82,57 @@
       linear-gradient(90deg, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
     background-size: 24px 24px;
   }
+
+  /* Dual-thumb range slider — used in /app/search "Khoảng giá món ăn".
+     Two <input type="range"> stacked on top of a faux track. The element
+     itself ignores pointer events so both thumbs stay grabbable; only the
+     thumbs receive pointer events. */
+  .range-dual {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    pointer-events: none;
+    height: 24px;
+    width: 100%;
+  }
+  .range-dual::-webkit-slider-runnable-track {
+    height: 4px;
+    background: transparent;
+    border: none;
+  }
+  .range-dual::-moz-range-track {
+    height: 4px;
+    background: transparent;
+    border: none;
+  }
+  .range-dual::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 2px solid #171717;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+    margin-top: -7px;
+  }
+  .range-dual::-moz-range-thumb {
+    pointer-events: auto;
+    height: 18px;
+    width: 18px;
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 2px solid #171717;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+  }
+  .range-dual:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
+  }
+  .range-dual:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
+  }
 }
 
 @keyframes pulse-dot {
@@ -107,6 +158,12 @@
   to { transform: translateY(0); }
 }
 .slide-in-up { animation: slide-in-up 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+@keyframes slide-in-down {
+  from { transform: translateY(-120%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.slide-in-down { animation: slide-in-down 260ms cubic-bezier(0.16, 1, 0.3, 1); }
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }

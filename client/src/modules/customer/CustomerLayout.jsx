@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 
+import { useGeolocationLocalityLabel } from '../../hooks/useGeolocationLocalityLabel.js';
 import TopNav from './TopNav.jsx';
 import MobileTopBar from './MobileTopBar.jsx';
 import MobileBottomNav from './MobileBottomNav.jsx';
@@ -13,7 +14,7 @@ import ChatWidget from '../chat/ChatWidget.jsx';
 // CustomerLayout — responsive shell.
 //
 // Mobile (<768px):
-//   • Top: thin <MobileTopBar /> (logo + delivery-address pill + cart) — sticky
+//   • Top: thin <MobileTopBar /> (logo + cart) — sticky
 //   • Content: full-bleed, scrollable, padded-bottom so it clears the bottom nav
 //   • Bottom: fixed <MobileBottomNav /> (Home / Search / Orders / Profile)
 //             with iOS safe-area padding
@@ -29,6 +30,7 @@ import ChatWidget from '../chat/ChatWidget.jsx';
 // ---------------------------------------------------------------------------
 export default function CustomerLayout() {
   const { pathname } = useLocation();
+  const deliveryLocalityLine = useGeolocationLocalityLabel();
 
   // Routes where the mobile bottom nav steps aside so the page's own sticky
   // action bar (e.g. "Place order" on checkout) owns the bottom safe area.
@@ -53,7 +55,7 @@ export default function CustomerLayout() {
           !isFocusedFlow && 'pb-20 md:pb-0',
         )}
       >
-        <Outlet />
+        <Outlet context={{ deliveryLocalityLine }} />
       </main>
 
       {/* Footer is desktop-only; mobile users navigate via the bottom nav */}

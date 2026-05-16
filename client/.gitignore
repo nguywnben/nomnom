@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Windows: redirect kiểu `> NUL` trong Git Bash đôi khi tạo file tên NUL (rác), không phải thiết bị nul.
+NUL

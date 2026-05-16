@@ -26,12 +26,24 @@ const icons = {
 export default function ToastViewport() {
   const { toasts, dismissToast } = useApp();
   return (
-    <div className="pointer-events-none fixed bottom-base right-base z-50 flex flex-col gap-xs">
+    // Mobile: top, below safe-area + ~12px breathing room from the mobile top
+    // bar. Desktop (md+): original bottom-right anchored stack.
+    <div
+      className={clsx(
+        'pointer-events-none fixed z-50 flex flex-col gap-xs',
+        // mobile (default)
+        'inset-x-base top-[calc(env(safe-area-inset-top,0px)+12px)] items-center',
+        // desktop overrides
+        'md:inset-x-auto md:top-auto md:bottom-base md:right-base md:items-stretch',
+      )}
+    >
       {toasts.map((t) => (
         <div
           key={t.id}
           className={clsx(
-            'pointer-events-auto flex w-[320px] items-start gap-sm rounded-md border bg-surface-card p-sm shadow-soft-md slide-in-right',
+            'pointer-events-auto flex w-full max-w-[420px] items-start gap-sm rounded-md border bg-surface-card p-sm shadow-soft-md',
+            // entrance: from above on mobile, from the right on desktop
+            'slide-in-down md:slide-in-right md:w-[320px]',
             tones[t.kind],
           )}
         >

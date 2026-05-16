@@ -8,19 +8,25 @@ import { useApp } from '../../context/AppContext.jsx';
 // Customer profile — reached from the mobile bottom nav (and surfaced on
 // desktop via the avatar menu in the top nav).
 const SETTINGS = [
-  { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin' },
-  { id: 'payments', label: 'Phương thức thanh toán', icon: 'card' },
-  { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap' },
-  { id: 'notifications', label: 'Thông báo', icon: 'bell' },
+  { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin', link: '/app/profile/addresses' },
+  { id: 'payments', label: 'Phương thức thanh toán', icon: 'card', link: '/app/profile/payments' },
+  { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap', link: '/app/profile/promotions' },
+  { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/profile/notifications' },
   { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/chat-admin' },
-  { id: 'settings', label: 'Cài đặt ứng dụng', icon: 'cog' },
+  { id: 'settings', label: 'Cài đặt ứng dụng', icon: 'cog', link: '/app/profile/settings' },
 ];
 
 export default function CustomerProfile() {
-  const { currentCustomer, orders, authedRoles, setAuthModal, pushToast } = useApp();
+  const { currentCustomer, orders, authedRoles, setAuthModal, setAuthedRoles, clearCart, pushToast } = useApp();
 
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
   const activeCount = orders.length - deliveredCount;
+
+  const onLogout = () => {
+    setAuthedRoles((cur) => ({ ...cur, customer: false }));
+    clearCart();
+    pushToast({ kind: 'info', title: 'Đã đăng xuất', message: 'Hẹn gặp lại bạn ở NomNom.' });
+  };
 
   return (
     <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
@@ -39,6 +45,11 @@ export default function CustomerProfile() {
               <div className="text-caption text-body truncate">{currentCustomer.email}</div>
               <div className="text-caption text-body truncate">{currentCustomer.phone}</div>
             </div>
+            <Link to="/app/profile/edit" aria-label="Chỉnh sửa hồ sơ">
+              <Button size="sm" variant="secondary" leadingIcon="edit">
+                Sửa
+              </Button>
+            </Link>
           </>
         ) : (
           <div className="flex-1">
@@ -64,20 +75,22 @@ export default function CustomerProfile() {
 
       {/* Address card */}
       {authedRoles.customer && (
-        <Card padded>
-          <div className="flex items-center gap-sm">
-            <span className="grid h-10 w-10 place-items-center rounded-md bg-surface-strong text-ink">
-              <Icon name="pin" size={16} />
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="text-caption-uppercase text-body">Địa chỉ mặc định</div>
-              <div className="text-body-sm font-semibold text-ink truncate">
-                {currentCustomer.address}
+        <Link to="/app/profile/addresses" className="block">
+          <Card padded hover>
+            <div className="flex items-center gap-sm">
+              <span className="grid h-10 w-10 place-items-center rounded-md bg-surface-strong text-ink">
+                <Icon name="pin" size={16} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-caption-uppercase text-body">Địa chỉ mặc định</div>
+                <div className="text-body-sm font-semibold text-ink truncate">
+                  {currentCustomer.address}
+                </div>
               </div>
+              <Icon name="chevronRight" size={14} className="text-body" />
             </div>
-            <Icon name="edit" size={14} className="text-body" />
-          </div>
-        </Card>
+          </Card>
+        </Link>
       )}
 
       {/* Settings list */}
@@ -95,24 +108,12 @@ export default function CustomerProfile() {
             );
             return (
               <li key={it.id}>
-                {it.link ? (
-                  <Link
-                    to={it.link}
-                    className="flex w-full items-center gap-sm px-base py-3 hover:bg-canvas-soft"
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-sm px-base py-3 text-left hover:bg-canvas-soft"
-                    onClick={() =>
-                      pushToast({ kind: 'info', title: it.label, message: 'Tính năng sẽ được cập nhật sớm.' })
-                    }
-                  >
-                    {inner}
-                  </button>
-                )}
+                <Link
+                  to={it.link}
+                  className="flex w-full items-center gap-sm px-base py-3 hover:bg-canvas-soft"
+                >
+                  {inner}
+                </Link>
               </li>
             );
           })}
@@ -133,9 +134,7 @@ export default function CustomerProfile() {
         <Button
           variant="secondary"
           className="!text-error !border-error/40 hover:!bg-[#fbeaea]"
-          onClick={() =>
-            pushToast({ kind: 'info', title: 'Đã đăng xuất', message: 'Bạn đã đăng xuất.' })
-          }
+          onClick={onLogout}
         >
           Đăng xuất
         </Button>

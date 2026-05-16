@@ -1,3 +1,8 @@
+/** Số đếm / thống kê — phân cách hàng nghìn theo vi-VN (vd. 2144 → 2.144). */
+export function formatViInteger(n) {
+  return new Intl.NumberFormat('vi-VN').format(Math.round(Number(n)));
+}
+
 /** Hiển thị số tiền VND (đã là đồng trong dữ liệu — không quy đổi). */
 export function formatVnd(amount) {
   const n = Math.round(Number(amount));

@@ -43,7 +43,7 @@ export default function MobileBottomNav() {
                 </span>
                 <span className={clsx(isActive ? 'text-ink font-semibold' : 'text-body')}>{t.label}</span>
                 {t.to === '/app/orders' && pendingBadge > 0 && (
-                  <span className="absolute right-5 top-2 grid h-4 min-w-4 place-items-center rounded-pill bg-primary px-1 text-[10px] font-semibold text-on-primary leading-none nums">
+                  <span className="absolute right-5 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-0.5 text-center font-sans text-[10px] font-semibold leading-none text-on-primary antialiased">
                     {pendingBadge}
                   </span>
                 )}

@@ -1,29 +1,30 @@
-import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import clsx from 'clsx';
-import Button, { IconButton } from '../../components/Button.jsx';
+import Button from '../../components/Button.jsx';
 import Logo from '../../components/Logo.jsx';
 import Icon from '../../components/Icon.jsx';
 import Avatar from '../../components/Avatar.jsx';
-import Badge from '../../components/Badge.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 
 const links = [
   { to: '/app', label: 'Trang chủ', end: true },
   { to: '/app/search', label: 'Tìm kiếm' },
-  { to: '/app/orders', label: 'Đơn hàng' },
 ];
 
 /** Trùng Landing: khi cuộn mới hiện nền thanh; đầu trang trong suốt trên hero. */
 const APP_HOME_HEADER_ELEVATE_AFTER_PX = 16;
 
+/** Badge trên nút header (desktop): góc trên-phải của ô nút, hơi tràn ra ngoài viền (kiểu “pin” trên nút). */
+const HEADER_NAV_BUTTON_BADGE =
+  'pointer-events-none absolute -right-0.5 -top-0.5 z-[1] flex h-[18px] min-w-[18px] translate-x-px -translate-y-px items-center justify-center rounded-full bg-primary px-0.5 text-center font-sans text-[10px] font-semibold leading-none text-on-primary antialiased';
+
 // top-nav per DESIGN.md — height 64, bg canvas, text ink, sticky.
 // Trên /app (trang chủ): fixed + overlay hero giống trang "/".
 // Hidden on mobile (replaced by <MobileTopBar /> + <MobileBottomNav />).
 export default function TopNav() {
-  const nav = useNavigate();
   const { pathname } = useLocation();
-  const { cartCount, setCartOpen, authedRoles, setAuthModal, currentCustomer, setChatOpen } = useApp();
+  const { cartCount, setCartOpen, authedRoles, setAuthModal, currentCustomer, orders } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
 
@@ -41,6 +42,8 @@ export default function TopNav() {
   }, [isAppHome]);
 
   const onHeroDark = heroOverlay && !headerElevated;
+
+  const notifCount = useMemo(() => orders.filter((o) => o.status !== 'delivered').length, [orders]);
 
   return (
     <header
@@ -84,53 +87,41 @@ export default function TopNav() {
           </nav>
         </div>
 
-        {/* Address — center, desktop only */}
-        <button
-          onClick={() => nav('/app/search')}
-          className={clsx(
-            'hidden min-w-[260px] items-center gap-2 rounded-md px-sm py-2 text-body-sm transition-[background-color,border-color,color] duration-300 ease-out lg:flex',
-            onHeroDark
-              ? 'border border-canvas/30 bg-canvas/15 text-on-dark hover:bg-canvas/20'
-              : 'border border-hairline-strong bg-canvas text-ink hover:bg-canvas-soft',
-          )}
-        >
-          <Icon name="pin" size={14} />
-          <span className="flex-1 truncate text-left">120 Wythe Ave, Brooklyn</span>
-          <Badge
-            tone="outline"
+        <div className="flex items-center gap-base">
+          <Link
+            to="/app/orders"
             className={clsx(
-              onHeroDark &&
-                '!border-canvas/40 !bg-canvas/15 !text-on-dark transition-[background-color,border-color,color] duration-300 ease-out',
+              'relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-md transition-[background-color,border-color,color] duration-300 ease-out',
+              onHeroDark
+                ? 'border border-canvas/30 bg-canvas/15 text-on-dark hover:bg-canvas/20'
+                : 'border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft',
             )}
+            aria-label="Thông báo và đơn hàng"
           >
-            15 phút
-          </Badge>
-        </button>
-
-        <div className="flex items-center gap-xs">
-          <IconButton
-            icon="chat"
-            label="Mở trò chuyện"
-            onClick={() => setChatOpen(true)}
-            className={clsx(
-              onHeroDark && 'text-on-dark transition-colors duration-300 ease-out hover:bg-canvas/10',
+            <Icon name="bell" size={18} />
+            {notifCount > 0 && (
+              <span className={clsx(HEADER_NAV_BUTTON_BADGE, notifCount > 9 && 'min-w-[22px]')}>
+                {notifCount > 9 ? '9+' : notifCount}
+              </span>
             )}
-          />
+          </Link>
           <button
             onClick={() => setCartOpen(true)}
             className={clsx(
-              'relative inline-flex h-10 items-center gap-2 rounded-md px-sm text-button transition-[background-color,border-color,color] duration-300 ease-out',
+              'relative inline-flex h-10 items-center gap-2 overflow-visible rounded-md pl-1 pr-3 text-button transition-[background-color,border-color,color] duration-300 ease-out',
               onHeroDark
                 ? 'border border-canvas/30 bg-canvas/15 text-on-dark hover:bg-canvas/20'
                 : 'border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft',
             )}
             aria-label="Mở giỏ hàng"
           >
-            <Icon name="cart" size={16} />
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center">
+              <Icon name="cart" size={18} />
+            </span>
             <span className="nums">Giỏ hàng</span>
             {cartCount > 0 && (
-              <span className="ml-1 grid h-5 min-w-5 place-items-center rounded-pill bg-primary px-1 text-caption text-on-primary nums">
-                {cartCount}
+              <span className={clsx(HEADER_NAV_BUTTON_BADGE, cartCount > 9 && 'min-w-[22px]', cartCount > 99 && 'min-w-[26px]')}>
+                {cartCount > 99 ? '99+' : cartCount}
               </span>
             )}
           </button>
@@ -155,6 +146,9 @@ export default function TopNav() {
                     <div className="text-caption text-body truncate">{currentCustomer.email}</div>
                   </div>
                   <div className="h-px bg-hairline" />
+                  <Link to="/app/profile" className="block rounded-sm px-sm py-2 hover:bg-canvas-soft text-ink" onClick={() => setMenuOpen(false)}>
+                    Hồ sơ
+                  </Link>
                   <Link to="/app/orders" className="block rounded-sm px-sm py-2 hover:bg-canvas-soft text-ink" onClick={() => setMenuOpen(false)}>
                     Đơn hàng của tôi
                   </Link>
