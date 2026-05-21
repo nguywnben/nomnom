@@ -15,6 +15,10 @@ const links = [
   { to: '/merchant/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/merchant/menu', label: 'Thực đơn', icon: 'list' },
   { to: '/merchant/promotions', label: 'Khuyến mãi', icon: 'zap' },
+  { to: '/merchant/reviews', label: 'Đánh giá', icon: 'starFilled' },
+  { to: '/merchant/wallet', label: 'Ví & rút tiền', icon: 'wallet' },
+  { to: '/merchant/notifications', label: 'Thông báo', icon: 'bell' },
+  { to: '/merchant/settings', label: 'Cài đặt quán', icon: 'cog' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -79,7 +83,7 @@ export default function MerchantLayout() {
             </div>
           </div>
           {newCount > 0 && <Badge tone="live" dot>{newCount}</Badge>}
-          <IconButton icon="bell" label="Thông báo" size="sm" />
+          <IconButton icon="bell" label="Thông báo" size="sm" onClick={() => nav('/merchant/notifications')} />
         </header>
 
         {/* Desktop top header (hidden md:flex) */}
@@ -110,7 +114,7 @@ export default function MerchantLayout() {
                 {newCount} đơn hàng mới
               </Badge>
             )}
-            <IconButton icon="bell" label="Thông báo" variant="secondary" />
+            <IconButton icon="bell" label="Thông báo" variant="secondary" onClick={() => nav('/merchant/notifications')} />
             <Button
               variant="secondary"
               leadingIcon="chat"

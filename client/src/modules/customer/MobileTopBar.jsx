@@ -52,12 +52,12 @@ export default function MobileTopBar() {
         </Link>
         <div className="flex items-center gap-0.5">
           <Link
-            to="/app/orders"
+            to="/app/notifications"
             className={clsx(
               'relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md',
               onHeroDark ? 'text-on-dark transition-colors duration-300 ease-out hover:bg-canvas/10' : 'text-ink transition-colors duration-300 ease-out hover:bg-canvas-soft',
             )}
-            aria-label="Thông báo và đơn hàng"
+            aria-label="Thông báo"
           >
             <Icon name="bell" size={18} />
             {notifCount > 0 && (

@@ -89,14 +89,14 @@ export default function TopNav() {
 
         <div className="flex items-center gap-base">
           <Link
-            to="/app/orders"
+            to="/app/notifications"
             className={clsx(
               'relative inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-md transition-[background-color,border-color,color] duration-300 ease-out',
               onHeroDark
                 ? 'border border-canvas/30 bg-canvas/15 text-on-dark hover:bg-canvas/20'
                 : 'border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft',
             )}
-            aria-label="Thông báo và đơn hàng"
+            aria-label="Thông báo"
           >
             <Icon name="bell" size={18} />
             {notifCount > 0 && (
