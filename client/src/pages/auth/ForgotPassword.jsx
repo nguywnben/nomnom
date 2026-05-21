@@ -40,10 +40,10 @@ export default function ForgotPasswordPage() {
       }
     >
       <Tabs
-        className="w-full"
+        className="w-fit"
         items={[
-          { value: 'email', label: 'Qua email' },
-          { value: 'phone', label: 'Qua SMS' },
+          { value: 'email', label: 'Email' },
+          { value: 'phone', label: 'Số điện thoại' },
         ]}
         value={channel}
         onChange={setChannel}

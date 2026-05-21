@@ -3,46 +3,61 @@ import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import Button from '../../components/Button.jsx';
 import Input from '../../components/Input.jsx';
-import Icon from '../../components/Icon.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 
-// Đăng ký theo bảng `users` (full_name, email/phone, password_hash, primary_role).
-// Sau khi submit → chuyển sang trang nhập OTP (otp_codes.purpose = 'register').
+// Đăng ký khách hàng — primary_role = customer (luồng /app).
+// Tài xế & nhà hàng đăng ký qua kênh riêng (sẽ bổ sung sau).
 export default function RegisterPage() {
   const nav = useNavigate();
-  const { pushToast } = useApp();
+  const { register, pushToast } = useApp();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [agree, setAgree] = useState(true);
-  const [role, setRole] = useState('customer');
+  const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (!agree) {
       pushToast({ kind: 'error', title: 'Cần đồng ý điều khoản', message: 'Hãy đồng ý điều khoản để tiếp tục.' });
       return;
     }
+    setError('');
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await register({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        password,
+      });
+      pushToast({
+        kind: 'success',
+        title: 'Tạo tài khoản thành công',
+        message: 'Chào mừng bạn đến với NomNom!',
+      });
+      nav('/app', { replace: true });
+    } catch (err) {
+      setError(err.message ?? 'Đăng ký thất bại.');
+    } finally {
       setLoading(false);
-      pushToast({ kind: 'info', title: 'Đã gửi mã OTP', message: 'Vui lòng kiểm tra điện thoại để xác minh.' });
-      nav(`/verify-otp?purpose=register&dest=${encodeURIComponent(phone || email)}&role=${role}`);
-    }, 700);
+    }
   };
 
   return (
     <AuthLayout
-      title="Tạo tài khoản"
-      subtitle="Tạo tài khoản NomNom miễn phí — bạn có thể chọn vai trò sau khi xác minh."
+      title="Tạo tài khoản khách hàng"
+      subtitle="Đặt món, theo dõi đơn hàng và nhận ưu đãi — chỉ dành cho người dùng ứng dụng khách."
       footer={
         <span>
           Đã có tài khoản?{' '}
-          <Link to="/login" className="text-text-link hover:underline">Đăng nhập</Link>
+          <Link to="/login" className="text-text-link hover:underline">
+            Đăng nhập
+          </Link>
         </span>
       }
     >
@@ -58,22 +73,23 @@ export default function RegisterPage() {
         <Input
           type="email"
           leadingIcon="mail"
-          placeholder="Email (không bắt buộc nếu có số điện thoại)"
+          placeholder="Email"
           aria-label="Email"
           autoComplete="email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          hint="Dùng email này để đăng nhập sau này."
         />
         <Input
           leadingIcon="phone"
-          placeholder="Số điện thoại"
+          placeholder="Số điện thoại (tuỳ chọn)"
           aria-label="Số điện thoại"
           inputMode="tel"
           autoComplete="tel"
-          required
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          hint="Dùng để nhận mã OTP và thông báo đơn hàng."
+          hint="Để nhận thông báo đơn hàng qua SMS."
         />
         <Input
           type={showPw ? 'text' : 'password'}
@@ -82,54 +98,29 @@ export default function RegisterPage() {
           aria-label="Mật khẩu"
           autoComplete="new-password"
           required
+          minLength={8}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          hint="Nên gồm chữ hoa, chữ thường, số."
+          onChange={(e) => {
+            const v = e.target.value;
+            setPassword(v);
+            if (!v) setShowPw(false);
+          }}
+          trailingButton={
+            password.length > 0
+              ? {
+                  icon: showPw ? 'eyeOff' : 'eye',
+                  onClick: () => setShowPw((s) => !s),
+                  'aria-label': showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                }
+              : undefined
+          }
         />
 
-        <div className="flex items-center gap-1.5 text-caption text-body">
-          <button
-            type="button"
-            className="text-text-link hover:underline"
-            onClick={() => setShowPw((s) => !s)}
-          >
-            {showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-          </button>
-        </div>
-
-        <fieldset className="rounded-md border border-hairline-strong p-sm">
-          <legend className="px-1 text-caption-uppercase text-body">Bạn muốn đăng ký với vai trò</legend>
-          <div className="grid grid-cols-3 gap-1.5">
-            {[
-              { value: 'customer', label: 'Khách hàng', icon: 'user' },
-              { value: 'merchant', label: 'Chủ quán', icon: 'store' },
-              { value: 'driver', label: 'Tài xế', icon: 'bike' },
-            ].map((r) => {
-              const active = role === r.value;
-              return (
-                <button
-                  key={r.value}
-                  type="button"
-                  onClick={() => setRole(r.value)}
-                  className={
-                    'flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-caption transition-colors ' +
-                    (active
-                      ? 'border-ink bg-primary text-on-primary'
-                      : 'border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft')
-                  }
-                >
-                  <Icon name={r.icon} size={16} />
-                  {r.label}
-                </button>
-              );
-            })}
-          </div>
-          {role !== 'customer' && (
-            <p className="mt-2 text-caption text-body">
-              Sau khi xác minh OTP, bạn sẽ được dẫn đến trang hoàn thiện hồ sơ {role === 'merchant' ? 'quán' : 'tài xế'} (KYC).
-            </p>
-          )}
-        </fieldset>
+        {error && (
+          <p className="text-caption text-error" role="alert">
+            {error}
+          </p>
+        )}
 
         <label className="mt-xs flex items-start gap-2 text-caption text-body">
           <input
@@ -140,15 +131,29 @@ export default function RegisterPage() {
           />
           <span>
             Tôi đồng ý với{' '}
-            <Link to="/" className="text-text-link hover:underline">Điều khoản sử dụng</Link> và{' '}
-            <Link to="/" className="text-text-link hover:underline">Chính sách bảo mật</Link> của NomNom.
+            <Link to="/dieu-khoan-su-dung" className="text-text-link hover:underline" target="_blank" rel="noopener noreferrer">
+              Điều khoản sử dụng
+            </Link>{' '}
+            và{' '}
+            <Link to="/chinh-sach-bao-mat" className="text-text-link hover:underline" target="_blank" rel="noopener noreferrer">
+              Chính sách bảo mật
+            </Link>{' '}
+            của NomNom.
           </span>
         </label>
 
         <Button type="submit" loading={loading} className="mt-xs">
-          Tạo tài khoản
+          Tạo tài khoản khách hàng
         </Button>
       </form>
+
+      <p className="mt-md rounded-md border border-hairline bg-canvas-soft p-sm text-caption text-body">
+        Bạn là chủ quán hoặc tài xế?{' '}
+        <Link to="/hop-tac" className="text-text-link hover:underline">
+          Xem hợp tác đối tác
+        </Link>{' '}
+        — đăng ký merchant/driver sẽ có luồng riêng, không qua trang này.
+      </p>
     </AuthLayout>
   );
 }

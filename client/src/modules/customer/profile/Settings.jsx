@@ -118,7 +118,7 @@ function readPersisted() {
 
 export default function Settings() {
   const nav = useNavigate();
-  const { pushToast, clearCart, authedRoles, setAuthedRoles } = useApp();
+  const { pushToast, authedRoles, logout } = useApp();
 
   const [language, setLanguage] = useState(() => readPersisted().language);
   const [region, setRegion] = useState(() => readPersisted().region);
@@ -169,12 +169,9 @@ export default function Settings() {
     setNotif(key, on);
   };
 
-  const onLogout = () => {
-    setAuthedRoles((cur) => ({ ...cur, customer: false }));
-    clearCart();
+  const onLogout = async () => {
     setConfirmLogout(false);
-    pushToast({ kind: 'info', title: 'Đã đăng xuất', message: 'Hẹn gặp lại bạn ở NomNom.' });
-    nav('/');
+    await logout();
   };
 
   const onDelete = () => {

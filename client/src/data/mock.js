@@ -17,21 +17,9 @@ const avatar = (seed, style = 'avataaars') =>
 const logo = (seed, style = 'shapes') =>
   `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8`;
 
-// ---------------------------------------------------------------------------
-// Categories carousel
-// ---------------------------------------------------------------------------
-export const categories = [
-  { id: 'pizza', cuisineSlug: 'italian', name: 'Pizza', emoji: '\uD83C\uDF55', image: unsplash('photo-1565299624946-b28f40a0ae38', 400) },
-  { id: 'burgers', cuisineSlug: 'american', name: 'Hamburger', emoji: '\uD83C\uDF54', image: unsplash('photo-1568901346375-23c9450c58cd', 400) },
-  { id: 'sushi', cuisineSlug: 'japanese', name: 'Sushi', emoji: '\uD83C\uDF63', image: unsplash('photo-1579871494447-9811cf80d66c', 400) },
-  { id: 'bowls', cuisineSlug: 'healthy', name: 'Tô trộn', emoji: '\uD83E\uDD63', image: unsplash('photo-1546069901-ba9599a7e63c', 400) },
-  { id: 'noodles', cuisineSlug: 'japanese', name: 'Mì & Phở', emoji: '\uD83C\uDF5C', image: unsplash('photo-1569718212165-3a8278d5f624', 400) },
-  { id: 'tacos', cuisineSlug: 'mexican', name: 'Tacos', emoji: '\uD83C\uDF2E', image: unsplash('photo-1565299585323-38d6b0865b47', 400) },
-  { id: 'drinks', cuisineSlug: 'coffee', name: 'Đồ uống', emoji: '\uD83E\uDDCB', image: unsplash('photo-1509042239860-f550ce710b93', 400) },
-  { id: 'desserts', cuisineSlug: 'bakery', name: 'Tráng miệng', emoji: '\uD83C\uDF69', image: unsplash('photo-1551024601-bec78aea704b', 400) },
-];
+// Carousel "Khám phá theo món ăn" → API GET /api/v1/home/categories (menu_items).
 
-// Mirrors `cuisines` seed in database.sql (name + slug).
+// Mirrors `cuisines` trong database.sql (Search vẫn dùng tạm; sẽ chuyển API sau).
 export const cuisines = [
   { name: 'Ý', slug: 'italian', sortOrder: 1 },
   { name: 'Mỹ', slug: 'american', sortOrder: 2 },

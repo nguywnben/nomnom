@@ -8,7 +8,8 @@ import Image from '../components/Image.jsx';
 import Logo from '../components/Logo.jsx';
 import Avatar from '../components/Avatar.jsx';
 import { useGeolocationLocalityLabel } from '../hooks/useGeolocationLocalityLabel.js';
-import { categories, helpers, restaurants } from '../data/mock.js';
+import { useHomeCategories } from '../hooks/useHomeCategories.js';
+import { helpers, restaurants } from '../data/mock.js';
 
 // ---------------------------------------------------------------------------
 // Landing page — high-converting food brand splash, NOT a SaaS marketing page.
@@ -67,6 +68,7 @@ const LANDING_HEADER_ELEVATE_AFTER_PX = 16;
 export default function Landing() {
   const [headerElevated, setHeaderElevated] = useState(false);
   const heroLocalityLine = useGeolocationLocalityLabel();
+  const { categories } = useHomeCategories();
 
   useEffect(() => {
     const onScroll = () => {
@@ -262,7 +264,7 @@ export default function Landing() {
               className="group flex w-[100px] shrink-0 flex-col items-center gap-1.5 md:w-[120px]"
             >
               <span className="relative overflow-hidden rounded-pill border border-hairline-strong bg-surface-card transition-shadow group-hover:shadow-soft">
-                <Image src={c.image} alt={c.name} ratio="1" className="h-24 w-24 md:h-28 md:w-28" />
+                <Image src={c.imageUrl} alt={c.name} ratio="1" className="h-24 w-24 md:h-28 md:w-28" />
               </span>
               <span className="text-caption font-medium text-ink">
                 <span aria-hidden="true">{c.emoji} </span>

@@ -7,7 +7,7 @@ import Icon from './Icon.jsx';
 //   border 1px hairline-strong (không đổi viền khi focus; không nhãn trên — chỉ placeholder)
 
 const Input = forwardRef(function Input(
-  { className, fieldClassName, leadingIcon, trailingIcon, error, hint, id, ...props },
+  { className, fieldClassName, leadingIcon, trailingIcon, trailingButton, error, hint, id, ...props },
   ref,
 ) {
   return (
@@ -28,7 +28,19 @@ const Input = forwardRef(function Input(
           className="flex-1 bg-transparent text-body-md text-ink placeholder:text-muted outline-none"
           {...props}
         />
-        {trailingIcon && <Icon name={trailingIcon} size={16} className="text-body" />}
+        {trailingButton ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-body transition-colors hover:text-ink"
+            onClick={trailingButton.onClick}
+            aria-label={trailingButton['aria-label']}
+          >
+            <Icon name={trailingButton.icon} size={18} />
+          </button>
+        ) : (
+          trailingIcon && <Icon name={trailingIcon} size={16} className="text-body" />
+        )}
       </div>
       {hint && !error && <span className="text-caption text-body">{hint}</span>}
       {error && <span className="text-caption text-error">{error}</span>}

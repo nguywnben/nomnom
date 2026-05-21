@@ -15,10 +15,10 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
       {/* Form column */}
       <div className="flex min-h-[100dvh] flex-col">
         <header className="flex items-center justify-between px-base py-base md:px-xl">
-          <Link to="/" aria-label="Về trang chủ NomNom">
+          <Link to="/app" aria-label="Về trang chủ NomNom">
             <Logo size="sm" />
           </Link>
-          <Link to="/" className="text-button text-body hover:text-ink">
+          <Link to="/app" className="text-button text-body hover:text-ink">
             Về trang chủ
           </Link>
         </header>

@@ -53,8 +53,12 @@ export default function Footer() {
             © {new Date().getFullYear()} NomNom
           </div>
           <div className="flex items-center gap-base text-body-sm">
-            <Link to="#" className="text-body hover:text-ink">Điều khoản</Link>
-            <Link to="#" className="text-body hover:text-ink">Bảo mật</Link>
+            <Link to="/dieu-khoan-su-dung" className="text-body hover:text-ink">
+              Điều khoản
+            </Link>
+            <Link to="/chinh-sach-bao-mat" className="text-body hover:text-ink">
+              Bảo mật
+            </Link>
             <Link to="#" className="text-body hover:text-ink">Cookie</Link>
           </div>
         </div>

@@ -5,7 +5,10 @@ import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
-import { categories, helpers, restaurants } from '../../data/mock.js';
+import { helpers, restaurants } from '../../data/mock.js';
+import { useHomeCategories } from '../../hooks/useHomeCategories.js';
+import { useHomePromos } from '../../hooks/useHomePromos.js';
+import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatViInteger, formatVnd } from '../../lib/formatVnd.js';
 
@@ -44,7 +47,9 @@ export default function CustomerHome() {
   const nav = useNavigate();
   const { deliveryLocalityLine } = useOutletContext() ?? {};
   const { orders, addToCart, setCartOpen } = useApp();
-  // Khi tích hợp API: thay bằng isPending / isLoading từ fetch (vd. TanStack Query).
+  const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories();
+  const { promos, loading: promosLoading, error: promosError } = useHomePromos();
+  const exploreScroll = useHorizontalDragScroll();
   const featuredRestaurantsLoading = false;
 
   // Compose a "trending dishes" carousel by pulling 1–2 items from each open restaurant.
@@ -169,27 +174,53 @@ export default function CustomerHome() {
             </Link>
           }
         />
-        <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
-          {categories.map((c) => (
-            <Link
-              key={c.id}
-              to={`/app/search?cuisine=${c.cuisineSlug}`}
-              className="group flex w-[88px] shrink-0 flex-col items-center gap-1.5 md:w-[104px]"
-            >
-              <span className="relative overflow-hidden rounded-pill border border-hairline-strong bg-surface-card transition-shadow group-hover:shadow-soft">
-                <Image
-                  src={c.image}
-                  alt={c.name}
-                  ratio="1"
-                  className="h-20 w-20 md:h-24 md:w-24"
-                />
-              </span>
-              <span className="text-caption font-medium text-ink text-center">
-                <span aria-hidden="true">{c.emoji} </span>
-                {c.name}
-              </span>
-            </Link>
-          ))}
+        <div
+          ref={exploreScroll.ref}
+          onMouseDown={exploreScroll.onMouseDown}
+          onClickCapture={exploreScroll.onClickCapture}
+          className="-mx-base min-w-0 cursor-grab overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          role="region"
+          aria-label="Khám phá theo món ăn — cuộn ngang"
+        >
+          <div className="flex w-max flex-nowrap gap-base">
+            {categoriesLoading &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex w-[88px] shrink-0 flex-col items-center gap-1.5 md:w-[104px]">
+                  <Skeleton className="h-20 w-20 rounded-pill md:h-24 md:w-24" />
+                  <Skeleton className="h-3 w-14 rounded-sm" />
+                </div>
+              ))}
+            {!categoriesLoading && categoriesError && (
+              <p className="px-2 text-body-sm text-body">{categoriesError}</p>
+            )}
+            {!categoriesLoading &&
+              !categoriesError &&
+              categories.map((c) => (
+                <Link
+                  key={c.id}
+                  to={
+                    c.cuisineSlug
+                      ? `/app/search?cuisine=${c.cuisineSlug}`
+                      : `/app/search?q=${encodeURIComponent(c.name)}`
+                  }
+                  className="group flex w-[88px] shrink-0 flex-col items-center gap-1.5 md:w-[104px]"
+                  title={c.restaurantName ? `${c.name} · ${c.restaurantName}` : c.name}
+                  draggable={false}
+                >
+                  <span className="relative overflow-hidden rounded-pill border border-hairline-strong bg-surface-card transition-shadow group-hover:shadow-soft">
+                    <Image
+                      src={c.imageUrl}
+                      alt={c.name}
+                      ratio="1"
+                      className="h-20 w-20 md:h-24 md:w-24 pointer-events-none"
+                    />
+                  </span>
+                  <span className="line-clamp-2 text-center text-caption font-medium text-ink pointer-events-none">
+                    {c.name}
+                  </span>
+                </Link>
+              ))}
+          </div>
         </div>
       </section>
 
@@ -198,27 +229,26 @@ export default function CustomerHome() {
       {/* ----------------------------------------------------------------- */}
       <section className="container-page py-xl">
         <div className="grid gap-base md:grid-cols-3">
-          <PromoBanner
-            image={helpers.unsplash('photo-1565299624946-b28f40a0ae38', 1000)}
-            tag="Sử dụng NOMNOM15"
-            title="Giảm 15% cho đơn hàng đầu tiên"
-            sub="Mỗi khách hàng một mã khuyến mãi · Giảm tối đa 250.000 ₫"
-            cta="Nhận ngay"
-          />
-          <PromoBanner
-            image={helpers.unsplash('photo-1551782450-a2132b4ba21d', 1000)}
-            tag="Trưa · 11–2"
-            title="Miễn phí giao hàng cho đơn từ 500.000 ₫"
-            sub="Tránh giờ cao điểm văn phòng · T2–T6"
-            cta="Đặt bữa trưa"
-          />
-          <PromoBanner
-            image={helpers.unsplash('photo-1569718212165-3a8278d5f624', 1000)}
-            tag="Mới mở"
-            title="5 bếp mới tuần này"
-            sub="Thử ngay trước khi kín chỗ"
-            cta="Khám phá"
-          />
+          {promosLoading &&
+            Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-[16/9] w-full rounded-lg" />
+            ))}
+          {!promosLoading && promosError && (
+            <p className="col-span-full text-body-sm text-body md:col-span-3">{promosError}</p>
+          )}
+          {!promosLoading &&
+            !promosError &&
+            promos.map((p) => (
+              <PromoBanner
+                key={p.id}
+                image={p.imageUrl}
+                tag={p.tag}
+                title={p.title}
+                sub={p.subtitle}
+                cta={p.ctaLabel}
+                linkUrl={p.linkUrl}
+              />
+            ))}
         </div>
       </section>
 
@@ -409,10 +439,10 @@ function SectionHeader({ caption, title, right }) {
   );
 }
 
-function PromoBanner({ image, tag, title, sub, cta }) {
-  return (
-    <button type="button" className="group relative isolate aspect-[16/9] overflow-hidden rounded-lg text-left">
-      <Image src={image} alt="" ratio="16/9" className="absolute inset-0 h-full w-full transition-transform group-hover:scale-105" />
+function PromoBanner({ image, tag, title, sub, cta, linkUrl }) {
+  const inner = (
+    <>
+      <Image src={image} alt={title} ratio="16/9" className="absolute inset-0 h-full w-full transition-transform group-hover:scale-105" />
       <div className="absolute inset-0 bg-gradient-to-r from-ink/85 via-ink/45 to-transparent" />
       <div className="relative flex h-full flex-col justify-between p-base text-on-dark">
         <Badge tone="dark" className="self-start !bg-canvas/15 !text-on-dark backdrop-blur">
@@ -426,6 +456,23 @@ function PromoBanner({ image, tag, title, sub, cta }) {
           </span>
         </div>
       </div>
+    </>
+  );
+
+  const className =
+    'group relative isolate block aspect-[16/9] overflow-hidden rounded-lg text-left transition-shadow hover:shadow-soft';
+
+  if (linkUrl) {
+    return (
+      <Link to={linkUrl} className={className}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className={className}>
+      {inner}
     </button>
   );
 }

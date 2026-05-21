@@ -5,7 +5,7 @@ export default function Tabs({ items, value, onChange, className }) {
     <div
       role="tablist"
       className={clsx(
-        'inline-flex items-center gap-1 rounded-md border border-hairline-strong bg-surface-card p-1',
+        'inline-flex w-fit max-w-full items-center gap-1 rounded-md border border-hairline-strong bg-surface-card p-1',
         className,
       )}
     >

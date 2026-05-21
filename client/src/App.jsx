@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import ToastViewport from './components/Toast.jsx';
+import RequireAuth from './components/RequireAuth.jsx';
 import Landing from './pages/Landing.jsx';
 import PartnerFaq from './pages/PartnerFaq.jsx';
 import MerchantPartnerContact from './pages/MerchantPartnerContact.jsx';
@@ -12,6 +13,8 @@ import RegisterPage from './pages/auth/Register.jsx';
 import ForgotPasswordPage from './pages/auth/ForgotPassword.jsx';
 import VerifyOtpPage from './pages/auth/VerifyOtp.jsx';
 import ResetPasswordPage from './pages/auth/ResetPassword.jsx';
+import TermsOfServicePage from './pages/legal/TermsOfService.jsx';
+import PrivacyPolicyPage from './pages/legal/PrivacyPolicy.jsx';
 
 // Customer
 import CustomerLayout from './modules/customer/CustomerLayout.jsx';
@@ -88,6 +91,8 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/verify-otp" element={<VerifyOtpPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/dieu-khoan-su-dung" element={<TermsOfServicePage />} />
+        <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicyPage />} />
 
         <Route path="/app" element={<CustomerLayout />}>
           <Route index element={<CustomerHome />} />
@@ -110,45 +115,50 @@ export default function App() {
         </Route>
 
         {/* Merchant onboarding/pending — không dùng layout chính */}
-        <Route path="/merchant/onboarding" element={<MerchantOnboarding />} />
-        <Route path="/merchant/pending" element={<MerchantPending />} />
+        <Route element={<RequireAuth role="merchant" />}>
+          <Route path="/merchant/onboarding" element={<MerchantOnboarding />} />
+          <Route path="/merchant/pending" element={<MerchantPending />} />
 
-        <Route path="/merchant" element={<MerchantLayout />}>
-          <Route index element={<MerchantDashboard />} />
-          <Route path="orders" element={<MerchantOrders />} />
-          <Route path="menu" element={<MerchantMenu />} />
-          <Route path="promotions" element={<MerchantPromotions />} />
-          <Route path="reviews" element={<MerchantReviews />} />
-          <Route path="wallet" element={<MerchantWallet />} />
-          <Route path="settings" element={<MerchantSettings />} />
-          <Route path="notifications" element={<MerchantNotifications />} />
+          <Route path="/merchant" element={<MerchantLayout />}>
+            <Route index element={<MerchantDashboard />} />
+            <Route path="orders" element={<MerchantOrders />} />
+            <Route path="menu" element={<MerchantMenu />} />
+            <Route path="promotions" element={<MerchantPromotions />} />
+            <Route path="reviews" element={<MerchantReviews />} />
+            <Route path="wallet" element={<MerchantWallet />} />
+            <Route path="settings" element={<MerchantSettings />} />
+            <Route path="notifications" element={<MerchantNotifications />} />
+          </Route>
         </Route>
 
-        {/* Driver onboarding/pending — full-page, không dùng shell mobile */}
-        <Route path="/driver/onboarding" element={<DriverOnboarding />} />
-        <Route path="/driver/pending" element={<DriverPending />} />
+        <Route element={<RequireAuth role="driver" />}>
+          <Route path="/driver/onboarding" element={<DriverOnboarding />} />
+          <Route path="/driver/pending" element={<DriverPending />} />
 
-        <Route path="/driver" element={<DriverShell />}>
-          <Route index element={<DriverHome />} />
-          <Route path="jobs" element={<DriverJobs />} />
-          <Route path="active" element={<DriverActive />} />
-          <Route path="wallet" element={<DriverWallet />} />
-          <Route path="payouts" element={<DriverPayouts />} />
-          <Route path="trips" element={<DriverTrips />} />
-          <Route path="notifications" element={<DriverNotifications />} />
-          <Route path="account" element={<DriverAccount />} />
+          <Route path="/driver" element={<DriverShell />}>
+            <Route index element={<DriverHome />} />
+            <Route path="jobs" element={<DriverJobs />} />
+            <Route path="active" element={<DriverActive />} />
+            <Route path="wallet" element={<DriverWallet />} />
+            <Route path="payouts" element={<DriverPayouts />} />
+            <Route path="trips" element={<DriverTrips />} />
+            <Route path="notifications" element={<DriverNotifications />} />
+            <Route path="account" element={<DriverAccount />} />
+          </Route>
         </Route>
 
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminOverview />} />
-          <Route path="accounts" element={<AdminAccounts />} />
-          <Route path="financial" element={<AdminFinancial />} />
-          <Route path="restaurants" element={<AdminRestaurantApprovals />} />
-          <Route path="drivers" element={<AdminDriverApprovals />} />
-          <Route path="payouts" element={<AdminPayouts />} />
-          <Route path="orders" element={<AdminOrders />} />
-          <Route path="reviews" element={<AdminReviewsModeration />} />
-          <Route path="config" element={<AdminConfig />} />
+        <Route element={<RequireAuth role="admin" />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="accounts" element={<AdminAccounts />} />
+            <Route path="financial" element={<AdminFinancial />} />
+            <Route path="restaurants" element={<AdminRestaurantApprovals />} />
+            <Route path="drivers" element={<AdminDriverApprovals />} />
+            <Route path="payouts" element={<AdminPayouts />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="reviews" element={<AdminReviewsModeration />} />
+            <Route path="config" element={<AdminConfig />} />
+          </Route>
         </Route>
 
         <Route path="/chat/:id" element={<ChatScreen />} />

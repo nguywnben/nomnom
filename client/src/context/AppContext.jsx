@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   initialOrders,
   initialDriverJobs,
@@ -7,12 +8,11 @@ import {
   initialPayouts,
   initialChats,
   promoCodes,
-  currentCustomer,
-  currentDriver,
-  currentMerchant,
-  currentAdmin,
 } from '../data/mock.js';
 import { formatVnd } from '../lib/formatVnd.js';
+import { buildAuthedRoles } from '../lib/auth.js';
+import { clearTokens, hasStoredSession, saveTokens } from '../lib/authStorage.js';
+import { fetchMe, loginApi, logoutApi, registerApi } from '../lib/api.js';
 
 const AppContext = createContext(null);
 
@@ -20,23 +20,71 @@ let toastId = 0;
 const newId = () => `id-${Date.now()}-${++toastId}`;
 
 export function AppProvider({ children }) {
+  const navigate = useNavigate();
+
   // Auth / role
-  const [role, setRole] = useState('customer'); // 'customer' | 'merchant' | 'driver' | 'admin'
-  const [authedRoles, setAuthedRoles] = useState({
-    customer: true,
-    merchant: true,
-    driver: true,
-    admin: true,
-  });
+  const [role, setRole] = useState('customer');
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  const authedRoles = useMemo(
+    () => (user ? buildAuthedRoles(user.roles) : buildAuthedRoles([])),
+    [user],
+  );
+
+  const currentCustomer = useMemo(() => {
+    if (!user || !authedRoles.customer) return null;
+    return {
+      id: String(user.id),
+      name: user.fullName,
+      email: user.email ?? '',
+      phone: user.phone ?? '',
+      avatar: user.avatarUrl,
+      address: '',
+    };
+  }, [user, authedRoles.customer]);
+
+  const currentDriver = useMemo(() => {
+    if (!user || !authedRoles.driver) return null;
+    return {
+      id: String(user.id),
+      name: user.fullName,
+      email: user.email ?? '',
+      phone: user.phone ?? '',
+      avatar: user.avatarUrl,
+      vehicle: '—',
+      rating: 4.9,
+      trips: 0,
+    };
+  }, [user, authedRoles.driver]);
+
+  const currentMerchant = useMemo(() => {
+    if (!user || !authedRoles.merchant) return null;
+    return {
+      id: String(user.id),
+      name: user.fullName,
+      email: user.email ?? '',
+      avatar: user.avatarUrl,
+      restaurantId: 'r-1',
+    };
+  }, [user, authedRoles.merchant]);
+
+  const currentAdmin = useMemo(() => {
+    if (!user || !authedRoles.admin) return null;
+    return {
+      id: String(user.id),
+      name: user.fullName,
+      email: user.email ?? '',
+      avatar: user.avatarUrl,
+      role: 'Quản trị viên',
+    };
+  }, [user, authedRoles.admin]);
 
   // Cart (customer)
   const [cart, setCart] = useState({ restaurantId: null, items: [] });
   const [cartOpen, setCartOpen] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [syncing, setSyncing] = useState(false);
-
-  // Auth modal
-  const [authModal, setAuthModal] = useState({ open: false, mode: 'login' });
 
   // Toasts
   const [toasts, setToasts] = useState([]);
@@ -188,7 +236,7 @@ export function AppProvider({ children }) {
         new: [
           {
             id: order.id,
-            customerName: currentCustomer.name,
+            customerName: currentCustomer?.name ?? 'Khách',
             items: cart.items,
             total: cartTotal,
             placedAt: order.placedAt,
@@ -200,7 +248,7 @@ export function AppProvider({ children }) {
       clearCart();
       return order;
     },
-    [cart, cartSubtotal, deliveryFee, discount, cartTotal, clearCart],
+    [cart, cartSubtotal, deliveryFee, discount, cartTotal, clearCart, currentCustomer],
   );
 
   // ---- Driver helpers ----
@@ -301,6 +349,67 @@ export function AppProvider({ children }) {
     }, 1200 + Math.random() * 1200);
   }, []);
 
+  // Khôi phục phiên JWT khi reload trang
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!hasStoredSession()) {
+        if (!cancelled) setAuthReady(true);
+        return;
+      }
+      try {
+        const { user: me } = await fetchMe();
+        if (!cancelled) {
+          setUser(me);
+          setRole(me.primaryRole);
+        }
+      } catch {
+        clearTokens();
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const login = useCallback(async (email, password) => {
+    const data = await loginApi(email, password);
+    saveTokens(data.accessToken, data.refreshToken);
+    setUser(data.user);
+    setRole(data.user.primaryRole);
+    return data.user;
+  }, []);
+
+  const register = useCallback(async ({ fullName, email, phone, password }) => {
+    const data = await registerApi({ fullName, email, phone, password });
+    saveTokens(data.accessToken, data.refreshToken);
+    setUser(data.user);
+    setRole('customer');
+    return data.user;
+  }, []);
+
+  const logout = useCallback(
+    async ({ redirectTo = '/app', silent = false } = {}) => {
+      await logoutApi().catch(() => {});
+      clearTokens();
+      setUser(null);
+      setRole('customer');
+      clearCart();
+      if (!silent) {
+        pushToast({
+          kind: 'info',
+          title: 'Đã đăng xuất',
+          message: 'Hẹn gặp lại bạn ở NomNom.',
+          duration: 2800,
+        });
+      }
+      navigate(redirectTo, { replace: true });
+    },
+    [clearCart, navigate, pushToast],
+  );
+
   // Simulate live "new order" pings to merchant every ~25s if window stays open
   useEffect(() => {
     if (role !== 'merchant') return undefined;
@@ -338,8 +447,12 @@ export function AppProvider({ children }) {
   const value = {
     role,
     setRole,
+    user,
+    authReady,
+    login,
+    register,
+    logout,
     authedRoles,
-    setAuthedRoles,
 
     cart,
     cartOpen,
@@ -357,9 +470,6 @@ export function AppProvider({ children }) {
     setItemQty,
     removeFromCart,
     clearCart,
-
-    authModal,
-    setAuthModal,
 
     toasts,
     pushToast,

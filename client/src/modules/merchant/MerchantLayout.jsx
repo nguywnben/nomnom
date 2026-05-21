@@ -30,7 +30,7 @@ const links = [
 // ---------------------------------------------------------------------------
 export default function MerchantLayout() {
   const nav = useNavigate();
-  const { currentMerchant, merchantOrders, pushToast } = useApp();
+  const { currentMerchant, merchantOrders, pushToast, logout } = useApp();
   const [restaurantOpen, setRestaurantOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const newCount = merchantOrders.new.length;
@@ -47,6 +47,7 @@ export default function MerchantLayout() {
         currentMerchant={currentMerchant}
         newCount={newCount}
         onSwitchRole={() => nav('/')}
+        onLogout={() => logout()}
       />
 
       {/* Mobile drawer sidebar — off-canvas */}
@@ -62,6 +63,7 @@ export default function MerchantLayout() {
           newCount={newCount}
           onItemClick={() => setDrawerOpen(false)}
           onSwitchRole={() => nav('/')}
+          onLogout={() => logout()}
         />
       </Drawer>
 
@@ -160,7 +162,7 @@ export default function MerchantLayout() {
   );
 }
 
-function DesktopSidebar({ currentMerchant, newCount, onSwitchRole }) {
+function DesktopSidebar({ currentMerchant, newCount, onSwitchRole, onLogout }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-[244px] flex-col border-r border-hairline bg-surface-card md:flex">
       <div className="flex h-16 items-center px-base">
@@ -173,12 +175,13 @@ function DesktopSidebar({ currentMerchant, newCount, onSwitchRole }) {
         currentMerchant={currentMerchant}
         newCount={newCount}
         onSwitchRole={onSwitchRole}
+        onLogout={onLogout}
       />
     </aside>
   );
 }
 
-function SidebarContent({ currentMerchant, newCount, onItemClick, onSwitchRole }) {
+function SidebarContent({ currentMerchant, newCount, onItemClick, onSwitchRole, onLogout }) {
   return (
     <>
       <nav className="flex-1 px-sm py-2">
@@ -212,14 +215,28 @@ function SidebarContent({ currentMerchant, newCount, onItemClick, onSwitchRole }
             <div className="text-body-sm font-semibold text-ink truncate">{currentMerchant.name}</div>
             <div className="text-caption text-body truncate">{currentMerchant.email}</div>
           </div>
-          <button
-            onClick={onSwitchRole}
-            className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
-            aria-label="Chuyển vai trò"
-            title="Chuyển vai trò"
-          >
-            <Icon name="refresh" size={14} />
-          </button>
+          <div className="flex shrink-0 gap-0.5">
+            <button
+              type="button"
+              onClick={onSwitchRole}
+              className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
+              aria-label="Chuyển vai trò"
+              title="Chuyển vai trò"
+            >
+              <Icon name="refresh" size={14} />
+            </button>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="grid h-9 w-9 place-items-center rounded-md text-error hover:bg-canvas-soft"
+                aria-label="Đăng xuất"
+                title="Đăng xuất"
+              >
+                <Icon name="x" size={14} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </>

@@ -7,7 +7,6 @@ import MobileTopBar from './MobileTopBar.jsx';
 import MobileBottomNav from './MobileBottomNav.jsx';
 import Footer from './Footer.jsx';
 import CartDrawer from './CartDrawer.jsx';
-import AuthModal from './AuthModal.jsx';
 import ChatWidget from '../chat/ChatWidget.jsx';
 
 // ---------------------------------------------------------------------------
@@ -68,7 +67,6 @@ export default function CustomerLayout() {
 
       {/* Overlays — internally responsive (centered on desktop / bottom-sheet on mobile) */}
       <CartDrawer />
-      <AuthModal />
       <ChatWidget />
     </div>
   );

@@ -1,4 +1,4 @@
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import clsx from 'clsx';
 import Button from '../../components/Button.jsx';
@@ -6,6 +6,7 @@ import Logo from '../../components/Logo.jsx';
 import Icon from '../../components/Icon.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { loginHref } from '../../lib/auth.js';
 
 const links = [
   { to: '/app', label: 'Trang chủ', end: true },
@@ -23,8 +24,10 @@ const HEADER_NAV_BUTTON_BADGE =
 // Trên /app (trang chủ): fixed + overlay hero giống trang "/".
 // Hidden on mobile (replaced by <MobileTopBar /> + <MobileBottomNav />).
 export default function TopNav() {
-  const { pathname } = useLocation();
-  const { cartCount, setCartOpen, authedRoles, setAuthModal, currentCustomer, orders } = useApp();
+  const { pathname, search } = useLocation();
+  const nav = useNavigate();
+  const returnTo = pathname + search;
+  const { cartCount, setCartOpen, authedRoles, currentCustomer, orders, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
 
@@ -156,8 +159,12 @@ export default function TopNav() {
                     Đổi vai trò
                   </Link>
                   <button
-                    onClick={() => setMenuOpen(false)}
-                    className="block w-full rounded-sm px-sm py-2 text-left hover:bg-canvas-soft text-ink"
+                    type="button"
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      await logout();
+                    }}
+                    className="block w-full rounded-sm px-sm py-2 text-left text-error hover:bg-canvas-soft"
                   >
                     Đăng xuất
                   </button>
@@ -165,23 +172,17 @@ export default function TopNav() {
               )}
             </div>
           ) : (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                className={clsx(
-                  'transition-[background-color,border-color,color] duration-300 ease-out',
-                  onHeroDark &&
-                    '!border-canvas/30 !bg-canvas/15 !text-on-dark hover:!bg-canvas/20',
-                )}
-                onClick={() => setAuthModal({ open: true, mode: 'login' })}
-              >
-                Đăng nhập
-              </Button>
-              <Button size="sm" onClick={() => setAuthModal({ open: true, mode: 'register' })}>
-                Đăng ký
-              </Button>
-            </>
+            <Button
+              size="sm"
+              className={clsx(
+                'transition-[background-color,border-color,color] duration-300 ease-out',
+                onHeroDark &&
+                  '!border-canvas/30 !bg-canvas/15 !text-on-dark hover:!bg-canvas/20',
+              )}
+              onClick={() => nav(loginHref(returnTo))}
+            >
+              Đăng nhập / Đăng ký
+            </Button>
           )}
         </div>
       </div>

@@ -25,7 +25,7 @@ const MENU = [
 
 export default function DriverAccount() {
   const nav = useNavigate();
-  const { currentDriver, driverOnline, pushToast } = useApp();
+  const { currentDriver, driverOnline, logout, pushToast } = useApp();
 
   return (
     <div className="flex flex-col gap-base p-base">
@@ -124,9 +124,7 @@ export default function DriverAccount() {
         <Button
           variant="secondary"
           className="!text-error !border-error/40 hover:!bg-[#fbeaea]"
-          onClick={() =>
-            pushToast({ kind: 'error', title: 'Đã đăng xuất', message: 'Bạn đã đăng xuất.' })
-          }
+          onClick={() => logout()}
         >
           Đăng xuất
         </Button>

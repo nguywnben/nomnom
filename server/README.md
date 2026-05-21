@@ -1,18 +1,48 @@
 # NomNom Server
 
-The backend API for the NomNom food delivery platform.
+API Node.js (Express + MySQL) cho frontend NomNom.
 
-## 🚀 Roadmap
+## Yêu cầu
 
-- [ ] Initialize Express/Node.js server.
-- [ ] Database schema design (Users, Orders, Restaurants).
-- [ ] Authentication (JWT).
-- [ ] Socket.IO integration for real-time chat and tracking.
-- [ ] Payment gateway integration.
+- Node.js 18+
+- MySQL 8 với database `nomnom` (import `database.sql` ở thư mục gốc repo)
 
-## 🛠 Tech Stack (Planned)
+## Cài đặt & chạy
 
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Database**: PostgreSQL / MongoDB
-- **Real-time**: Socket.IO
+```bash
+cd server
+cp .env.example .env
+# Sửa DB_PASSWORD trong .env
+npm install
+npm run dev
+```
+
+API mặc định: `http://localhost:3001`
+
+## Endpoints
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/api/health` | Health check |
+| GET | `/api/v1/home/categories` | Carousel "Khám phá theo món ăn" — từ `menu_items` (`/app`) |
+| GET | `/api/v1/home/promos` | 3 banner khuyến mãi — từ `home_promo_banners` (`/app`) |
+
+Nếu DB cũ thiếu bảng banner:
+
+```bash
+mysql -u root -p nomnom < sql/002_home_promo_banners.sql
+```
+
+## Frontend
+
+Vite proxy `/api` → `localhost:3001` (xem `client/vite.config.js`).
+
+Chạy song song:
+
+```bash
+# terminal 1
+cd server && npm run dev
+
+# terminal 2
+cd client && npm run dev
+```

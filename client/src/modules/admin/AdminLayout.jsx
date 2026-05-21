@@ -30,7 +30,7 @@ const links = [
 // ---------------------------------------------------------------------------
 export default function AdminLayout() {
   const nav = useNavigate();
-  const { currentAdmin } = useApp();
+  const { currentAdmin, logout } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -61,7 +61,11 @@ export default function AdminLayout() {
         )}
         <SidebarLinks collapsed={collapsed} />
         {!collapsed && (
-          <SidebarFooter currentAdmin={currentAdmin} onSwitchRole={() => nav('/')} />
+          <SidebarFooter
+            currentAdmin={currentAdmin}
+            onSwitchRole={() => nav('/')}
+            onLogout={() => logout()}
+          />
         )}
       </aside>
 
@@ -74,7 +78,11 @@ export default function AdminLayout() {
         width="md"
       >
         <SidebarLinks collapsed={false} onItemClick={() => setDrawerOpen(false)} />
-        <SidebarFooter currentAdmin={currentAdmin} onSwitchRole={() => nav('/')} />
+        <SidebarFooter
+          currentAdmin={currentAdmin}
+          onSwitchRole={() => nav('/')}
+          onLogout={() => logout()}
+        />
       </Drawer>
 
       {/* Main column */}
@@ -170,7 +178,7 @@ function SidebarLinks({ collapsed, onItemClick }) {
   );
 }
 
-function SidebarFooter({ currentAdmin, onSwitchRole }) {
+function SidebarFooter({ currentAdmin, onSwitchRole, onLogout }) {
   return (
     <div className="border-t border-hairline p-sm">
       <div className="flex items-center gap-sm">
@@ -179,13 +187,28 @@ function SidebarFooter({ currentAdmin, onSwitchRole }) {
           <div className="text-body-sm font-semibold text-ink truncate">{currentAdmin.name}</div>
           <div className="text-caption text-body truncate">{currentAdmin.role}</div>
         </div>
-        <button
-          onClick={onSwitchRole}
-          className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
-          aria-label="Chuyển vai trò"
-        >
-          <Icon name="refresh" size={14} />
-        </button>
+        <div className="flex shrink-0 gap-0.5">
+          <button
+            type="button"
+            onClick={onSwitchRole}
+            className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
+            aria-label="Chuyển vai trò"
+            title="Chuyển vai trò"
+          >
+            <Icon name="refresh" size={14} />
+          </button>
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="grid h-9 w-9 place-items-center rounded-md text-error hover:bg-canvas-soft"
+              aria-label="Đăng xuất"
+              title="Đăng xuất"
+            >
+              <Icon name="x" size={14} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -30,7 +30,7 @@ export default function CustomerCheckout() {
     currentCustomer,
   } = useApp();
   const [payment, setPayment] = useState('card');
-  const [address, setAddress] = useState(currentCustomer.address);
+  const [address, setAddress] = useState(currentCustomer?.address ?? '');
   const [note, setNote] = useState('');
   const [placing, setPlacing] = useState(false);
 
@@ -121,7 +121,7 @@ export default function CustomerCheckout() {
                 leadingIcon="phone"
                 placeholder="Số điện thoại"
                 aria-label="Số điện thoại"
-                value={currentCustomer.phone}
+                value={currentCustomer?.phone ?? ''}
                 readOnly
                 hint="Tài xế có thể gọi số này để giao hàng."
               />

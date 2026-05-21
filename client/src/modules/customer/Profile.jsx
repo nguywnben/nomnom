@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Avatar from '../../components/Avatar.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
@@ -17,16 +17,12 @@ const SETTINGS = [
 ];
 
 export default function CustomerProfile() {
-  const { currentCustomer, orders, authedRoles, setAuthModal, setAuthedRoles, clearCart, pushToast } = useApp();
+  const { pathname, search } = useLocation();
+  const nav = useNavigate();
+  const { currentCustomer, orders, authedRoles, logout } = useApp();
 
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
   const activeCount = orders.length - deliveredCount;
-
-  const onLogout = () => {
-    setAuthedRoles((cur) => ({ ...cur, customer: false }));
-    clearCart();
-    pushToast({ kind: 'info', title: 'Đã đăng xuất', message: 'Hẹn gặp lại bạn ở NomNom.' });
-  };
 
   return (
     <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
@@ -53,16 +49,13 @@ export default function CustomerProfile() {
           </>
         ) : (
           <div className="flex-1">
-            <div className="text-title-md text-ink">Đăng nhập để có trải nghiệm đầy đủ</div>
+            <div className="text-title-md text-ink">Tham gia NomNom</div>
             <div className="text-caption text-body">
-              Lưu địa chỉ, theo dõi đơn hàng và giữ giỏ hàng giữa các thiết bị.
+              Đăng nhập hoặc tạo tài khoản khách hàng miễn phí — lưu địa chỉ, theo dõi đơn và đồng bộ giỏ hàng.
             </div>
-            <div className="mt-sm flex gap-xs">
-              <Button onClick={() => setAuthModal({ open: true, mode: 'login' })}>Đăng nhập</Button>
-              <Button variant="secondary" onClick={() => setAuthModal({ open: true, mode: 'register' })}>
-                Đăng ký
-              </Button>
-            </div>
+            <Button className="mt-sm" onClick={() => nav(loginHref(pathname + search))}>
+              Đăng nhập hoặc đăng ký
+            </Button>
           </div>
         )}
       </Card>
@@ -134,7 +127,7 @@ export default function CustomerProfile() {
         <Button
           variant="secondary"
           className="!text-error !border-error/40 hover:!bg-[#fbeaea]"
-          onClick={onLogout}
+          onClick={() => logout()}
         >
           Đăng xuất
         </Button>

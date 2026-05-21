@@ -27,7 +27,6 @@ export default function VerifyOtpPage() {
   const purpose = params.get('purpose') || 'register';
   const dest = params.get('dest') || '';
   const next = params.get('next') || '/app';
-  const role = params.get('role') || 'customer';
 
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [seconds, setSeconds] = useState(60);
@@ -79,9 +78,7 @@ export default function VerifyOtpPage() {
       if (purpose === 'reset_password') {
         nav(`/reset-password?token=${encodeURIComponent(code)}`);
       } else if (purpose === 'register') {
-        if (role === 'merchant') nav('/merchant/onboarding');
-        else if (role === 'driver') nav('/driver/onboarding');
-        else nav('/app');
+        nav('/app', { replace: true });
       } else {
         nav(next, { replace: true });
       }
