@@ -8,7 +8,20 @@ import {
   hashToken,
   refreshExpiresAt,
   signAccessToken,
+  verifyPasswordResetToken,
 } from '../lib/auth.js';
+import {
+  applyPasswordReset,
+  createAndSendResetOtp,
+  verifyResetOtpAndIssueToken,
+} from '../lib/passwordReset.js';
+import {
+  createAndSendRegisterOtp,
+  createUserFromPending,
+  getValidRegisterOtp,
+  loadPendingRegistration,
+  savePendingRegistration,
+} from '../lib/registration.js';
 
 const router = Router();
 
@@ -33,7 +46,7 @@ function serializeUser(row, roles) {
   };
 }
 
-async function issueSession(userRow, roles, req) {
+async function issueSession(userRow, roles, req, { remember = true } = {}) {
   const accessToken = signAccessToken(userRow, roles);
   const refreshToken = createRefreshToken();
   const tokenHash = hashToken(refreshToken);
@@ -46,7 +59,7 @@ async function issueSession(userRow, roles, req) {
       tokenHash,
       req.headers['user-agent']?.slice(0, 255) ?? null,
       req.ip ?? null,
-      refreshExpiresAt(),
+      refreshExpiresAt(remember),
     ],
   );
 
@@ -60,93 +73,258 @@ async function issueSession(userRow, roles, req) {
   };
 }
 
+function parseRegisterBody(body) {
+  const requestedRole = body?.role;
+  if (requestedRole && requestedRole !== 'customer') {
+    return { error: 'Đăng ký tại đây chỉ dành cho khách hàng. Tài xế và nhà hàng sẽ có hình thức đăng ký riêng.' };
+  }
+
+  const fullName = String(body?.fullName ?? '').trim();
+  const email = String(body?.email ?? '')
+    .trim()
+    .toLowerCase();
+  const password = String(body?.password ?? '');
+
+  if (!fullName || !email || !password) {
+    return { error: 'Họ tên, email và mật khẩu là bắt buộc.' };
+  }
+  if (password.length < 8) {
+    return { error: 'Mật khẩu phải có ít nhất 8 ký tự.' };
+  }
+
+  return { fullName, email, password };
+}
+
 /**
- * POST /api/v1/auth/register
- * Đăng ký khách hàng (ứng dụng /app). Tài xế & chủ quán có luồng riêng sau.
- * Body: { fullName, email, phone?, password }
+ * POST /api/v1/auth/register/send-code
+ * Lưu thông tin đăng ký tạm và gửi mã OTP qua email.
  */
-router.post('/register', async (req, res, next) => {
+router.post('/register/send-code', async (req, res, next) => {
   try {
-    const requestedRole = req.body?.role;
-    if (requestedRole && requestedRole !== 'customer') {
-      return res.status(400).json({
-        error:
-          'Đăng ký tại đây chỉ dành cho khách hàng. Tài xế và nhà hàng sẽ có hình thức đăng ký riêng.',
-      });
+    const parsed = parseRegisterBody(req.body);
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+    const { fullName, email, password } = parsed;
+
+    const [existingEmail] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
+    if (existingEmail.length) {
+      return res.status(409).json({ error: 'Email này đã được sử dụng.' });
     }
 
-    const fullName = String(req.body?.fullName ?? '').trim();
+    await savePendingRegistration({ email, fullName, password });
+    const meta = await createAndSendRegisterOtp({ email, fullName });
+
+    res.json({
+      ok: true,
+      email,
+      message: 'Đã gửi mã xác minh đến email của bạn.',
+      expiresInMinutes: meta.expiresInMinutes,
+      ...(meta.devOtpLogged ? { devHint: 'SMTP chưa cấu hình — xem mã OTP trong log server.' } : {}),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/auth/register/resend-code
+ * Body: { email }
+ */
+router.post('/register/resend-code', async (req, res, next) => {
+  try {
     const email = String(req.body?.email ?? '')
       .trim()
       .toLowerCase();
-    const phone = String(req.body?.phone ?? '').trim() || null;
-    const password = String(req.body?.password ?? '');
-
-    if (!fullName || !email || !password) {
-      return res.status(400).json({ error: 'Họ tên, email và mật khẩu là bắt buộc.' });
+    if (!email) {
+      return res.status(400).json({ error: 'Email là bắt buộc.' });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Mật khẩu phải có ít nhất 8 ký tự.' });
+
+    const pending = await loadPendingRegistration(email);
+    if (!pending) {
+      return res.status(400).json({
+        error: 'Phiên đăng ký đã hết hạn. Vui lòng điền lại form đăng ký.',
+      });
+    }
+
+    const meta = await createAndSendRegisterOtp({ email, fullName: pending.full_name });
+    res.json({
+      ok: true,
+      email,
+      expiresInMinutes: meta.expiresInMinutes,
+      ...(meta.devOtpLogged ? { devHint: 'SMTP chưa cấu hình — xem mã OTP trong log server.' } : {}),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/auth/register/verify
+ * Body: { email, code } — hoàn tất đăng ký sau khi nhập OTP.
+ */
+router.post('/register/verify', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email ?? '')
+      .trim()
+      .toLowerCase();
+    const code = String(req.body?.code ?? '').trim();
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email và mã xác minh là bắt buộc.' });
+    }
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: 'Mã xác minh phải gồm 6 chữ số.' });
+    }
+
+    const otp = await getValidRegisterOtp(email, code);
+    if (!otp.ok) {
+      if (otp.reason === 'locked') {
+        return res.status(429).json({ error: 'Đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.' });
+      }
+      return res.status(400).json({ error: 'Mã xác minh không đúng hoặc đã hết hạn.' });
+    }
+
+    const pending = await loadPendingRegistration(email);
+    if (!pending) {
+      return res.status(400).json({
+        error: 'Phiên đăng ký đã hết hạn. Vui lòng đăng ký lại từ đầu.',
+      });
     }
 
     const [existingEmail] = await pool.query('SELECT id FROM users WHERE email = ? LIMIT 1', [email]);
     if (existingEmail.length) {
       return res.status(409).json({ error: 'Email này đã được sử dụng.' });
     }
-    if (phone) {
-      const [existingPhone] = await pool.query('SELECT id FROM users WHERE phone = ? LIMIT 1', [phone]);
-      if (existingPhone.length) {
-        return res.status(409).json({ error: 'Số điện thoại này đã được sử dụng.' });
-      }
-    }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(fullName)}&radius=50`;
-
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
-
-      const [insertUser] = await conn.query(
-        `INSERT INTO users (email, phone, password_hash, full_name, avatar_url, primary_role, status, email_verified_at)
-         VALUES (?, ?, ?, ?, ?, 'customer', 'active', NOW())`,
-        [email, phone, passwordHash, fullName, avatarUrl],
-      );
-      const userId = insertUser.insertId;
-
-      await conn.query('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', [userId, 'customer']);
-      await conn.query('INSERT INTO customer_profiles (user_id) VALUES (?)', [userId]);
-
-      await conn.commit();
-
-      const userRow = {
-        id: userId,
-        email,
-        phone,
-        full_name: fullName,
-        avatar_url: avatarUrl,
-        primary_role: 'customer',
-        status: 'active',
-      };
-      const session = await issueSession(userRow, ['customer'], req);
-      res.status(201).json(session);
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-    } finally {
-      conn.release();
-    }
+    const userRow = await createUserFromPending(pending);
+    const session = await issueSession(userRow, ['customer'], req);
+    res.status(201).json(session);
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'Email hoặc số điện thoại đã tồn tại.' });
+      return res.status(409).json({ error: 'Email này đã được sử dụng.' });
     }
     next(err);
   }
 });
 
 /**
+ * POST /api/v1/auth/forgot-password/send-code
+ * Body: { email }
+ */
+router.post('/forgot-password/send-code', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email ?? '')
+      .trim()
+      .toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: 'Email là bắt buộc.' });
+    }
+
+    const meta = await createAndSendResetOtp(email);
+    res.json({
+      ok: true,
+      email,
+      message:
+        'Nếu email đã đăng ký trong NomNom, bạn sẽ nhận mã 6 chữ số trong hộp thư (kể cả thư rác).',
+      expiresInMinutes: meta.expiresInMinutes,
+      ...(meta.devOtpLogged ? { devHint: 'SMTP chưa cấu hình — xem mã OTP trong log server.' } : {}),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/auth/forgot-password/resend-code
+ * Body: { email }
+ */
+router.post('/forgot-password/resend-code', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email ?? '')
+      .trim()
+      .toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: 'Email là bắt buộc.' });
+    }
+
+    const meta = await createAndSendResetOtp(email);
+    res.json({
+      ok: true,
+      email,
+      expiresInMinutes: meta.expiresInMinutes,
+      ...(meta.devOtpLogged ? { devHint: 'SMTP chưa cấu hình — xem mã OTP trong log server.' } : {}),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/auth/forgot-password/verify
+ * Body: { email, code }
+ */
+router.post('/forgot-password/verify', async (req, res, next) => {
+  try {
+    const email = String(req.body?.email ?? '')
+      .trim()
+      .toLowerCase();
+    const code = String(req.body?.code ?? '').trim();
+
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email và mã xác minh là bắt buộc.' });
+    }
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: 'Mã xác minh phải gồm 6 chữ số.' });
+    }
+
+    const result = await verifyResetOtpAndIssueToken(email, code);
+    if (!result.ok) {
+      if (result.reason === 'locked') {
+        return res.status(429).json({ error: 'Đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.' });
+      }
+      return res.status(400).json({ error: 'Mã xác minh không đúng hoặc đã hết hạn.' });
+    }
+
+    res.json({ ok: true, resetToken: result.resetToken });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/auth/forgot-password/reset
+ * Body: { resetToken, password }
+ */
+router.post('/forgot-password/reset', async (req, res, next) => {
+  try {
+    const resetToken = String(req.body?.resetToken ?? '').trim();
+    const password = String(req.body?.password ?? '');
+
+    if (!resetToken || !password) {
+      return res.status(400).json({ error: 'Token và mật khẩu mới là bắt buộc.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Mật khẩu phải có ít nhất 8 ký tự.' });
+    }
+
+    let payload;
+    try {
+      payload = verifyPasswordResetToken(resetToken);
+    } catch {
+      return res.status(400).json({ error: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.' });
+    }
+
+    await applyPasswordReset(payload.userId, payload.email, password);
+    res.json({ ok: true, message: 'Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /api/v1/auth/login
- * Body: { email, password }
+ * Body: { email, password, rememberMe?: boolean }
  */
 router.post('/login', async (req, res, next) => {
   try {
@@ -154,6 +332,7 @@ router.post('/login', async (req, res, next) => {
       .trim()
       .toLowerCase();
     const password = String(req.body?.password ?? '');
+    const remember = req.body?.rememberMe !== false;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email và mật khẩu là bắt buộc.' });
@@ -182,8 +361,8 @@ router.post('/login', async (req, res, next) => {
       roles.push(user.primary_role);
     }
 
-    const session = await issueSession(user, roles, req);
-    res.json(session);
+    const session = await issueSession(user, roles, req, { remember });
+    res.json({ ...session, rememberMe: remember });
   } catch (err) {
     next(err);
   }

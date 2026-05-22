@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import ToastViewport from './components/Toast.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
+import RedirectIfAuthed from './components/RedirectIfAuthed.jsx';
 import Landing from './pages/Landing.jsx';
 import PartnerFaq from './pages/PartnerFaq.jsx';
 import MerchantPartnerContact from './pages/MerchantPartnerContact.jsx';
@@ -85,12 +86,14 @@ export default function App() {
         <Route path="/faq" element={<PartnerFaq />} />
         <Route path="/hop-tac" element={<MerchantPartnerContact />} />
 
-        {/* Auth */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/verify-otp" element={<VerifyOtpPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* Auth — đã đăng nhập thì không vào, chuyển /app */}
+        <Route element={<RedirectIfAuthed />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/verify-otp" element={<VerifyOtpPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        </Route>
         <Route path="/dieu-khoan-su-dung" element={<TermsOfServicePage />} />
         <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicyPage />} />
 

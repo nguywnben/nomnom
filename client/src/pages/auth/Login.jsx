@@ -6,6 +6,7 @@ import Input from '../../components/Input.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { resolveLoginRedirect } from '../../lib/auth.js';
+import { getRememberLoginPref } from '../../lib/authStorage.js';
 
 export default function LoginPage() {
   const nav = useNavigate();
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => getRememberLoginPref());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,7 +35,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const user = await login(email.trim(), password);
+      const user = await login(email.trim(), password, { remember: rememberMe });
       pushToast({ kind: 'success', title: 'Đăng nhập thành công', message: `Chào ${user.fullName}!` });
       nav(resolveLoginRedirect(nextPath, user), { replace: true });
     } catch (err) {
@@ -102,8 +104,14 @@ export default function LoginPage() {
                   : undefined
               }
             />
-            <label className="inline-flex items-center gap-2 text-caption text-body">
-              <input type="checkbox" className="accent-black" /> Ghi nhớ đăng nhập
+            <label className="inline-flex cursor-pointer items-center gap-2 text-caption text-body">
+              <input
+                type="checkbox"
+                className="accent-black"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              Ghi nhớ đăng nhập
             </label>
           </>
         ) : (

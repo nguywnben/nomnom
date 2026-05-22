@@ -77,13 +77,40 @@ export function apiPost(path, body) {
 }
 
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
-export function loginApi(email, password) {
-  return apiPost('/api/v1/auth/login', { email, password });
+export function loginApi(email, password, rememberMe = true) {
+  return apiPost('/api/v1/auth/login', { email, password, rememberMe });
 }
 
-/** Đăng ký khách hàng — POST /api/v1/auth/register */
-export function registerApi({ fullName, email, phone, password }) {
-  return apiPost('/api/v1/auth/register', { fullName, email, phone, password });
+/** Gửi mã OTP đăng ký qua email */
+export function registerSendCodeApi({ fullName, email, password }) {
+  return apiPost('/api/v1/auth/register/send-code', { fullName, email, password });
+}
+
+/** Xác minh OTP và tạo tài khoản */
+export function registerVerifyApi({ email, code }) {
+  return apiPost('/api/v1/auth/register/verify', { email, code });
+}
+
+/** Gửi lại mã OTP đăng ký */
+export function registerResendCodeApi(email) {
+  return apiPost('/api/v1/auth/register/resend-code', { email });
+}
+
+/** Quên mật khẩu — gửi OTP email */
+export function forgotPasswordSendCodeApi(email) {
+  return apiPost('/api/v1/auth/forgot-password/send-code', { email });
+}
+
+export function forgotPasswordResendCodeApi(email) {
+  return apiPost('/api/v1/auth/forgot-password/resend-code', { email });
+}
+
+export function forgotPasswordVerifyApi({ email, code }) {
+  return apiPost('/api/v1/auth/forgot-password/verify', { email, code });
+}
+
+export function resetPasswordApi({ resetToken, password }) {
+  return apiPost('/api/v1/auth/forgot-password/reset', { resetToken, password });
 }
 
 export function fetchMe() {

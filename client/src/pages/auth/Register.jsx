@@ -5,15 +5,12 @@ import Button from '../../components/Button.jsx';
 import Input from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 
-// Đăng ký khách hàng — primary_role = customer (luồng /app).
-// Tài xế & nhà hàng đăng ký qua kênh riêng (sẽ bổ sung sau).
 export default function RegisterPage() {
   const nav = useNavigate();
-  const { register, pushToast } = useApp();
+  const { registerSendCode, pushToast } = useApp();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [agree, setAgree] = useState(false);
@@ -29,20 +26,24 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      await register({
+      const trimmedEmail = email.trim().toLowerCase();
+      await registerSendCode({
         fullName: fullName.trim(),
-        email: email.trim(),
-        phone: phone.trim() || undefined,
+        email: trimmedEmail,
         password,
       });
       pushToast({
-        kind: 'success',
-        title: 'Tạo tài khoản thành công',
-        message: 'Chào mừng bạn đến với NomNom!',
+        kind: 'info',
+        title: 'Đã gửi mã xác minh',
+        message: `Kiểm tra hộp thư ${trimmedEmail} (cả thư rác) để lấy mã 6 số.`,
+        duration: 5000,
       });
-      nav('/app', { replace: true });
+      nav(
+        `/verify-otp?purpose=register&dest=${encodeURIComponent(trimmedEmail)}`,
+        { replace: true },
+      );
     } catch (err) {
-      setError(err.message ?? 'Đăng ký thất bại.');
+      setError(err.message ?? 'Không gửi được mã xác minh.');
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export default function RegisterPage() {
   return (
     <AuthLayout
       title="Tạo tài khoản khách hàng"
-      subtitle="Đặt món, theo dõi đơn hàng và nhận ưu đãi — chỉ dành cho người dùng ứng dụng khách."
+      subtitle="Nhập thông tin — chúng tôi sẽ gửi mã 6 số qua email để hoàn tất đăng ký."
       footer={
         <span>
           Đã có tài khoản?{' '}
@@ -79,17 +80,7 @@ export default function RegisterPage() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          hint="Dùng email này để đăng nhập sau này."
-        />
-        <Input
-          leadingIcon="phone"
-          placeholder="Số điện thoại (tuỳ chọn)"
-          aria-label="Số điện thoại"
-          inputMode="tel"
-          autoComplete="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          hint="Để nhận thông báo đơn hàng qua SMS."
+          hint="Mã xác minh sẽ được gửi đến email này."
         />
         <Input
           type={showPw ? 'text' : 'password'}
@@ -131,11 +122,21 @@ export default function RegisterPage() {
           />
           <span>
             Tôi đồng ý với{' '}
-            <Link to="/dieu-khoan-su-dung" className="text-text-link hover:underline" target="_blank" rel="noopener noreferrer">
+            <Link
+              to="/dieu-khoan-su-dung"
+              className="text-text-link hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Điều khoản sử dụng
             </Link>{' '}
             và{' '}
-            <Link to="/chinh-sach-bao-mat" className="text-text-link hover:underline" target="_blank" rel="noopener noreferrer">
+            <Link
+              to="/chinh-sach-bao-mat"
+              className="text-text-link hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Chính sách bảo mật
             </Link>{' '}
             của NomNom.

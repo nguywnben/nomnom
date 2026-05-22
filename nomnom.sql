@@ -568,6 +568,22 @@ CREATE TABLE `otp_codes` (
 -- --------------------------------------------------------
 
 --
+-- Cấu trúc bảng cho bảng `registration_pending`
+-- Đăng ký chờ xác minh OTP email (luồng /register).
+--
+
+CREATE TABLE `registration_pending` (
+  `email` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `full_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `payments`
 --
 
@@ -1069,6 +1085,12 @@ ALTER TABLE `otp_codes`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_otp_destination` (`destination`),
   ADD KEY `fk_otp_user` (`user_id`);
+
+--
+-- Chỉ mục cho bảng `registration_pending`
+--
+ALTER TABLE `registration_pending`
+  ADD PRIMARY KEY (`email`);
 
 --
 -- Chỉ mục cho bảng `payments`

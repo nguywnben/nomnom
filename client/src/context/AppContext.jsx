@@ -12,7 +12,7 @@ import {
 import { formatVnd } from '../lib/formatVnd.js';
 import { buildAuthedRoles } from '../lib/auth.js';
 import { clearTokens, hasStoredSession, saveTokens } from '../lib/authStorage.js';
-import { fetchMe, loginApi, logoutApi, registerApi } from '../lib/api.js';
+import { fetchMe, loginApi, logoutApi, registerSendCodeApi, registerVerifyApi } from '../lib/api.js';
 
 const AppContext = createContext(null);
 
@@ -374,16 +374,20 @@ export function AppProvider({ children }) {
     };
   }, []);
 
-  const login = useCallback(async (email, password) => {
-    const data = await loginApi(email, password);
-    saveTokens(data.accessToken, data.refreshToken);
+  const login = useCallback(async (email, password, { remember = true } = {}) => {
+    const data = await loginApi(email, password, remember);
+    saveTokens(data.accessToken, data.refreshToken, { remember });
     setUser(data.user);
     setRole(data.user.primaryRole);
     return data.user;
   }, []);
 
-  const register = useCallback(async ({ fullName, email, phone, password }) => {
-    const data = await registerApi({ fullName, email, phone, password });
+  const registerSendCode = useCallback(async ({ fullName, email, password }) => {
+    return registerSendCodeApi({ fullName, email, password });
+  }, []);
+
+  const completeRegistration = useCallback(async (email, code) => {
+    const data = await registerVerifyApi({ email, code });
     saveTokens(data.accessToken, data.refreshToken);
     setUser(data.user);
     setRole('customer');
@@ -450,7 +454,8 @@ export function AppProvider({ children }) {
     user,
     authReady,
     login,
-    register,
+    registerSendCode,
+    completeRegistration,
     logout,
     authedRoles,
 
