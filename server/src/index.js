@@ -3,6 +3,7 @@ import express from 'express';
 import 'dotenv/config';
 import homeRoutes from './routes/home.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import { verifyDbConnection } from './db/pool.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -31,6 +32,20 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`NomNom API http://localhost:${port}`);
-});
+async function start() {
+  try {
+    await verifyDbConnection();
+  } catch (err) {
+    console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
+    console.error(
+      '[DB] Railway: service nomnom → Variables → MYSQL_URL = ${{MySQL.MYSQL_URL}} (internal). Xóa DB_PASSWORD copy tay.',
+    );
+    process.exit(1);
+  }
+
+  app.listen(port, () => {
+    console.log(`NomNom API http://localhost:${port}`);
+  });
+}
+
+start();
