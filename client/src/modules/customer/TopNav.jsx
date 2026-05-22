@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import clsx from 'clsx';
 import Button from '../../components/Button.jsx';
 import Logo from '../../components/Logo.jsx';
@@ -20,6 +20,9 @@ const APP_HOME_HEADER_ELEVATE_AFTER_PX = 16;
 const HEADER_NAV_BUTTON_BADGE =
   'pointer-events-none absolute -right-0.5 -top-0.5 z-[1] flex h-[18px] min-w-[18px] translate-x-px -translate-y-px items-center justify-center rounded-full bg-primary px-0.5 text-center font-sans text-[10px] font-semibold leading-none text-on-primary antialiased';
 
+const MENU_ITEM =
+  'flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-body-sm font-medium text-ink transition-colors hover:bg-canvas-soft';
+
 // top-nav per DESIGN.md — height 64, bg canvas, text ink, sticky.
 // Trên /app (trang chủ): fixed + overlay hero giống trang "/".
 // Hidden on mobile (replaced by <MobileTopBar /> + <MobileBottomNav />).
@@ -30,6 +33,7 @@ export default function TopNav() {
   const { cartCount, setCartOpen, authedRoles, currentCustomer, orders, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
+  const menuRef = useRef(null);
 
   const isAppHome = pathname === '/app';
   const heroOverlay = isAppHome;
@@ -43,6 +47,24 @@ export default function TopNav() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, [isAppHome]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onPointerDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   const onHeroDark = heroOverlay && !headerElevated;
 
@@ -130,44 +152,84 @@ export default function TopNav() {
           </button>
 
           {authedRoles.customer ? (
-            <div className="relative ml-xs">
+            <div className="relative ml-xs" ref={menuRef}>
               <button
+                type="button"
                 onClick={() => setMenuOpen((v) => !v)}
-                aria-label="User menu"
+                aria-label="Menu tài khoản"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
+                className={clsx(
+                  'rounded-full transition-shadow',
+                  menuOpen && 'ring-2 ring-ink/15 ring-offset-2 ring-offset-transparent',
+                )}
               >
                 <Avatar src={currentCustomer.avatar} name={currentCustomer.name} size="sm" />
               </button>
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full mt-1 w-56 rounded-md border border-hairline-strong bg-surface-card p-xs shadow-soft-md text-body-sm"
+                  className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card py-1 shadow-soft-md"
                 >
-                  <div className="px-sm py-2">
-                    <div className="font-semibold text-ink truncate">{currentCustomer.name}</div>
-                    <div className="text-caption text-body truncate">{currentCustomer.email}</div>
+                  <div className="border-b border-hairline px-3 py-3">
+                    <div className="truncate text-body-sm font-semibold text-ink">{currentCustomer.name}</div>
+                    <div className="truncate text-caption text-body">{currentCustomer.email}</div>
                   </div>
-                  <div className="h-px bg-hairline" />
-                  <Link to="/app/profile" className="block rounded-sm px-sm py-2 hover:bg-canvas-soft text-ink" onClick={() => setMenuOpen(false)}>
-                    Hồ sơ
-                  </Link>
-                  <Link to="/app/orders" className="block rounded-sm px-sm py-2 hover:bg-canvas-soft text-ink" onClick={() => setMenuOpen(false)}>
-                    Đơn hàng của tôi
-                  </Link>
-                  <Link to="/" className="block rounded-sm px-sm py-2 hover:bg-canvas-soft text-ink" onClick={() => setMenuOpen(false)}>
-                    Đổi vai trò
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setMenuOpen(false);
-                      await logout();
-                    }}
-                    className="block w-full rounded-sm px-sm py-2 text-left text-error hover:bg-canvas-soft"
-                  >
-                    Đăng xuất
-                  </button>
+                  <div className="p-1">
+                    <Link
+                      to="/app/profile"
+                      role="menuitem"
+                      className={MENU_ITEM}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Icon name="user" size={16} className="shrink-0 text-body" />
+                      Hồ sơ
+                    </Link>
+                    <Link
+                      to="/app/orders"
+                      role="menuitem"
+                      className={MENU_ITEM}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Icon name="package" size={16} className="shrink-0 text-body" />
+                      Đơn hàng của tôi
+                    </Link>
+                    <Link
+                      to="/app/profile/settings"
+                      role="menuitem"
+                      className={MENU_ITEM}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Icon name="cog" size={16} className="shrink-0 text-body" />
+                      Cài đặt
+                    </Link>
+                    <Link
+                      to="/"
+                      role="menuitem"
+                      className={MENU_ITEM}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <Icon name="refresh" size={16} className="shrink-0 text-body" />
+                      Đổi vai trò
+                    </Link>
+                  </div>
+                  <div className="border-t border-hairline p-1">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        await logout();
+                      }}
+                      className={clsx(
+                        MENU_ITEM,
+                        'font-semibold text-ink hover:bg-canvas-soft',
+                      )}
+                    >
+                      <Icon name="arrowRight" size={16} className="shrink-0 text-ink" />
+                      Đăng xuất
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
