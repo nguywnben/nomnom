@@ -3,7 +3,8 @@ import express from 'express';
 import 'dotenv/config';
 import homeRoutes from './routes/home.routes.js';
 import authRoutes from './routes/auth.routes.js';
-import { verifyDbConnection } from './db/pool.js';
+import adminRoutes from './routes/admin.routes.js';
+import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -22,6 +23,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
@@ -32,9 +34,18 @@ app.use((err, _req, res, _next) => {
   });
 });
 
+async function ensureSuspensionColumn() {
+  const [rows] = await pool.query("SHOW COLUMNS FROM users LIKE 'suspension_expires_at'");
+  if (!rows.length) {
+    console.log('[DB] Thêm cột suspension_expires_at vào bảng users');
+    await pool.query("ALTER TABLE users ADD COLUMN suspension_expires_at datetime DEFAULT NULL");
+  }
+}
+
 async function start() {
   try {
     await verifyDbConnection();
+    await ensureSuspensionColumn();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(

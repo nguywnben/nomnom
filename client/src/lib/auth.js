@@ -28,20 +28,8 @@ export const ROLE_HOME = {
  * @param {{ primaryRole: Role, roles: Role[] }} user
  */
 export function resolveLoginRedirect(nextPath, user) {
-  const roles = user.roles ?? [];
   if (nextPath) {
-    if (nextPath.startsWith('/admin') && roles.includes('admin')) return nextPath;
-    if (nextPath.startsWith('/merchant') && roles.includes('merchant')) return nextPath;
-    if (nextPath.startsWith('/driver') && roles.includes('driver')) return nextPath;
-    if (nextPath.startsWith('/app') && roles.includes('customer')) return nextPath;
-    if (
-      !nextPath.startsWith('/admin') &&
-      !nextPath.startsWith('/merchant') &&
-      !nextPath.startsWith('/driver') &&
-      !nextPath.startsWith('/app')
-    ) {
-      return nextPath;
-    }
+    return nextPath;
   }
   return ROLE_HOME[user.primaryRole] ?? '/app';
 }

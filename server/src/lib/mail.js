@@ -200,6 +200,30 @@ export async function sendPasswordResetOtpEmail({ to, code, fullName }) {
   return { dev: false };
 }
 
+export async function sendAdminResetPasswordEmail({ to, fullName, newPassword }) {
+  const transport = getTransporter();
+  const from = resolveFrom();
+  const safeName = escapeHtml(fullName);
+  const safePassword = escapeHtml(newPassword);
+
+  if (!transport || !from) {
+    console.log(`[NomNom DEV] Mật khẩu mới cho ${to}: ${newPassword}`);
+    return { dev: true };
+  }
+
+  const logo = buildLogoParts();
+  await transport.sendMail({
+    from,
+    to,
+    subject: 'Mật khẩu mới NomNom',
+    text: `Xin chào ${fullName},\n\nMật khẩu mới NomNom của bạn là: ${newPassword}\n\nVui lòng đăng nhập và thay đổi mật khẩu nếu cần.\n\n— NomNom`,
+    html: `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head><body style="margin:0;padding:0;background:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#000000;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;padding:32px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;"><tr><td style="padding-bottom:20px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>${logo.html ? `<td style="padding-right:10px;vertical-align:middle;">${logo.html}</td>` : ''}<td style="vertical-align:middle;font-size:22px;font-weight:600;color:#000;">nomnom<span style="color:#0d74ce;">.</span></td></tr></table></td></tr><tr><td style="background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;padding:28px 24px;"><p style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Đặt lại mật khẩu</p><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;line-height:1.3;color:#000;">Xin chào, ${safeName}</h1><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">Mật khẩu mới của bạn là:</p><table role="presentation" width="100%"><tr><td align="center" style="background:#fafafa;border:1px solid #e5e5e5;border-radius:8px;padding:20px 16px;"><span style="font-size:20px;font-weight:600;letter-spacing:0.1em;">${safePassword}</span></td></tr></table><p style="margin:24px 0 0;font-size:13px;color:#666;">Hãy đăng nhập và cập nhật mật khẩu nếu cần.</p></td></tr><tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Giao đồ ăn tận nơi</td></tr></table></td></tr></table></body></html>`,
+    attachments: logo.attachments,
+  });
+
+  return { dev: false };
+}
+
 /**
  * Gửi mã OTP đăng ký qua Gmail SMTP.
  * Dev: nếu chưa cấu hình SMTP, in mã ra console.
