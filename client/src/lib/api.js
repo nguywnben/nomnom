@@ -131,3 +131,12 @@ export function fetchHomeCategories() {
 export function fetchHomePromos() {
   return apiGet('/api/v1/home/promos');
 }
+
+export function fetchRestaurants(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
+}
+
+export function fetchCuisines() {
+  return apiGet('/api/v1/cuisines');
+}
