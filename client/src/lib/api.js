@@ -131,3 +131,15 @@ export function fetchHomeCategories() {
 export function fetchHomePromos() {
   return apiGet('/api/v1/home/promos');
 }
+
+export function fetchRestaurantDetail(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}`);
+}
+
+export function fetchRestaurantMenu(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/menu`);
+}
+
+export function fetchRestaurantReviews(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/reviews`);
+}
