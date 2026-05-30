@@ -4,6 +4,7 @@ import 'dotenv/config';
 import homeRoutes from './routes/home.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import restaurantRoutes from './routes/restaurants.routes.js';
+import cuisinesRoutes from './routes/cuisines.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
@@ -26,6 +27,7 @@ app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/cuisines', cuisinesRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
