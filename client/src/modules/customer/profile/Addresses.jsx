@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Badge from '../../../components/Badge.jsx';
 import Button from '../../../components/Button.jsx';
@@ -9,87 +9,171 @@ import Input from '../../../components/Input.jsx';
 import Modal from '../../../components/Modal.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
+import { apiGet, apiPost, apiPatch, apiDelete } from '../../../lib/api.js';
 
-// UC-C12 — Quản lý sổ địa chỉ. Mock dataset, in-memory only.
-const SEED = [
-  {
-    id: 'addr-1',
-    label: 'Nhà',
-    line: '120 Wythe Ave, Apt 3B',
-    city: 'Brooklyn, NY 11211',
-    note: 'Bấm chuông căn hộ 3B',
-    icon: 'pin',
-    isDefault: true,
-  },
-  {
-    id: 'addr-2',
-    label: 'Văn phòng',
-    line: '88 Holloway St, Tầng 4',
-    city: 'Brooklyn, NY 11211',
-    note: 'Để tại quầy lễ tân nếu vắng',
-    icon: 'store',
-    isDefault: false,
-  },
-];
-
-const EMPTY_FORM = { label: '', line: '', city: '', note: '' };
+const EMPTY_FORM = {
+  label: '',
+  recipientName: '',
+  recipientPhone: '',
+  line1: '',
+  ward: '',
+  district: '',
+  city: '',
+  deliveryNote: '',
+};
 
 export default function Addresses() {
   const { pushToast, authedRoles } = useApp();
-  const [list, setList] = useState(SEED);
-  const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM });
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   const [confirmDelete, setConfirmDelete] = useState(null);
 
+  useEffect(() => {
+    if (authedRoles.customer) {
+      loadAddresses();
+    }
+  }, [authedRoles.customer]);
+
+  const loadAddresses = async () => {
+    setLoading(true);
+    try {
+      const data = await apiGet('/api/v1/me/addresses');
+      setList(data);
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Lỗi', message: 'Không thể tải danh sách địa chỉ.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openCreate = () =>
-    setEditor({ open: true, mode: 'create', id: null, values: EMPTY_FORM });
+    setEditor({ open: true, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
 
   const openEdit = (addr) =>
     setEditor({
       open: true,
       mode: 'edit',
       id: addr.id,
-      values: { label: addr.label, line: addr.line, city: addr.city, note: addr.note ?? '' },
+      values: {
+        label: addr.label || '',
+        recipientName: addr.recipientName || '',
+        recipientPhone: addr.recipientPhone || '',
+        line1: addr.line1 || '',
+        ward: addr.ward || '',
+        district: addr.district || '',
+        city: addr.city || '',
+        deliveryNote: addr.deliveryNote || '',
+      },
+      submitting: false,
+      fieldErrors: {}
     });
 
   const close = () => setEditor((c) => ({ ...c, open: false }));
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const v = editor.values;
-    if (!v.label.trim() || !v.line.trim() || !v.city.trim()) {
-      pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Hãy điền đầy đủ nhãn, địa chỉ và thành phố.' });
+    const newErrors = {};
+
+    if (!v.label.trim()) {
+      newErrors.label = 'Nhãn không được để trống';
+    }
+    if (!v.recipientName.trim()) {
+      newErrors.recipientName = 'Tên người nhận không được để trống';
+    }
+    const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/;
+    if (!v.recipientPhone.trim()) {
+      newErrors.recipientPhone = 'Số điện thoại không được để trống';
+    } else if (!phoneRegex.test(v.recipientPhone)) {
+      newErrors.recipientPhone = 'Số điện thoại không hợp lệ';
+    }
+    if (!v.line1.trim()) {
+      newErrors.line1 = 'Địa chỉ không được để trống';
+    }
+    if (!v.city.trim()) {
+      newErrors.city = 'Tỉnh/Thành phố không được để trống';
+    }
+    if (!v.district.trim()) {
+      newErrors.district = 'Quận/Huyện không được để trống';
+    }
+    if (!v.ward.trim()) {
+      newErrors.ward = 'Phường/Xã không được để trống';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setEditor((c) => ({ ...c, fieldErrors: newErrors }));
+      pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Hãy điền đầy đủ các thông tin bắt buộc.' });
       return;
     }
-    if (editor.mode === 'create') {
-      const id = `addr-${Date.now()}`;
-      setList((cur) => [
-        ...cur,
-        { id, label: v.label, line: v.line, city: v.city, note: v.note, icon: 'pin', isDefault: cur.length === 0 },
-      ]);
-      pushToast({ kind: 'success', title: 'Đã thêm địa chỉ', message: v.label });
-    } else {
-      setList((cur) => cur.map((a) => (a.id === editor.id ? { ...a, ...v } : a)));
-      pushToast({ kind: 'success', title: 'Đã cập nhật', message: v.label });
+
+    setEditor((c) => ({ ...c, submitting: true, fieldErrors: {} }));
+    try {
+      if (editor.mode === 'create') {
+        const newAddr = await apiPost('/api/v1/me/addresses', v);
+        setList((cur) => [newAddr, ...cur].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)));
+        pushToast({ kind: 'success', title: 'Đã thêm địa chỉ', message: v.label });
+      } else {
+        const updatedAddr = await apiPatch(`/api/v1/me/addresses/${editor.id}`, v);
+        setList((cur) =>
+          cur.map((a) => (a.id === editor.id ? updatedAddr : a)).sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
+        );
+        pushToast({ kind: 'success', title: 'Đã cập nhật', message: v.label });
+      }
+      close();
+    } catch (err) {
+      if (err.errors) {
+        setEditor((c) => ({ ...c, fieldErrors: err.errors }));
+      } else if (err.details && Array.isArray(err.details)) {
+        // Handling Joi errors if returned as an array of details
+        const apiErrors = {};
+        err.details.forEach(detail => {
+          if (detail.context && detail.context.key) {
+            apiErrors[detail.context.key] = detail.message;
+          }
+        });
+        setEditor((c) => ({ ...c, fieldErrors: apiErrors }));
+      } else {
+        pushToast({ kind: 'error', title: 'Lỗi', message: err.message || 'Không thể lưu địa chỉ.' });
+      }
+    } finally {
+      setEditor((c) => ({ ...c, submitting: false }));
     }
-    close();
   };
 
-  const setDefault = (id) => {
-    setList((cur) => cur.map((a) => ({ ...a, isDefault: a.id === id })));
-    pushToast({ kind: 'success', title: 'Đã đặt mặc định', message: list.find((x) => x.id === id)?.label });
+  const setDefault = async (id) => {
+    try {
+      await apiPost(`/api/v1/me/addresses/${id}/default`);
+      setList((cur) =>
+        cur.map((a) => ({ ...a, isDefault: a.id === id }))
+           .sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
+      );
+      pushToast({ kind: 'success', title: 'Đã đặt mặc định', message: list.find((x) => x.id === id)?.label });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Lỗi', message: 'Không thể đặt mặc định.' });
+    }
   };
 
-  const removeAddr = () => {
+  const removeAddr = async () => {
     const target = list.find((a) => a.id === confirmDelete);
     if (!target) return;
-    setList((cur) => {
-      const next = cur.filter((a) => a.id !== target.id);
-      // If we removed the default, promote the first remaining as default.
-      if (target.isDefault && next.length > 0) next[0] = { ...next[0], isDefault: true };
-      return next;
-    });
-    pushToast({ kind: 'info', title: 'Đã xoá địa chỉ', message: target.label });
-    setConfirmDelete(null);
+    
+    try {
+      await apiDelete(`/api/v1/me/addresses/${target.id}`);
+      setList((cur) => cur.filter((a) => a.id !== target.id));
+      pushToast({ kind: 'info', title: 'Đã xoá địa chỉ', message: target.label });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Lỗi', message: 'Không thể xoá địa chỉ.' });
+    } finally {
+      setConfirmDelete(null);
+    }
+  };
+
+  const getIcon = (label) => {
+    const l = label.toLowerCase();
+    if (l.includes('nhà')) return 'pin';
+    if (l.includes('công ty') || l.includes('văn')) return 'store';
+    return 'pin'; // Default
   };
 
   return (
@@ -112,6 +196,8 @@ export default function Addresses() {
             Đăng nhập để lưu và quản lý địa chỉ giao hàng.
           </p>
         </Card>
+      ) : loading ? (
+        <div className="flex justify-center p-xl text-body">Đang tải...</div>
       ) : list.length === 0 ? (
         <EmptyState
           icon="pin"
@@ -125,18 +211,22 @@ export default function Addresses() {
             <Card key={a.id} padded>
               <div className="flex items-start gap-sm">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface-strong text-ink">
-                  <Icon name={a.icon} size={16} />
+                  <Icon name={getIcon(a.label)} size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="text-body-sm font-semibold text-ink truncate">{a.label}</div>
                     {a.isDefault && <Badge tone="success" dot>Mặc định</Badge>}
                   </div>
-                  <div className="mt-0.5 text-body-sm text-ink truncate">{a.line}</div>
-                  <div className="text-caption text-body truncate">{a.city}</div>
-                  {a.note && (
+                  <div className="mt-0.5 text-body-sm text-ink truncate">
+                    {a.recipientName} - {a.recipientPhone}
+                  </div>
+                  <div className="text-caption text-body truncate">
+                    {a.line1}{a.ward ? `, ${a.ward}` : ''}{a.district ? `, ${a.district}` : ''}, {a.city}
+                  </div>
+                  {a.deliveryNote && (
                     <div className="mt-1 text-caption text-body line-clamp-2">
-                      Ghi chú: {a.note}
+                      Ghi chú: {a.deliveryNote}
                     </div>
                   )}
                 </div>
@@ -174,39 +264,100 @@ export default function Addresses() {
         size="md"
         footer={
           <>
-            <Button variant="secondary" onClick={close}>
+            <Button variant="secondary" onClick={close} disabled={editor.submitting}>
               Hủy
             </Button>
-            <Button onClick={submit}>{editor.mode === 'create' ? 'Lưu địa chỉ' : 'Cập nhật'}</Button>
+            <Button onClick={submit} disabled={editor.submitting}>
+              {editor.mode === 'create' ? 'Lưu địa chỉ' : 'Cập nhật'}
+            </Button>
           </>
         }
       >
         <form onSubmit={submit} className="flex flex-col gap-sm">
+          <div className="flex flex-col gap-1">
+            <Input
+              placeholder="Nhãn (Nhà, Văn phòng...)"
+              value={editor.values.label}
+              onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, label: e.target.value }, fieldErrors: { ...c.fieldErrors, label: undefined } }))}
+              required
+            />
+            {editor.fieldErrors?.label && (
+              <small className="text-error mt-1">{editor.fieldErrors.label}</small>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-sm">
+            <div className="flex flex-col gap-1">
+              <Input
+                placeholder="Tên người nhận (Nguyễn Văn A)"
+                value={editor.values.recipientName}
+                onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, recipientName: e.target.value }, fieldErrors: { ...c.fieldErrors, recipientName: undefined } }))}
+                required
+              />
+              {editor.fieldErrors?.recipientName && (
+                <small className="text-error mt-1">{editor.fieldErrors.recipientName}</small>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <Input
+                placeholder="Số điện thoại (09...)"
+                type="tel"
+                value={editor.values.recipientPhone}
+                onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, recipientPhone: e.target.value }, fieldErrors: { ...c.fieldErrors, recipientPhone: undefined } }))}
+                required
+              />
+              {editor.fieldErrors?.recipientPhone && (
+                <small className="text-error mt-1">{editor.fieldErrors.recipientPhone}</small>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Input
+              placeholder="Số nhà, tên đường..."
+              value={editor.values.line1}
+              onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, line1: e.target.value }, fieldErrors: { ...c.fieldErrors, line1: undefined } }))}
+              required
+            />
+            {editor.fieldErrors?.line1 && (
+              <small className="text-error mt-1">{editor.fieldErrors.line1}</small>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-sm">
+            <div className="flex flex-col gap-1">
+              <Input
+                placeholder="Tỉnh/Thành phố..."
+                value={editor.values.city}
+                onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, city: e.target.value }, fieldErrors: { ...c.fieldErrors, city: undefined } }))}
+                required
+              />
+              {editor.fieldErrors?.city && (
+                <small className="text-error mt-1">{editor.fieldErrors.city}</small>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <Input
+                placeholder="Quận/Huyện..."
+                value={editor.values.district}
+                onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, district: e.target.value }, fieldErrors: { ...c.fieldErrors, district: undefined } }))}
+              />
+              {editor.fieldErrors?.district && (
+                <small className="text-error mt-1">{editor.fieldErrors.district}</small>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Input
+              placeholder="Phường/Xã..."
+              value={editor.values.ward}
+              onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, ward: e.target.value }, fieldErrors: { ...c.fieldErrors, ward: undefined } }))}
+            />
+            {editor.fieldErrors?.ward && (
+              <small className="text-error mt-1">{editor.fieldErrors.ward}</small>
+            )}
+          </div>
           <Input
-            leadingIcon="pin"
-            placeholder="Nhãn (Nhà, Văn phòng...)"
-            value={editor.values.label}
-            onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, label: e.target.value } }))}
-            required
-          />
-          <Input
-            leadingIcon="store"
-            placeholder="Số nhà, đường, toà nhà"
-            value={editor.values.line}
-            onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, line: e.target.value } }))}
-            required
-          />
-          <Input
-            placeholder="Quận, thành phố, mã bưu điện"
-            value={editor.values.city}
-            onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, city: e.target.value } }))}
-            required
-          />
-          <Input
-            leadingIcon="edit"
-            placeholder="Ghi chú cho tài xế (tuỳ chọn)"
-            value={editor.values.note}
-            onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, note: e.target.value } }))}
+            placeholder="Ghi chú giao hàng (tuỳ chọn)..."
+            value={editor.values.deliveryNote}
+            onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, deliveryNote: e.target.value } }))}
           />
         </form>
       </Modal>

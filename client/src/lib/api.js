@@ -57,8 +57,10 @@ export async function apiFetch(path, options = {}, { retry = true } = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error ?? `API ${res.status}`);
+    const err = new Error(body.error ?? body.message ?? `API ${res.status}`);
     err.status = res.status;
+    err.errors = body.errors;
+    err.details = body.details;
     throw err;
   }
   return res.json();
@@ -74,6 +76,18 @@ export function apiPost(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+export function apiPatch(path, body) {
+  return apiFetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiDelete(path) {
+  return apiFetch(path, { method: 'DELETE' });
 }
 
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
