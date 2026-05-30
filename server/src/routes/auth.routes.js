@@ -33,6 +33,25 @@ async function loadRoles(userId) {
   return rows.map((r) => r.role);
 }
 
+async function restoreExpiredSuspension(user) {
+  if (!user || user.status !== 'suspended' || !user.suspension_expires_at) {
+    return user;
+  }
+
+  const expires = new Date(user.suspension_expires_at);
+  if (expires > new Date()) {
+    return user;
+  }
+
+  await pool.query('UPDATE users SET status = ?, suspension_expires_at = NULL WHERE id = ?', [
+    'active',
+    user.id,
+  ]);
+  user.status = 'active';
+  user.suspension_expires_at = null;
+  return user;
+}
+
 function serializeUser(row, roles) {
   return {
     id: row.id,
@@ -42,6 +61,7 @@ function serializeUser(row, roles) {
     avatarUrl: row.avatar_url,
     primaryRole: row.primary_role,
     status: row.status,
+    suspensionExpiresAt: row.suspension_expires_at ?? null,
     roles,
   };
 }
@@ -339,14 +359,15 @@ router.post('/login', async (req, res, next) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, email, phone, password_hash, full_name, avatar_url, primary_role, status
+      `SELECT id, email, phone, password_hash, full_name, avatar_url, primary_role, status, suspension_expires_at
        FROM users WHERE email = ? LIMIT 1`,
       [email],
     );
-    const user = rows[0];
+    let user = rows[0];
     if (!user) {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng.' });
     }
+    user = await restoreExpiredSuspension(user);
     if (user.status !== 'active') {
       return res.status(403).json({ error: 'Tài khoản chưa được kích hoạt hoặc đã bị khóa.' });
     }
@@ -374,12 +395,16 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, email, phone, full_name, avatar_url, primary_role, status
+      `SELECT id, email, phone, full_name, avatar_url, primary_role, status, suspension_expires_at
        FROM users WHERE id = ? LIMIT 1`,
       [req.auth.userId],
     );
-    const user = rows[0];
-    if (!user || user.status !== 'active') {
+    let user = rows[0];
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    user = await restoreExpiredSuspension(user);
+    if (user.status !== 'active') {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     const roles = await loadRoles(user.id);
@@ -403,7 +428,7 @@ router.post('/refresh', async (req, res, next) => {
     const tokenHash = hashToken(raw);
     const [rows] = await pool.query(
       `SELECT rt.id AS token_id, rt.user_id, u.email, u.phone, u.full_name, u.avatar_url,
-              u.primary_role, u.status
+              u.primary_role, u.status, u.suspension_expires_at
        FROM refresh_tokens rt
        INNER JOIN users u ON u.id = rt.user_id
        WHERE rt.token_hash = ?
@@ -412,8 +437,12 @@ router.post('/refresh', async (req, res, next) => {
        LIMIT 1`,
       [tokenHash],
     );
-    const row = rows[0];
-    if (!row || row.status !== 'active') {
+    let row = rows[0];
+    if (!row) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+    row = await restoreExpiredSuspension(row);
+    if (row.status !== 'active') {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
