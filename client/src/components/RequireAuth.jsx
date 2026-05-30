@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext.jsx';
  * @param {{ role: 'customer'|'merchant'|'driver'|'admin' }} props
  */
 export default function RequireAuth({ role }) {
-  const { authReady, user } = useApp();
+  const { authReady, authedRoles } = useApp();
   const location = useLocation();
 
   if (!authReady) {
@@ -17,7 +17,7 @@ export default function RequireAuth({ role }) {
     );
   }
 
-  if (!user) {
+  if (!authedRoles[role]) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?next=${next}`} replace />;
   }
