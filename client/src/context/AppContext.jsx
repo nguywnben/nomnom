@@ -70,13 +70,13 @@ export function AppProvider({ children }) {
   }, [user, authedRoles.merchant]);
 
   const currentAdmin = useMemo(() => {
-    if (!user || !authedRoles.admin) return null;
+    if (!user) return null;
     return {
       id: String(user.id),
       name: user.fullName,
       email: user.email ?? '',
       avatar: user.avatarUrl,
-      role: 'Quản trị viên',
+      role: authedRoles.admin ? 'Quản trị viên' : 'Người dùng',
     };
   }, [user, authedRoles.admin]);
 

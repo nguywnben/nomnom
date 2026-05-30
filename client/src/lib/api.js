@@ -95,6 +95,35 @@ export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
 }
 
+export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({
+    role,
+    status,
+    q,
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiGet(`/api/v1/admin/usersQuery?${params.toString()}`);
+}
+
+export function updateAdminUserStatus(userId, status, suspensionDays) {
+  const body = { status };
+  if (status === 'suspended') {
+    body.suspensionDays = suspensionDays;
+  }
+  return apiFetch(`/api/v1/admin/users/${encodeURIComponent(userId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function resetAdminUserPassword(userId, newPassword) {
+  return apiPost(`/api/v1/admin/users/${encodeURIComponent(userId)}/reset-password`, {
+    newPassword,
+  });
+}
+
 /** Gửi mã OTP đăng ký qua email */
 export function registerSendCodeApi({ fullName, email, password }) {
   return apiPost('/api/v1/auth/register/send-code', { fullName, email, password });
@@ -144,4 +173,25 @@ export function fetchHomeCategories() {
 /** Banner khuyến mãi 3 cột — GET /api/v1/home/promos */
 export function fetchHomePromos() {
   return apiGet('/api/v1/home/promos');
+}
+
+export function fetchRestaurants(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
+}
+
+export function fetchCuisines() {
+  return apiGet('/api/v1/cuisines');
+}
+
+export function fetchRestaurantDetail(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}`);
+}
+
+export function fetchRestaurantMenu(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/menu`);
+}
+
+export function fetchRestaurantReviews(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/reviews`);
 }

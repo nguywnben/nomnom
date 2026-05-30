@@ -806,6 +806,7 @@ CREATE TABLE `users` (
   `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `primary_role` enum('customer','merchant','driver','admin') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'customer',
   `status` enum('pending','active','suspended','banned') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
+  `suspension_expires_at` datetime DEFAULT NULL,
   `email_verified_at` datetime DEFAULT NULL,
   `phone_verified_at` datetime DEFAULT NULL,
   `last_login_at` datetime DEFAULT NULL,
