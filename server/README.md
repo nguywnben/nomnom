@@ -6,6 +6,7 @@ API Node.js (Express + MySQL) cho frontend NomNom.
 
 - Node.js 18+
 - MySQL 8 với database `nomnom` (import `database.sql` ở thư mục gốc repo)
+- Nếu dùng upload ảnh, cấu hình thêm Cloudinary trong `.env`
 
 ## Cài đặt & chạy
 
@@ -18,6 +19,12 @@ npm run dev
 ```
 
 API mặc định: `http://localhost:3001`
+
+## Upload ảnh
+
+- `POST /api/v1/uploads` với `multipart/form-data`, field `file`
+- `DELETE /api/v1/uploads/:publicId` để xoá ảnh trên Cloudinary
+- Hỗ trợ folder: `avatar`, `restaurant`, `menu`, `driver-kyc`, `review`
 
 ## Endpoints
 

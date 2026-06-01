@@ -1,0 +1,22 @@
+PORT=3001
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=mysql
+DB_NAME=nomnom
+CORS_ORIGIN=http://localhost:5173
+JWT_SECRET=nomnom-dev-jwt-secret-change-in-production
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_DAYS=30
+
+CLOUDINARY_CLOUD_NAME=dncdh0kih
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+
+# Gmail SMTP — thay SMTP_USER bằng địa chỉ Gmail của bạn
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=nben65206@gmail.com
+SMTP_PASS=wpfpmbdxymrlowsh
+# Tên hiển thị trong hộp thư (địa chỉ gửi vẫn là SMTP_USER)
+SMTP_FROM=NomNom

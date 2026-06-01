@@ -7,6 +7,7 @@ import meRoutes from './routes/me.routes.js';
 import restaurantRoutes from './routes/restaurants.routes.js';
 import cuisinesRoutes from './routes/cuisines.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import uploadsRoutes from './routes/uploads.routes.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -30,12 +31,22 @@ app.use('/api/v1/me', meRoutes);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/cuisines', cuisinesRoutes);
+app.use('/api/v1/uploads', uploadsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
-  const status = err.status ?? 500;
+  const status =
+    err.status ??
+    (err.code === 'LIMIT_FILE_SIZE' ? 413 : err.code === 'LIMIT_UNEXPECTED_FILE' ? 400 : 500);
+  const message =
+    err.message ??
+    (err.code === 'LIMIT_FILE_SIZE'
+      ? 'File vượt quá dung lượng tối đa 5MB.'
+      : err.code === 'LIMIT_UNEXPECTED_FILE'
+        ? 'Chỉ được upload một file với field "file".'
+        : 'Internal Server Error');
   res.status(status).json({
-    error: status === 500 ? 'Internal Server Error' : err.message,
+    error: status === 500 ? 'Internal Server Error' : message,
     ...(process.env.NODE_ENV !== 'production' && err.code ? { code: err.code } : {}),
   });
 });
