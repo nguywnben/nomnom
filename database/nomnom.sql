@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: localhost
--- Thời gian đã tạo: Th5 21, 2026 lúc 03:49 PM
+-- Thời gian đã tạo: Th6 12, 2026 lúc 01:28 PM
 -- Phiên bản máy phục vụ: 8.0.44
 -- Phiên bản PHP: 8.2.30
 
@@ -156,7 +156,8 @@ INSERT INTO `customer_profiles` (`user_id`, `default_address_id`, `preferred_lan
 (21, 9, 'vi', 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (22, 10, 'vi', 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (100, NULL, 'vi', 1, '2026-05-21 21:55:26', '2026-05-21 21:55:26'),
-(102, NULL, 'vi', 1, '2026-05-21 22:31:26', '2026-05-21 22:31:26');
+(102, NULL, 'vi', 1, '2026-05-21 22:31:26', '2026-05-21 22:31:26'),
+(103, NULL, 'vi', 1, '2026-05-22 20:41:26', '2026-05-22 20:41:26');
 
 -- --------------------------------------------------------
 
@@ -565,21 +566,27 @@ CREATE TABLE `otp_codes` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
-
 --
--- Cấu trúc bảng cho bảng `registration_pending`
--- Đăng ký chờ xác minh OTP email (luồng /register).
+-- Đang đổ dữ liệu cho bảng `otp_codes`
 --
 
-CREATE TABLE `registration_pending` (
-  `email` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `full_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `expires_at` datetime NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+INSERT INTO `otp_codes` (`id`, `user_id`, `destination`, `channel`, `purpose`, `code_hash`, `attempts`, `expires_at`, `consumed_at`, `created_at`) VALUES
+(1, NULL, 'elnora367@deltajohnsons.com', 'email', 'register', '$2b$10$oB0czjqPOP2ZuqU/EyXQFe2T9wrD56CF0PvhyccTa4BBTfUH.JLA2', 0, '2026-05-22 20:17:59', '2026-05-22 20:09:10', '2026-05-22 20:07:59'),
+(2, NULL, 'elnora367@deltajohnsons.com', 'email', 'register', '$2b$10$bopox1P9riIdERKvgXrvnOJE5qPmk0Kk3xEK.Vo8iMKBofI/6zTuu', 0, '2026-05-22 20:19:10', '2026-05-22 20:10:02', '2026-05-22 20:09:10'),
+(3, NULL, 'elnora367@deltajohnsons.com', 'email', 'register', '$2b$10$HWHiEab7kreL/hUTmPM4mu.4gab5Ui63/ZdF5XkN2598RWEhzPjee', 0, '2026-05-22 20:20:03', NULL, '2026-05-22 20:10:03'),
+(4, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$PXlgUg7OkjMzL26sfCgocOP.XmOix34XTjeyqXZGx1ci0L13VG52O', 0, '2026-05-22 20:24:27', '2026-05-22 20:16:58', '2026-05-22 20:14:27'),
+(5, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$ByJS005QyFkEnPuGarbw0u27/75GexOKx86gbbYc32wA7BA.RmmkC', 0, '2026-05-22 20:26:58', '2026-05-22 20:17:01', '2026-05-22 20:16:58'),
+(6, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$3/tOnBdE497LstPOnFwLHe90HOdhZOEpsVBvrqG2vczVukpcy8Bc.', 0, '2026-05-22 20:27:01', '2026-05-22 20:20:23', '2026-05-22 20:17:01'),
+(7, NULL, 'sak.u.r.a.gi.yamashi@gmail.com', 'email', 'register', '$2b$10$zW4ayIZeXvvY6q3QwAmiJe.miZhelgHZHx1Ci6z.YsLJbfYBbo/dK', 0, '2026-05-22 20:29:47', NULL, '2026-05-22 20:19:47'),
+(8, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$izTePkLZ9xylYPCF0JcY8uHKIdof9CgyL9Lo7NATSAGKBRGZjU8m.', 0, '2026-05-22 20:30:23', '2026-05-22 20:22:58', '2026-05-22 20:20:23'),
+(9, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$vv7zvolCQdZkVJa3IgxAP.XeIMkbZtecFK2XvlCStqMEjNA.42GzC', 0, '2026-05-22 20:32:58', '2026-05-22 20:24:54', '2026-05-22 20:22:58'),
+(10, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$oAOX77lbNRwst3fgr7ClK.tKS6AqnnZe/ZhX7s0qXZZdv4jqibAj.', 0, '2026-05-22 20:34:58', '2026-05-22 20:32:55', '2026-05-22 20:24:58'),
+(11, NULL, 'nguyenben08083508+1@gmail.com', 'email', 'register', '$2b$10$THbDJ3f6Dd.XmItP.Ek5/OH4V8wRYguVH9Ceifuq9ta1TdWt2SfuO', 0, '2026-05-22 20:35:45', NULL, '2026-05-22 20:25:45'),
+(12, NULL, 'nben65069483@gmail.com', 'email', 'register', '$2b$10$PIcEbnsZff00KFDO.ZgJ8ufNfUvH9tBs70T0xEVnFGQx4AWyE.Rwu', 0, '2026-05-22 20:37:02', NULL, '2026-05-22 20:27:02'),
+(13, NULL, 'ben06.donghua@gmail.com', 'email', 'register', '$2b$10$djcM00v/odofZ7LNKr7M1urnt66JyI4WudeRcI1aC6gTSLdTbIfyW', 0, '2026-05-22 20:40:41', NULL, '2026-05-22 20:30:41'),
+(14, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$X.WRLDo0u0LdNwx9SdaSrua38Wrfw1sX5gocEhreWw4l3re/YOofO', 0, '2026-05-22 20:42:55', '2026-05-22 20:36:31', '2026-05-22 20:32:55'),
+(15, NULL, 'nguyenben08083508@gmail.com', 'email', 'register', '$2b$10$ZGc334esbN64347aI8UM4.3.M9K8..TjdD6Km0OPva1I4dB1AXRNK', 0, '2026-05-22 20:46:31', '2026-05-22 20:41:25', '2026-05-22 20:36:31'),
+(16, 103, 'nguyenben08083508@gmail.com', 'email', 'reset_password', '$2b$10$8HaKBtub5HQwICP/lKS.Y.kmxGRudruZQGEAppAbaBez/Dta9vPs2', 0, '2026-05-22 21:00:46', '2026-05-22 20:51:00', '2026-05-22 20:50:46');
 
 -- --------------------------------------------------------
 
@@ -706,7 +713,49 @@ INSERT INTO `refresh_tokens` (`id`, `user_id`, `token_hash`, `user_agent`, `ip_a
 (2, 100, '4147cf7bd7f14b7658f334cc11aed00a377d048d3caa87894c082ccc869d7d3a', 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8457', '::1', '2026-06-20 21:55:26', NULL, '2026-05-21 21:55:26'),
 (3, 102, 'd638788d5f5bc817c6ea0ace2489f08b1bd775ab7a39fe1bc13ee42784278728', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1', '::1', '2026-06-20 22:31:26', '2026-05-21 22:32:31', '2026-05-21 22:31:26'),
 (4, 102, '531914862bb6d2d02157a8ade84d592596ec1960e5b01101886e9601b0cb2364', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', '::1', '2026-06-20 22:32:49', NULL, '2026-05-21 22:32:49'),
-(5, 102, '79d78363972ec6c8d961836fc8045182e2bdb2e06d256682b6832c60606f7fc6', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', '::1', '2026-06-20 22:34:31', NULL, '2026-05-21 22:34:30');
+(5, 102, '79d78363972ec6c8d961836fc8045182e2bdb2e06d256682b6832c60606f7fc6', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36', '::1', '2026-06-20 22:34:31', NULL, '2026-05-21 22:34:30'),
+(6, 103, '5752cb8ca257b65983e44985ed26de9956a83f3432f88e52a7498bc746895b1f', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-21 20:41:26', '2026-05-22 20:43:48', '2026-05-22 20:41:26'),
+(7, 102, '8023a80d099843bc5a0e492b46de201cc1cb28827df07e76596df8ee9cf93c8b', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-21 20:43:53', '2026-05-22 20:43:55', '2026-05-22 20:43:53'),
+(8, 102, '1fecb8a5db52fe5b040298f6c66cf6161967ec7efbbd7c5220661ebf9cb48951', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-21 20:43:59', '2026-05-22 20:44:18', '2026-05-22 20:43:59'),
+(9, 103, 'f5035fcc6c0fd7f1bc46a310d7f44b3fd2f6b980c144cb10220f1c49f596ccbf', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-21 20:51:20', NULL, '2026-05-22 20:51:19'),
+(10, 102, 'b3e605ca113020517840754e6cdd99137f59c5005c7841f9e30389f89be55a86', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-29 20:02:06', '2026-05-30 20:11:48', '2026-05-30 20:02:06'),
+(11, 102, '6bf7e38265807e3936bf37172e68fa37b55ffbcc800b9015a536f2545774835e', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-29 20:11:51', NULL, '2026-05-30 20:11:51'),
+(12, 102, '9129d85f9805242ab2de43a78ab474536e6550cd9bdc1684b5d7e3b1cf390079', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-29 20:21:52', NULL, '2026-05-30 20:21:52'),
+(13, 102, '933eb72ba23daa1efc86d3e6a7b164a5ff46b0fbbb492c2a97c06ba732e3113b', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-06-29 20:22:05', '2026-06-12 19:22:11', '2026-05-30 20:22:05'),
+(14, 1, '1fea67b8d34926339401e9a77682a19077ffcefd13a24f2bc6f2d6b452019e97', 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8457', '::1', '2026-06-29 20:24:32', NULL, '2026-05-30 20:24:31'),
+(15, 2, 'c6e4ddfedfd310f7b250a37fd9a9d3a8414d21905928436041ec221547188e17', 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8457', '::1', '2026-06-29 20:24:42', NULL, '2026-05-30 20:24:42'),
+(16, 1, '0806742a0c5f8068f4bd9a4281ac3fbd81454ebc8950622587c1fec8cb83acaf', 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8457', '::1', '2026-06-29 20:24:42', NULL, '2026-05-30 20:24:42'),
+(17, 1, '1a712a1ceaa2c2775220e74db3a7504e76d229e2fcb3f6f6be25eaf27fe2027b', 'Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8457', '::1', '2026-06-29 20:24:50', NULL, '2026-05-30 20:24:50'),
+(18, 102, '241deca2f97b034a009dd4b37601f72b48eed94c3a397da9d16a2495c2c17d10', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-07-12 19:22:11', NULL, '2026-06-12 19:22:11'),
+(19, 102, '6f65ff6c3b0aefe2683d7da95d62fc53c33d2c6f14d5cb923e32e165bbf5ddb2', 'PostmanRuntime/7.54.0', '::1', '2026-07-12 19:41:30', NULL, '2026-06-12 19:41:29'),
+(20, 102, '3248182433f9e61139e71f7d111187707f4d506fe3acd2ff7235ddc0693dc922', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-07-12 19:54:35', '2026-06-12 20:15:03', '2026-06-12 19:54:35'),
+(21, 102, '51bf975b517c257d23c96453084ac868064a964693d7cd4fc6d4785e32b7a13b', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36', '::1', '2026-07-12 20:15:03', NULL, '2026-06-12 20:15:03');
+
+-- --------------------------------------------------------
+
+--
+-- Cấu trúc bảng cho bảng `registration_pending`
+--
+
+CREATE TABLE `registration_pending` (
+  `email` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `full_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `registration_pending`
+--
+
+INSERT INTO `registration_pending` (`email`, `full_name`, `password_hash`, `avatar_url`, `expires_at`, `created_at`) VALUES
+('ben06.donghua@gmail.com', 'wfes esfes', '$2b$10$x8Qx3GXrk1T7fVUop0qubui7ycXHLcCdtzvkbSCx/o4BfjwA03AtO', 'https://api.dicebear.com/9.x/avataaars/svg?seed=wfes%20esfes&radius=50', '2026-05-22 21:00:41', '2026-05-22 20:30:41'),
+('elnora367@deltajohnsons.com', 'ưdadaw', '$2b$10$RYic65mF1e1qvoOlCFzwmOHdTdmQktzXxMpyvdNvD07iF.2BRBQ1W', 'https://api.dicebear.com/9.x/avataaars/svg?seed=%C6%B0dadaw&radius=50', '2026-05-22 20:40:02', '2026-05-22 20:10:02'),
+('nben65069483@gmail.com', 'efesf sefs', '$2b$10$aUkBMTDVZnCmAgkZam1ZGO747uHqoyA3kjJ9A/CKU1wJphS6t0ccC', 'https://api.dicebear.com/9.x/avataaars/svg?seed=efesf%20sefs&radius=50', '2026-05-22 20:57:02', '2026-05-22 20:27:02'),
+('nguyenben08083508+1@gmail.com', 'df drgdg', '$2b$10$bmH..kYo4xLdGDDKYGUNrOYFG0DT6BVnhNf.JefQ.hJ1xVPhKgQZe', 'https://api.dicebear.com/9.x/avataaars/svg?seed=df%20drgdg&radius=50', '2026-05-22 20:55:44', '2026-05-22 20:25:44'),
+('sak.u.r.a.gi.yamashi@gmail.com', 'fsef', '$2b$10$pPY13V0fQUEjYTUAZNi3A.1Zn5i0MW0SvBORx2ELAKg0SOx.iHEae', 'https://api.dicebear.com/9.x/avataaars/svg?seed=fsef&radius=50', '2026-05-22 20:49:47', '2026-05-22 20:19:47');
 
 -- --------------------------------------------------------
 
@@ -806,43 +855,44 @@ CREATE TABLE `users` (
   `avatar_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `primary_role` enum('customer','merchant','driver','admin') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'customer',
   `status` enum('pending','active','suspended','banned') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'active',
-  `suspension_expires_at` datetime DEFAULT NULL,
   `email_verified_at` datetime DEFAULT NULL,
   `phone_verified_at` datetime DEFAULT NULL,
   `last_login_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `suspension_expires_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Đang đổ dữ liệu cho bảng `users`
 --
 
-INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `full_name`, `avatar_url`, `primary_role`, `status`, `email_verified_at`, `phone_verified_at`, `last_login_at`, `created_at`, `updated_at`) VALUES
-(1, 'avery@nomnom.example', '+84901000001', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Avery Park', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Avery%20Park&radius=50', 'admin', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(2, 'mara@example.com', '+84901000002', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Mara Chen', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Mara%20Chen&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', '2026-05-21 21:50:22', '2026-05-21 21:42:10', '2026-05-21 21:50:22'),
-(3, 'owen.r@example.com', '+84901000003', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Owen Reyes', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Owen%20Reyes&radius=50', 'driver', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(4, 'iris.m@example.com', '+84901000004', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Iris Mendez', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Iris%20Mendez&radius=50', 'driver', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(5, 'felix.t@example.com', '+84901000005', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Felix Tao', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix%20Tao&radius=50', 'driver', 'pending', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(6, 'sasha.p@example.com', '+84901000006', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sasha Park', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sasha%20Park&radius=50', 'driver', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(7, 'owner@cinque.example', '+84901000007', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Marco Bello', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Marco%20Bello&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(8, 'r@junebug.example', '+84901000008', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Reese Anya', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Reese%20Anya&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(9, 'sora@kaiseki.example', '+84901000009', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sora Iida', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sora%20Iida&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(10, 'naomi@verdant.example', '+84901000010', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Naomi Kato', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Naomi%20Kato&radius=50', 'merchant', 'pending', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(11, 'ren@hachi.example', '+84901000011', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Ren Ozaki', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Ren%20Ozaki&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(12, 'lupe@carreta.example', '+84901000012', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Lupe Martinez', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Lupe%20Martinez&radius=50', 'merchant', 'suspended', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(13, 'owner@buenaonda.example', '+84901000013', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Bea Lopez', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Bea%20Lopez&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(14, 'owner@doughdonut.example', '+84901000014', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Daly Smith', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Daly%20Smith&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(15, 'owen.t@example.com', '+84901000015', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Owen Tran', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Owen%20Tran&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(16, 'rae.p@example.com', '+84901000016', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Rae Pham', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Rae%20Pham&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(17, 'lia.d@example.com', '+84901000017', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Lia Do', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Lia%20Do&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(18, 'sam.k@example.com', '+84901000018', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sam Kim', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sam%20Kim&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(19, 'kai.v@example.com', '+84901000019', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Kai Vu', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Kai%20Vu&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(20, 'jamie.p@example.com', '+84901000020', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Jamie Phan', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Jamie%20P.&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(21, 'daniel.l@example.com', '+84901000021', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Daniel Le', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Daniel%20L.&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(22, 'sky.r@example.com', '+84901000022', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sky Reyes', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sky%20R.&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17'),
-(100, 'testusere023e465@example.com', NULL, '$2b$10$MhvRBtHmaoWCcsMGaSxSZ.AliPOd1SE.HMjkZI7mjYPKl5eGNJc5e', 'Test User', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Test%20User&radius=50', 'customer', 'active', '2026-05-21 21:55:26', NULL, '2026-05-21 21:55:26', '2026-05-21 21:55:26', '2026-05-21 21:55:26'),
-(102, 'nben940665@gmail.com', '0352245283', '$2b$10$CB.2vKDhM0.2oqYmAZCMtODggFmpFJP9MzhvQFZfHSiQ9gYugtQ4y', 'Nguyễn Công Ben', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Nguy%E1%BB%85n%20C%C3%B4ng%20Ben&radius=50', 'customer', 'active', '2026-05-21 22:31:26', NULL, '2026-05-21 22:34:30', '2026-05-21 22:31:26', '2026-05-21 22:34:30');
+INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `full_name`, `avatar_url`, `primary_role`, `status`, `email_verified_at`, `phone_verified_at`, `last_login_at`, `created_at`, `updated_at`, `suspension_expires_at`) VALUES
+(1, 'avery@nomnom.example', '+84901000001', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Avery Park', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Avery%20Park&radius=50', 'admin', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', '2026-05-30 20:24:50', '2026-05-21 21:42:10', '2026-05-30 20:24:50', NULL),
+(2, 'mara@example.com', '+84901000002', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Mara Chen', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Mara%20Chen&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', '2026-05-30 20:24:42', '2026-05-21 21:42:10', '2026-05-30 20:24:42', NULL),
+(3, 'owen.r@example.com', '+84901000003', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Owen Reyes', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Owen%20Reyes&radius=50', 'driver', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(4, 'iris.m@example.com', '+84901000004', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Iris Mendez', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Iris%20Mendez&radius=50', 'driver', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(5, 'felix.t@example.com', '+84901000005', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Felix Tao', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Felix%20Tao&radius=50', 'driver', 'active', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-30 20:28:45', NULL),
+(6, 'sasha.p@example.com', '+84901000006', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sasha Park', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sasha%20Park&radius=50', 'driver', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(7, 'owner@cinque.example', '+84901000007', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Marco Bello', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Marco%20Bello&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(8, 'r@junebug.example', '+84901000008', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Reese Anya', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Reese%20Anya&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(9, 'sora@kaiseki.example', '+84901000009', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sora Iida', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sora%20Iida&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(10, 'naomi@verdant.example', '+84901000010', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Naomi Kato', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Naomi%20Kato&radius=50', 'merchant', 'pending', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(11, 'ren@hachi.example', '+84901000011', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Ren Ozaki', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Ren%20Ozaki&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(12, 'lupe@carreta.example', '+84901000012', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Lupe Martinez', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Lupe%20Martinez&radius=50', 'merchant', 'suspended', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(13, 'owner@buenaonda.example', '+84901000013', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Bea Lopez', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Bea%20Lopez&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(14, 'owner@doughdonut.example', '+84901000014', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Daly Smith', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Daly%20Smith&radius=50', 'merchant', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(15, 'owen.t@example.com', '+84901000015', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Owen Tran', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Owen%20Tran&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(16, 'rae.p@example.com', '+84901000016', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Rae Pham', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Rae%20Pham&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(17, 'lia.d@example.com', '+84901000017', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Lia Do', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Lia%20Do&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(18, 'sam.k@example.com', '+84901000018', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sam Kim', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sam%20Kim&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(19, 'kai.v@example.com', '+84901000019', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Kai Vu', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Kai%20Vu&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(20, 'jamie.p@example.com', '+84901000020', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Jamie Phan', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Jamie%20P.&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(21, 'daniel.l@example.com', '+84901000021', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Daniel Le', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Daniel%20L.&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(22, 'sky.r@example.com', '+84901000022', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Sky Reyes', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Sky%20R.&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),
+(100, 'testusere023e465@example.com', NULL, '$2b$10$MhvRBtHmaoWCcsMGaSxSZ.AliPOd1SE.HMjkZI7mjYPKl5eGNJc5e', 'Test User', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Test%20User&radius=50', 'customer', 'active', '2026-05-21 21:55:26', NULL, '2026-05-21 21:55:26', '2026-05-21 21:55:26', '2026-05-21 21:55:26', NULL),
+(102, 'nben940665@gmail.com', '0352245283', '$2b$10$CB.2vKDhM0.2oqYmAZCMtODggFmpFJP9MzhvQFZfHSiQ9gYugtQ4y', 'Nguyễn Công Ben', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Nguy%E1%BB%85n%20C%C3%B4ng%20Ben&radius=50', 'admin', 'active', '2026-05-21 22:31:26', NULL, '2026-06-12 20:15:03', '2026-05-21 22:31:26', '2026-06-12 20:15:03', NULL),
+(103, 'nguyenben08083508@gmail.com', NULL, '$2b$10$WdRUWjdhOkKgmN/E8GE9Ceg2uX8.lqJc2Ewm7w4Pw4Q.ZPcDtppNG', 'esfef sfse', 'https://api.dicebear.com/9.x/avataaars/svg?seed=esfef%20sfse&radius=50', 'customer', 'active', '2026-05-22 20:41:26', NULL, '2026-05-22 20:51:19', '2026-05-22 20:41:26', '2026-05-22 20:51:19', NULL);
 
 -- --------------------------------------------------------
 
@@ -889,7 +939,8 @@ INSERT INTO `user_roles` (`user_id`, `role`, `granted_at`) VALUES
 (21, 'customer', '2026-05-21 21:42:10'),
 (22, 'customer', '2026-05-21 21:42:10'),
 (100, 'customer', '2026-05-21 21:55:26'),
-(102, 'customer', '2026-05-21 22:31:26');
+(102, 'admin', '2026-05-21 22:31:26'),
+(103, 'customer', '2026-05-22 20:41:26');
 
 -- --------------------------------------------------------
 
@@ -1088,12 +1139,6 @@ ALTER TABLE `otp_codes`
   ADD KEY `fk_otp_user` (`user_id`);
 
 --
--- Chỉ mục cho bảng `registration_pending`
---
-ALTER TABLE `registration_pending`
-  ADD PRIMARY KEY (`email`);
-
---
 -- Chỉ mục cho bảng `payments`
 --
 ALTER TABLE `payments`
@@ -1125,6 +1170,12 @@ ALTER TABLE `refresh_tokens`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `token_hash` (`token_hash`),
   ADD KEY `idx_refresh_user` (`user_id`);
+
+--
+-- Chỉ mục cho bảng `registration_pending`
+--
+ALTER TABLE `registration_pending`
+  ADD PRIMARY KEY (`email`);
 
 --
 -- Chỉ mục cho bảng `restaurants`
@@ -1253,7 +1304,7 @@ ALTER TABLE `order_status_logs`
 -- AUTO_INCREMENT cho bảng `otp_codes`
 --
 ALTER TABLE `otp_codes`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT cho bảng `payments`
@@ -1271,7 +1322,7 @@ ALTER TABLE `payout_requests`
 -- AUTO_INCREMENT cho bảng `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT cho bảng `restaurants`
@@ -1289,7 +1340,7 @@ ALTER TABLE `reviews`
 -- AUTO_INCREMENT cho bảng `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=103;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=104;
 
 --
 -- AUTO_INCREMENT cho bảng `wallets`
