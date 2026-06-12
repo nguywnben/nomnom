@@ -1,7 +1,10 @@
 /** @typedef {'customer'|'merchant'|'driver'|'admin'} Role */
 
-export function buildAuthedRoles(roles) {
+export function buildAuthedRoles(roles, primaryRole) {
   const set = new Set(roles ?? []);
+  if (primaryRole) {
+    set.add(primaryRole);
+  }
   return {
     customer: set.has('customer'),
     merchant: set.has('merchant'),

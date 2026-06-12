@@ -28,7 +28,7 @@ export function AppProvider({ children }) {
   const [authReady, setAuthReady] = useState(false);
 
   const authedRoles = useMemo(
-    () => (user ? buildAuthedRoles(user.roles) : buildAuthedRoles([])),
+    () => (user ? buildAuthedRoles(user.roles, user.primaryRole) : buildAuthedRoles([])),
     [user],
   );
 
