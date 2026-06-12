@@ -12,8 +12,8 @@ NGUYÊN TẮC CHIA NHÓM
 
 TRƯỚC KHI START WAVE 1, MỌI THÀNH VIÊN PHẢI:
 - Pull main, chạy được client + server local (xem docs/AUTH.md).
-- Đọc nomnom.sql để biết schema.
-- Đọc issues.txt để biết tổng thể.
+- Đọc database/nomnom.sql để biết schema.
+- Đọc docs/planning/issues.txt để biết tổng thể (nếu có).
 
 
 ================================================================================
