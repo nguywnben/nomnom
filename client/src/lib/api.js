@@ -95,6 +95,11 @@ export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
 }
 
+export function fetchAdminOverview(range = 'month') {
+  const params = new URLSearchParams({ range });
+  return apiGet(`/api/v1/admin/overview?${params.toString()}`);
+}
+
 export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20 } = {}) {
   const params = new URLSearchParams({
     role,

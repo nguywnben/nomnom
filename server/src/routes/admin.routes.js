@@ -37,6 +37,122 @@ function generateRandomPassword() {
 router.use(requireAuth);
 router.use(ensureAdmin);
 
+const ORDER_METRICS_WHERE = "status NOT IN ('cancelled', 'failed', 'pending_payment')";
+
+function parseOverviewRange(raw) {
+  const range = ['today', 'week', 'month'].includes(raw) ? raw : 'month';
+  if (range === 'today') {
+    return {
+      range,
+      placedAtSql: 'placed_at >= CURDATE() AND placed_at < CURDATE() + INTERVAL 1 DAY',
+    };
+  }
+  if (range === 'week') {
+    return {
+      range,
+      placedAtSql: 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)',
+    };
+  }
+  return {
+    range,
+    placedAtSql: 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)',
+  };
+}
+
+router.get('/overview', async (req, res, next) => {
+  try {
+    const { range, placedAtSql } = parseOverviewRange(String(req.query.range ?? 'month').toLowerCase());
+
+    const [[userCountRow]] = await pool.query('SELECT COUNT(*) AS n FROM users');
+    const [[customerCountRow]] = await pool.query(
+      "SELECT COUNT(DISTINCT user_id) AS n FROM user_roles WHERE role = 'customer'",
+    );
+    const [[merchantCountRow]] = await pool.query(
+      "SELECT COUNT(DISTINCT user_id) AS n FROM user_roles WHERE role = 'merchant'",
+    );
+    const [[driverCountRow]] = await pool.query(
+      "SELECT COUNT(DISTINCT user_id) AS n FROM user_roles WHERE role = 'driver'",
+    );
+    const [[restaurantActiveRow]] = await pool.query(
+      "SELECT COUNT(*) AS n FROM restaurants WHERE status = 'active'",
+    );
+
+    const [[orderMetrics]] = await pool.query(
+      `SELECT
+         COUNT(*) AS orderCount,
+         COALESCE(SUM(total_amount), 0) AS gmv,
+         COALESCE(SUM(platform_fee), 0) AS platformFee
+       FROM orders
+       WHERE ${placedAtSql} AND ${ORDER_METRICS_WHERE}`,
+    );
+
+    const [[refundRow]] = await pool.query(
+      `SELECT COUNT(*) AS n
+       FROM orders
+       WHERE ${placedAtSql} AND payment_status = 'refunded'`,
+    );
+
+    const [[pendingRestaurantsRow]] = await pool.query(
+      "SELECT COUNT(*) AS n FROM restaurants WHERE status = 'pending'",
+    );
+    const [[pendingDriversRow]] = await pool.query(
+      "SELECT COUNT(*) AS n FROM driver_profiles WHERE approval_status = 'pending'",
+    );
+
+    const [recentSignupRows] = await pool.query(
+      `SELECT id, full_name, email, primary_role, created_at
+       FROM users
+       ORDER BY created_at DESC
+       LIMIT 10`,
+    );
+
+    const [chartRows] = await pool.query(
+      `SELECT DATE(placed_at) AS day,
+              COUNT(*) AS orders,
+              COALESCE(SUM(total_amount), 0) AS gmv,
+              COALESCE(SUM(platform_fee), 0) AS platformFee
+       FROM orders
+       WHERE ${placedAtSql} AND ${ORDER_METRICS_WHERE}
+       GROUP BY DATE(placed_at)
+       ORDER BY day ASC`,
+    );
+
+    res.json({
+      range,
+      totals: {
+        userCount: Number(userCountRow?.n ?? 0),
+        customerCount: Number(customerCountRow?.n ?? 0),
+        merchantCount: Number(merchantCountRow?.n ?? 0),
+        driverCount: Number(driverCountRow?.n ?? 0),
+        restaurantActiveCount: Number(restaurantActiveRow?.n ?? 0),
+        orderCount: Number(orderMetrics?.orderCount ?? 0),
+        gmv: Number(orderMetrics?.gmv ?? 0),
+        platformFee: Number(orderMetrics?.platformFee ?? 0),
+        refundCount: Number(refundRow?.n ?? 0),
+      },
+      pendingApprovals: {
+        restaurants: Number(pendingRestaurantsRow?.n ?? 0),
+        drivers: Number(pendingDriversRow?.n ?? 0),
+      },
+      recentSignups: recentSignupRows.map((row) => ({
+        id: row.id,
+        fullName: row.full_name,
+        email: row.email,
+        primaryRole: row.primary_role,
+        createdAt: row.created_at,
+      })),
+      chart: chartRows.map((row) => ({
+        date: row.day instanceof Date ? row.day.toISOString().slice(0, 10) : String(row.day).slice(0, 10),
+        orders: Number(row.orders),
+        gmv: Number(row.gmv),
+        platformFee: Number(row.platformFee),
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/usersQuery', async (req, res, next) => {
   try {
     const role = String(req.query.role ?? 'all').trim().toLowerCase();

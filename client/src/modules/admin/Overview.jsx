@@ -1,12 +1,11 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Area,
   AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,197 +14,329 @@ import {
 import Badge from '../../components/Badge.jsx';
 import Card from '../../components/Card.jsx';
 import StatCard from '../../components/StatCard.jsx';
-import Icon from '../../components/Icon.jsx';
-import { adminCityMix, adminGmvWeekly } from '../../data/mock.js';
+import { fetchAdminOverview } from '../../lib/api.js';
 import { formatVnd, formatVndAxisBillions } from '../../lib/formatVnd.js';
 
-const COLORS = ['#171717', '#3b3b3b', '#60646c', '#a8c8e8', '#cfe7ff'];
+const RANGE_OPTIONS = [
+  { value: 'today', label: 'Hôm nay' },
+  { value: 'week', label: '7 ngày' },
+  { value: 'month', label: '30 ngày' },
+];
+
+const ROLE_LABELS = {
+  customer: 'Khách hàng',
+  merchant: 'Chủ quán',
+  driver: 'Tài xế',
+  admin: 'Quản trị',
+};
+
+function formatChartDate(isoDate) {
+  if (!isoDate) return '';
+  const d = new Date(`${isoDate}T12:00:00`);
+  return d.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' });
+}
+
+function formatJoinedAt(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('vi-VN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function AdminOverview() {
-  const last = adminGmvWeekly[adminGmvWeekly.length - 1];
-  const prev = adminGmvWeekly[adminGmvWeekly.length - 2];
-  const gmvDelta = (((last.gmv - prev.gmv) / prev.gmv) * 100).toFixed(1);
-  const gmvEightWeekTotal = adminGmvWeekly.reduce((s, w) => s + w.gmv, 0);
+  const [range, setRange] = useState('month');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetchAdminOverview(range);
+      setData(res);
+    } catch (err) {
+      setData(null);
+      setError(err.message || 'Không tải được dữ liệu tổng quan.');
+    } finally {
+      setLoading(false);
+    }
+  }, [range]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totals = data?.totals;
+  const pending = data?.pendingApprovals;
+  const chart = data?.chart ?? [];
+  const pendingTotal = (pending?.restaurants ?? 0) + (pending?.drivers ?? 0);
 
   return (
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Trong vòng 8 tuần</div>
+          <div className="text-caption-uppercase text-body">Bảng điều khiển</div>
           <h1 className="text-display-lg text-ink">Tình trạng nền tảng</h1>
         </div>
-        <Badge tone="live" dot>Dữ liệu trực tiếp — đang làm mới</Badge>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="GMV (tuần này)"
-          value={formatVnd(last.gmv)}
-          delta={`+${gmvDelta}%`}
-          sub="so với tuần trước"
-          icon="cash"
-        />
-        <StatCard
-          label="Tổng đơn hàng"
-          value={last.orders.toLocaleString()}
-          delta="+4.8%"
-          sub="so với tuần trước"
-          icon="package"
-        />
-        <StatCard
-          label="Tài xế đang hoạt động"
-          value="318"
-          delta="+12"
-          sub="so với hôm qua"
-          icon="bike"
-        />
-        <StatCard
-          label="Quán ăn đang hoạt động"
-          value="142"
-          delta="+3"
-          sub="tuần này"
-          icon="store"
-        />
-      </div>
-
-      {/* GMV chart */}
-      <div className="grid gap-base lg:grid-cols-3">
-        <Card padded className="lg:col-span-2">
-          <div className="mb-base flex items-center justify-between">
-            <div>
-              <div className="text-caption-uppercase text-body">Xu hướng GMV</div>
-              <div className="text-title-md text-ink">8 tuần qua</div>
-            </div>
-            <Badge tone="outline">Tổng 8 tuần: {formatVnd(gmvEightWeekTotal)}</Badge>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={adminGmvWeekly}>
-                <defs>
-                  <linearGradient id="gmv" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#171717" stopOpacity={0.22} />
-                    <stop offset="95%" stopColor="#171717" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
-                <XAxis dataKey="week" stroke="#999999" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#999999" tick={{ fontSize: 12 }} tickFormatter={(v) => formatVndAxisBillions(v)} />
-                <Tooltip
-                  contentStyle={{
-                    border: '1px solid #dcdee0',
-                    borderRadius: 8,
-                    fontSize: 13,
-                  }}
-                  formatter={(v) => [formatVnd(v), 'GMV']}
-                />
-                <Area type="monotone" dataKey="gmv" stroke="#171717" strokeWidth={2} fill="url(#gmv)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card padded>
-          <div className="mb-base">
-            <div className="text-caption-uppercase text-body">Phân bổ theo khu vực</div>
-            <div className="text-title-md text-ink">Đơn hàng theo thành phố</div>
-          </div>
-          <div className="grid h-48 grid-cols-2 items-center gap-sm">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={adminCityMix} dataKey="share" nameKey="city" innerRadius={36} outerRadius={64}>
-                  {adminCityMix.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    border: '1px solid #dcdee0',
-                    borderRadius: 8,
-                    fontSize: 13,
-                  }}
-                  formatter={(v, n) => [`${v}%`, n]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <ul className="text-body-sm space-y-1">
-              {adminCityMix.map((c, i) => (
-                <li key={c.city} className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 rounded-pill"
-                    style={{ background: COLORS[i % COLORS.length] }}
-                  />
-                  <span className="flex-1 text-ink">{c.city}</span>
-                  <span className="nums text-body">{c.share}%</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Card>
-      </div>
-
-      {/* Bar — orders/week */}
-      <Card padded>
-        <div className="mb-base flex items-center justify-between">
-          <div>
-            <div className="text-caption-uppercase text-body">Khối lượng đơn hàng</div>
-            <div className="text-title-md text-ink">Hàng tuần</div>
-          </div>
-        </div>
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={adminGmvWeekly}>
-              <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
-              <XAxis dataKey="week" stroke="#999999" tick={{ fontSize: 12 }} />
-              <YAxis stroke="#999999" tick={{ fontSize: 12 }} />
-              <Tooltip
-                contentStyle={{
-                  border: '1px solid #dcdee0',
-                  borderRadius: 8,
-                  fontSize: 13,
-                }}
-              />
-              <Bar dataKey="orders" fill="#171717" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-
-      {/* Operational alerts */}
-      <Card padded>
-        <div className="mb-base flex items-center justify-between">
-          <div>
-            <div className="text-caption-uppercase text-body">Vận hành</div>
-            <div className="text-title-md text-ink">Cảnh báo &amp; sự kiện</div>
-          </div>
-          <Badge tone="warning">3 cần xem xét</Badge>
-        </div>
-        <ul className="divide-y divide-hairline">
-          {[
-            { kind: 'warning', text: '8 tài xế tự động bị đình chỉ do đánh giá thấp', when: '12 phút trước' },
-            { kind: 'success', text: '14 khoản thanh toán cho quán ăn được phê duyệt', when: '3 giờ trước' },
-            { kind: 'info', text: 'Sự cố độ trễ API đã được giải quyết (khu vực NY-1)', when: '6 giờ trước' },
-            { kind: 'warning', text: '2 yêu cầu hoàn tiền đang chờ xem xét', when: '11 giờ trước' },
-          ].map((a, i) => (
-            <li key={i} className="flex items-center gap-sm py-sm">
-              <span
-                className={
-                  'grid h-8 w-8 place-items-center rounded-md ' +
-                  (a.kind === 'success'
-                    ? 'bg-[#e6f4ea] text-success'
-                    : a.kind === 'warning'
-                      ? 'bg-[#fbf1de] text-accent-warning'
-                      : 'bg-surface-strong text-ink')
-                }
-              >
-                <Icon name={a.kind === 'success' ? 'check' : 'alert'} size={14} />
-              </span>
-              <span className="flex-1 text-body-sm text-ink">{a.text}</span>
-              <span className="text-caption text-body">{a.when}</span>
-            </li>
+        <div className="flex flex-wrap items-center gap-2">
+          {RANGE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setRange(opt.value)}
+              className={
+                'rounded-pill px-3 py-1.5 text-body-sm transition-colors ' +
+                (range === opt.value
+                  ? 'bg-ink text-on-dark'
+                  : 'border border-hairline bg-surface-card text-body hover:text-ink')
+              }
+            >
+              {opt.label}
+            </button>
           ))}
-        </ul>
-      </Card>
+          {!loading && data && <Badge tone="live" dot>Dữ liệu từ DB</Badge>}
+        </div>
+      </div>
+
+      {error && (
+        <Card padded className="border-error/30 bg-[#fef2f2] text-body-sm text-error">
+          {error}
+        </Card>
+      )}
+
+      {loading && !data && (
+        <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} padded className="h-28 animate-pulse bg-canvas-soft" />
+          ))}
+        </div>
+      )}
+
+      {totals && (
+        <>
+          <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="GMV" value={formatVnd(totals.gmv)} icon="cash" sub="trong kỳ đã chọn" />
+            <StatCard
+              label="Đơn hàng"
+              value={totals.orderCount.toLocaleString('vi-VN')}
+              icon="package"
+              sub="trong kỳ đã chọn"
+            />
+            <StatCard
+              label="Hoa hồng nền tảng"
+              value={formatVnd(totals.platformFee)}
+              icon="wallet"
+              sub="trong kỳ đã chọn"
+            />
+            <StatCard
+              label="Hoàn tiền"
+              value={totals.refundCount.toLocaleString('vi-VN')}
+              icon="alert"
+              deltaTone={totals.refundCount > 0 ? 'error' : 'success'}
+              sub="đơn refunded trong kỳ"
+            />
+          </div>
+
+          <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-5">
+            <StatCard label="Tổng tài khoản" value={totals.userCount.toLocaleString('vi-VN')} icon="user" />
+            <StatCard label="Khách hàng" value={totals.customerCount.toLocaleString('vi-VN')} icon="user" />
+            <StatCard label="Chủ quán" value={totals.merchantCount.toLocaleString('vi-VN')} icon="store" />
+            <StatCard label="Tài xế" value={totals.driverCount.toLocaleString('vi-VN')} icon="bike" />
+            <StatCard
+              label="Quán đang hoạt động"
+              value={totals.restaurantActiveCount.toLocaleString('vi-VN')}
+              icon="store"
+            />
+          </div>
+
+          <div className="grid gap-base lg:grid-cols-3">
+            <Card padded className="lg:col-span-2">
+              <div className="mb-base flex items-center justify-between">
+                <div>
+                  <div className="text-caption-uppercase text-body">Xu hướng GMV</div>
+                  <div className="text-title-md text-ink">
+                    {RANGE_OPTIONS.find((o) => o.value === range)?.label}
+                  </div>
+                </div>
+                {chart.length > 0 && (
+                  <Badge tone="outline">
+                    Tổng: {formatVnd(chart.reduce((s, p) => s + p.gmv, 0))}
+                  </Badge>
+                )}
+              </div>
+              <div className="h-64">
+                {chart.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-body-sm text-body">
+                    Chưa có đơn trong kỳ này.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chart}>
+                      <defs>
+                        <linearGradient id="adminGmv" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#171717" stopOpacity={0.22} />
+                          <stop offset="95%" stopColor="#171717" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#999999"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={formatChartDate}
+                      />
+                      <YAxis
+                        stroke="#999999"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(v) => formatVndAxisBillions(v)}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          border: '1px solid #dcdee0',
+                          borderRadius: 8,
+                          fontSize: 13,
+                        }}
+                        labelFormatter={formatChartDate}
+                        formatter={(v) => [formatVnd(v), 'GMV']}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="gmv"
+                        stroke="#171717"
+                        strokeWidth={2}
+                        fill="url(#adminGmv)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </Card>
+
+            <Card padded>
+              <div className="mb-base">
+                <div className="text-caption-uppercase text-body">Chờ duyệt</div>
+                <div className="text-title-md text-ink">Hồ sơ cần xử lý</div>
+              </div>
+              <ul className="space-y-sm">
+                <li className="flex items-center justify-between rounded-md border border-hairline px-sm py-sm">
+                  <div>
+                    <div className="text-body-sm font-medium text-ink">Nhà hàng</div>
+                    <div className="text-caption text-body">Đăng ký mới chờ duyệt</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-title-md nums text-ink">{pending?.restaurants ?? 0}</span>
+                    <Link to="/admin/restaurants" className="text-caption text-ink underline">
+                      Xem
+                    </Link>
+                  </div>
+                </li>
+                <li className="flex items-center justify-between rounded-md border border-hairline px-sm py-sm">
+                  <div>
+                    <div className="text-body-sm font-medium text-ink">Tài xế</div>
+                    <div className="text-caption text-body">Hồ sơ chờ duyệt</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-title-md nums text-ink">{pending?.drivers ?? 0}</span>
+                    <Link to="/admin/drivers" className="text-caption text-ink underline">
+                      Xem
+                    </Link>
+                  </div>
+                </li>
+              </ul>
+              {pendingTotal > 0 && (
+                <div className="mt-base">
+                  <Badge tone="warning">{pendingTotal} cần xem xét</Badge>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <Card padded>
+            <div className="mb-base">
+              <div className="text-caption-uppercase text-body">Khối lượng đơn</div>
+              <div className="text-title-md text-ink">Theo ngày trong kỳ</div>
+            </div>
+            <div className="h-56">
+              {chart.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-body-sm text-body">
+                  Chưa có đơn trong kỳ này.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chart}>
+                    <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#999999"
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={formatChartDate}
+                    />
+                    <YAxis stroke="#999999" tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{
+                        border: '1px solid #dcdee0',
+                        borderRadius: 8,
+                        fontSize: 13,
+                      }}
+                      labelFormatter={formatChartDate}
+                    />
+                    <Bar dataKey="orders" fill="#171717" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </Card>
+
+          <Card padded>
+            <div className="mb-base flex items-center justify-between">
+              <div>
+                <div className="text-caption-uppercase text-body">Đăng ký mới</div>
+                <div className="text-title-md text-ink">10 tài khoản gần nhất</div>
+              </div>
+              <Link to="/admin/accounts" className="text-body-sm text-ink underline">
+                Tất cả tài khoản
+              </Link>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-left text-body-sm">
+                <thead>
+                  <tr className="border-b border-hairline text-caption-uppercase text-body">
+                    <th className="pb-2 pr-4 font-medium">Họ tên</th>
+                    <th className="pb-2 pr-4 font-medium">Email</th>
+                    <th className="pb-2 pr-4 font-medium">Vai trò</th>
+                    <th className="pb-2 font-medium">Thời gian</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {(data.recentSignups ?? []).length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-body">
+                        Chưa có tài khoản.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.recentSignups.map((u) => (
+                      <tr key={u.id}>
+                        <td className="py-2 pr-4 font-medium text-ink">{u.fullName}</td>
+                        <td className="py-2 pr-4 text-body">{u.email ?? '—'}</td>
+                        <td className="py-2 pr-4">
+                          <Badge tone="outline">{ROLE_LABELS[u.primaryRole] ?? u.primaryRole}</Badge>
+                        </td>
+                        <td className="py-2 text-caption text-body">{formatJoinedAt(u.createdAt)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
