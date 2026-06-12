@@ -20,6 +20,7 @@
 | Tài liệu | Mô tả |
 |----------|--------|
 | [groups.txt](./planning/groups.txt) | Chia 28 issue thành 5 đợt (wave) |
+| [wave-1-completed.md](./wave-1-completed.md) | Chức năng đã hoàn thành — Đợt 1 (INF-01 … ADM-02) |
 | [issues.txt](./planning/issues.txt) | Chi tiết từng issue *(chưa có trong repo)* |
 
 ## Cơ sở dữ liệu

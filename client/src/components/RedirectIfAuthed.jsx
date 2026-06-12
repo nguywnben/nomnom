@@ -1,10 +1,11 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
+import { resolveLoginRedirect } from '../lib/auth.js';
 
 /**
  * Chặn trang khách (login, register, …) khi đã có phiên đăng nhập.
  */
-export default function RedirectIfAuthed({ to = '/app' }) {
+export default function RedirectIfAuthed() {
   const { authReady, user } = useApp();
 
   if (!authReady) {
@@ -16,7 +17,7 @@ export default function RedirectIfAuthed({ to = '/app' }) {
   }
 
   if (user) {
-    return <Navigate to={to} replace />;
+    return <Navigate to={resolveLoginRedirect(null, user)} replace />;
   }
 
   return <Outlet />;

@@ -1,12 +1,13 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
+import { ROLE_HOME } from '../lib/auth.js';
 
 /**
- * Bảo vệ portal theo vai trò — chưa đăng nhập thì chuyển /login?next=...
+ * Bảo vệ portal theo quyền `user_roles` — không dùng `primary_role`.
  * @param {{ role: 'customer'|'merchant'|'driver'|'admin' }} props
  */
 export default function RequireAuth({ role }) {
-  const { authReady, authedRoles } = useApp();
+  const { authReady, permittedRoles, user } = useApp();
   const location = useLocation();
 
   if (!authReady) {
@@ -17,7 +18,14 @@ export default function RequireAuth({ role }) {
     );
   }
 
-  if (!authedRoles[role]) {
+  if (!permittedRoles[role]) {
+    if (user) {
+      const primary = user.primaryRole;
+      const primaryHome = ROLE_HOME[primary] ?? '/app';
+      const canEnterPrimary =
+        primary === 'customer' || Boolean(permittedRoles[primary]);
+      return <Navigate to={canEnterPrimary ? primaryHome : '/app'} replace />;
+    }
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?next=${next}`} replace />;
   }

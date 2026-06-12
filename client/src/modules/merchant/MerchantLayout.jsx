@@ -46,7 +46,7 @@ export default function MerchantLayout() {
       <DesktopSidebar
         currentMerchant={currentMerchant}
         newCount={newCount}
-        onSwitchRole={() => nav('/')}
+        onSwitchRole={() => nav('/app')}
         onLogout={() => logout()}
       />
 
@@ -62,7 +62,7 @@ export default function MerchantLayout() {
           currentMerchant={currentMerchant}
           newCount={newCount}
           onItemClick={() => setDrawerOpen(false)}
-          onSwitchRole={() => nav('/')}
+          onSwitchRole={() => nav('/app')}
           onLogout={() => logout()}
         />
       </Drawer>

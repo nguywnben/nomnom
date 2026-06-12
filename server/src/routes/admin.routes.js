@@ -7,7 +7,7 @@ import { sendAdminResetPasswordEmail } from '../lib/mail.js';
 const router = Router();
 
 function ensureAdmin(req, res, next) {
-  if (req.auth.primaryRole === 'admin' || (req.auth.roles ?? []).includes('admin')) {
+  if ((req.auth.roles ?? []).includes('admin')) {
     return next();
   }
   return res.status(403).json({ error: 'Forbidden' });

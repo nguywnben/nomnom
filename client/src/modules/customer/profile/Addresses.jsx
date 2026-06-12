@@ -23,17 +23,17 @@ const EMPTY_FORM = {
 };
 
 export default function Addresses() {
-  const { pushToast, authedRoles } = useApp();
+  const { pushToast, permittedRoles } = useApp();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
-    if (authedRoles.customer) {
+    if (permittedRoles.customer) {
       loadAddresses();
     }
-  }, [authedRoles.customer]);
+  }, [permittedRoles.customer]);
 
   const loadAddresses = async () => {
     setLoading(true);
@@ -184,12 +184,12 @@ export default function Addresses() {
         <p className="text-body-sm text-body">
           Lưu địa chỉ để đặt món nhanh hơn ở lần sau.
         </p>
-        <Button size="sm" leadingIcon="plus" onClick={openCreate} disabled={!authedRoles.customer}>
+        <Button size="sm" leadingIcon="plus" onClick={openCreate} disabled={!permittedRoles.customer}>
           Thêm địa chỉ
         </Button>
       </div>
 
-      {!authedRoles.customer ? (
+      {!permittedRoles.customer ? (
         <Card padded>
           <div className="text-title-md text-ink">Cần đăng nhập</div>
           <p className="mt-1 text-body-sm text-body">

@@ -13,7 +13,7 @@ import ProfileSubHeader from './ProfileSubHeader.jsx';
 // Demo only — values live in component state and surface as a toast on save.
 export default function EditProfile() {
   const nav = useNavigate();
-  const { currentCustomer, pushToast, authedRoles } = useApp();
+  const { currentCustomer, pushToast, permittedRoles } = useApp();
 
   const [name, setName] = useState(currentCustomer.name);
   const [email, setEmail] = useState(currentCustomer.email);
@@ -30,7 +30,7 @@ export default function EditProfile() {
     nav('/app/profile');
   };
 
-  if (!authedRoles.customer) {
+  if (!permittedRoles.customer) {
     return (
       <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
         <ProfileSubHeader title="Chỉnh sửa hồ sơ" />

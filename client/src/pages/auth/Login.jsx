@@ -11,7 +11,7 @@ import { getRememberLoginPref } from '../../lib/authStorage.js';
 export default function LoginPage() {
   const nav = useNavigate();
   const [params] = useSearchParams();
-  const nextPath = params.get('next') || '/app';
+  const nextPath = params.get('next');
   const { login, pushToast } = useApp();
 
   const [channel, setChannel] = useState('email');

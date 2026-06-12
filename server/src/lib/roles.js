@@ -1,11 +1,11 @@
 /**
- * Gộp primary_role vào danh sách roles từ user_roles.
- * Đảm bảo user có quyền portal khớp với primary_role (vd. admin vào /admin).
+ * Chuẩn hóa danh sách role từ bảng `user_roles`.
+ * `primary_role` không được gộp vào — dùng riêng cho hiển thị / chuyển hướng UI.
  */
-export function mergeUserRoles(primaryRole, roles = []) {
-  const set = new Set(roles ?? []);
-  if (primaryRole) {
-    set.add(primaryRole);
-  }
-  return [...set].sort();
+export function normalizeRoles(roles = []) {
+  return [...new Set(roles ?? [])].sort();
+}
+
+export function hasRole(roles, role) {
+  return (roles ?? []).includes(role);
 }
