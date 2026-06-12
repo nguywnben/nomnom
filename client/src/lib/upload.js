@@ -18,7 +18,8 @@ export async function uploadFile(file, folder = 'avatar') {
 }
 
 export function deleteUploadedFile(publicId) {
-  return apiFetch(`/api/v1/uploads/${encodeURIComponent(publicId)}`, {
+  const params = new URLSearchParams({ publicId });
+  return apiFetch(`/api/v1/uploads?${params.toString()}`, {
     method: 'DELETE',
   });
 }

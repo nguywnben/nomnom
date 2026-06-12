@@ -33,7 +33,16 @@ function enforceRateLimit(userId) {
   userUploadHistory.set(userId, recent);
 }
 
-router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
+function handleUpload(req, res, next) {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      return next(err);
+    }
+    next();
+  });
+}
+
+router.post('/', requireAuth, handleUpload, async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {
@@ -58,11 +67,11 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
   }
 });
 
-router.delete('/:publicId', requireAuth, async (req, res, next) => {
+router.delete('/', requireAuth, async (req, res, next) => {
   try {
-    const publicId = String(req.params.publicId ?? '').trim();
+    const publicId = String(req.query.publicId ?? '').trim();
     if (!publicId) {
-      return res.status(400).json({ error: 'publicId là bắt buộc.' });
+      return res.status(400).json({ error: 'Query publicId là bắt buộc.' });
     }
 
     const result = await deleteUploadedImage(publicId);

@@ -30,21 +30,22 @@ function requireCloudinaryConfig() {
   }
 }
 
-function createPublicId(folder) {
-  const safeFolder = normalizeUploadFolder(folder).replace(/[^a-z0-9-]/gi, '-');
+function createPublicId() {
   const suffix = Math.random().toString(36).slice(2, 8);
-  return `${safeFolder}_${Date.now()}_${suffix}`;
+  return `${Date.now()}_${suffix}`;
 }
 
 export async function uploadImageBuffer({ buffer, folder }) {
   requireCloudinaryConfig();
 
+  const uploadFolder = `nomnom/${normalizeUploadFolder(folder)}`;
+
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: 'nomnom',
+        folder: uploadFolder,
         resource_type: 'image',
-        public_id: createPublicId(folder),
+        public_id: createPublicId(),
         overwrite: false,
         unique_filename: false,
       },
