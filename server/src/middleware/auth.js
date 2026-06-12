@@ -1,4 +1,5 @@
 import { verifyAccessToken } from '../lib/auth.js';
+import { mergeUserRoles } from '../lib/roles.js';
 
 export function requireAuth(req, res, next) {
   const hdr = req.headers.authorization;
@@ -10,7 +11,7 @@ export function requireAuth(req, res, next) {
     req.auth = {
       userId: Number(payload.sub),
       primaryRole: payload.primaryRole,
-      roles: payload.roles ?? [],
+      roles: mergeUserRoles(payload.primaryRole, payload.roles ?? []),
     };
     next();
   } catch {

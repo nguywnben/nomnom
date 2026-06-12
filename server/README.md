@@ -48,6 +48,7 @@ Test nhanh bằng Postman: login → lấy token → POST file ảnh → nhận 
 | GET | `/api/health` | Health check |
 | GET | `/api/v1/home/categories` | Carousel "Khám phá theo món ăn" — từ `menu_items` (`/app`) |
 | GET | `/api/v1/home/promos` | 3 banner khuyến mãi — từ `home_promo_banners` (`/app`) |
+| GET | `/api/v1/admin/overview?range=month` | KPI tổng quan admin (`/admin`) — cần role admin |
 
 Nếu DB cũ thiếu bảng banner:
 
