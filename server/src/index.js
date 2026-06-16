@@ -59,10 +59,19 @@ async function ensureSuspensionColumn() {
   }
 }
 
+async function ensureTokenVersionColumn() {
+  const [rows] = await pool.query("SHOW COLUMNS FROM users LIKE 'token_version'");
+  if (!rows.length) {
+    console.log('[DB] Thêm cột token_version vào bảng users');
+    await pool.query('ALTER TABLE users ADD COLUMN token_version int unsigned NOT NULL DEFAULT 0');
+  }
+}
+
 async function start() {
   try {
     await verifyDbConnection();
     await ensureSuspensionColumn();
+    await ensureTokenVersionColumn();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(

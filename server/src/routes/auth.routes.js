@@ -53,6 +53,10 @@ async function restoreExpiredSuspension(user) {
   return user;
 }
 
+function userTokenVersion(user) {
+  return Number(user?.token_version ?? 0);
+}
+
 function serializeUser(row, roles) {
   return {
     id: row.id,
@@ -68,7 +72,7 @@ function serializeUser(row, roles) {
 }
 
 async function issueSession(userRow, roles, req, { remember = true } = {}) {
-  const accessToken = signAccessToken(userRow, roles);
+  const accessToken = signAccessToken(userRow, roles, userTokenVersion(userRow));
   const refreshToken = createRefreshToken();
   const tokenHash = hashToken(refreshToken);
 
@@ -360,7 +364,7 @@ router.post('/login', async (req, res, next) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, email, phone, password_hash, full_name, avatar_url, primary_role, status, suspension_expires_at
+      `SELECT id, email, phone, password_hash, full_name, avatar_url, primary_role, status, suspension_expires_at, token_version
        FROM users WHERE email = ? LIMIT 1`,
       [email],
     );
@@ -393,7 +397,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, email, phone, full_name, avatar_url, primary_role, status, suspension_expires_at
+      `SELECT id, email, phone, full_name, avatar_url, primary_role, status, suspension_expires_at, token_version
        FROM users WHERE id = ? LIMIT 1`,
       [req.auth.userId],
     );
@@ -425,8 +429,8 @@ router.post('/refresh', async (req, res, next) => {
 
     const tokenHash = hashToken(raw);
     const [rows] = await pool.query(
-      `SELECT rt.id AS token_id, rt.user_id, u.email, u.phone, u.full_name, u.avatar_url,
-              u.primary_role, u.status, u.suspension_expires_at
+            `SELECT rt.id AS token_id, rt.user_id, u.email, u.phone, u.full_name, u.avatar_url,
+              u.primary_role, u.status, u.suspension_expires_at, u.token_version
        FROM refresh_tokens rt
        INNER JOIN users u ON u.id = rt.user_id
        WHERE rt.token_hash = ?
@@ -454,6 +458,7 @@ router.post('/refresh', async (req, res, next) => {
       avatar_url: row.avatar_url,
       primary_role: row.primary_role,
       status: row.status,
+      token_version: row.token_version,
     };
     const roles = normalizeRoles(await loadRoles(row.user_id));
     const session = await issueSession(userRow, roles, req);
@@ -480,6 +485,29 @@ router.post('/logout', async (req, res, next) => {
     res.json({ ok: true });
   } catch (err) {
     next(err);
+  }
+});
+
+/**
+ * POST /api/v1/auth/logout-all
+ * Require auth — revoke all refresh tokens and invalidate access tokens.
+ */
+router.post('/logout-all', requireAuth, async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query('UPDATE users SET token_version = token_version + 1 WHERE id = ?', [req.auth.userId]);
+    await connection.query(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL',
+      [req.auth.userId],
+    );
+    await connection.commit();
+    res.json({ ok: true });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
   }
 });
 

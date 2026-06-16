@@ -6,12 +6,13 @@ const ACCESS_TTL = process.env.JWT_ACCESS_TTL ?? '15m';
 const REFRESH_DAYS = Number(process.env.JWT_REFRESH_DAYS ?? 30);
 const REFRESH_SESSION_DAYS = Number(process.env.JWT_REFRESH_SESSION_DAYS ?? 1);
 
-export function signAccessToken(user, roles) {
+export function signAccessToken(user, roles, tokenVersion = 0) {
   return jwt.sign(
     {
       sub: user.id,
       primaryRole: user.primary_role,
       roles,
+      tokenVersion: Number(tokenVersion ?? 0),
     },
     JWT_SECRET,
     { expiresIn: ACCESS_TTL },
