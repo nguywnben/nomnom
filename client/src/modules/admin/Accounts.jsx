@@ -36,6 +36,7 @@ export default function AdminAccounts() {
   const [loading, setLoading] = useState(false);
   const [suspensionTarget, setSuspensionTarget] = useState(null);
   const [suspensionDays, setSuspensionDays] = useState('7');
+  const [suspensionReason, setSuspensionReason] = useState('');
   const [suspensionError, setSuspensionError] = useState('');
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPasswordValue, setResetPasswordValue] = useState('');
@@ -89,6 +90,7 @@ export default function AdminAccounts() {
   const closeSuspensionModal = () => {
     setSuspensionTarget(null);
     setSuspensionDays('7');
+    setSuspensionReason('');
     setSuspensionError('');
   };
 
@@ -110,12 +112,13 @@ export default function AdminAccounts() {
         const user = users.find((u) => u.id === userId);
         setSuspensionTarget({ id: userId, name: name ?? user?.fullName });
         setSuspensionDays('7');
+        setSuspensionReason('');
         setSuspensionError('');
         return;
       }
 
       await updateAdminUserStatus(userId, nextStatus);
-      setUsers((cur) => cur.map((u) => (u.id === userId ? { ...u, status: nextStatus, suspensionExpiresAt: null } : u)));
+      setUsers((cur) => cur.map((u) => (u.id === userId ? { ...u, status: nextStatus, suspensionExpiresAt: null, suspensionReason: null } : u)));
       pushToast({ kind: nextStatus === 'active' ? 'success' : 'error', title: 'Cập nhật trạng thái', message: `${name} → ${nextStatus}` });
     } catch (err) {
       pushToast({ kind: 'error', title: 'Cập nhật thất bại', message: err.message ?? 'Vui lòng thử lại.' });
@@ -131,12 +134,27 @@ export default function AdminAccounts() {
       return;
     }
 
+    if (!suspensionReason.trim()) {
+      setSuspensionError('Vui lòng nhập lý do đình chỉ.');
+      return;
+    }
+
     try {
-      const result = await updateAdminUserStatus(suspensionTarget.id, 'suspended', days);
+      const result = await updateAdminUserStatus(
+        suspensionTarget.id,
+        'suspended',
+        days,
+        suspensionReason.trim(),
+      );
       setUsers((cur) =>
         cur.map((u) =>
           u.id === suspensionTarget.id
-            ? { ...u, status: 'suspended', suspensionExpiresAt: result.suspensionExpiresAt }
+            ? {
+                ...u,
+                status: 'suspended',
+                suspensionExpiresAt: result.suspensionExpiresAt,
+                suspensionReason: result.suspensionReason,
+              }
             : u,
         ),
       );
@@ -364,8 +382,14 @@ export default function AdminAccounts() {
             value={suspensionDays}
             onChange={(e) => setSuspensionDays(e.target.value)}
             hint="Số ngày đình chỉ"
-            error={suspensionError}
             placeholder="7"
+          />
+          <Input
+            value={suspensionReason}
+            onChange={(e) => setSuspensionReason(e.target.value)}
+            hint="Lý do đình chỉ"
+            error={suspensionError}
+            placeholder="Nhập lý do đình chỉ"
           />
         </div>
       </Modal>

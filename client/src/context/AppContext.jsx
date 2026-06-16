@@ -700,6 +700,15 @@ export function AppProvider({ children }) {
     [navigate, pushToast, resetCartState],
   );
 
+  const grantCurrentUserRole = useCallback((nextRole) => {
+    setUser((cur) => {
+      if (!cur) return cur;
+      const roles = Array.isArray(cur.roles) ? cur.roles : [];
+      if (roles.includes(nextRole)) return cur;
+      return { ...cur, roles: [...roles, nextRole].sort() };
+    });
+  }, []);
+
   // Simulate live "new order" pings to merchant every ~25s if window stays open
   useEffect(() => {
     if (role !== 'merchant') return undefined;
@@ -743,6 +752,7 @@ export function AppProvider({ children }) {
     registerSendCode,
     completeRegistration,
     logout,
+    grantCurrentUserRole,
     permittedRoles,
 
     cart,
