@@ -1,10 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import Avatar from '../../components/Avatar.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { loginHref } from '../../lib/auth.js';
+import { apiGet } from '../../lib/api.js';
 
 // Customer profile — reached from the mobile bottom nav (and surfaced on
 // desktop via the avatar menu in the top nav).
@@ -20,10 +22,24 @@ const SETTINGS = [
 export default function CustomerProfile() {
   const { pathname, search } = useLocation();
   const nav = useNavigate();
-  const { currentCustomer, orders, permittedRoles, user, logout } = useApp();
+  const {
+    user,
+    currentCustomer,
+    permittedRoles,
+    logout,
+  } = useApp();
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    if (user) {
+      apiGet('/api/v1/orders')
+        .then(data => setOrders(data || []))
+        .catch(err => console.error('Failed to load orders', err));
+    }
+  }, [user]);
 
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
-  const activeCount = orders.length - deliveredCount;
+  const activeCount = orders.filter((o) => !['delivered', 'cancelled', 'failed'].includes(o.status)).length;
 
   return (
     <div className="flex flex-col gap-base p-base md:container-page md:py-xl">

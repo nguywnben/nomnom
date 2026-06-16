@@ -9,6 +9,7 @@ import cuisinesRoutes from './routes/cuisines.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import uploadsRoutes from './routes/uploads.routes.js';
 import pool, { verifyDbConnection } from './db/pool.js';
+import ordersRoutes from './routes/orders.routes.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -32,6 +33,7 @@ app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/cuisines', cuisinesRoutes);
 app.use('/api/v1/uploads', uploadsRoutes);
+app.use('/api/v1/orders', ordersRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
