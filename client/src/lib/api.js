@@ -90,6 +90,10 @@ export function apiDelete(path) {
   return apiFetch(path, { method: 'DELETE' });
 }
 
+export function authGet(path) {
+  return apiGet(path);
+}
+
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
@@ -190,13 +194,36 @@ export function fetchCuisines() {
 }
 
 export function fetchRestaurantDetail(idOrSlug) {
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}`);
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}`);
 }
 
 export function fetchRestaurantMenu(idOrSlug) {
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/menu`);
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/menu`);
 }
 
 export function fetchRestaurantReviews(idOrSlug) {
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/reviews`);
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/reviews`);
+}
+
+export function fetchCartApi() {
+  return apiGet('/api/v1/cart');
+}
+
+export function addCartItemApi({ menuItemId, quantity, note }) {
+  return apiPost('/api/v1/cart/items', { menuItemId, quantity, note });
+}
+
+export function updateCartItemApi(itemId, { quantity, note }) {
+  return apiPatch(`/api/v1/cart/items/${encodeURIComponent(itemId)}`, { quantity, note });
+}
+
+export function deleteCartItemApi(itemId) {
+  return apiDelete(`/api/v1/cart/items/${encodeURIComponent(itemId)}`);
+}
+
+export function clearCartApi() {
+  return apiDelete('/api/v1/cart');
 }

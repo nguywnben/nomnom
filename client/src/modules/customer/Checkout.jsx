@@ -34,7 +34,8 @@ export default function CustomerCheckout() {
   const [note, setNote] = useState('');
   const [placing, setPlacing] = useState(false);
 
-  const restaurant = restaurants.find((r) => r.id === cart.restaurantId);
+  const restaurant = cart.restaurantName ? null : restaurants.find((r) => String(r.id) === String(cart.restaurantId));
+  const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
 
   if (!cart.items.length) {
     return (
@@ -175,14 +176,19 @@ export default function CustomerCheckout() {
           </Card>
 
           <Card padded>
-            <div className="mb-sm flex items-center justify-between">
-              <div className="text-title-md text-ink">Tóm tắt đơn hàng</div>
-              <Badge tone="outline">{restaurant?.name}</Badge>
+            <div className="mb-sm flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {cart.restaurantLogo && (
+                  <Image src={cart.restaurantLogo} alt={restaurantName} className="h-8 w-8 rounded-md" ratio="1" />
+                )}
+                <div className="text-title-md text-ink truncate">Tóm tắt đơn hàng</div>
+              </div>
+              <Badge tone="outline">{restaurantName}</Badge>
             </div>
             <div className="flex flex-col divide-y divide-hairline">
               {cart.items.map((i) => (
                 <div key={i.id} className="flex items-center gap-sm py-sm">
-                  <Image src={i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
+                  <Image src={i.imageUrl ?? i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
                   <div className="flex-1">
                     <div className="text-body-sm font-semibold text-ink">{i.name}</div>
                     <div className="text-caption text-body">SL {i.quantity}</div>
