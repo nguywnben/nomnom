@@ -61,4 +61,21 @@ router.get('/promos', async (_req, res, next) => {
   }
 });
 
+/**
+ * GET /api/v1/home/cuisines
+ * Danh sách toàn bộ loại hình ẩm thực từ bảng cuisines.
+ */
+router.get('/cuisines', async (_req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, name, slug, icon_url AS iconUrl, sort_order AS sortOrder
+       FROM cuisines
+       ORDER BY sort_order ASC, id ASC`,
+    );
+    res.json({ data: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

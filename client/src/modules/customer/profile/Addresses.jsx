@@ -35,7 +35,7 @@ const SEED = [
 const EMPTY_FORM = { label: '', line: '', city: '', note: '' };
 
 export default function Addresses() {
-  const { pushToast, authedRoles } = useApp();
+  const { pushToast, authedRoles, user } = useApp();
   const [list, setList] = useState(SEED);
   const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM });
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -100,12 +100,12 @@ export default function Addresses() {
         <p className="text-body-sm text-body">
           Lưu địa chỉ để đặt món nhanh hơn ở lần sau.
         </p>
-        <Button size="sm" leadingIcon="plus" onClick={openCreate} disabled={!authedRoles.customer}>
+        <Button size="sm" leadingIcon="plus" onClick={openCreate} disabled={!user}>
           Thêm địa chỉ
         </Button>
       </div>
 
-      {!authedRoles.customer ? (
+      {!user ? (
         <Card padded>
           <div className="text-title-md text-ink">Cần đăng nhập</div>
           <p className="mt-1 text-body-sm text-body">

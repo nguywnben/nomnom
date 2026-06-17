@@ -3,6 +3,7 @@ import express from 'express';
 import 'dotenv/config';
 import homeRoutes from './routes/home.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import merchantRoutes from './routes/merchant.routes.js';
 import { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -22,6 +23,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/merchant', merchantRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

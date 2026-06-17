@@ -31,8 +31,14 @@ export function resolveLoginRedirect(nextPath, user) {
   const roles = user.roles ?? [];
   if (nextPath) {
     if (nextPath.startsWith('/admin') && roles.includes('admin')) return nextPath;
-    if (nextPath.startsWith('/merchant') && roles.includes('merchant')) return nextPath;
-    if (nextPath.startsWith('/driver') && roles.includes('driver')) return nextPath;
+    if (nextPath.startsWith('/merchant')) {
+      if (nextPath === '/merchant/onboarding' || nextPath === '/merchant/pending') return nextPath;
+      if (roles.includes('merchant')) return nextPath;
+    }
+    if (nextPath.startsWith('/driver')) {
+      if (nextPath === '/driver/onboarding' || nextPath === '/driver/pending') return nextPath;
+      if (roles.includes('driver')) return nextPath;
+    }
     if (nextPath.startsWith('/app') && roles.includes('customer')) return nextPath;
     if (
       !nextPath.startsWith('/admin') &&

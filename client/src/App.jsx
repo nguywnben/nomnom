@@ -117,11 +117,13 @@ export default function App() {
           <Route path="profile/settings" element={<CustomerProfileSettings />} />
         </Route>
 
-        {/* Merchant onboarding/pending — không dùng layout chính */}
-        <Route element={<RequireAuth role="merchant" />}>
+        {/* Merchant onboarding/pending — không dùng layout chính, chỉ yêu cầu đăng nhập */}
+        <Route element={<RequireAuth role="customer" />}>
           <Route path="/merchant/onboarding" element={<MerchantOnboarding />} />
           <Route path="/merchant/pending" element={<MerchantPending />} />
+        </Route>
 
+        <Route element={<RequireAuth role="merchant" />}>
           <Route path="/merchant" element={<MerchantLayout />}>
             <Route index element={<MerchantDashboard />} />
             <Route path="orders" element={<MerchantOrders />} />

@@ -28,6 +28,7 @@ export default function CartDrawer() {
     appliedPromo,
     setAppliedPromo,
     authedRoles,
+    user,
   } = useApp();
   const [promoCode, setPromoCode] = useState('');
 
@@ -74,14 +75,14 @@ export default function CartDrawer() {
     >
       <div className="flex flex-col gap-base p-lg">
         {/* Sync status — only visible when logged in */}
-        {authedRoles.customer && cart.items.length > 0 && (
+        {user && cart.items.length > 0 && (
           <div className="flex items-center gap-2 rounded-md bg-canvas-soft px-sm py-2 text-caption text-body">
             <Icon
               name="refresh"
               size={12}
               className={syncing ? 'animate-spin text-ink' : 'text-success'}
             />
-            {syncing ? 'Đang đồng bộ giỏ hàng với tài khoản của bạn…' : 'Giỏ hàng đã đồng bộ với mara@example.com'}
+            {syncing ? 'Đang đồng bộ giỏ hàng với tài khoản của bạn…' : `Giỏ hàng đã đồng bộ với ${user.email}`}
           </div>
         )}
 

@@ -1,11 +1,13 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
+import { resolveLoginRedirect } from '../lib/auth.js';
 
 /**
  * Chặn trang khách (login, register, …) khi đã có phiên đăng nhập.
  */
-export default function RedirectIfAuthed({ to = '/app' }) {
+export default function RedirectIfAuthed() {
   const { authReady, user } = useApp();
+  const location = useLocation();
 
   if (!authReady) {
     return (
@@ -16,7 +18,10 @@ export default function RedirectIfAuthed({ to = '/app' }) {
   }
 
   if (user) {
-    return <Navigate to={to} replace />;
+    const searchParams = new URLSearchParams(location.search);
+    const nextPath = searchParams.get('next');
+    const target = resolveLoginRedirect(nextPath, user);
+    return <Navigate to={target} replace />;
   }
 
   return <Outlet />;

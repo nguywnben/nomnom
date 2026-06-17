@@ -4,6 +4,7 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { loginHref } from '../../lib/auth.js';
 
 // Customer profile — reached from the mobile bottom nav (and surfaced on
 // desktop via the avatar menu in the top nav).
@@ -19,7 +20,7 @@ const SETTINGS = [
 export default function CustomerProfile() {
   const { pathname, search } = useLocation();
   const nav = useNavigate();
-  const { currentCustomer, orders, authedRoles, logout } = useApp();
+  const { currentCustomer, orders, authedRoles, logout, user } = useApp();
 
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
   const activeCount = orders.length - deliveredCount;
@@ -33,7 +34,7 @@ export default function CustomerProfile() {
 
       {/* Identity */}
       <Card padded className="flex items-center gap-sm">
-        {authedRoles.customer ? (
+        {user ? (
           <>
             <Avatar src={currentCustomer.avatar} name={currentCustomer.name} size="xl" />
             <div className="flex-1 min-w-0">
@@ -67,7 +68,7 @@ export default function CustomerProfile() {
       </div>
 
       {/* Address card */}
-      {authedRoles.customer && (
+      {user && (
         <Link to="/app/profile/addresses" className="block">
           <Card padded hover>
             <div className="flex items-center gap-sm">
@@ -123,7 +124,7 @@ export default function CustomerProfile() {
         </div>
       </Card>
 
-      {authedRoles.customer && (
+      {user && (
         <Button
           variant="secondary"
           className="!text-error !border-error/40 hover:!bg-[#fbeaea]"

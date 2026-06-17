@@ -33,7 +33,7 @@ export function AppProvider({ children }) {
   );
 
   const currentCustomer = useMemo(() => {
-    if (!user || !authedRoles.customer) return null;
+    if (!user) return null;
     return {
       id: String(user.id),
       name: user.fullName,
@@ -42,7 +42,7 @@ export function AppProvider({ children }) {
       avatar: user.avatarUrl,
       address: '',
     };
-  }, [user, authedRoles.customer]);
+  }, [user]);
 
   const currentDriver = useMemo(() => {
     if (!user || !authedRoles.driver) return null;
@@ -150,11 +150,11 @@ export function AppProvider({ children }) {
 
   const simulateSync = useRef(null);
   const triggerSync = useCallback(() => {
-    if (!authedRoles.customer) return;
+    if (!user) return;
     setSyncing(true);
     clearTimeout(simulateSync.current);
     simulateSync.current = setTimeout(() => setSyncing(false), 700);
-  }, [authedRoles.customer]);
+  }, [user]);
 
   const addToCart = useCallback(
     (restaurantId, item, qty = 1) => {
@@ -452,6 +452,7 @@ export function AppProvider({ children }) {
     role,
     setRole,
     user,
+    setUser,
     authReady,
     login,
     registerSendCode,

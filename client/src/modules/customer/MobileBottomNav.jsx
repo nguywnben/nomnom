@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 export default function MobileBottomNav() {
-  const { orders, authedRoles } = useApp();
+  const { orders, authedRoles, user } = useApp();
   const pendingBadge = orders.filter((o) => o.status !== 'delivered').length;
 
   return (
@@ -47,7 +47,7 @@ export default function MobileBottomNav() {
                     {pendingBadge}
                   </span>
                 )}
-                {t.to === '/app/profile' && !authedRoles.customer && (
+                {t.to === '/app/profile' && !user && (
                   <span className="absolute right-5 top-2 h-2 w-2 rounded-pill bg-error" />
                 )}
               </>

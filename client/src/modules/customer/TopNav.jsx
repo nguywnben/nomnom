@@ -30,7 +30,7 @@ export default function TopNav() {
   const { pathname, search } = useLocation();
   const nav = useNavigate();
   const returnTo = pathname + search;
-  const { cartCount, setCartOpen, authedRoles, currentCustomer, orders, logout } = useApp();
+  const { cartCount, setCartOpen, authedRoles, currentCustomer, orders, logout, user } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const menuRef = useRef(null);
@@ -151,7 +151,7 @@ export default function TopNav() {
             )}
           </button>
 
-          {authedRoles.customer ? (
+          {user ? (
             <div className="relative ml-xs" ref={menuRef}>
               <button
                 type="button"

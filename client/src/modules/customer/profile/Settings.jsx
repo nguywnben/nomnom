@@ -118,7 +118,7 @@ function readPersisted() {
 
 export default function Settings() {
   const nav = useNavigate();
-  const { pushToast, authedRoles, logout } = useApp();
+  const { pushToast, authedRoles, logout, user } = useApp();
 
   const [language, setLanguage] = useState(() => readPersisted().language);
   const [region, setRegion] = useState(() => readPersisted().region);
@@ -394,7 +394,7 @@ export default function Settings() {
       </Card>
 
       {/* Danger zone */}
-      {authedRoles.customer && (
+      {user && (
         <Card padded>
           <div className="text-caption-uppercase text-error mb-sm">Khu vực nguy hiểm</div>
           <div className="flex flex-col gap-xs">

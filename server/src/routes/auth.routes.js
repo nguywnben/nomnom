@@ -25,12 +25,16 @@ import {
 
 const router = Router();
 
-async function loadRoles(userId) {
+async function loadRoles(userId, primaryRole) {
   const [rows] = await pool.query(
     'SELECT role FROM user_roles WHERE user_id = ? ORDER BY role',
     [userId],
   );
-  return rows.map((r) => r.role);
+  const roles = rows.map((r) => r.role);
+  if (primaryRole && !roles.includes(primaryRole)) {
+    roles.push(primaryRole);
+  }
+  return roles;
 }
 
 function serializeUser(row, roles) {
@@ -356,7 +360,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng.' });
     }
 
-    const roles = await loadRoles(user.id);
+    const roles = await loadRoles(user.id, user.primary_role);
     if (!roles.length) {
       roles.push(user.primary_role);
     }
@@ -382,7 +386,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
     if (!user || user.status !== 'active') {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const roles = await loadRoles(user.id);
+    const roles = await loadRoles(user.id, user.primary_role);
     res.json({ user: serializeUser(user, roles.length ? roles : [user.primary_role]) });
   } catch (err) {
     next(err);
@@ -428,7 +432,7 @@ router.post('/refresh', async (req, res, next) => {
       primary_role: row.primary_role,
       status: row.status,
     };
-    const roles = await loadRoles(row.user_id);
+    const roles = await loadRoles(row.user_id, row.primary_role);
     const session = await issueSession(userRow, roles.length ? roles : [row.primary_role], req);
     res.json(session);
   } catch (err) {

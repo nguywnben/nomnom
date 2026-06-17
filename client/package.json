@@ -17,6 +17,7 @@
     "react-dom": "^19.2.6",
     "react-is": "^19.2.6",
     "react-router-dom": "^7.15.1",
+    "react-hook-form": "^7.54.2",
     "recharts": "^3.8.1"
   },
   "devDependencies": {
