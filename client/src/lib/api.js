@@ -90,6 +90,34 @@ export function apiDelete(path) {
   return apiFetch(path, { method: 'DELETE' });
 }
 
+export function authGet(path) {
+  return apiGet(path);
+}
+
+export function uploadImageApi(file, folder) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (folder) {
+    formData.append('folder', folder);
+  }
+  return apiFetch('/api/v1/uploads', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function fetchDriverProfile() {
+  return apiGet('/api/v1/driver/me/profile');
+}
+
+export function applyDriverProfile(payload) {
+  return apiPost('/api/v1/driver/apply', payload);
+}
+
+export function updateDriverProfile(payload) {
+  return apiPatch('/api/v1/driver/me/profile', payload);
+}
+
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
@@ -111,10 +139,11 @@ export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1
   return apiGet(`/api/v1/admin/usersQuery?${params.toString()}`);
 }
 
-export function updateAdminUserStatus(userId, status, suspensionDays) {
+export function updateAdminUserStatus(userId, status, suspensionDays, suspensionReason) {
   const body = { status };
   if (status === 'suspended') {
     body.suspensionDays = suspensionDays;
+    body.suspensionReason = suspensionReason;
   }
   return apiFetch(`/api/v1/admin/users/${encodeURIComponent(userId)}/status`, {
     method: 'PATCH',
@@ -170,6 +199,18 @@ export function logoutApi() {
   return apiPost('/api/v1/auth/logout', refreshToken ? { refreshToken } : {}).catch(() => ({}));
 }
 
+export function logoutAllApi() {
+  return apiPost('/api/v1/auth/logout-all');
+}
+
+export function updateMeProfile(body) {
+  return apiPatch('/api/v1/me', body);
+}
+
+export function changePasswordApi({ currentPassword, newPassword }) {
+  return apiPost('/api/v1/me/change-password', { currentPassword, newPassword });
+}
+
 /** Carousel "Khám phá theo món ăn" — GET /api/v1/home/categories */
 export function fetchHomeCategories() {
   return apiGet('/api/v1/home/categories');
@@ -195,27 +236,6 @@ export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
 }
 
-export function fetchRestaurants(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
-}
-
-export function fetchCuisines() {
-  return apiGet('/api/v1/cuisines');
-}
-
-export function fetchRestaurantDetail(idOrSlug) {
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}`);
-}
-
-export function fetchRestaurantMenu(idOrSlug) {
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/menu`);
-}
-
-export function fetchRestaurantReviews(idOrSlug) {
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/reviews`);
-}
-
 export function fetchAdminPendingRestaurants() {
   return apiGet('/api/v1/admin/restaurants/pending');
 }
@@ -238,5 +258,49 @@ export function approveAdminDriver(userId) {
 
 export function rejectAdminDriver(userId, reason) {
   return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
+}
+
+export function fetchRestaurants(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
+}
+
+export function fetchCuisines() {
+  return apiGet('/api/v1/cuisines');
+}
+
+export function fetchRestaurantDetail(idOrSlug) {
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}`);
+}
+
+export function fetchRestaurantMenu(idOrSlug) {
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/menu`);
+}
+
+export function fetchRestaurantReviews(idOrSlug) {
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/reviews`);
+}
+
+export function fetchCartApi() {
+  return apiGet('/api/v1/cart');
+}
+
+export function addCartItemApi({ menuItemId, quantity, note }) {
+  return apiPost('/api/v1/cart/items', { menuItemId, quantity, note });
+}
+
+export function updateCartItemApi(itemId, { quantity, note }) {
+  return apiPatch(`/api/v1/cart/items/${encodeURIComponent(itemId)}`, { quantity, note });
+}
+
+export function deleteCartItemApi(itemId) {
+  return apiDelete(`/api/v1/cart/items/${encodeURIComponent(itemId)}`);
+}
+
+export function clearCartApi() {
+  return apiDelete('/api/v1/cart');
 }
 

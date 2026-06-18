@@ -29,7 +29,18 @@ Yêu cầu header `Authorization: Bearer <accessToken>`.
 | POST | `/api/v1/uploads` | `multipart/form-data`, field `file`; optional `folder` (body hoặc query) |
 | DELETE | `/api/v1/uploads?publicId=<id>` | Xoá ảnh trên Cloudinary (`publicId` có thể chứa `/`) |
 
-Folder hỗ trợ: `avatar`, `restaurant`, `menu`, `driver-kyc`, `review` (mặc định `avatar`).
+## Hồ sơ & bảo mật (CUS-11)
+
+Yêu cầu header `Authorization: Bearer <accessToken>`.
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/api/v1/me` | Hồ sơ user hiện tại |
+| PATCH | `/api/v1/me` | `{ fullName?, phone?, avatarUrl? }` |
+| POST | `/api/v1/me/change-password` | `{ currentPassword, newPassword }` |
+| POST | `/api/v1/auth/logout-all` | Thu hồi mọi refresh token (đăng xuất tất cả thiết bị) |
+
+Folder upload: `avatar`, `restaurant`, `menu`, `driver-kyc`, `review` (mặc định `avatar`).
 
 Biến môi trường (thêm vào `.env`):
 

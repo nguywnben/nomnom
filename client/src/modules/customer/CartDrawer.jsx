@@ -31,7 +31,11 @@ export default function CartDrawer() {
   } = useApp();
   const [promoCode, setPromoCode] = useState('');
 
-  const restaurant = restaurants.find((r) => r.id === cart.restaurantId);
+  const restaurant = cart.restaurantName ? null : restaurants.find((r) => String(r.id) === String(cart.restaurantId));
+  const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
+  const restaurantLogo = cart.restaurantLogo ?? restaurant?.logo ?? null;
+  const restaurantStatusTone = restaurant ? (restaurant.open ? 'success' : 'error') : 'default';
+  const restaurantStatusLabel = restaurant ? (restaurant.open ? 'Mở cửa' : 'Đóng cửa') : 'Đã đồng bộ';
 
   return (
     <Drawer
@@ -81,39 +85,33 @@ export default function CartDrawer() {
               size={12}
               className={syncing ? 'animate-spin text-ink' : 'text-success'}
             />
-            {syncing ? 'Đang đồng bộ giỏ hàng với tài khoản của bạn…' : `Giỏ hàng đã đồng bộ với ${user.email}`}
+            {syncing ? 'Đang đồng bộ giỏ hàng với tài khoản của bạn…' : `Giỏ hàng đã đồng bộ với ${user.email ?? 'tài khoản của bạn'}`}
           </div>
         )}
 
-        {restaurant && (
+        {cart.items.length > 0 && restaurantName && (
           <div className="flex items-center gap-sm rounded-md border border-hairline p-sm">
             <Image
-              src={restaurant.logo}
-              alt={restaurant.name}
+              src={restaurantLogo}
+              alt={restaurantName}
               className="h-10 w-10 rounded-md"
               ratio="1"
             />
             <div className="flex-1 min-w-0">
-              <div className="text-body-sm font-semibold text-ink truncate">{restaurant.name}</div>
+              <div className="text-body-sm font-semibold text-ink truncate">{restaurantName}</div>
               <div className="text-caption text-body">
-                {restaurant.eta} · phí giao {formatVnd(deliveryFee)}
+                {restaurant?.eta ? `${restaurant.eta} · ` : ''}phí giao {formatVnd(deliveryFee)}
               </div>
             </div>
-            <Badge tone="success" dot>Mở cửa</Badge>
+            <Badge tone={restaurantStatusTone} dot>{restaurantStatusLabel}</Badge>
           </div>
         )}
 
-        {cart.items.length === 0 ? (
-          <EmptyState
-            icon="cart"
-            title="Giỏ hàng trống"
-            message="Thêm món từ bất kỳ quán ăn nào đang mở cửa để bắt đầu."
-          />
-        ) : (
+        {cart.items.length > 0 ? (
           <div className="flex flex-col divide-y divide-hairline">
             {cart.items.map((i) => (
               <div key={i.id} className="flex items-center gap-sm py-sm">
-                <Image src={i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
+                <Image src={i.imageUrl ?? i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
                 <div className="flex-1 min-w-0">
                   <div className="text-body-sm font-semibold text-ink truncate">{i.name}</div>
                   <div className="text-caption text-body">{formatVnd(i.price)}</div>
@@ -144,6 +142,10 @@ export default function CartDrawer() {
                 </button>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="text-caption text-body">
+            Thêm món từ bất kỳ quán ăn nào đang mở cửa để bắt đầu.
           </div>
         )}
 

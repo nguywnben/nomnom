@@ -6,8 +6,9 @@ import Card from '../../../components/Card.jsx';
 import Icon from '../../../components/Icon.jsx';
 import Modal from '../../../components/Modal.jsx';
 import Switch from '../../../components/Switch.jsx';
-import { Select } from '../../../components/Input.jsx';
+import Input, { Select } from '../../../components/Input.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
+import { changePasswordApi, logoutAllApi } from '../../../lib/api.js';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 
 // Cài đặt ứng dụng — ngôn ngữ, hiển thị, thông báo, dữ liệu, vùng nguy hiểm.
@@ -118,7 +119,7 @@ function readPersisted() {
 
 export default function Settings() {
   const nav = useNavigate();
-  const { pushToast, permittedRoles, logout } = useApp();
+  const { pushToast, permittedRoles, logout, user } = useApp();
 
   const [language, setLanguage] = useState(() => readPersisted().language);
   const [region, setRegion] = useState(() => readPersisted().region);
@@ -130,7 +131,15 @@ export default function Settings() {
   const [notifications, setNotifications] = useState(() => readPersisted().notifications);
 
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [confirmLogoutAll, setConfirmLogoutAll] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [loggingOutAll, setLoggingOutAll] = useState(false);
 
   // Persist on change — this effect mutates an external system (localStorage),
   // not React state, so it doesn't trigger the cascading-render lint rule.
@@ -172,6 +181,70 @@ export default function Settings() {
   const onLogout = async () => {
     setConfirmLogout(false);
     await logout();
+  };
+
+  const onLogoutAll = async () => {
+    setConfirmLogoutAll(false);
+    setLoggingOutAll(true);
+    try {
+      await logoutAllApi();
+      await logout({ redirectTo: '/login', silent: true });
+      pushToast({
+        kind: 'success',
+        title: 'Đã đăng xuất mọi thiết bị',
+        message: 'Phiên trên các thiết bị khác sẽ hết hạn khi gọi API tiếp theo.',
+        duration: 4000,
+      });
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Không thể đăng xuất tất cả',
+        message: err.message ?? 'Vui lòng thử lại.',
+      });
+    } finally {
+      setLoggingOutAll(false);
+    }
+  };
+
+  const resetPasswordForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+  };
+
+  const onChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+
+    if (!currentPassword || !newPassword) {
+      setPasswordError('Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('Mật khẩu mới phải có ít nhất 8 ký tự.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await changePasswordApi({ currentPassword, newPassword });
+      setPasswordOpen(false);
+      resetPasswordForm();
+      pushToast({
+        kind: 'success',
+        title: 'Đã đổi mật khẩu',
+        message: 'Mật khẩu mới có hiệu lực ngay.',
+      });
+    } catch (err) {
+      setPasswordError(err.message ?? 'Không thể đổi mật khẩu.');
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   const onDelete = () => {
@@ -393,6 +466,30 @@ export default function Settings() {
         </div>
       </Card>
 
+      {/* Security */}
+      {user && permittedRoles.customer && (
+        <Card padded>
+          <div className="text-caption-uppercase text-body mb-sm">Bảo mật tài khoản</div>
+          <div className="flex flex-col divide-y divide-hairline">
+            <ActionRow
+              icon="shield"
+              label="Đổi mật khẩu"
+              hint="Nhập mật khẩu hiện tại và mật khẩu mới (tối thiểu 8 ký tự)."
+              onClick={() => {
+                resetPasswordForm();
+                setPasswordOpen(true);
+              }}
+            />
+            <ActionRow
+              icon="refresh"
+              label="Đăng xuất tất cả thiết bị"
+              hint="Thu hồi mọi phiên đăng nhập trên điện thoại, máy tính và trình duyệt khác."
+              onClick={() => setConfirmLogoutAll(true)}
+            />
+          </div>
+        </Card>
+      )}
+
       {/* Danger zone */}
       {permittedRoles.customer && (
         <Card padded>
@@ -436,6 +533,89 @@ export default function Settings() {
         <p className="text-body-sm text-body">
           Giỏ hàng và phiên hiện tại sẽ kết thúc. Bạn có thể đăng nhập lại bất kỳ lúc nào.
         </p>
+      </Modal>
+
+      {/* Logout all confirm */}
+      <Modal
+        open={confirmLogoutAll}
+        onClose={() => setConfirmLogoutAll(false)}
+        title="Đăng xuất tất cả thiết bị?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmLogoutAll(false)}>
+              Hủy
+            </Button>
+            <Button onClick={onLogoutAll} loading={loggingOutAll}>
+              Đăng xuất tất cả
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Mọi phiên đăng nhập NomNom sẽ bị thu hồi, kể cả thiết bị này. Bạn sẽ cần đăng nhập lại.
+        </p>
+      </Modal>
+
+      {/* Change password */}
+      <Modal
+        open={passwordOpen}
+        onClose={() => {
+          setPasswordOpen(false);
+          resetPasswordForm();
+        }}
+        title="Đổi mật khẩu"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => {
+                setPasswordOpen(false);
+                resetPasswordForm();
+              }}
+            >
+              Hủy
+            </Button>
+            <Button type="submit" form="change-password-form" loading={changingPassword}>
+              Lưu mật khẩu
+            </Button>
+          </>
+        }
+      >
+        <form id="change-password-form" onSubmit={onChangePassword} className="flex flex-col gap-sm">
+          <Input
+            type="password"
+            leadingIcon="shield"
+            placeholder="Mật khẩu hiện tại"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <Input
+            type="password"
+            leadingIcon="shield"
+            placeholder="Mật khẩu mới"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          <Input
+            type="password"
+            leadingIcon="shield"
+            placeholder="Xác nhận mật khẩu mới"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          {passwordError && (
+            <p className="text-caption text-error">{passwordError}</p>
+          )}
+        </form>
       </Modal>
 
       {/* Delete confirm */}
