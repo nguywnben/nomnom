@@ -26,7 +26,7 @@
 
 - Đăng ký / đổi MK: tối thiểu **8 ký tự**
 - Lưu DB: **bcrypt** (cost 10), cột `users.password_hash`
-- Seed test (`nomnom.sql`): mật khẩu **`password123`**
+- Seed test (`database/nomnom.sql`): mật khẩu **`password123`**
 
 ---
 
@@ -174,7 +174,7 @@ Trang pháp lý (`/dieu-khoan-su-dung`, `/chinh-sach-bao-mat`): không chặn.
 | `otp_codes` | Mã OTP (hash), `purpose`, `destination` = email |
 | `refresh_tokens` | Phiên đăng nhập (hash refresh, `expires_at`, `revoked_at`) |
 
-Schema đầy đủ: **`nomnom.sql`** (gốc).
+Schema đầy đủ: **`database/nomnom.sql`**.
 
 ---
 

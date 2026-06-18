@@ -63,7 +63,7 @@ export default function AdminLayout() {
         {!collapsed && (
           <SidebarFooter
             currentAdmin={currentAdmin}
-            onSwitchRole={() => nav('/')}
+            onSwitchRole={() => nav('/app')}
             onLogout={() => logout()}
           />
         )}
@@ -80,7 +80,7 @@ export default function AdminLayout() {
         <SidebarLinks collapsed={false} onItemClick={() => setDrawerOpen(false)} />
         <SidebarFooter
           currentAdmin={currentAdmin}
-          onSwitchRole={() => nav('/')}
+          onSwitchRole={() => nav('/app')}
           onLogout={() => logout()}
         />
       </Drawer>

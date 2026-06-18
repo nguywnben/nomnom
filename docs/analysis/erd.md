@@ -1,6 +1,6 @@
 # NomNom — Phân tích Mô hình Thực thể Liên kết (ERD)
 
-> Tài liệu này mô tả toàn bộ cấu trúc cơ sở dữ liệu của nền tảng giao đồ ăn **NomNom** (xem `database.sql`), giải thích từng bảng, từng cột và mối quan hệ giữa các thực thể, kèm sơ đồ ERD tổng thể bằng Mermaid và hướng dẫn vẽ lại sơ đồ trên **diagrams.net (draw.io)** sử dụng ký hiệu **Crow's Foot** cho báo cáo tốt nghiệp.
+> Tài liệu này mô tả toàn bộ cấu trúc cơ sở dữ liệu của nền tảng giao đồ ăn **NomNom** (xem `database/nomnom.sql`), giải thích từng bảng, từng cột và mối quan hệ giữa các thực thể, kèm sơ đồ ERD tổng thể bằng Mermaid và hướng dẫn vẽ lại sơ đồ trên **diagrams.net (draw.io)** sử dụng ký hiệu **Crow's Foot** cho báo cáo tốt nghiệp.
 
 ---
 

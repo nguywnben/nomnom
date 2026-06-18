@@ -2,37 +2,58 @@
 
 NomNom is a comprehensive, multi-sided food delivery platform designed with a modern, editorial-feel UI/UX. It provides a seamless experience for all participants in the food delivery lifecycle through specialized modules.
 
-## 🚀 Repository Structure
+## Repository Structure
 
-This is a monorepo containing both the frontend client and the backend server.
+Monorepo: React client + Express API + MySQL.
 
-- **[client/](./client)**: React/Vite frontend application (Customer, Merchant, Driver, and Admin modules).
-- **[server/](./server)**: Node.js backend API (Coming Soon).
+```
+nomnom/
+├── client/          # React/Vite frontend
+├── server/          # Express API (see server/README.md)
+├── database/        # Schema + seed (nomnom.sql)
+└── docs/            # Project documentation (see docs/README.md)
+```
 
-## ✨ Key Features
+| Path | Description |
+|------|-------------|
+| [client/](./client) | Customer, Merchant, Driver, and Admin UI |
+| [server/](./server) | REST API, auth, uploads, admin |
+| [database/](./database) | MySQL schema and seed data |
+| [docs/](./docs) | Auth guide, planning waves, ERD, use cases |
 
-- **Premium Aesthetics**: Clean, editorial design language with smooth micro-animations.
-- **Full Localization**: Completely localized in Vietnamese with an appetizing and friendly tone.
-- **Responsive Design**: Optimized for mobile, tablet, and desktop experiences.
-- **Multi-sided Platform**: Dedicated experiences for Customers, Merchants, Drivers, and Administrators.
+## Tech Stack
 
-## 🛠 Tech Stack
+- **Frontend**: React, Vite, Tailwind CSS, React Router v6, Context API
+- **Backend**: Node.js, Express, MySQL 8, JWT, Cloudinary
+- **Docs**: Vietnamese localization throughout the product
 
-- **Frontend**: React.js, Vite, Tailwind CSS
-- **Backend**: Node.js (Planned)
-- **State Management**: React Context API
-- **Routing**: React Router v6
+## Getting Started
 
-## 📦 Getting Started
+### 1. Database
 
-### Client
-1. Navigate to the client directory: `cd client`
-2. Install dependencies: `npm install`
-3. Start development server: `npm run dev`
+```bash
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS nomnom"
+mysql -u root -p nomnom < database/nomnom.sql
+```
 
-### Server
-1. Navigate to the server directory: `cd server`
-2. (Follow instructions in the server README once implemented)
+### 2. Server
+
+```bash
+cd server
+cp .env.example .env   # fill MYSQL_URL, JWT secrets, Cloudinary, etc.
+npm install
+npm run dev
+```
+
+See [docs/AUTH.md](./docs/AUTH.md) for login, OTP, and seed users (`password123`).
+
+### 3. Client
+
+```bash
+cd client
+npm install
+npm run dev
+```
 
 ---
 © 2026 NomNom. Built with passion.

@@ -8,13 +8,14 @@ import Image from '../../components/Image.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import MockMap from '../../components/MockMap.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { currentDriver, restaurants } from '../../data/mock.js';
+import { currentDriver } from '../../data/mock.js';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { apiGet } from '../../lib/api.js';
 
 const STEPS = [
   { id: 'placed', label: 'Đã đặt', icon: 'check' },
   { id: 'preparing', label: 'Đang chuẩn bị', icon: 'store' },
-  { id: 'picked', label: 'Đã lấy hàng', icon: 'package' },
+  { id: 'picked_up', label: 'Đã lấy hàng', icon: 'package' },
   { id: 'delivering', label: 'Đang giao', icon: 'bike' },
   { id: 'delivered', label: 'Đã giao', icon: 'check' },
 ];
@@ -24,23 +25,29 @@ const STEP_INDEX = STEPS.reduce((acc, s, i) => ({ ...acc, [s.id]: i }), {});
 export default function CustomerTracking() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { orders, setChatOpen, setActiveChatId } = useApp();
-  const order = orders.find((o) => o.id === id) || orders[0];
-  const restaurant = restaurants.find((r) => r.id === order?.restaurantId);
+  const { setChatOpen, setActiveChatId } = useApp();
+  
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Auto-advance progress for demo
-  const [stepId, setStepId] = useState(order?.status ?? 'preparing');
+  // Tự động chuyển tiến trình theo thời gian để demo
+  const [stepId, setStepId] = useState('placed');
+
   useEffect(() => {
-    if (stepId === 'delivered') return undefined;
-    const t = setTimeout(() => {
-      const order2 = ['placed', 'preparing', 'picked', 'delivering', 'delivered'];
-      const next = order2[Math.min(order2.indexOf(stepId) + 1, order2.length - 1)];
-      setStepId(next);
-    }, 9000);
-    return () => clearTimeout(t);
-  }, [stepId]);
+    apiGet('/api/v1/orders/' + id)
+      .then(data => {
+        setOrder(data);
+        setStepId(data.status);
+      })
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
+  }, [id]);
 
   const progress = useMemo(() => (STEP_INDEX[stepId] || 1) / (STEPS.length - 1), [stepId]);
+
+  if (loading) {
+    return <div className="container-page py-section text-center">Đang tải...</div>;
+  }
 
   if (!order) {
     return (
@@ -49,6 +56,8 @@ export default function CustomerTracking() {
       </div>
     );
   }
+
+  const restaurant = order.restaurant;
 
   const stops = [
     { id: 'm', kind: 'merchant', x: 15, y: 78, label: restaurant?.name?.split(' ')[0] },
@@ -64,7 +73,7 @@ export default function CustomerTracking() {
 
       <div className="mt-2 mb-base flex items-end justify-between">
         <div>
-          <div className="text-caption-uppercase text-body">Đơn hàng #{order.id}</div>
+          <div className="text-caption-uppercase text-body">Đơn hàng #{order.order_code}</div>
           <h1 className="text-display-lg text-ink">Theo dõi trực tiếp</h1>
         </div>
         <Badge tone="live" dot>
@@ -74,10 +83,10 @@ export default function CustomerTracking() {
 
       <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
         <div className="flex flex-col gap-base">
-          {/* Map */}
+          {/* Bản đồ map */}
           <MockMap stops={stops} progress={progress} />
 
-          {/* Stepper */}
+          {/* Stepper trạng thái quá trình */}
           <Card padded>
             <div className="text-title-md text-ink mb-base">Trạng thái</div>
             <ol className="flex items-center justify-between gap-2">
@@ -112,19 +121,19 @@ export default function CustomerTracking() {
             </ol>
           </Card>
 
-          {/* Items */}
+          {/* Các món hàng (Items) */}
           <Card padded>
             <div className="text-title-md text-ink mb-base">Đơn hàng của bạn</div>
             <div className="flex flex-col divide-y divide-hairline">
               {order.items.map((i) => (
                 <div key={i.id} className="flex items-center gap-sm py-sm">
-                  <Image src={i.image} alt={i.name} className="h-12 w-12 rounded-md" ratio="1" />
+                  <Image src={i.image_url} alt={i.item_name_snapshot} className="h-12 w-12 rounded-md" ratio="1" />
                   <div className="flex-1">
-                    <div className="text-body-sm font-semibold text-ink">{i.name}</div>
+                    <div className="text-body-sm font-semibold text-ink">{i.item_name_snapshot}</div>
                     <div className="text-caption text-body">SL {i.quantity}</div>
                   </div>
                   <span className="nums text-body-sm text-ink">
-                    {formatVnd(i.price * i.quantity)}
+                    {formatVnd(Number(i.unit_price_snapshot) * i.quantity)}
                   </span>
                 </div>
               ))}
@@ -168,10 +177,10 @@ export default function CustomerTracking() {
           <Card padded>
             <div className="text-title-md text-ink mb-base">Quán ăn</div>
             <div className="flex items-center gap-sm">
-              <Image src={restaurant?.logo} alt={restaurant?.name} className="h-12 w-12 rounded-md" ratio="1" />
+              <Image src={restaurant?.banner_url} alt={restaurant?.name} className="h-12 w-12 rounded-md" ratio="1" />
               <div className="flex-1 min-w-0">
                 <div className="text-body-md font-semibold text-ink truncate">{restaurant?.name}</div>
-                <div className="text-caption text-body truncate">{restaurant?.address}</div>
+                <div className="text-caption text-body truncate">{restaurant?.address_line}</div>
               </div>
             </div>
             <Button
@@ -195,7 +204,7 @@ export default function CustomerTracking() {
               </p>
               <Button
                 className="mt-sm w-full"
-                onClick={() => nav('/app/reviews/' + order.restaurantId)}
+                onClick={() => nav('/app/reviews/' + order.restaurant_id)}
               >
                 Để lại đánh giá
               </Button>

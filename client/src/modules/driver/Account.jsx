@@ -118,7 +118,7 @@ export default function DriverAccount() {
 
       {/* Sign out / switch role */}
       <div className="flex flex-col gap-2">
-        <Button variant="secondary" leadingIcon="refresh" onClick={() => nav('/')}>
+        <Button variant="secondary" leadingIcon="refresh" onClick={() => nav('/app')}>
           Chuyển vai trò
         </Button>
         <Button

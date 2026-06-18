@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { applyDriverProfile, fetchDriverProfile, updateDriverProfile, uploadImageApi } from '../../lib/api.js';
 
 // Đăng ký tài xế — gom các trường KYC khớp `driver_profiles`:
 // national_id, driver_license_no, vehicle_type, vehicle_model, license_plate,
@@ -13,14 +14,13 @@ const STEPS = ['Cá nhân', 'Phương tiện', 'Giấy tờ', 'Ngân hàng', 'X�
 
 export default function DriverOnboarding() {
   const nav = useNavigate();
-  const { pushToast } = useApp();
+  const { pushToast, grantCurrentUserRole } = useApp();
   const [step, setStep] = useState(0);
+  const [profileState, setProfileState] = useState('loading');
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
-    fullName: '',
     nationalId: '',
-    licenseNo: '',
-    phone: '',
-    city: 'TP. Hồ Chí Minh',
+    driverLicenseNo: '',
     vehicleType: 'motorbike',
     vehicleModel: '',
     licensePlate: '',
@@ -33,13 +33,81 @@ export default function DriverOnboarding() {
   });
   const set = (patch) => setForm((cur) => ({ ...cur, ...patch }));
 
-  const submit = () => {
-    pushToast({
-      kind: 'success',
-      title: 'Đã gửi hồ sơ tài xế',
-      message: 'NomNom sẽ xem xét trong 24-48 giờ và liên hệ qua điện thoại.',
-    });
-    nav('/driver/pending', { replace: true });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchDriverProfile();
+        if (cancelled) return;
+        setProfileState(data.approval_status ?? 'none');
+        if (data.profile) {
+          setForm((cur) => ({
+            ...cur,
+            nationalId: data.profile.nationalId ?? cur.nationalId,
+            driverLicenseNo: data.profile.driverLicenseNo ?? cur.driverLicenseNo,
+            vehicleType: data.profile.vehicleType ?? cur.vehicleType,
+            vehicleModel: data.profile.vehicleModel ?? cur.vehicleModel,
+            licensePlate: data.profile.licensePlate ?? cur.licensePlate,
+            bankAccountNo: data.profile.bankAccountNo ?? cur.bankAccountNo,
+            bankName: data.profile.bankName ?? cur.bankName,
+            bankAccountHolder: data.profile.bankAccountHolder ?? cur.bankAccountHolder,
+          }));
+        }
+        if (data.approval_status === 'pending' || data.approval_status === 'approved') {
+          nav('/driver/pending', { replace: true });
+        }
+      } catch {
+        if (!cancelled) setProfileState('none');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nav]);
+
+  const submit = async () => {
+    if (!form.idCardFile || !form.licenseFile || !form.portraitFile) {
+      pushToast({ kind: 'error', title: 'Thiếu ảnh bắt buộc', message: 'Vui lòng tải lên CCCD/CMND, bằng lái và ảnh chân dung.' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const [idCard, driverLicense, portrait] = await Promise.all([
+        uploadImageApi(form.idCardFile, 'driver/kyc'),
+        form.licenseFile ? uploadImageApi(form.licenseFile, 'driver/kyc') : Promise.resolve({ url: '' }),
+        uploadImageApi(form.portraitFile, 'driver/kyc'),
+      ]);
+
+      const payload = {
+        nationalId: form.nationalId.trim(),
+        driverLicenseNo: form.driverLicenseNo.trim(),
+        vehicleType: form.vehicleType,
+        vehicleModel: form.vehicleModel.trim(),
+        licensePlate: form.licensePlate.trim(),
+        idCardUrl: idCard.url,
+        driverLicenseUrl: driverLicense.url || '',
+        portraitUrl: portrait.url,
+        bankAccountNo: form.bankAccountNo.trim(),
+        bankName: form.bankName.trim(),
+        bankAccountHolder: form.bankAccountHolder.trim(),
+      };
+
+      const action = profileState === 'rejected' ? updateDriverProfile : applyDriverProfile;
+      const data = await action(payload);
+      grantCurrentUserRole('driver');
+
+      pushToast({
+        kind: 'success',
+        title: profileState === 'rejected' ? 'Đã gửi lại hồ sơ tài xế' : 'Đã gửi hồ sơ tài xế',
+        message: 'NomNom sẽ xem xét trong 24-48 giờ và liên hệ qua điện thoại.',
+      });
+      nav('/driver/pending', { replace: true, state: { approvalStatus: data.approval_status ?? 'pending' } });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể gửi hồ sơ', message: err.message });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -75,11 +143,8 @@ export default function DriverOnboarding() {
       <Card padded className="space-y-base">
         {step === 0 && (
           <div className="grid gap-sm">
-            <Input placeholder="Họ và tên (theo CCCD)" value={form.fullName} onChange={(e) => set({ fullName: e.target.value })} required />
             <Input placeholder="Số CCCD" value={form.nationalId} onChange={(e) => set({ nationalId: e.target.value })} inputMode="numeric" required />
-            <Input placeholder="Số bằng lái" value={form.licenseNo} onChange={(e) => set({ licenseNo: e.target.value })} />
-            <Input placeholder="Số điện thoại" value={form.phone} onChange={(e) => set({ phone: e.target.value })} inputMode="tel" required />
-            <Input placeholder="Thành phố hoạt động" value={form.city} onChange={(e) => set({ city: e.target.value })} />
+            <Input placeholder="Số bằng lái" value={form.driverLicenseNo} onChange={(e) => set({ driverLicenseNo: e.target.value })} />
           </div>
         )}
 
@@ -125,9 +190,8 @@ export default function DriverOnboarding() {
 
         {step === 4 && (
           <div className="space-y-sm">
-            <Row label="Họ tên" value={form.fullName} />
             <Row label="CCCD" value={form.nationalId} />
-            <Row label="Số điện thoại" value={form.phone} />
+            <Row label="Bằng lái" value={form.driverLicenseNo || '—'} />
             <Row label="Phương tiện" value={`${form.vehicleType} · ${form.vehicleModel || '—'} · ${form.licensePlate || '—'}`} />
             <Row label="Giấy tờ" value={[
               form.idCardFile && 'CCCD',
@@ -150,8 +214,8 @@ export default function DriverOnboarding() {
               Tiếp tục
             </Button>
           ) : (
-            <Button trailingIcon="check" onClick={submit}>
-              Gửi hồ sơ
+            <Button trailingIcon="check" onClick={submit} disabled={submitting}>
+              {submitting ? 'Đang gửi…' : profileState === 'rejected' ? 'Gửi lại hồ sơ' : 'Gửi hồ sơ'}
             </Button>
           )}
         </div>
@@ -167,7 +231,7 @@ function FileBox({ title, hint, file, onChange }) {
       <span className="text-body-sm font-medium text-ink">{title}</span>
       <span className="text-caption text-body">{hint}</span>
       {file && <span className="text-caption text-text-link">{file.name}</span>}
-      <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onChange(e.target.files?.[0] || null)} />
+      <input type="file" accept="image/*" className="hidden" onChange={(e) => onChange(e.target.files?.[0] || null)} />
     </label>
   );
 }

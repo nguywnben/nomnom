@@ -57,8 +57,10 @@ export async function apiFetch(path, options = {}, { retry = true } = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error ?? `API ${res.status}`);
+    const err = new Error(body.error ?? body.message ?? `API ${res.status}`);
     err.status = res.status;
+    err.errors = body.errors;
+    err.details = body.details;
     throw err;
   }
   return res.json();
@@ -76,9 +78,84 @@ export function apiPost(path, body) {
   });
 }
 
+export function apiPatch(path, body) {
+  return apiFetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiDelete(path) {
+  return apiFetch(path, { method: 'DELETE' });
+}
+
+export function authGet(path) {
+  return apiGet(path);
+}
+
+export function uploadImageApi(file, folder) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (folder) {
+    formData.append('folder', folder);
+  }
+  return apiFetch('/api/v1/uploads', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function fetchDriverProfile() {
+  return apiGet('/api/v1/driver/me/profile');
+}
+
+export function applyDriverProfile(payload) {
+  return apiPost('/api/v1/driver/apply', payload);
+}
+
+export function updateDriverProfile(payload) {
+  return apiPatch('/api/v1/driver/me/profile', payload);
+}
+
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
+}
+
+export function fetchAdminOverview(range = 'month') {
+  const params = new URLSearchParams({ range });
+  return apiGet(`/api/v1/admin/overview?${params.toString()}`);
+}
+
+export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({
+    role,
+    status,
+    q,
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiGet(`/api/v1/admin/usersQuery?${params.toString()}`);
+}
+
+export function updateAdminUserStatus(userId, status, suspensionDays, suspensionReason) {
+  const body = { status };
+  if (status === 'suspended') {
+    body.suspensionDays = suspensionDays;
+    body.suspensionReason = suspensionReason;
+  }
+  return apiFetch(`/api/v1/admin/users/${encodeURIComponent(userId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function resetAdminUserPassword(userId, newPassword) {
+  return apiPost(`/api/v1/admin/users/${encodeURIComponent(userId)}/reset-password`, {
+    newPassword,
+  });
 }
 
 /** Gửi mã OTP đăng ký qua email */
@@ -146,4 +223,46 @@ export function fetchMerchantRestaurantApi() {
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
 }
+export function fetchRestaurants(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
+}
 
+export function fetchCuisines() {
+  return apiGet('/api/v1/cuisines');
+}
+
+export function fetchRestaurantDetail(idOrSlug) {
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}`);
+}
+
+export function fetchRestaurantMenu(idOrSlug) {
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/menu`);
+}
+
+export function fetchRestaurantReviews(idOrSlug) {
+  const id = String(idOrSlug).replace(/^r-/, '');
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/reviews`);
+}
+
+export function fetchCartApi() {
+  return apiGet('/api/v1/cart');
+}
+
+export function addCartItemApi({ menuItemId, quantity, note }) {
+  return apiPost('/api/v1/cart/items', { menuItemId, quantity, note });
+}
+
+export function updateCartItemApi(itemId, { quantity, note }) {
+  return apiPatch(`/api/v1/cart/items/${encodeURIComponent(itemId)}`, { quantity, note });
+}
+
+export function deleteCartItemApi(itemId) {
+  return apiDelete(`/api/v1/cart/items/${encodeURIComponent(itemId)}`);
+}
+
+export function clearCartApi() {
+  return apiDelete('/api/v1/cart');
+}

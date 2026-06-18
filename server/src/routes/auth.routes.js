@@ -22,6 +22,7 @@ import {
   loadPendingRegistration,
   savePendingRegistration,
 } from '../lib/registration.js';
+import { normalizeRoles } from '../lib/roles.js';
 
 const router = Router();
 
@@ -37,6 +38,25 @@ async function loadRoles(userId, primaryRole) {
   return roles;
 }
 
+async function restoreExpiredSuspension(user) {
+  if (!user || user.status !== 'suspended' || !user.suspension_expires_at) {
+    return user;
+  }
+
+  const expires = new Date(user.suspension_expires_at);
+  if (expires > new Date()) {
+    return user;
+  }
+
+  await pool.query('UPDATE users SET status = ?, suspension_expires_at = NULL WHERE id = ?', [
+    'active',
+    user.id,
+  ]);
+  user.status = 'active';
+  user.suspension_expires_at = null;
+  return user;
+}
+
 function serializeUser(row, roles) {
   return {
     id: row.id,
@@ -46,6 +66,7 @@ function serializeUser(row, roles) {
     avatarUrl: row.avatar_url,
     primaryRole: row.primary_role,
     status: row.status,
+    suspensionExpiresAt: row.suspension_expires_at ?? null,
     roles,
   };
 }
@@ -343,14 +364,15 @@ router.post('/login', async (req, res, next) => {
     }
 
     const [rows] = await pool.query(
-      `SELECT id, email, phone, password_hash, full_name, avatar_url, primary_role, status
+      `SELECT id, email, phone, password_hash, full_name, avatar_url, primary_role, status, suspension_expires_at
        FROM users WHERE email = ? LIMIT 1`,
       [email],
     );
-    const user = rows[0];
+    let user = rows[0];
     if (!user) {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng.' });
     }
+    user = await restoreExpiredSuspension(user);
     if (user.status !== 'active') {
       return res.status(403).json({ error: 'Tài khoản chưa được kích hoạt hoặc đã bị khóa.' });
     }
@@ -360,10 +382,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng.' });
     }
 
-    const roles = await loadRoles(user.id, user.primary_role);
-    if (!roles.length) {
-      roles.push(user.primary_role);
-    }
+    const roles = normalizeRoles(await loadRoles(user.id, user.primary_role));
 
     const session = await issueSession(user, roles, req, { remember });
     res.json({ ...session, rememberMe: remember });
@@ -378,16 +397,20 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, email, phone, full_name, avatar_url, primary_role, status
+      `SELECT id, email, phone, full_name, avatar_url, primary_role, status, suspension_expires_at
        FROM users WHERE id = ? LIMIT 1`,
       [req.auth.userId],
     );
-    const user = rows[0];
-    if (!user || user.status !== 'active') {
+    let user = rows[0];
+    if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const roles = await loadRoles(user.id, user.primary_role);
-    res.json({ user: serializeUser(user, roles.length ? roles : [user.primary_role]) });
+    user = await restoreExpiredSuspension(user);
+    if (user.status !== 'active') {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const roles = normalizeRoles(await loadRoles(user.id, user.primary_role));
+    res.json({ user: serializeUser(user, roles) });
   } catch (err) {
     next(err);
   }
@@ -407,7 +430,7 @@ router.post('/refresh', async (req, res, next) => {
     const tokenHash = hashToken(raw);
     const [rows] = await pool.query(
       `SELECT rt.id AS token_id, rt.user_id, u.email, u.phone, u.full_name, u.avatar_url,
-              u.primary_role, u.status
+              u.primary_role, u.status, u.suspension_expires_at
        FROM refresh_tokens rt
        INNER JOIN users u ON u.id = rt.user_id
        WHERE rt.token_hash = ?
@@ -416,8 +439,12 @@ router.post('/refresh', async (req, res, next) => {
        LIMIT 1`,
       [tokenHash],
     );
-    const row = rows[0];
-    if (!row || row.status !== 'active') {
+    let row = rows[0];
+    if (!row) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+    row = await restoreExpiredSuspension(row);
+    if (row.status !== 'active') {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
@@ -432,8 +459,8 @@ router.post('/refresh', async (req, res, next) => {
       primary_role: row.primary_role,
       status: row.status,
     };
-    const roles = await loadRoles(row.user_id, row.primary_role);
-    const session = await issueSession(userRow, roles.length ? roles : [row.primary_role], req);
+    const roles = normalizeRoles(await loadRoles(row.user_id, row.primary_role));
+    const session = await issueSession(userRow, roles, req);
     res.json(session);
   } catch (err) {
     next(err);

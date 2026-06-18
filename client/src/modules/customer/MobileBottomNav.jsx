@@ -13,7 +13,7 @@ const TABS = [
 ];
 
 export default function MobileBottomNav() {
-  const { orders, authedRoles, user } = useApp();
+  const { orders, user } = useApp();
   const pendingBadge = orders.filter((o) => o.status !== 'delivered').length;
 
   return (

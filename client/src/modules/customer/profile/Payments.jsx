@@ -44,7 +44,7 @@ const ICON_MAP = {
 };
 
 export default function Payments() {
-  const { pushToast, authedRoles, user } = useApp();
+  const { pushToast, permittedRoles } = useApp();
   const [list, setList] = useState(SEED);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ holder: '', number: '', expiry: '', cvc: '' });
@@ -102,12 +102,12 @@ export default function Payments() {
 
       <div className="flex items-center justify-between gap-sm">
         <p className="text-body-sm text-body">Quản lý thẻ và ví dùng để thanh toán đơn hàng.</p>
-        <Button size="sm" leadingIcon="plus" onClick={() => setAdding(true)} disabled={!user}>
+        <Button size="sm" leadingIcon="plus" onClick={() => setAdding(true)} disabled={!permittedRoles.customer}>
           Thêm thẻ
         </Button>
       </div>
 
-      {!user ? (
+      {!permittedRoles.customer ? (
         <Card padded>
           <div className="text-title-md text-ink">Cần đăng nhập</div>
           <p className="mt-1 text-body-sm text-body">
