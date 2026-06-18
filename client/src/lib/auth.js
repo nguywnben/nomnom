@@ -1,6 +1,7 @@
 /** @typedef {'customer'|'merchant'|'driver'|'admin'} Role */
 
-export function buildAuthedRoles(roles) {
+/** Quyền truy cập portal — chỉ từ bảng `user_roles`, không gồm `primary_role`. */
+export function buildPermittedRoles(roles) {
   const set = new Set(roles ?? []);
   return {
     customer: set.has('customer'),
@@ -8,6 +9,11 @@ export function buildAuthedRoles(roles) {
     driver: set.has('driver'),
     admin: set.has('admin'),
   };
+}
+
+/** @deprecated Dùng `buildPermittedRoles` — giữ tạm để tránh gãy import cũ. */
+export function buildAuthedRoles(roles) {
+  return buildPermittedRoles(roles);
 }
 
 /** Đường dẫn đăng nhập kèm quay lại trang trước (dùng trong /app). */

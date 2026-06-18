@@ -6,7 +6,13 @@ import Logo from '../../components/Logo.jsx';
 import Icon from '../../components/Icon.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { loginHref } from '../../lib/auth.js';
+import { loginHref, ROLE_HOME } from '../../lib/auth.js';
+
+const PORTAL_LINKS = [
+  { role: 'admin', label: 'Quản trị hệ thống', icon: 'shield', to: ROLE_HOME.admin },
+  { role: 'merchant', label: 'Cổng nhà hàng', icon: 'store', to: ROLE_HOME.merchant },
+  { role: 'driver', label: 'Cổng tài xế', icon: 'bike', to: ROLE_HOME.driver },
+];
 
 const links = [
   { to: '/app', label: 'Trang chủ', end: true },
@@ -30,7 +36,7 @@ export default function TopNav() {
   const { pathname, search } = useLocation();
   const nav = useNavigate();
   const returnTo = pathname + search;
-  const { cartCount, setCartOpen, authedRoles, currentCustomer, orders, logout, user } = useApp();
+  const { cartCount, setCartOpen, user, orders, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const menuRef = useRef(null);
@@ -69,6 +75,11 @@ export default function TopNav() {
   const onHeroDark = heroOverlay && !headerElevated;
 
   const notifCount = useMemo(() => orders.filter((o) => o.status !== 'delivered').length, [orders]);
+
+  const accountName = user?.fullName ?? '';
+  const accountEmail = user?.email ?? '';
+  const accountAvatar = user?.avatarUrl;
+  const portalLinks = PORTAL_LINKS.filter((p) => user?.primaryRole === p.role);
 
   return (
     <header
@@ -164,7 +175,7 @@ export default function TopNav() {
                   menuOpen && 'ring-2 ring-ink/15 ring-offset-2 ring-offset-transparent',
                 )}
               >
-                <Avatar src={currentCustomer.avatar} name={currentCustomer.name} size="sm" />
+                <Avatar src={accountAvatar} name={accountName} size="sm" />
               </button>
               {menuOpen && (
                 <div
@@ -172,46 +183,53 @@ export default function TopNav() {
                   className="absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card py-1 shadow-soft-md"
                 >
                   <div className="border-b border-hairline px-3 py-3">
-                    <div className="truncate text-body-sm font-semibold text-ink">{currentCustomer.name}</div>
-                    <div className="truncate text-caption text-body">{currentCustomer.email}</div>
+                    <div className="truncate text-body-sm font-semibold text-ink">{accountName}</div>
+                    <div className="truncate text-caption text-body">{accountEmail}</div>
                   </div>
                   <div className="p-1">
-                    <Link
-                      to="/app/profile"
-                      role="menuitem"
-                      className={MENU_ITEM}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <Icon name="user" size={16} className="shrink-0 text-body" />
-                      Hồ sơ
-                    </Link>
-                    <Link
-                      to="/app/orders"
-                      role="menuitem"
-                      className={MENU_ITEM}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <Icon name="package" size={16} className="shrink-0 text-body" />
-                      Đơn hàng của tôi
-                    </Link>
-                    <Link
-                      to="/app/profile/settings"
-                      role="menuitem"
-                      className={MENU_ITEM}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <Icon name="cog" size={16} className="shrink-0 text-body" />
-                      Cài đặt
-                    </Link>
-                    <Link
-                      to="/"
-                      role="menuitem"
-                      className={MENU_ITEM}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <Icon name="refresh" size={16} className="shrink-0 text-body" />
-                      Đổi vai trò
-                    </Link>
+                    {portalLinks.map((p) => (
+                      <Link
+                        key={p.role}
+                        to={p.to}
+                        role="menuitem"
+                        className={MENU_ITEM}
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <Icon name={p.icon} size={16} className="shrink-0 text-body" />
+                        {p.label}
+                      </Link>
+                    ))}
+                    {user && (
+                      <>
+                        <Link
+                          to="/app/profile"
+                          role="menuitem"
+                          className={MENU_ITEM}
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <Icon name="user" size={16} className="shrink-0 text-body" />
+                          Hồ sơ khách hàng
+                        </Link>
+                        <Link
+                          to="/app/orders"
+                          role="menuitem"
+                          className={MENU_ITEM}
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <Icon name="package" size={16} className="shrink-0 text-body" />
+                          Đơn hàng của tôi
+                        </Link>
+                        <Link
+                          to="/app/profile/settings"
+                          role="menuitem"
+                          className={MENU_ITEM}
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <Icon name="cog" size={16} className="shrink-0 text-body" />
+                          Cài đặt
+                        </Link>
+                      </>
+                    )}
                   </div>
                   <div className="border-t border-hairline p-1">
                     <button

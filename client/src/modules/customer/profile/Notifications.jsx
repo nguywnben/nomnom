@@ -142,7 +142,7 @@ function formatRelative(at) {
 }
 
 export default function Notifications() {
-  const { authedRoles, pushToast, user } = useApp();
+  const { permittedRoles, pushToast } = useApp();
   const [items, setItems] = useState(SEED_NOTIFICATIONS);
   const [filter, setFilter] = useState('all');
 
@@ -176,7 +176,7 @@ export default function Notifications() {
     pushToast({ kind: 'info', title: 'Đã xoá thông báo', duration: 1800 });
   };
 
-  if (!user) {
+  if (!permittedRoles.customer) {
     return (
       <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
         <ProfileSubHeader title="Thông báo" />

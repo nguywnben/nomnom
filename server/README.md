@@ -6,6 +6,7 @@ API Node.js (Express + MySQL) cho frontend NomNom.
 
 - Node.js 18+
 - MySQL 8 với database `nomnom` (import `database.sql` ở thư mục gốc repo)
+- Nếu dùng upload ảnh, cấu hình thêm Cloudinary trong `.env`
 
 ## Cài đặt & chạy
 
@@ -19,6 +20,27 @@ npm run dev
 
 API mặc định: `http://localhost:3001`
 
+## Upload ảnh (INF-01)
+
+Yêu cầu header `Authorization: Bearer <accessToken>`.
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| POST | `/api/v1/uploads` | `multipart/form-data`, field `file`; optional `folder` (body hoặc query) |
+| DELETE | `/api/v1/uploads?publicId=<id>` | Xoá ảnh trên Cloudinary (`publicId` có thể chứa `/`) |
+
+Folder hỗ trợ: `avatar`, `restaurant`, `menu`, `driver-kyc`, `review` (mặc định `avatar`).
+
+Biến môi trường (thêm vào `.env`):
+
+```
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+
+Test nhanh bằng Postman: login → lấy token → POST file ảnh → nhận `{ url, publicId }`.
+
 ## Endpoints
 
 | Method | Path | Mô tả |
@@ -26,6 +48,17 @@ API mặc định: `http://localhost:3001`
 | GET | `/api/health` | Health check |
 | GET | `/api/v1/home/categories` | Carousel "Khám phá theo món ăn" — từ `menu_items` (`/app`) |
 | GET | `/api/v1/home/promos` | 3 banner khuyến mãi — từ `home_promo_banners` (`/app`) |
+| GET | `/api/v1/admin/overview?range=month` | KPI tổng quan admin (`/admin`) — cần role admin |
+| GET | `/api/v1/admin/restaurants/pending` | Danh sách quán chờ duyệt (ADM-03) |
+| POST | `/api/v1/admin/restaurants/:id/approve` | Duyệt quán → `active`, tạo wallet merchant |
+| POST | `/api/v1/admin/restaurants/:id/reject` | Từ chối quán — body `{ reason }` |
+| GET | `/api/v1/admin/drivers/pending` | Danh sách tài xế chờ duyệt (ADM-03) |
+| POST | `/api/v1/admin/drivers/:userId/approve` | Duyệt tài xế → tạo wallet driver |
+| POST | `/api/v1/admin/drivers/:userId/reject` | Từ chối tài xế — body `{ reason }` |
+
+Tất cả endpoint `/api/v1/admin/*` (trừ khi ghi chú khác) yêu cầu `Authorization: Bearer` và role `admin` trong `user_roles`.
+
+Approve/reject tự động: insert `notifications`, gửi email (nodemailer / log DEV nếu chưa cấu SMTP).
 
 Nếu DB cũ thiếu bảng banner:
 

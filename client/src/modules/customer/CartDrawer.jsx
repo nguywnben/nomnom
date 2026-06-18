@@ -27,7 +27,6 @@ export default function CartDrawer() {
     applyPromo,
     appliedPromo,
     setAppliedPromo,
-    authedRoles,
     user,
   } = useApp();
   const [promoCode, setPromoCode] = useState('');

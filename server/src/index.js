@@ -4,7 +4,12 @@ import 'dotenv/config';
 import homeRoutes from './routes/home.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import merchantRoutes from './routes/merchant.routes.js';
-import { verifyDbConnection } from './db/pool.js';
+import meRoutes from './routes/me.routes.js';
+import restaurantRoutes from './routes/restaurants.routes.js';
+import cuisinesRoutes from './routes/cuisines.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+import uploadsRoutes from './routes/uploads.routes.js';
+import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -24,19 +29,42 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/merchant', merchantRoutes);
+app.use('/api/v1/me', meRoutes);
+app.use('/api/v1/restaurants', restaurantRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/cuisines', cuisinesRoutes);
+app.use('/api/v1/uploads', uploadsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
-  const status = err.status ?? 500;
+  const status =
+    err.status ??
+    (err.code === 'LIMIT_FILE_SIZE' ? 413 : err.code === 'LIMIT_UNEXPECTED_FILE' ? 400 : 500);
+  const message =
+    err.message ??
+    (err.code === 'LIMIT_FILE_SIZE'
+      ? 'File vượt quá dung lượng tối đa 5MB.'
+      : err.code === 'LIMIT_UNEXPECTED_FILE'
+        ? 'Chỉ được upload một file với field "file".'
+        : 'Internal Server Error');
   res.status(status).json({
-    error: status === 500 ? 'Internal Server Error' : err.message,
+    error: status === 500 ? 'Internal Server Error' : message,
     ...(process.env.NODE_ENV !== 'production' && err.code ? { code: err.code } : {}),
   });
 });
 
+async function ensureSuspensionColumn() {
+  const [rows] = await pool.query("SHOW COLUMNS FROM users LIKE 'suspension_expires_at'");
+  if (!rows.length) {
+    console.log('[DB] Thêm cột suspension_expires_at vào bảng users');
+    await pool.query("ALTER TABLE users ADD COLUMN suspension_expires_at datetime DEFAULT NULL");
+  }
+}
+
 async function start() {
   try {
     await verifyDbConnection();
+    await ensureSuspensionColumn();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(

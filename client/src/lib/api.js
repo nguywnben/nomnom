@@ -57,8 +57,10 @@ export async function apiFetch(path, options = {}, { retry = true } = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const err = new Error(body.error ?? `API ${res.status}`);
+    const err = new Error(body.error ?? body.message ?? `API ${res.status}`);
     err.status = res.status;
+    err.errors = body.errors;
+    err.details = body.details;
     throw err;
   }
   return res.json();
@@ -76,9 +78,55 @@ export function apiPost(path, body) {
   });
 }
 
+export function apiPatch(path, body) {
+  return apiFetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiDelete(path) {
+  return apiFetch(path, { method: 'DELETE' });
+}
+
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
+}
+
+export function fetchAdminOverview(range = 'month') {
+  const params = new URLSearchParams({ range });
+  return apiGet(`/api/v1/admin/overview?${params.toString()}`);
+}
+
+export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({
+    role,
+    status,
+    q,
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiGet(`/api/v1/admin/usersQuery?${params.toString()}`);
+}
+
+export function updateAdminUserStatus(userId, status, suspensionDays) {
+  const body = { status };
+  if (status === 'suspended') {
+    body.suspensionDays = suspensionDays;
+  }
+  return apiFetch(`/api/v1/admin/users/${encodeURIComponent(userId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function resetAdminUserPassword(userId, newPassword) {
+  return apiPost(`/api/v1/admin/users/${encodeURIComponent(userId)}/reset-password`, {
+    newPassword,
+  });
 }
 
 /** Gửi mã OTP đăng ký qua email */
@@ -145,5 +193,50 @@ export function fetchMerchantRestaurantApi() {
 /** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
+}
+
+export function fetchRestaurants(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
+}
+
+export function fetchCuisines() {
+  return apiGet('/api/v1/cuisines');
+}
+
+export function fetchRestaurantDetail(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}`);
+}
+
+export function fetchRestaurantMenu(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/menu`);
+}
+
+export function fetchRestaurantReviews(idOrSlug) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(idOrSlug)}/reviews`);
+}
+
+export function fetchAdminPendingRestaurants() {
+  return apiGet('/api/v1/admin/restaurants/pending');
+}
+
+export function approveAdminRestaurant(restaurantId) {
+  return apiPost(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/approve`);
+}
+
+export function rejectAdminRestaurant(restaurantId, reason) {
+  return apiPost(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/reject`, { reason });
+}
+
+export function fetchAdminPendingDrivers() {
+  return apiGet('/api/v1/admin/drivers/pending');
+}
+
+export function approveAdminDriver(userId) {
+  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/approve`);
+}
+
+export function rejectAdminDriver(userId, reason) {
+  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
 }
 

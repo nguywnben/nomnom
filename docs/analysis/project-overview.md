@@ -32,10 +32,11 @@ Dự án được tổ chức theo mô hình Monorepo:
 - `/client`: Chứa mã nguồn frontend React.
   - `/src/modules`: Chia theo vai trò (admin, customer, driver, merchant).
   - `/src/components`: Các thành phần giao diện dùng chung (UI kit).
-- `/server`: Chứa mã nguồn backend (Node.js).
-- `database.sql`: File script khởi tạo toàn bộ cấu trúc cơ sở dữ liệu.
-- `nomnom_erd.md`: Tài liệu phân tích mô hình thực thể liên kết.
-- `nomnom_usecase.md`: Tài liệu phân tích các kịch bản sử dụng.
+- `/server`: Chứa mã nguồn backend (Node.js + Express + MySQL).
+- `/database/nomnom.sql`: Script khởi tạo schema + seed.
+- `/docs`: Tài liệu dự án (xem `docs/README.md`).
+  - `/docs/analysis`: ERD, use case, tổng quan.
+  - `/docs/planning`: Kế hoạch wave (`groups.txt`).
 
 ---
 

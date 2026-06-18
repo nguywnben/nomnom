@@ -1,0 +1,295 @@
+================================================================================
+NOMNOM — CHIA 28 ISSUE THÀNH 5 ĐỢT (WAVE)
+================================================================================
+
+NGUYÊN TẮC CHIA NHÓM
+--------------------
+1. Mỗi đợt 4-6 issue → team 6 người, mỗi người 1 issue / đợt (ai rảnh nhận thêm).
+2. Issue trong cùng đợt KHÔNG phụ thuộc lẫn nhau ở mức blocker (dependency đã xong
+   ở đợt trước), nên ai làm trước không phải chờ ai.
+3. Mỗi đợt khép kín 1 luồng dùng được → cuối đợt demo được trên UI thật, không chỉ API.
+4. Thời gian gợi ý: 7–10 ngày / đợt. Tổng cộng ~7 tuần.
+
+TRƯỚC KHI START WAVE 1, MỌI THÀNH VIÊN PHẢI:
+- Pull main, chạy được client + server local (xem docs/AUTH.md).
+- Đọc database/nomnom.sql để biết schema.
+- Đọc docs/planning/issues.txt để biết tổng thể (nếu có).
+
+
+================================================================================
+ĐỢT 1 — NỀN TẢNG & DUYỆT NỘI DUNG (FOUNDATION)
+Thời lượng gợi ý: 7-10 ngày
+Mục tiêu cuối đợt: Khách vào app TÌM được quán, XEM được menu, QUẢN LÝ địa chỉ.
+                   Admin có thể đăng nhập và xem tổng quan + danh sách user.
+                   Đã có service upload ảnh dùng cho tất cả đợt sau.
+================================================================================
+
+Issue trong đợt 1 (6 issue):
+
+  [INF-01] Hạ tầng — Upload ảnh dùng chung (avatar, banner quán, ảnh món, ảnh KYC)
+  [CUS-01] Customer — Danh sách & tìm kiếm nhà hàng
+  [CUS-02] Customer — Chi tiết nhà hàng + menu
+  [CUS-09] Customer — Sổ địa chỉ giao hàng
+  [ADM-01] Admin — Tổng quan hệ thống
+  [ADM-02] Admin — Quản lý tài khoản
+
+Ghi chú phụ thuộc & thứ tự:
+  - Tất cả 6 issue trong đợt này KHÔNG phụ thuộc lẫn nhau, có thể chạy hoàn toàn song song.
+  - INF-01 là nền tảng quan trọng nhất, ai làm INF-01 nên hoàn thành sớm vì các đợt
+    sau (MER-01, DRV-01, CUS-11, MER-04) đều cần.
+
+Gợi ý phân công (6 người):
+  Người 1 → [INF-01]  (ưu tiên xong sớm)
+  Người 2 → [CUS-01]
+  Người 3 → [CUS-02]
+  Người 4 → [CUS-09]
+  Người 5 → [ADM-01]
+  Người 6 → [ADM-02]
+
+CHECKPOINT CUỐI ĐỢT 1 (user kiểm tra):
+  ☐ Upload ảnh bất kỳ qua Postman → trả URL hoạt động.
+  ☐ Mở /app/search → load list quán từ DB, lọc + tìm OK.
+  ☐ Mở /app/restaurant/1 → đầy đủ menu thật từ DB.
+  ☐ /app/profile/addresses → thêm/sửa/xóa địa chỉ + set default OK.
+  ☐ Login admin (avery@nomnom.example) /admin → thấy KPI thực.
+  ☐ /admin/accounts → suspend 1 user, user đó login bị chặn.
+
+
+================================================================================
+ĐỢT 2 — ĐẶT ĐƠN COD + ĐĂNG KÝ MERCHANT/DRIVER
+Thời lượng gợi ý: 10-14 ngày (đợt nặng nhất, có checkout)
+Mục tiêu cuối đợt: Khách ĐẶT được đơn COD end-to-end. Merchant/Driver có thể nộp
+                   hồ sơ. Admin duyệt được merchant/driver.
+                   App "chạy" được luồng kinh doanh cơ bản.
+================================================================================
+
+Issue trong đợt 2 (6 issue):
+
+  [CUS-03] Customer — Giỏ hàng lưu DB (carts, cart_items)
+  [CUS-04] Customer — Đặt đơn (Checkout COD) + xem đơn vừa đặt
+  [CUS-11] Customer — Hồ sơ + đổi mật khẩu
+  [MER-01] Merchant — Đăng ký quán + chờ duyệt
+  [DRV-01] Driver — Đăng ký tài xế + chờ duyệt
+  [ADM-03] Admin — Duyệt nhà hàng & tài xế
+
+Ghi chú phụ thuộc & thứ tự:
+  - CUS-04 cần CUS-03 (cart phải xong trước checkout) → NÊN GHÉP CHO CÙNG 1 NGƯỜI làm
+    tuần tự để giảm chi phí trao đổi (cùng AppContext + cùng kiến trúc dữ liệu).
+  - CUS-11, MER-01, DRV-01 đều cần [INF-01] (đợt 1) để upload ảnh.
+  - ADM-03 cần [MER-01] + [DRV-01] (cùng đợt) — người làm ADM-03 nên bắt đầu sau
+    khi MER-01/DRV-01 đã có endpoint apply (~3-4 ngày đầu đợt).
+
+Gợi ý phân công (6 người):
+  Người 1 (đã làm CUS-02) → [CUS-03] + [CUS-04]  (làm tuần tự)
+  Người 2 → [CUS-11]
+  Người 3 → [MER-01]
+  Người 4 → [DRV-01]
+  Người 5 → [ADM-03]   (chờ MER-01 + DRV-01 mở endpoint apply rồi tiếp tục)
+  Người 6 → DỰ PHÒNG: hỗ trợ Người 1 hoặc nhận trước [CUS-06] (đợt 3).
+
+CHECKPOINT CUỐI ĐỢT 2:
+  ☐ Khách: thêm 2 món → /app/checkout → đặt COD → /app/order/success/:code OK.
+  ☐ Cart lưu DB, reload trình duyệt vẫn còn giỏ.
+  ☐ /app/profile/edit → đổi avatar bằng upload thật, lưu OK.
+  ☐ User customer apply merchant → /merchant/pending hiện đúng.
+  ☐ User apply driver → /driver/pending hiện đúng.
+  ☐ Admin /admin/restaurants approve → quán xuất hiện trong /app/search.
+  ☐ Admin /admin/drivers approve → tài xế chuyển sang trạng thái approved.
+
+
+================================================================================
+ĐỢT 3 — VẬN HÀNH ĐƠN HÀNG (KHÁCH ↔ QUÁN)
+Thời lượng gợi ý: 10-12 ngày
+Mục tiêu cuối đợt: Quán XỬ LÝ được đơn (accept → preparing → ready). Khách XEM được
+                   lịch sử + theo dõi đơn + đánh giá. Merchant có dashboard + quản
+                   lý menu của mình.
+================================================================================
+
+Issue trong đợt 3 (6 issue):
+
+  [CUS-06] Customer — Lịch sử đơn của khách
+  [CUS-07] Customer — Theo dõi đơn (tracking)
+  [CUS-08] Customer — Đánh giá đơn / quán
+  [MER-02] Merchant — Dashboard quán (KPI)
+  [MER-03] Merchant — Kanban đơn hàng
+  [MER-04] Merchant — Quản lý menu (categories + items)
+
+Ghi chú phụ thuộc & thứ tự:
+  - CUS-06, CUS-07, CUS-08 đều cần [CUS-04] (đợt 2) để có order thật.
+  - MER-02, MER-03 cần [CUS-04] (đợt 2) để có data đơn cho dashboard/kanban.
+  - MER-04 cần [INF-01] (đợt 1) để upload ảnh món + [CUS-02] (đợt 1) để khách xem
+    được kết quả.
+  - CUS-07 + MER-03 nên trao đổi với nhau vì hành động của merchant ảnh hưởng đến
+    timeline khách thấy.
+
+Gợi ý phân công (6 người):
+  Người 1 → [CUS-06]
+  Người 2 → [CUS-07]   (polling, hơi tricky)
+  Người 3 → [CUS-08]
+  Người 4 → [MER-02]
+  Người 5 → [MER-03]   (kết nối với Người 2)
+  Người 6 → [MER-04]
+
+CHECKPOINT CUỐI ĐỢT 3:
+  ☐ Khách đặt đơn → vào /app/orders thấy đơn vừa đặt.
+  ☐ Khách mở /app/track/:code → thấy stepper + thời gian.
+  ☐ Merchant /merchant/orders thấy đơn ở cột "Mới" → Accept → đơn sang "Đang làm".
+     Khách thấy /app/track tự cập nhật.
+  ☐ Merchant ready → /app/track của khách chuyển bước.
+  ☐ Khách đơn delivered → /app/reviews/:id submit OK, rating_avg quán cập nhật.
+  ☐ Merchant /merchant thấy KPI đúng.
+  ☐ Merchant /merchant/menu thêm món mới + upload ảnh → khách thấy ngay
+     /app/restaurant/:id.
+
+
+================================================================================
+ĐỢT 4 — TÀI XẾ, THANH TOÁN ONLINE & KHUYẾN MÃI
+Thời lượng gợi ý: 10-14 ngày
+Mục tiêu cuối đợt: TÀI XẾ tham gia luồng giao hàng end-to-end. Khách thanh toán
+                   VNPay được. Voucher hoạt động. Admin có công cụ kiểm duyệt.
+                   Đây là đợt "đóng vòng" — đơn đi từ đặt → quán làm → tài xế giao
+                   → khách nhận → đánh giá.
+================================================================================
+
+Issue trong đợt 4 (6 issue):
+
+  [CUS-05] Customer — Tích hợp thanh toán VNPay
+  [CUS-10] Customer — Voucher / mã giảm giá
+  [DRV-02] Driver — Trang chính + pool đơn
+  [DRV-03] Driver — Đơn đang giao
+  [MER-05] Merchant — Khuyến mãi & đánh giá
+  [ADM-04] Admin — Đơn hàng + kiểm duyệt review
+
+Ghi chú phụ thuộc & thứ tự:
+  - CUS-05, CUS-10 cần [CUS-04] (đợt 2).
+  - DRV-02 cần [MER-03] (đợt 3) để có đơn ready_for_pickup trong pool.
+  - DRV-03 cần [DRV-02] (cùng đợt) — NÊN GHÉP CHO CÙNG 1 NGƯỜI làm tuần tự, hoặc 2
+    người làm cặp đôi (DRV-02 trước, DRV-03 nhận khi DRV-02 có endpoint accept job).
+  - MER-05 cần [CUS-10] (cùng đợt) cho phần voucher + [CUS-08] (đợt 3) cho reply review.
+  - ADM-04 cần [CUS-04] (đợt 2) + [CUS-08] (đợt 3).
+
+Gợi ý phân công (6 người):
+  Người 1 → [CUS-05]
+  Người 2 → [CUS-10]
+  Người 3 → [DRV-02] + [DRV-03]   (1 người làm cả 2, hoặc cặp với Người 4)
+  Người 4 → DỰ PHÒNG / hỗ trợ Người 3
+  Người 5 → [MER-05]
+  Người 6 → [ADM-04]
+
+CHECKPOINT CUỐI ĐỢT 4:
+  ☐ Khách chọn VNPay → redirect sandbox → quay về → đơn paid.
+  ☐ Khách nhập mã NOMNOM15 → giảm 15%.
+  ☐ Merchant ready đơn → tài xế /driver/jobs thấy → accept → đơn vào /driver/active.
+  ☐ Tài xế cập nhật picked_up → /app/track của khách thấy stepper.
+  ☐ Tài xế delivered → wallet driver + merchant tăng đúng tiền.
+  ☐ Merchant tạo voucher riêng → khách áp dụng được khi đặt món ở quán đó.
+  ☐ Merchant reply review → khách thấy reply trên /app/restaurant/:id.
+  ☐ Admin huỷ đơn paid → payment_status='refunded' + khách nhận noti.
+  ☐ Admin ẩn review → khách không còn thấy review đó.
+
+
+================================================================================
+ĐỢT 5 — TÀI CHÍNH, CÀI ĐẶT NÂNG CAO, CHAT (POLISH)
+Thời lượng gợi ý: 7-10 ngày
+Mục tiêu cuối đợt: HOÀN THIỆN — ví/payout cho merchant & driver, admin duyệt rút
+                   tiền, cấu hình hệ thống, chat 1-1. Sản phẩm "ra mắt" được.
+================================================================================
+
+Issue trong đợt 5 (4 issue):
+
+  [MER-06] Merchant — Ví, cài đặt, thông báo
+  [DRV-04] Driver — Ví, rút tiền, lịch sử & tài khoản
+  [ADM-05] Admin — Payouts + tài chính + config
+  [CRS-01] Cross-cutting — Chat 1-1 (khách ↔ tài xế / merchant / admin)
+
+Ghi chú phụ thuộc & thứ tự:
+  - MER-06 sẽ làm LUÔN endpoint chung GET/POST /me/notifications (xem mục "Ghi chú
+    Notifications" ở cuối issues.txt). Endpoint này dùng chung cho DRV-04 — người
+    làm MER-06 và DRV-04 cần bàn bạc & thống nhất shape API trước khi code.
+  - ADM-05 cần [MER-06] + [DRV-04] (cùng đợt) — bắt đầu sau khi 2 issue kia có
+    endpoint POST /payouts (~3-4 ngày đầu đợt).
+  - CRS-01 cần [CUS-07] (đợt 3) hoặc [DRV-03] (đợt 4) để có context "đơn đang giao".
+
+Gợi ý phân công (6 người — 4 issue/6 người → dôi 2 người để fix bug + polish):
+  Người 1 → [MER-06]
+  Người 2 → [DRV-04]
+  Người 3 → [ADM-05]   (chờ MER-06 + DRV-04 có endpoint /payouts)
+  Người 4 → [CRS-01]
+  Người 5 → BUG-FIX / FE polish (refactor, UX nhỏ, fix toast, loading state)
+  Người 6 → TESTING end-to-end các flow chính, viết bug-report
+
+CHECKPOINT CUỐI ĐỢT 5 (cũng là CHECKPOINT GO-LIVE):
+  ☐ Merchant /merchant/wallet thấy số dư + tạo payout request OK.
+  ☐ Tài xế /driver/wallet + /driver/payouts hoạt động.
+  ☐ Admin /admin/payouts approve + complete → wallet trừ đúng.
+  ☐ Admin /admin/financial báo cáo doanh thu OK.
+  ☐ Admin /admin/config đổi commission_rate → đơn mới dùng giá trị mới.
+  ☐ Notifications hoạt động đầy đủ ở 3 role (customer/merchant/driver).
+  ☐ Khách + tài xế chat được trong khi đang giao đơn.
+  ☐ Tất cả flow đợt 1-4 không lỗi regression.
+
+
+================================================================================
+TÓM TẮT LỊCH TRÌNH (GỢI Ý)
+================================================================================
+
+  Đợt 1 — Foundation                           7-10 ngày    6 issue
+  Đợt 2 — Đặt đơn COD + Onboarding            10-14 ngày    6 issue
+  Đợt 3 — Vận hành đơn (khách ↔ quán)         10-12 ngày    6 issue
+  Đợt 4 — Tài xế + VNPay + voucher            10-14 ngày    6 issue
+  Đợt 5 — Polish + chat + tài chính            7-10 ngày    4 issue
+  ─────────────────────────────────────────────────────────────────
+  TỔNG                                       ~44-60 ngày   28 issue
+                                              (~6-8 tuần)
+
+
+================================================================================
+QUY TRÌNH GIỮA CÁC ĐỢT
+================================================================================
+
+Cuối mỗi đợt, leader (bạn) làm:
+
+1. CODE FREEZE đợt hiện tại 1 ngày trước hạn → mọi người tự test cross-feature.
+2. DEMO TỔNG (30-60 phút): mỗi người demo issue của mình, leader đánh dấu pass/fail.
+3. KIỂM TRA CHECKPOINT (tick từng dòng ở mục "CHECKPOINT CUỐI ĐỢT" ở trên).
+4. MERGE & TAG: merge tất cả PR đợt vào main, tag git "wave-1-done", "wave-2-done"...
+5. RETRO ngắn (15 phút): cái gì OK / cái gì kẹt / cần đổi gì cho đợt sau.
+6. PHÂN CÔNG ĐỢT KẾ TIẾP: gửi danh sách issue đợt sau, mỗi người chọn 1.
+
+Nếu 1 issue trễ deadline đợt:
+  - Đánh giá tác động: nó có phải dependency của đợt sau không?
+    + Nếu CÓ → kéo nhân lực sang giúp xong trong 1-2 ngày, hoặc cắt scope.
+    + Nếu KHÔNG → cho phép bring-over sang đợt sau, không cản tiến độ.
+
+
+================================================================================
+KHUNG MAIL/TIN GỬI THÀNH VIÊN ĐẦU MỖI ĐỢT (mẫu)
+================================================================================
+
+  Subject: [NomNom] Bắt đầu Đợt <N>: <tên đợt> — chốt issue trước <ngày>
+
+  Chào team,
+
+  Chúng ta bắt đầu Đợt <N> hôm nay (<ngày bắt đầu>) đến <ngày kết thúc>.
+
+  Mục tiêu đợt: <copy "Mục tiêu cuối đợt" ở trên>
+
+  Danh sách issue (mỗi người chọn 1, ai rảnh thêm 1):
+    - <Mã> <tên>
+    - ...
+
+  Đọc chi tiết trong file issues.txt (mỗi block giữa 2 dòng ===).
+
+  Yêu cầu:
+    + Reply email/tin nhắn này với <Mã issue> bạn chọn TRƯỚC <ngày + 2>.
+    + Push code lên nhánh feature/<mã-issue>-<tên-ngắn>, mở PR vào main.
+    + Cuối đợt: demo 5 phút + ghi vào CHANGELOG.
+
+  Có thắc mắc gì hỏi trong nhóm chat ngay nhé. Tránh để cuối đợt mới phát hiện vướng.
+
+  Cảm ơn cả team!
+
+
+================================================================================
+HẾT
+================================================================================

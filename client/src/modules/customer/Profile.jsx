@@ -20,7 +20,7 @@ const SETTINGS = [
 export default function CustomerProfile() {
   const { pathname, search } = useLocation();
   const nav = useNavigate();
-  const { currentCustomer, orders, authedRoles, logout, user } = useApp();
+  const { currentCustomer, orders, permittedRoles, logout, user } = useApp();
 
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
   const activeCount = orders.length - deliveredCount;
@@ -118,9 +118,9 @@ export default function CustomerProfile() {
       <Card padded>
         <div className="text-caption-uppercase text-body mb-sm">Các nền tảng khác</div>
         <div className="grid grid-cols-3 gap-xs">
-          <RoleTile to="/merchant" icon="store" label="Quán ăn" />
-          <RoleTile to="/driver" icon="bike" label="Tài xế" />
-          <RoleTile to="/admin" icon="shield" label="Quản trị" />
+          {permittedRoles.merchant && <RoleTile to="/merchant" icon="store" label="Quán ăn" />}
+          {permittedRoles.driver && <RoleTile to="/driver" icon="bike" label="Tài xế" />}
+          {permittedRoles.admin && <RoleTile to="/admin" icon="shield" label="Quản trị" />}
         </div>
       </Card>
 

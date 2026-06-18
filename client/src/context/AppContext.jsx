@@ -10,7 +10,7 @@ import {
   promoCodes,
 } from '../data/mock.js';
 import { formatVnd } from '../lib/formatVnd.js';
-import { buildAuthedRoles } from '../lib/auth.js';
+import { buildPermittedRoles } from '../lib/auth.js';
 import { clearTokens, hasStoredSession, saveTokens } from '../lib/authStorage.js';
 import { fetchMe, loginApi, logoutApi, registerSendCodeApi, registerVerifyApi } from '../lib/api.js';
 
@@ -27,8 +27,8 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
 
-  const authedRoles = useMemo(
-    () => (user ? buildAuthedRoles(user.roles) : buildAuthedRoles([])),
+  const permittedRoles = useMemo(
+    () => (user ? buildPermittedRoles(user.roles) : buildPermittedRoles([])),
     [user],
   );
 
@@ -45,7 +45,7 @@ export function AppProvider({ children }) {
   }, [user]);
 
   const currentDriver = useMemo(() => {
-    if (!user || !authedRoles.driver) return null;
+    if (!user || !permittedRoles.driver) return null;
     return {
       id: String(user.id),
       name: user.fullName,
@@ -56,10 +56,10 @@ export function AppProvider({ children }) {
       rating: 4.9,
       trips: 0,
     };
-  }, [user, authedRoles.driver]);
+  }, [user, permittedRoles.driver]);
 
   const currentMerchant = useMemo(() => {
-    if (!user || !authedRoles.merchant) return null;
+    if (!user || !permittedRoles.merchant) return null;
     return {
       id: String(user.id),
       name: user.fullName,
@@ -67,18 +67,18 @@ export function AppProvider({ children }) {
       avatar: user.avatarUrl,
       restaurantId: 'r-1',
     };
-  }, [user, authedRoles.merchant]);
+  }, [user, permittedRoles.merchant]);
 
   const currentAdmin = useMemo(() => {
-    if (!user || !authedRoles.admin) return null;
+    if (!user || !permittedRoles.admin) return null;
     return {
       id: String(user.id),
       name: user.fullName,
       email: user.email ?? '',
       avatar: user.avatarUrl,
-      role: 'Quản trị viên',
+      role: user.primaryRole === 'admin' ? 'Quản trị viên' : 'Người dùng',
     };
-  }, [user, authedRoles.admin]);
+  }, [user, permittedRoles.admin, user?.primaryRole]);
 
   // Cart (customer)
   const [cart, setCart] = useState({ restaurantId: null, items: [] });
@@ -150,11 +150,11 @@ export function AppProvider({ children }) {
 
   const simulateSync = useRef(null);
   const triggerSync = useCallback(() => {
-    if (!user) return;
+    if (!permittedRoles.customer) return;
     setSyncing(true);
     clearTimeout(simulateSync.current);
     simulateSync.current = setTimeout(() => setSyncing(false), 700);
-  }, [user]);
+  }, [permittedRoles.customer]);
 
   const addToCart = useCallback(
     (restaurantId, item, qty = 1) => {
@@ -458,7 +458,7 @@ export function AppProvider({ children }) {
     registerSendCode,
     completeRegistration,
     logout,
-    authedRoles,
+    permittedRoles,
 
     cart,
     cartOpen,

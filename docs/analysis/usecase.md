@@ -589,9 +589,9 @@ flowchart LR
 
 ## 10. Liên kết với các tài liệu khác
 
-- **`database.sql`** — Schema MySQL hiện thực toàn bộ Use Case trên (24 bảng, 8 nhóm).
-- **`nomnom_erd.md`** — Phân tích ERD chi tiết kèm hướng dẫn vẽ.
-- **`README.md`** — Tổng quan dự án.
+- **`database/nomnom.sql`** — Schema MySQL hiện thực toàn bộ Use Case trên (24 bảng, 8 nhóm).
+- **`docs/analysis/erd.md`** — Phân tích ERD chi tiết kèm hướng dẫn vẽ.
+- **`README.md`** (gốc repo) — Tổng quan dự án.
 - **Frontend module map** (`client/src/modules/`):
   - `customer/` — UI hỗ trợ tác nhân Khách hàng.
   - `merchant/` — UI hỗ trợ tác nhân Chủ nhà hàng.
