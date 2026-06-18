@@ -134,10 +134,12 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route element={<RequireAuth role="driver" />}>
+        <Route element={<RequireAuth />}>
           <Route path="/driver/onboarding" element={<DriverOnboarding />} />
           <Route path="/driver/pending" element={<DriverPending />} />
+        </Route>
 
+        <Route element={<RequireAuth role="driver" />}>
           <Route path="/driver" element={<DriverShell />}>
             <Route index element={<DriverHome />} />
             <Route path="jobs" element={<DriverJobs />} />
