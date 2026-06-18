@@ -3,6 +3,7 @@ import express from 'express';
 import 'dotenv/config';
 import homeRoutes from './routes/home.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import merchantRoutes from './routes/merchant.routes.js';
 import meRoutes from './routes/me.routes.js';
 import restaurantRoutes from './routes/restaurants.routes.js';
 import cartRoutes from './routes/cart.routes.js';
@@ -30,6 +31,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/merchant', merchantRoutes);
 app.use('/api/v1/me', meRoutes);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/cart', cartRoutes);

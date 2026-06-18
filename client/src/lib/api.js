@@ -209,6 +209,20 @@ export function fetchHomePromos() {
   return apiGet('/api/v1/home/promos');
 }
 
+/** Đăng ký đối tác nhà hàng mới — POST /api/v1/merchant/apply */
+export function applyMerchantApi(data) {
+  return apiPost('/api/v1/merchant/apply', data);
+}
+
+/** Lấy thông tin nhà hàng của người dùng hiện tại — GET /api/v1/merchant/me/restaurant */
+export function fetchMerchantRestaurantApi() {
+  return apiGet('/api/v1/merchant/me/restaurant');
+}
+
+/** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
+export function fetchCuisinesApi() {
+  return apiGet('/api/v1/home/cuisines');
+}
 export function fetchRestaurants(params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);

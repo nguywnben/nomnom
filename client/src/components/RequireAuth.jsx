@@ -21,6 +21,8 @@ export default function RequireAuth({ role }) {
 
   if (role && !permittedRoles[role]) {
     if (user) {
+      if (role === 'merchant') return <Navigate to="/merchant/onboarding" replace />;
+      if (role === 'driver') return <Navigate to="/driver/onboarding" replace />;
       const primary = user.primaryRole;
       const primaryHome = ROLE_HOME[primary] ?? '/app';
       const canEnterPrimary =

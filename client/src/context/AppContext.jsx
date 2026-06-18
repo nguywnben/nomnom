@@ -747,6 +747,7 @@ export function AppProvider({ children }) {
     role,
     setRole,
     user,
+    setUser,
     authReady,
     login,
     registerSendCode,
