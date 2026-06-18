@@ -94,6 +94,30 @@ export function authGet(path) {
   return apiGet(path);
 }
 
+export function uploadImageApi(file, folder) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (folder) {
+    formData.append('folder', folder);
+  }
+  return apiFetch('/api/v1/uploads', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export function fetchDriverProfile() {
+  return apiGet('/api/v1/driver/me/profile');
+}
+
+export function applyDriverProfile(payload) {
+  return apiPost('/api/v1/driver/apply', payload);
+}
+
+export function updateDriverProfile(payload) {
+  return apiPatch('/api/v1/driver/me/profile', payload);
+}
+
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
@@ -115,10 +139,11 @@ export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1
   return apiGet(`/api/v1/admin/usersQuery?${params.toString()}`);
 }
 
-export function updateAdminUserStatus(userId, status, suspensionDays) {
+export function updateAdminUserStatus(userId, status, suspensionDays, suspensionReason) {
   const body = { status };
   if (status === 'suspended') {
     body.suspensionDays = suspensionDays;
+    body.suspensionReason = suspensionReason;
   }
   return apiFetch(`/api/v1/admin/users/${encodeURIComponent(userId)}/status`, {
     method: 'PATCH',

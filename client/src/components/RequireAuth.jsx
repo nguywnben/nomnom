@@ -3,8 +3,9 @@ import { useApp } from '../context/AppContext.jsx';
 import { ROLE_HOME } from '../lib/auth.js';
 
 /**
- * Bảo vệ portal theo quyền `user_roles` — không dùng `primary_role`.
- * @param {{ role: 'customer'|'merchant'|'driver'|'admin' }} props
+ * Bảo vệ trang theo quyền `user_roles` — không dùng `primary_role`.
+ * Khi không truyền `role`, chỉ yêu cầu đăng nhập.
+ * @param {{ role?: 'customer'|'merchant'|'driver'|'admin' }} props
  */
 export default function RequireAuth({ role }) {
   const { authReady, permittedRoles, user } = useApp();
@@ -18,7 +19,7 @@ export default function RequireAuth({ role }) {
     );
   }
 
-  if (!permittedRoles[role]) {
+  if (role && !permittedRoles[role]) {
     if (user) {
       const primary = user.primaryRole;
       const primaryHome = ROLE_HOME[primary] ?? '/app';

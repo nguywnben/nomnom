@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
-import { sendAdminResetPasswordEmail } from '../lib/mail.js';
+import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
 
 const router = Router();
 
@@ -22,6 +22,7 @@ function serializeUser(row, roles) {
     primaryRole: row.primary_role,
     status: row.status,
     suspensionExpiresAt: row.suspension_expires_at ?? null,
+    suspensionReason: row.suspension_reason ?? null,
     roles,
     joinedAt: row.created_at,
   };
@@ -192,7 +193,7 @@ router.get('/usersQuery', async (req, res, next) => {
     );
 
     const [rows] = await pool.query(
-      `SELECT u.id, u.email, u.full_name, u.avatar_url, u.primary_role, u.status, u.suspension_expires_at, u.created_at,
+      `SELECT u.id, u.email, u.full_name, u.avatar_url, u.primary_role, u.status, u.suspension_expires_at, u.suspension_reason, u.created_at,
               GROUP_CONCAT(DISTINCT ur.role) AS roles
        FROM users u
        LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -215,31 +216,50 @@ router.patch('/users/:id/status', async (req, res, next) => {
     const id = Number(req.params.id);
     const status = String(req.body?.status ?? '').trim().toLowerCase();
     const suspensionDays = req.body?.suspensionDays;
+    const suspensionReason = String(req.body?.suspensionReason ?? '').trim();
 
     if (!id || !['active', 'suspended', 'banned'].includes(status)) {
       return res.status(400).json({ error: 'Status không hợp lệ.' });
     }
 
-    const [rows] = await pool.query('SELECT id FROM users WHERE id = ? LIMIT 1', [id]);
-    if (!rows.length) {
+    const [rows] = await pool.query(
+      'SELECT id, email, full_name FROM users WHERE id = ? LIMIT 1',
+      [id],
+    );
+    const user = rows[0];
+    if (!user) {
       return res.status(404).json({ error: 'Người dùng không tồn tại.' });
     }
 
     let expiresAt = null;
+    let reasonValue = null;
     if (status === 'suspended') {
       const days = Number(suspensionDays ?? 0);
       if (!Number.isInteger(days) || days < 1 || days > 365) {
         return res.status(400).json({ error: 'Số ngày đình chỉ phải là số nguyên từ 1 đến 365.' });
       }
+      if (!suspensionReason) {
+        return res.status(400).json({ error: 'Lý do đình chỉ là bắt buộc.' });
+      }
       expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      reasonValue = suspensionReason;
     }
 
     await pool.query(
-      'UPDATE users SET status = ?, suspension_expires_at = ? WHERE id = ?',
-      [status, expiresAt, id],
+      'UPDATE users SET status = ?, suspension_expires_at = ?, suspension_reason = ? WHERE id = ?',
+      [status, expiresAt, reasonValue, id],
     );
 
-    res.json({ ok: true, status, suspensionExpiresAt: expiresAt ? expiresAt.toISOString() : null });
+    if (status === 'suspended' && user.email) {
+      await sendAccountSuspensionEmail({
+        to: user.email,
+        fullName: user.full_name,
+        reason: reasonValue,
+        expiresAt,
+      });
+    }
+
+    res.json({ ok: true, status, suspensionExpiresAt: expiresAt ? expiresAt.toISOString() : null, suspensionReason: reasonValue });
   } catch (err) {
     next(err);
   }
