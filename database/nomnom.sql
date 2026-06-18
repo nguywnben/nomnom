@@ -793,6 +793,9 @@ CREATE TABLE `restaurants` (
   `approved_at` datetime DEFAULT NULL,
   `approved_by_admin_id` bigint UNSIGNED DEFAULT NULL,
   `rejection_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account_no` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_name` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account_holder` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -8,6 +8,7 @@ import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { applyMerchantApi, fetchMe, fetchCuisinesApi } from '../../lib/api.js';
+import { uploadFile } from '../../lib/upload.js';
 
 // Onboarding cho chủ quán — gom toàn bộ trường KYC khớp với bảng `restaurants`:
 const STEPS = [
@@ -104,33 +105,12 @@ export default function MerchantOnboarding() {
 
   const back = () => setStepIdx((i) => Math.max(i - 1, 0));
 
-  // Tải ảnh trực tiếp lên Cloudinary
-  const uploadToCloudinary = async (file) => {
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'demo';
-    const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'docs_upload_example_us_preset';
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', preset);
-
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('Cloudinary error:', errText);
-      throw new Error('Tải ảnh lên Cloudinary thất bại. Vui lòng kiểm tra lại kết nối hoặc định dạng tệp.');
-    }
-    const data = await res.json();
-    return data.secure_url;
-  };
-
   const handleFileChange = async (key, file) => {
     if (!file) return;
     setUploading((prev) => ({ ...prev, [key]: true }));
     try {
-      const url = await uploadToCloudinary(file);
+      const folder = 'restaurant';
+      const { url } = await uploadFile(file, folder);
       
       setFiles((prev) => ({ ...prev, [`${key}File`]: file }));
       setValue(`${key}Url`, url, { shouldValidate: true });
@@ -185,6 +165,9 @@ export default function MerchantOnboarding() {
         logoUrl: data.logoUrl,
         businessLicenseUrl: data.licenseUrl,
         foodSafetyCertUrl: data.foodSafetyUrl || null,
+        bankName: data.bankName,
+        bankAccountNo: data.bankAccountNo,
+        bankAccountHolder: data.bankAccountHolder,
       });
 
       pushToast({
@@ -558,10 +541,10 @@ export default function MerchantOnboarding() {
               <ReviewRow label="Tên quán" value={formValues.name || '—'} />
               <ReviewRow label="Loại ẩm thực" value={cuisines.find((c) => c.value === formValues.cuisine)?.label || '—'} />
               <ReviewRow label="Địa chỉ" value={[formValues.addressLine, formValues.ward, formValues.district, formValues.city].filter(Boolean).join(', ') || '—'} />
-              <ReviewRow label="Logo" value={formValues.logoUrl ? 'Đã tải lên Cloudinary' : '— (chưa tải)'} />
-              <ReviewRow label="Ảnh bìa" value={formValues.bannerUrl ? 'Đã tải lên Cloudinary' : '— (chưa tải)'} />
-              <ReviewRow label="Giấy phép kinh doanh" value={formValues.licenseUrl ? 'Đã tải lên Cloudinary' : '— (chưa tải)'} />
-              <ReviewRow label="Chứng nhận VSATTP" value={formValues.foodSafetyUrl ? 'Đã tải lên Cloudinary' : 'Chưa cung cấp (Tùy chọn)'} />
+              <ReviewRow label="Logo" value={formValues.logoUrl ? 'Đã tải lên' : '— (chưa tải)'} />
+              <ReviewRow label="Ảnh bìa" value={formValues.bannerUrl ? 'Đã tải lên' : '— (chưa tải)'} />
+              <ReviewRow label="Giấy phép kinh doanh" value={formValues.licenseUrl ? 'Đã tải lên' : '— (chưa tải)'} />
+              <ReviewRow label="Chứng nhận VSATTP" value={formValues.foodSafetyUrl ? 'Đã tải lên' : 'Chưa cung cấp (Tùy chọn)'} />
               <ReviewRow label="Ngân hàng" value={formValues.bankName} />
               <ReviewRow label="Số tài khoản" value={formValues.bankAccountNo || '—'} />
               <ReviewRow label="Chủ tài khoản" value={formValues.bankAccountHolder || '—'} />
@@ -601,7 +584,7 @@ function FileBox({ title, hint, file, url, uploading, onChange, error, required 
         {uploading ? (
           <div className="flex flex-col items-center gap-1.5 py-sm">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-caption text-body">Đang tải lên Cloudinary...</span>
+            <span className="text-caption text-body">Đang tải lên...</span>
           </div>
         ) : url ? (
           <div className="space-y-1.5 py-xs">

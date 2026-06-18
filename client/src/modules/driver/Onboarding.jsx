@@ -74,9 +74,9 @@ export default function DriverOnboarding() {
     setSubmitting(true);
     try {
       const [idCard, driverLicense, portrait] = await Promise.all([
-        uploadImageApi(form.idCardFile, 'driver/kyc'),
-        form.licenseFile ? uploadImageApi(form.licenseFile, 'driver/kyc') : Promise.resolve({ url: '' }),
-        uploadImageApi(form.portraitFile, 'driver/kyc'),
+        uploadImageApi(form.idCardFile, 'driver-kyc'),
+        form.licenseFile ? uploadImageApi(form.licenseFile, 'driver-kyc') : Promise.resolve({ url: '' }),
+        uploadImageApi(form.portraitFile, 'driver-kyc'),
       ]);
 
       const payload = {

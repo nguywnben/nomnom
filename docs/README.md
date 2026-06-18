@@ -21,6 +21,7 @@
 |----------|--------|
 | [groups.txt](./planning/groups.txt) | Chia 28 issue thành 5 đợt (wave) |
 | [wave-1-completed.md](./wave-1-completed.md) | Chức năng đã hoàn thành — Đợt 1 (INF-01 … ADM-02) |
+| [wave-2-completed.md](./wave-2-completed.md) | Chức năng đã hoàn thành — Đợt 2 (CUS-03 … ADM-03) |
 | [issues.txt](./planning/issues.txt) | Chi tiết từng issue *(chưa có trong repo)* |
 
 ## Cơ sở dữ liệu
@@ -29,4 +30,10 @@ Schema + seed: [`database/nomnom.sql`](../database/nomnom.sql)
 
 ```bash
 mysql -u root -p nomnom < database/nomnom.sql
+```
+
+Migration bổ sung (DB đã có từ trước):
+
+```bash
+mysql -u root -p nomnom < database/migrations/20260530_restaurant_bank.sql
 ```

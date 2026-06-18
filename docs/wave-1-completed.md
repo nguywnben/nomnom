@@ -10,7 +10,7 @@ Tài liệu mô tả phạm vi **đã triển khai** cho 6 issue Wave 1 (`docs/p
 
 | Issue | Trạng thái | API | UI chính |
 |-------|------------|-----|----------|
-| INF-01 | ✅ API xong | Upload/delete Cloudinary | Helper client; chưa gắn form |
+| INF-01 | ✅ Hoàn chỉnh | Upload/delete Cloudinary | API + `upload.js`; UI gắn ở đợt 2 (xem [wave-2-completed.md](./wave-2-completed.md)) |
 | CUS-01 | ✅ Search xong | Danh sách + lọc quán | `/app/search` |
 | CUS-02 | ✅ Detail/menu xong | Chi tiết quán + menu | `/app/restaurant/:id` |
 | CUS-09 | ✅ CRUD địa chỉ | `/api/v1/me/addresses` | `/app/profile/addresses` |
@@ -40,10 +40,17 @@ Tài liệu mô tả phạm vi **đã triển khai** cho 6 issue Wave 1 (`docs/p
 - `uploadFile(file, folder)` — gọi API upload.
 - `deleteUploadedFile(publicId)` — gọi API xóa.
 
-### Chưa làm / ngoài phạm vi INF-01
+**UI đã gắn INF-01** (triển khai ở đợt 2, chi tiết trong [wave-2-completed.md](./wave-2-completed.md)):
 
-- Chưa có màn hình upload (avatar, banner quán, v.v.) — `EditProfile` vẫn toast “sắp có”.
-- Các issue đợt sau (MER-01, DRV-01, …) sẽ import helper này.
+| Màn hình | Folder | File |
+|----------|--------|------|
+| Avatar khách | `avatar` | `client/src/modules/customer/profile/EditProfile.jsx` |
+| Đăng ký quán (logo, banner, giấy tờ) | `restaurant` | `client/src/modules/merchant/Onboarding.jsx` |
+| Đăng ký tài xế (KYC) | `driver-kyc` | `client/src/modules/driver/Onboarding.jsx` |
+
+### Chưa làm / ngoài phạm vi INF-01 (đợt sau)
+
+- Upload ảnh món trong merchant menu (MER-04, đợt 3).
 
 ### Cấu hình
 
@@ -121,7 +128,7 @@ Login → Postman `POST /api/v1/uploads` + file ảnh → nhận URL mở đư�
 | `/app/restaurant/:id` | `client/src/modules/customer/Restaurant.jsx` | `useRestaurantDetail`, `useRestaurantMenu`, `useRestaurantReviews` |
 
 - Hiển thị: tên, tagline, phí giao, địa chỉ, trạng thái mở/đóng, menu theo danh mục + tab lọc.
-- Thêm vào giỏ: **local state** (`AppContext`) — chưa lưu DB (CUS-03 đợt 2).
+- Thêm vào giỏ: gọi `addToCart` trong `AppContext` — đồng bộ DB khi đã login (xem [CUS-03](./wave-2-completed.md#cus-03--giỏ-hàng-lưu-db)).
 
 ### UI chưa nối backend
 
@@ -170,7 +177,7 @@ Body tạo/sửa: `label`, `recipientName`, `recipientPhone`, `line1`, `ward`, `
 ### Chưa làm
 
 - Bản đồ / geocoding (`latitude`, `longitude` có cột DB nhưng form chưa gửi).
-- Checkout chưa chọn địa chỉ từ API (đợt 2).
+- Checkout chọn địa chỉ từ API — xem [CUS-04](./wave-2-completed.md#cus-04--đặt-đơn-checkout-cod).
 
 ### Database
 
@@ -237,7 +244,8 @@ Login admin (`avery@nomnom.example` / `password123`) → `/admin` thấy KPI th�
 
 - User `suspended` / `banned` → login 403.
 - Hết hạn suspend → tự `active` khi login.
-- Admin không thể suspend/ban/reset chính mình.
+- Admin không thể suspend/ban chính mình (`PATCH /api/v1/admin/users/:id/status`).
+- `GET /api/v1/me` và `GET /api/v1/auth/me` trả 403 nếu `status !== active` (phiên hết hiệu lực sau khi bị khóa).
 
 **Client**
 
@@ -285,12 +293,12 @@ Chi tiết: `docs/AUTH.md`.
 
 Tham chiếu `docs/planning/groups.txt` (dòng 49–55):
 
-- [ ] Upload ảnh qua Postman → URL hoạt động
-- [ ] `/app/search` — list + lọc + tìm từ DB
-- [ ] `/app/restaurant/:id` — menu thật
-- [ ] `/app/profile/addresses` — CRUD + default
-- [ ] `/admin` — KPI thật (admin trong `user_roles`)
-- [ ] `/admin/accounts` — suspend → login bị chặn
+- [x] Upload ảnh qua Postman → URL hoạt động
+- [x] `/app/search` — list + lọc + tìm từ DB
+- [x] `/app/restaurant/:id` — menu thật
+- [x] `/app/profile/addresses` — CRUD + default
+- [x] `/admin` — KPI thật (admin trong `user_roles`)
+- [x] `/admin/accounts` — suspend → login bị chặn
 
 ---
 
@@ -299,6 +307,7 @@ Tham chiếu `docs/planning/groups.txt` (dòng 49–55):
 | Loại | Đường dẫn |
 |------|-----------|
 | Kế hoạch wave | `docs/planning/groups.txt` |
+| Đợt 2 | [wave-2-completed.md](./wave-2-completed.md) |
 | Auth & seed | `docs/AUTH.md` |
 | API server | `server/README.md` |
 | Schema DB | `database/nomnom.sql` |

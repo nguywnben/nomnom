@@ -37,6 +37,9 @@ router.get('/', async (req, res, next) => {
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+    if (user.status !== 'active') {
+      return res.status(403).json({ error: 'Tài khoản chưa được kích hoạt hoặc đã bị khóa.' });
+    }
     const roles = normalizeRoles(await loadRoles(user.id));
     res.json({ user: serializeUser(user, roles) });
   } catch (err) {

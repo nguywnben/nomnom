@@ -228,6 +228,10 @@ router.patch('/users/:id/status', async (req, res, next) => {
       return res.status(400).json({ error: 'Status không hợp lệ.' });
     }
 
+    if (id === req.auth.userId && status !== 'active') {
+      return res.status(400).json({ error: 'Bạn không thể tự đình chỉ hoặc khóa tài khoản của chính mình.' });
+    }
+
     const [rows] = await pool.query(
       'SELECT id, email, full_name FROM users WHERE id = ? LIMIT 1',
       [id],

@@ -258,7 +258,12 @@ export default function CustomerRestaurant() {
                       return;
                     }
 
-                    addToCart(restaurant.id, { ...item, restaurantName: restaurant.name, restaurantLogo: restaurant.logoUrl }, 1);
+                    addToCart(
+                      restaurant.id,
+                      { ...item, restaurantName: restaurant.name, restaurantLogo: restaurant.logoUrl },
+                      1,
+                      { baseDeliveryFee: restaurant.baseDeliveryFee },
+                    );
                     setCartOpen(true);
                   }}
                 />

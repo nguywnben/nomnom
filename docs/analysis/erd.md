@@ -88,6 +88,7 @@ Danh mục ẩm thực gốc (Ý, Mỹ, Nhật, Lành mạnh, Mexico, Cà phê, 
 Thực thể nhà hàng. Các điểm đáng chú ý:
 - `owner_user_id` → trỏ về `users`: cho phép một chủ sở hữu vận hành nhiều nhà hàng (chuỗi).
 - `business_license_url`, `food_safety_cert_url`: URL ảnh giấy phép kinh doanh và chứng nhận VSATTP (admin xem trực tiếp khi duyệt).
+- `bank_account_no`, `bank_name`, `bank_account_holder`: tài khoản nhận doanh thu (thu thập lúc đăng ký quán, MER-01).
 - `commission_rate`: % hoa hồng nền tảng giữ lại (mặc định 15%).
 - `status`: workflow duyệt: `pending` → `active`/`rejected`/`suspended`.
 - `approved_by_admin_id`: vết kiểm toán ai đã duyệt.
@@ -342,6 +343,9 @@ erDiagram
         varchar business_license_url
         varchar food_safety_cert_url
         bigint base_delivery_fee
+        varchar bank_account_no
+        varchar bank_name
+        varchar bank_account_holder
         decimal commission_rate
         enum status
         bigint approved_by_admin_id FK

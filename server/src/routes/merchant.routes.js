@@ -42,7 +42,10 @@ router.post('/apply', requireAuth, async (req, res, next) => {
     bannerUrl,
     logoUrl,
     businessLicenseUrl,
-    foodSafetyCertUrl = null
+    foodSafetyCertUrl = null,
+    bankName,
+    bankAccountNo,
+    bankAccountHolder,
   } = req.body;
 
   // 1. Validate empty / required fields
@@ -82,6 +85,19 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   if (!businessLicenseUrl) {
     return res.status(400).json({ error: 'Vui lòng tải lên ảnh chụp giấy phép kinh doanh.' });
   }
+  if (!bankName || !String(bankName).trim()) {
+    return res.status(400).json({ error: 'Vui lòng chọn ngân hàng thụ hưởng.' });
+  }
+  if (!bankAccountNo || !String(bankAccountNo).trim()) {
+    return res.status(400).json({ error: 'Vui lòng nhập số tài khoản ngân hàng.' });
+  }
+  if (!bankAccountHolder || !/^[A-Z\s]+$/.test(String(bankAccountHolder).trim())) {
+    return res.status(400).json({ error: 'Tên chủ tài khoản phải viết hoa không dấu.' });
+  }
+
+  const bankNameValue = String(bankName).trim();
+  const bankAccountNoValue = String(bankAccountNo).trim();
+  const bankAccountHolderValue = String(bankAccountHolder).trim().toUpperCase();
 
   const conn = await pool.getConnection();
   try {
@@ -149,6 +165,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           banner_url = ?, logo_url = ?, business_license_url = ?, food_safety_cert_url = ?,
           address_line = ?, ward = ?, district = ?, city = ?, latitude = ?, longitude = ?,
           base_delivery_fee = ?, min_order_amount = ?, avg_prep_time_min = ?,
+          bank_name = ?, bank_account_no = ?, bank_account_holder = ?,
           status = 'pending', rejection_reason = NULL, approved_at = NULL, approved_by_admin_id = NULL
          WHERE id = ?`,
         [
@@ -171,6 +188,9 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           Number(baseDeliveryFee),
           Number(minOrderAmount),
           Number(avgPrepTimeMin),
+          bankNameValue,
+          bankAccountNoValue,
+          bankAccountHolderValue,
           restaurantId
         ]
       );
@@ -181,8 +201,9 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           owner_user_id, cuisine_id, name, slug, tagline, description, phone,
           banner_url, logo_url, business_license_url, food_safety_cert_url,
           address_line, ward, district, city, latitude, longitude,
-          base_delivery_fee, min_order_amount, avg_prep_time_min, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+          base_delivery_fee, min_order_amount, avg_prep_time_min,
+          bank_name, bank_account_no, bank_account_holder, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [
           userId,
           Number(cuisineId),
@@ -204,6 +225,9 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           Number(baseDeliveryFee),
           Number(minOrderAmount),
           Number(avgPrepTimeMin),
+          bankNameValue,
+          bankAccountNoValue,
+          bankAccountHolderValue,
         ]
       );
       restaurantId = insertResult.insertId;

@@ -325,7 +325,7 @@ export default function CustomerHome() {
               key={d.id}
               dish={d}
               onAdd={() => {
-                addToCart(d.restaurantId, d, 1);
+                addToCart(d.restaurantId, d, 1, { baseDeliveryFee: d.fee, restaurantName: d.restaurantName, restaurantLogo: d.restaurantLogo });
                 setCartOpen(true);
               }}
             />

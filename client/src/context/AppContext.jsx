@@ -24,6 +24,7 @@ import {
   registerVerifyApi,
   updateCartItemApi,
 } from '../lib/api.js';
+import { clearGuestCart, loadGuestCart, saveGuestCart } from '../lib/guestCart.js';
 
 const AppContext = createContext(null);
 
@@ -97,6 +98,7 @@ export function AppProvider({ children }) {
       restaurantId: null,
       restaurantName: null,
       restaurantLogo: null,
+      baseDeliveryFee: 0,
       items: [],
     }),
     [],
@@ -122,6 +124,7 @@ export function AppProvider({ children }) {
         restaurantId: nextCart.restaurantId ?? null,
         restaurantName: nextCart.restaurantName ?? null,
         restaurantLogo: nextCart.restaurantLogo ?? null,
+        baseDeliveryFee: Number(nextCart.baseDeliveryFee ?? 0),
         items: (nextCart.items ?? []).map(normalizeCartItem),
       };
     },
@@ -188,7 +191,7 @@ export function AppProvider({ children }) {
     () => cart.items.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart.items],
   );
-  const deliveryFee = cart.items.length ? 62000 : 0;
+  const deliveryFee = cart.items.length ? Number(cart.baseDeliveryFee ?? 0) : 0;
   const discount = useMemo(() => {
     if (!appliedPromo) return 0;
     if (appliedPromo.kind === 'percent') return Math.min(cartSubtotal * (appliedPromo.amount / 100), appliedPromo.cap ?? 9e9);
@@ -206,6 +209,9 @@ export function AppProvider({ children }) {
     async (restaurantId, item, qty = 1, restaurantMeta = {}) => {
       const nextRestaurantName = item.restaurantName ?? restaurantMeta.restaurantName ?? restaurantMeta.name ?? null;
       const nextRestaurantLogo = item.restaurantLogo ?? restaurantMeta.restaurantLogo ?? restaurantMeta.logo ?? null;
+      const nextBaseDeliveryFee = Number(
+        restaurantMeta.baseDeliveryFee ?? restaurantMeta.fee ?? item.baseDeliveryFee ?? cart.baseDeliveryFee ?? 0,
+      );
       const nextRestaurantId = Number.isNaN(Number(restaurantId)) ? restaurantId : Number(restaurantId);
       const rawMenuItemId = item.menuItemId ?? item.menu_item_id;
       const parsedMenuItemId = Number(rawMenuItemId);
@@ -252,6 +258,7 @@ export function AppProvider({ children }) {
                 restaurantId: nextRestaurantId,
                 restaurantName: nextRestaurantName,
                 restaurantLogo: nextRestaurantLogo,
+                baseDeliveryFee: nextBaseDeliveryFee,
                 items: [nextItem],
               };
             }
@@ -273,6 +280,7 @@ export function AppProvider({ children }) {
               restaurantId: nextRestaurantId,
               restaurantName: nextRestaurantName,
               restaurantLogo: nextRestaurantLogo,
+              baseDeliveryFee: nextBaseDeliveryFee,
               items,
             };
           });
@@ -328,6 +336,7 @@ export function AppProvider({ children }) {
             restaurantId: nextRestaurantId,
             restaurantName: nextRestaurantName,
             restaurantLogo: nextRestaurantLogo,
+            baseDeliveryFee: nextBaseDeliveryFee,
             items: [nextItem],
           };
         }
@@ -349,6 +358,7 @@ export function AppProvider({ children }) {
           restaurantId: nextRestaurantId,
           restaurantName: nextRestaurantName,
           restaurantLogo: nextRestaurantLogo,
+          baseDeliveryFee: nextBaseDeliveryFee,
           items,
         };
       });
@@ -364,7 +374,7 @@ export function AppProvider({ children }) {
       }
       return null;
     },
-    [cart.items.length, cart.restaurantId, normalizeCart, permittedRoles.customer, pushToast, user],
+    [cart.baseDeliveryFee, cart.items.length, cart.restaurantId, normalizeCart, permittedRoles.customer, pushToast, user],
   );
 
   const setItemQty = useCallback(
@@ -635,12 +645,34 @@ export function AppProvider({ children }) {
     let cancelled = false;
     (async () => {
       if (!user || !permittedRoles.customer) {
-        resetCartState();
+        if (!user) {
+          const guest = loadGuestCart();
+          if (!cancelled) {
+            setCart(guest ? normalizeCart(guest) : emptyCart());
+            setAppliedPromo(null);
+          }
+        } else {
+          resetCartState();
+        }
         return;
       }
 
       setSyncing(true);
       try {
+        const guest = loadGuestCart();
+        if (guest?.items?.length) {
+          for (const item of guest.items) {
+            const menuItemId = Number(item.menuItemId ?? item.id);
+            if (!menuItemId) continue;
+            await addCartItemApi({
+              menuItemId,
+              quantity: Math.max(1, Number(item.quantity ?? 1)),
+              note: item.note ?? undefined,
+            });
+          }
+          clearGuestCart();
+        }
+
         const data = await fetchCartApi();
         if (!cancelled) {
           setCart(normalizeCart(data.cart));
@@ -658,7 +690,17 @@ export function AppProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [authReady, normalizeCart, permittedRoles.customer, resetCartState, user]);
+  }, [authReady, emptyCart, normalizeCart, permittedRoles.customer, resetCartState, user]);
+
+  useEffect(() => {
+    if (!authReady || user) return undefined;
+    if (!cart.items.length) {
+      clearGuestCart();
+      return undefined;
+    }
+    saveGuestCart(cart);
+    return undefined;
+  }, [authReady, cart, user]);
 
   const login = useCallback(async (email, password, { remember = true } = {}) => {
     const data = await loginApi(email, password, remember);

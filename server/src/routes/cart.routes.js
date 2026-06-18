@@ -28,6 +28,7 @@ function serializeCartRow(cartRow, itemRows) {
     restaurantId: Number(cartRow.restaurantId),
     restaurantName: cartRow.restaurantName,
     restaurantLogo: cartRow.restaurantLogo,
+    baseDeliveryFee: toNumber(cartRow.baseDeliveryFee),
     items,
     subtotal: items.reduce((sum, item) => sum + item.lineSubtotal, 0),
   };
@@ -35,7 +36,8 @@ function serializeCartRow(cartRow, itemRows) {
 
 async function loadActiveCart(customerId) {
   const [cartRows] = await pool.query(
-    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo
+    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo,
+            r.base_delivery_fee AS baseDeliveryFee
      FROM carts c
      INNER JOIN restaurants r ON r.id = c.restaurant_id
      WHERE c.customer_id = ? AND c.status = 'active'
@@ -71,7 +73,8 @@ async function loadActiveCart(customerId) {
 
 async function loadCartForRestaurant(customerId, restaurantId) {
   const [cartRows] = await pool.query(
-    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo
+    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo,
+            r.base_delivery_fee AS baseDeliveryFee
      FROM carts c
      INNER JOIN restaurants r ON r.id = c.restaurant_id
      WHERE c.customer_id = ? AND c.restaurant_id = ? AND c.status = 'active'
