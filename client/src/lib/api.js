@@ -90,14 +90,6 @@ export function apiDelete(path) {
   return apiFetch(path, { method: 'DELETE' });
 }
 
-export function apiUpload(path, formData, options = {}) {
-  return apiFetch(path, {
-    ...options,
-    method: options.method ?? 'POST',
-    body: formData,
-  });
-}
-
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
@@ -170,7 +162,7 @@ export function resetPasswordApi({ resetToken, password }) {
 }
 
 export function fetchMe() {
-  return apiGet('/api/v1/me');
+  return apiGet('/api/v1/auth/me');
 }
 
 export function logoutApi() {
@@ -179,24 +171,15 @@ export function logoutApi() {
 }
 
 export function logoutAllApi() {
-  return apiPost('/api/v1/auth/logout-all', {});
+  return apiPost('/api/v1/auth/logout-all');
 }
 
-export function uploadImageApi(file, folder = 'avatars') {
-  const formData = new FormData();
-  formData.append('file', file);
-  if (folder) {
-    formData.append('folder', folder);
-  }
-  return apiUpload('/api/v1/uploads', formData);
-}
-
-export function updateMeApi(body) {
+export function updateMeProfile(body) {
   return apiPatch('/api/v1/me', body);
 }
 
-export function changePasswordApi(body) {
-  return apiPost('/api/v1/me/change-password', body);
+export function changePasswordApi({ currentPassword, newPassword }) {
+  return apiPost('/api/v1/me/change-password', { currentPassword, newPassword });
 }
 
 /** Carousel "Khám phá theo món ăn" — GET /api/v1/home/categories */

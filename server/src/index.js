@@ -9,6 +9,7 @@ import cuisinesRoutes from './routes/cuisines.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import uploadsRoutes from './routes/uploads.routes.js';
 import pool, { verifyDbConnection } from './db/pool.js';
+import ordersRoutes from './routes/orders.routes.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3001);
@@ -32,6 +33,7 @@ app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/cuisines', cuisinesRoutes);
 app.use('/api/v1/uploads', uploadsRoutes);
+app.use('/api/v1/orders', ordersRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
@@ -59,19 +61,10 @@ async function ensureSuspensionColumn() {
   }
 }
 
-async function ensureTokenVersionColumn() {
-  const [rows] = await pool.query("SHOW COLUMNS FROM users LIKE 'token_version'");
-  if (!rows.length) {
-    console.log('[DB] Thêm cột token_version vào bảng users');
-    await pool.query('ALTER TABLE users ADD COLUMN token_version int unsigned NOT NULL DEFAULT 0');
-  }
-}
-
 async function start() {
   try {
     await verifyDbConnection();
     await ensureSuspensionColumn();
-    await ensureTokenVersionColumn();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(

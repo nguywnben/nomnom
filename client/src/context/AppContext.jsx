@@ -382,14 +382,6 @@ export function AppProvider({ children }) {
     return data.user;
   }, []);
 
-  const updateUser = useCallback((nextUser) => {
-    setUser(nextUser);
-    if (nextUser?.primaryRole) {
-      setRole(nextUser.primaryRole);
-    }
-    return nextUser;
-  }, []);
-
   const registerSendCode = useCallback(async ({ fullName, email, password }) => {
     return registerSendCodeApi({ fullName, email, password });
   }, []);
@@ -400,6 +392,13 @@ export function AppProvider({ children }) {
     setUser(data.user);
     setRole('customer');
     return data.user;
+  }, []);
+
+  const updateUser = useCallback((nextUser) => {
+    setUser(nextUser);
+    if (nextUser?.primaryRole) {
+      setRole(nextUser.primaryRole);
+    }
   }, []);
 
   const logout = useCallback(
@@ -460,12 +459,11 @@ export function AppProvider({ children }) {
     role,
     setRole,
     user,
-    setUser,
-    updateUser,
     authReady,
     login,
     registerSendCode,
     completeRegistration,
+    updateUser,
     logout,
     permittedRoles,
 

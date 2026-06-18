@@ -119,7 +119,7 @@ function readPersisted() {
 
 export default function Settings() {
   const nav = useNavigate();
-  const { pushToast, permittedRoles, logout } = useApp();
+  const { pushToast, permittedRoles, logout, user } = useApp();
 
   const [language, setLanguage] = useState(() => readPersisted().language);
   const [region, setRegion] = useState(() => readPersisted().region);
@@ -131,14 +131,15 @@ export default function Settings() {
   const [notifications, setNotifications] = useState(() => readPersisted().notifications);
 
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmLogoutAll, setConfirmLogoutAll] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState('');
-  const [logoutAllSaving, setLogoutAllSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [loggingOutAll, setLoggingOutAll] = useState(false);
 
   // Persist on change — this effect mutates an external system (localStorage),
   // not React state, so it doesn't trigger the cascading-render lint rule.
@@ -182,6 +183,70 @@ export default function Settings() {
     await logout();
   };
 
+  const onLogoutAll = async () => {
+    setConfirmLogoutAll(false);
+    setLoggingOutAll(true);
+    try {
+      await logoutAllApi();
+      await logout({ redirectTo: '/login', silent: true });
+      pushToast({
+        kind: 'success',
+        title: 'Đã đăng xuất mọi thiết bị',
+        message: 'Phiên trên các thiết bị khác sẽ hết hạn khi gọi API tiếp theo.',
+        duration: 4000,
+      });
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Không thể đăng xuất tất cả',
+        message: err.message ?? 'Vui lòng thử lại.',
+      });
+    } finally {
+      setLoggingOutAll(false);
+    }
+  };
+
+  const resetPasswordForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+  };
+
+  const onChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+
+    if (!currentPassword || !newPassword) {
+      setPasswordError('Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('Mật khẩu mới phải có ít nhất 8 ký tự.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await changePasswordApi({ currentPassword, newPassword });
+      setPasswordOpen(false);
+      resetPasswordForm();
+      pushToast({
+        kind: 'success',
+        title: 'Đã đổi mật khẩu',
+        message: 'Mật khẩu mới có hiệu lực ngay.',
+      });
+    } catch (err) {
+      setPasswordError(err.message ?? 'Không thể đổi mật khẩu.');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const onDelete = () => {
     setConfirmDelete(false);
     pushToast({
@@ -189,41 +254,6 @@ export default function Settings() {
       title: 'Đã gửi yêu cầu xoá',
       message: 'Đội ngũ hỗ trợ sẽ liên hệ để xác nhận trong 24h.',
     });
-  };
-
-  const onChangePassword = async (e) => {
-    e.preventDefault();
-    setPasswordError('');
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Mật khẩu mới không khớp.');
-      return;
-    }
-    setPasswordSaving(true);
-    try {
-      await changePasswordApi({ currentPassword, newPassword });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      pushToast({ kind: 'success', title: 'Đã đổi mật khẩu', message: 'Mật khẩu mới đã được lưu.' });
-    } catch (err) {
-      setPasswordError(err.message || 'Không thể đổi mật khẩu.');
-    } finally {
-      setPasswordSaving(false);
-    }
-  };
-
-  const onLogoutAll = async () => {
-    setLogoutAllSaving(true);
-    try {
-      await logoutAllApi();
-      setConfirmLogoutAll(false);
-      await logout({ silent: true, redirectTo: '/login' });
-    } catch {
-      setConfirmLogoutAll(false);
-      pushToast({ kind: 'error', title: 'Không thể đăng xuất tất cả', message: 'Vui lòng thử lại sau.' });
-    } finally {
-      setLogoutAllSaving(false);
-    }
   };
 
   return (
@@ -290,56 +320,6 @@ export default function Settings() {
               checked={autoplay}
               onChange={setAutoplay}
             />
-          </div>
-        </div>
-      </Card>
-
-      <Card padded>
-        <div className="text-caption-uppercase text-body mb-sm">Bảo mật tài khoản</div>
-        <form className="flex flex-col gap-sm" onSubmit={onChangePassword}>
-          <Field label="Đổi mật khẩu">
-            <Input
-              type="password"
-              leadingIcon="shield"
-              placeholder="Mật khẩu hiện tại"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-            />
-          </Field>
-          <Input
-            type="password"
-            placeholder="Mật khẩu mới"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="Xác nhận mật khẩu mới"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
-          {passwordError && <div className="text-caption text-error">{passwordError}</div>}
-          <div className="flex justify-end">
-            <Button type="submit" disabled={passwordSaving}>
-              {passwordSaving ? 'Đang đổi...' : 'Đổi mật khẩu'}
-            </Button>
-          </div>
-        </form>
-
-        <div className="mt-base border-t border-hairline pt-base">
-          <div className="flex items-start justify-between gap-sm">
-            <div>
-              <div className="text-body-sm font-semibold text-ink">Đăng xuất tất cả thiết bị</div>
-              <div className="text-caption text-body">
-                Thu hồi mọi phiên đăng nhập trên điện thoại, máy tính và tab khác.
-              </div>
-            </div>
-            <Button type="button" variant="secondary" onClick={() => setConfirmLogoutAll(true)}>
-              Đăng xuất tất cả
-            </Button>
           </div>
         </div>
       </Card>
@@ -486,6 +466,30 @@ export default function Settings() {
         </div>
       </Card>
 
+      {/* Security */}
+      {user && permittedRoles.customer && (
+        <Card padded>
+          <div className="text-caption-uppercase text-body mb-sm">Bảo mật tài khoản</div>
+          <div className="flex flex-col divide-y divide-hairline">
+            <ActionRow
+              icon="shield"
+              label="Đổi mật khẩu"
+              hint="Nhập mật khẩu hiện tại và mật khẩu mới (tối thiểu 8 ký tự)."
+              onClick={() => {
+                resetPasswordForm();
+                setPasswordOpen(true);
+              }}
+            />
+            <ActionRow
+              icon="refresh"
+              label="Đăng xuất tất cả thiết bị"
+              hint="Thu hồi mọi phiên đăng nhập trên điện thoại, máy tính và trình duyệt khác."
+              onClick={() => setConfirmLogoutAll(true)}
+            />
+          </div>
+        </Card>
+      )}
+
       {/* Danger zone */}
       {permittedRoles.customer && (
         <Card padded>
@@ -519,16 +523,99 @@ export default function Settings() {
         size="sm"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => setConfirmLogout(false)}>
+            <Button variant="secondary" onClick={() => setConfirmLogout(false)}>
               Ở lại
             </Button>
-            <Button type="button" onClick={onLogout}>Đăng xuất</Button>
+            <Button onClick={onLogout}>Đăng xuất</Button>
           </>
         }
       >
         <p className="text-body-sm text-body">
           Giỏ hàng và phiên hiện tại sẽ kết thúc. Bạn có thể đăng nhập lại bất kỳ lúc nào.
         </p>
+      </Modal>
+
+      {/* Logout all confirm */}
+      <Modal
+        open={confirmLogoutAll}
+        onClose={() => setConfirmLogoutAll(false)}
+        title="Đăng xuất tất cả thiết bị?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmLogoutAll(false)}>
+              Hủy
+            </Button>
+            <Button onClick={onLogoutAll} loading={loggingOutAll}>
+              Đăng xuất tất cả
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Mọi phiên đăng nhập NomNom sẽ bị thu hồi, kể cả thiết bị này. Bạn sẽ cần đăng nhập lại.
+        </p>
+      </Modal>
+
+      {/* Change password */}
+      <Modal
+        open={passwordOpen}
+        onClose={() => {
+          setPasswordOpen(false);
+          resetPasswordForm();
+        }}
+        title="Đổi mật khẩu"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => {
+                setPasswordOpen(false);
+                resetPasswordForm();
+              }}
+            >
+              Hủy
+            </Button>
+            <Button type="submit" form="change-password-form" loading={changingPassword}>
+              Lưu mật khẩu
+            </Button>
+          </>
+        }
+      >
+        <form id="change-password-form" onSubmit={onChangePassword} className="flex flex-col gap-sm">
+          <Input
+            type="password"
+            leadingIcon="shield"
+            placeholder="Mật khẩu hiện tại"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <Input
+            type="password"
+            leadingIcon="shield"
+            placeholder="Mật khẩu mới"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          <Input
+            type="password"
+            leadingIcon="shield"
+            placeholder="Xác nhận mật khẩu mới"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          {passwordError && (
+            <p className="text-caption text-error">{passwordError}</p>
+          )}
+        </form>
       </Modal>
 
       {/* Delete confirm */}
@@ -539,11 +626,10 @@ export default function Settings() {
         size="sm"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => setConfirmDelete(false)}>
+            <Button variant="secondary" onClick={() => setConfirmDelete(false)}>
               Hủy
             </Button>
             <Button
-              type="button"
               className="!bg-error !border-error hover:!bg-error/90"
               onClick={onDelete}
             >
@@ -555,27 +641,6 @@ export default function Settings() {
         <p className="text-body-sm text-body">
           Hành động này sẽ xoá vĩnh viễn dữ liệu đơn hàng, đánh giá và địa chỉ của bạn. Đội ngũ hỗ trợ sẽ
           liên hệ để xác nhận trước khi tiến hành.
-        </p>
-      </Modal>
-
-      <Modal
-        open={confirmLogoutAll}
-        onClose={() => setConfirmLogoutAll(false)}
-        title="Đăng xuất tất cả thiết bị?"
-        size="sm"
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setConfirmLogoutAll(false)}>
-              Hủy
-            </Button>
-            <Button type="button" onClick={onLogoutAll} disabled={logoutAllSaving}>
-              {logoutAllSaving ? 'Đang xử lý...' : 'Đăng xuất tất cả'}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-body-sm text-body">
-          Mọi refresh token sẽ bị thu hồi ngay lập tức. Các tab và thiết bị khác sẽ bị buộc đăng nhập lại ở lần gọi API tiếp theo.
         </p>
       </Modal>
     </div>
