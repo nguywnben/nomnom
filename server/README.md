@@ -60,6 +60,16 @@ Test nhanh bằng Postman: login → lấy token → POST file ảnh → nhận 
 | GET | `/api/v1/home/categories` | Carousel "Khám phá theo món ăn" — từ `menu_items` (`/app`) |
 | GET | `/api/v1/home/promos` | 3 banner khuyến mãi — từ `home_promo_banners` (`/app`) |
 | GET | `/api/v1/admin/overview?range=month` | KPI tổng quan admin (`/admin`) — cần role admin |
+| GET | `/api/v1/admin/restaurants/pending` | Danh sách quán chờ duyệt (ADM-03) |
+| POST | `/api/v1/admin/restaurants/:id/approve` | Duyệt quán → `active`, tạo wallet merchant |
+| POST | `/api/v1/admin/restaurants/:id/reject` | Từ chối quán — body `{ reason }` |
+| GET | `/api/v1/admin/drivers/pending` | Danh sách tài xế chờ duyệt (ADM-03) |
+| POST | `/api/v1/admin/drivers/:userId/approve` | Duyệt tài xế → tạo wallet driver |
+| POST | `/api/v1/admin/drivers/:userId/reject` | Từ chối tài xế — body `{ reason }` |
+
+Tất cả endpoint `/api/v1/admin/*` (trừ khi ghi chú khác) yêu cầu `Authorization: Bearer` và role `admin` trong `user_roles`.
+
+Approve/reject tự động: insert `notifications`, gửi email (nodemailer / log DEV nếu chưa cấu SMTP).
 
 Nếu DB cũ thiếu bảng banner:
 

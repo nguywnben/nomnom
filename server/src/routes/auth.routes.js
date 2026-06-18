@@ -26,16 +26,12 @@ import { normalizeRoles } from '../lib/roles.js';
 
 const router = Router();
 
-async function loadRoles(userId, primaryRole) {
+async function loadRoles(userId) {
   const [rows] = await pool.query(
     'SELECT role FROM user_roles WHERE user_id = ? ORDER BY role',
     [userId],
   );
-  const roles = rows.map((r) => r.role);
-  if (primaryRole && !roles.includes(primaryRole)) {
-    roles.push(primaryRole);
-  }
-  return roles;
+  return rows.map((r) => r.role);
 }
 
 async function restoreExpiredSuspension(user) {
@@ -382,7 +378,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng.' });
     }
 
-    const roles = normalizeRoles(await loadRoles(user.id, user.primary_role));
+    const roles = normalizeRoles(await loadRoles(user.id));
 
     const session = await issueSession(user, roles, req, { remember });
     res.json({ ...session, rememberMe: remember });
@@ -409,7 +405,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
     if (user.status !== 'active') {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const roles = normalizeRoles(await loadRoles(user.id, user.primary_role));
+    const roles = normalizeRoles(await loadRoles(user.id));
     res.json({ user: serializeUser(user, roles) });
   } catch (err) {
     next(err);
@@ -459,7 +455,7 @@ router.post('/refresh', async (req, res, next) => {
       primary_role: row.primary_role,
       status: row.status,
     };
-    const roles = normalizeRoles(await loadRoles(row.user_id, row.primary_role));
+    const roles = normalizeRoles(await loadRoles(row.user_id));
     const session = await issueSession(userRow, roles, req);
     res.json(session);
   } catch (err) {

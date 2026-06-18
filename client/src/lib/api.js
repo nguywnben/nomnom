@@ -235,6 +235,31 @@ export function fetchMerchantRestaurantApi() {
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
 }
+
+export function fetchAdminPendingRestaurants() {
+  return apiGet('/api/v1/admin/restaurants/pending');
+}
+
+export function approveAdminRestaurant(restaurantId) {
+  return apiPost(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/approve`);
+}
+
+export function rejectAdminRestaurant(restaurantId, reason) {
+  return apiPost(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/reject`, { reason });
+}
+
+export function fetchAdminPendingDrivers() {
+  return apiGet('/api/v1/admin/drivers/pending');
+}
+
+export function approveAdminDriver(userId) {
+  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/approve`);
+}
+
+export function rejectAdminDriver(userId, reason) {
+  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
+}
+
 export function fetchRestaurants(params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
@@ -278,3 +303,4 @@ export function deleteCartItemApi(itemId) {
 export function clearCartApi() {
   return apiDelete('/api/v1/cart');
 }
+

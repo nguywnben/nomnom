@@ -3,6 +3,12 @@ import bcrypt from 'bcrypt';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
+import {
+  ensureWallet,
+  insertNotification,
+  serializeDriverRow,
+  serializeRestaurantRow,
+} from '../lib/adminApprovals.js';
 
 const router = Router();
 
@@ -305,5 +311,358 @@ router.post('/users/:id/reset-password', async (req, res, next) => {
     next(err);
   }
 });
+
+router.get('/restaurants/pending', async (_req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT r.*, u.full_name AS owner_name, u.email AS owner_email, c.name AS cuisine_name
+       FROM restaurants r
+       JOIN users u ON u.id = r.owner_user_id
+       LEFT JOIN cuisines c ON c.id = r.cuisine_id
+       WHERE r.status = 'pending'
+       ORDER BY r.created_at ASC`,
+    );
+    res.json({ items: rows.map(serializeRestaurantRow) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/restaurants/:id/approve', async (req, res, next) => {
+  const restaurantId = Number(req.params.id);
+  const adminId = req.auth.userId;
+
+  if (!restaurantId) {
+    return res.status(400).json({ error: 'ID nhà hàng không hợp lệ.' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT r.*, u.full_name AS owner_name, u.email AS owner_email
+       FROM restaurants r
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE r.id = ? LIMIT 1`,
+      [restaurantId],
+    );
+    const restaurant = rows[0];
+    if (!restaurant) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Nhà hàng không tồn tại.' });
+    }
+    if (restaurant.status !== 'pending') {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Chỉ có thể duyệt nhà hàng đang chờ xét duyệt.' });
+    }
+
+    await conn.query(
+      `UPDATE restaurants
+       SET status = 'active', approved_at = NOW(), approved_by_admin_id = ?, rejection_reason = NULL
+       WHERE id = ?`,
+      [adminId, restaurantId],
+    );
+
+    await ensureWallet(conn, restaurant.owner_user_id, 'merchant');
+
+    const title = 'Hồ sơ quán đã được duyệt';
+    const body = `Quán "${restaurant.name}" đã được phê duyệt. Bạn có thể truy cập portal merchant ngay bây giờ.`;
+    await insertNotification(conn, {
+      userId: restaurant.owner_user_id,
+      title,
+      body,
+      linkUrl: '/merchant',
+    });
+
+    await conn.commit();
+
+    await sendKycApprovedEmailSafe({
+      to: restaurant.owner_email,
+      fullName: restaurant.owner_name,
+      subjectKind: 'quán ăn',
+      portalPath: '/merchant',
+    });
+
+    const [updated] = await pool.query(
+      `SELECT r.*, u.full_name AS owner_name, u.email AS owner_email, c.name AS cuisine_name
+       FROM restaurants r
+       JOIN users u ON u.id = r.owner_user_id
+       LEFT JOIN cuisines c ON c.id = r.cuisine_id
+       WHERE r.id = ? LIMIT 1`,
+      [restaurantId],
+    );
+
+    res.json({ ok: true, restaurant: serializeRestaurantRow(updated[0]) });
+  } catch (err) {
+    await conn.rollback();
+    next(err);
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/restaurants/:id/reject', async (req, res, next) => {
+  const restaurantId = Number(req.params.id);
+  const reason = String(req.body?.reason ?? '').trim();
+
+  if (!restaurantId) {
+    return res.status(400).json({ error: 'ID nhà hàng không hợp lệ.' });
+  }
+  if (!reason) {
+    return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối.' });
+  }
+  if (reason.length > 500) {
+    return res.status(400).json({ error: 'Lý do từ chối không được vượt quá 500 ký tự.' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT r.*, u.full_name AS owner_name, u.email AS owner_email
+       FROM restaurants r
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE r.id = ? LIMIT 1`,
+      [restaurantId],
+    );
+    const restaurant = rows[0];
+    if (!restaurant) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Nhà hàng không tồn tại.' });
+    }
+    if (restaurant.status !== 'pending') {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Chỉ có thể từ chối nhà hàng đang chờ xét duyệt.' });
+    }
+
+    await conn.query(
+      `UPDATE restaurants
+       SET status = 'suspended', rejection_reason = ?, approved_at = NULL, approved_by_admin_id = NULL
+       WHERE id = ?`,
+      [reason, restaurantId],
+    );
+
+    const title = 'Hồ sơ quán chưa được chấp nhận';
+    const body = `Hồ sơ quán "${restaurant.name}" chưa được chấp nhận. Lý do: ${reason}`;
+    await insertNotification(conn, {
+      userId: restaurant.owner_user_id,
+      title,
+      body,
+      linkUrl: '/merchant/pending',
+    });
+
+    await conn.commit();
+
+    await sendKycRejectedEmailSafe({
+      to: restaurant.owner_email,
+      fullName: restaurant.owner_name,
+      subjectKind: 'quán ăn',
+      reason,
+      portalPath: '/merchant/onboarding',
+    });
+
+    const [updated] = await pool.query(
+      `SELECT r.*, u.full_name AS owner_name, u.email AS owner_email, c.name AS cuisine_name
+       FROM restaurants r
+       JOIN users u ON u.id = r.owner_user_id
+       LEFT JOIN cuisines c ON c.id = r.cuisine_id
+       WHERE r.id = ? LIMIT 1`,
+      [restaurantId],
+    );
+
+    res.json({ ok: true, restaurant: serializeRestaurantRow(updated[0]) });
+  } catch (err) {
+    await conn.rollback();
+    next(err);
+  } finally {
+    conn.release();
+  }
+});
+
+router.get('/drivers/pending', async (_req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
+       FROM driver_profiles dp
+       JOIN users u ON u.id = dp.user_id
+       WHERE dp.approval_status = 'pending'
+       ORDER BY dp.created_at ASC`,
+    );
+    res.json({ items: rows.map(serializeDriverRow) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/drivers/:userId/approve', async (req, res, next) => {
+  const userId = Number(req.params.userId);
+  const adminId = req.auth.userId;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'ID tài xế không hợp lệ.' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
+       FROM driver_profiles dp
+       JOIN users u ON u.id = dp.user_id
+       WHERE dp.user_id = ? LIMIT 1`,
+      [userId],
+    );
+    const profile = rows[0];
+    if (!profile) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Hồ sơ tài xế không tồn tại.' });
+    }
+    if (profile.approval_status !== 'pending') {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Chỉ có thể duyệt hồ sơ tài xế đang chờ xét duyệt.' });
+    }
+
+    await conn.query(
+      `UPDATE driver_profiles
+       SET approval_status = 'approved', approved_at = NOW(), approved_by_admin_id = ?
+       WHERE user_id = ?`,
+      [adminId, userId],
+    );
+
+    await ensureWallet(conn, userId, 'driver');
+
+    const title = 'Hồ sơ tài xế đã được duyệt';
+    const body = 'Hồ sơ tài xế của bạn đã được phê duyệt. Bạn có thể bắt đầu nhận đơn trên portal tài xế.';
+    await insertNotification(conn, {
+      userId,
+      title,
+      body,
+      linkUrl: '/driver',
+    });
+
+    await conn.commit();
+
+    await sendKycApprovedEmailSafe({
+      to: profile.email,
+      fullName: profile.full_name,
+      subjectKind: 'tài xế',
+      portalPath: '/driver',
+    });
+
+    const [updated] = await pool.query(
+      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
+       FROM driver_profiles dp
+       JOIN users u ON u.id = dp.user_id
+       WHERE dp.user_id = ? LIMIT 1`,
+      [userId],
+    );
+
+    res.json({ ok: true, driver: serializeDriverRow(updated[0]) });
+  } catch (err) {
+    await conn.rollback();
+    next(err);
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/drivers/:userId/reject', async (req, res, next) => {
+  const userId = Number(req.params.userId);
+  const reason = String(req.body?.reason ?? '').trim();
+
+  if (!userId) {
+    return res.status(400).json({ error: 'ID tài xế không hợp lệ.' });
+  }
+  if (!reason) {
+    return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối.' });
+  }
+  if (reason.length > 500) {
+    return res.status(400).json({ error: 'Lý do từ chối không được vượt quá 500 ký tự.' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
+       FROM driver_profiles dp
+       JOIN users u ON u.id = dp.user_id
+       WHERE dp.user_id = ? LIMIT 1`,
+      [userId],
+    );
+    const profile = rows[0];
+    if (!profile) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Hồ sơ tài xế không tồn tại.' });
+    }
+    if (profile.approval_status !== 'pending') {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Chỉ có thể từ chối hồ sơ tài xế đang chờ xét duyệt.' });
+    }
+
+    await conn.query(
+      `UPDATE driver_profiles
+       SET approval_status = 'rejected', approved_at = NULL, approved_by_admin_id = NULL
+       WHERE user_id = ?`,
+      [userId],
+    );
+
+    const title = 'Hồ sơ tài xế chưa được chấp nhận';
+    const body = `Hồ sơ tài xế của bạn chưa được chấp nhận. Lý do: ${reason}`;
+    await insertNotification(conn, {
+      userId,
+      title,
+      body,
+      linkUrl: '/driver/pending',
+    });
+
+    await conn.commit();
+
+    await sendKycRejectedEmailSafe({
+      to: profile.email,
+      fullName: profile.full_name,
+      subjectKind: 'tài xế',
+      reason,
+      portalPath: '/driver/onboarding',
+    });
+
+    const [updated] = await pool.query(
+      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
+       FROM driver_profiles dp
+       JOIN users u ON u.id = dp.user_id
+       WHERE dp.user_id = ? LIMIT 1`,
+      [userId],
+    );
+
+    res.json({ ok: true, driver: serializeDriverRow(updated[0]) });
+  } catch (err) {
+    await conn.rollback();
+    next(err);
+  } finally {
+    conn.release();
+  }
+});
+
+async function sendKycApprovedEmailSafe(payload) {
+  try {
+    const { sendKycApprovedEmail } = await import('../lib/mail.js');
+    await sendKycApprovedEmail(payload);
+  } catch (err) {
+    console.error('[mail] approve notification failed:', err.message);
+  }
+}
+
+async function sendKycRejectedEmailSafe(payload) {
+  try {
+    const { sendKycRejectedEmail } = await import('../lib/mail.js');
+    await sendKycRejectedEmail(payload);
+  } catch (err) {
+    console.error('[mail] reject notification failed:', err.message);
+  }
+}
 
 export default router;

@@ -29,13 +29,12 @@ export const ROLE_HOME = {
 };
 
 /**
- * Sau đăng nhập: ưu tiên `next` nếu có; không thì theo `primary_role`.
+ * Sau đăng nhập: ưu tiên `next` nếu user có quyền portal tương ứng.
  * @param {string|null} nextPath
  * @param {{ primaryRole: Role, roles: Role[] }} user
  */
 export function resolveLoginRedirect(nextPath, user) {
   const roles = Array.isArray(user?.roles) ? user.roles : [];
-
   if (nextPath) {
     if (nextPath.startsWith('/admin') && roles.includes('admin')) return nextPath;
     if (nextPath.startsWith('/merchant')) {

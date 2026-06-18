@@ -33,8 +33,8 @@ export default function CustomerProfile() {
   useEffect(() => {
     if (user) {
       apiGet('/api/v1/orders')
-        .then(data => setOrders(data || []))
-        .catch(err => console.error('Failed to load orders', err));
+        .then((data) => setOrders(data || []))
+        .catch((err) => console.error('Failed to load orders', err));
     }
   }, [user]);
 
