@@ -487,4 +487,20 @@ router.post('/logout', async (req, res, next) => {
   }
 });
 
+/**
+ * POST /api/v1/auth/logout-all
+ * Thu hồi mọi refresh token của user hiện tại (đăng xuất tất cả thiết bị).
+ */
+router.post('/logout-all', requireAuth, async (req, res, next) => {
+  try {
+    await pool.query(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL',
+      [req.auth.userId],
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

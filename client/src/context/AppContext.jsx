@@ -680,6 +680,13 @@ export function AppProvider({ children }) {
     return data.user;
   }, []);
 
+  const updateUser = useCallback((nextUser) => {
+    setUser(nextUser);
+    if (nextUser?.primaryRole) {
+      setRole(nextUser.primaryRole);
+    }
+  }, []);
+
   const logout = useCallback(
     async ({ redirectTo = '/app', silent = false } = {}) => {
       await logoutApi().catch(() => {});
@@ -752,6 +759,7 @@ export function AppProvider({ children }) {
     login,
     registerSendCode,
     completeRegistration,
+    updateUser,
     logout,
     grantCurrentUserRole,
     permittedRoles,

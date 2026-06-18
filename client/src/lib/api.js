@@ -199,6 +199,18 @@ export function logoutApi() {
   return apiPost('/api/v1/auth/logout', refreshToken ? { refreshToken } : {}).catch(() => ({}));
 }
 
+export function logoutAllApi() {
+  return apiPost('/api/v1/auth/logout-all');
+}
+
+export function updateMeProfile(body) {
+  return apiPatch('/api/v1/me', body);
+}
+
+export function changePasswordApi({ currentPassword, newPassword }) {
+  return apiPost('/api/v1/me/change-password', { currentPassword, newPassword });
+}
+
 /** Carousel "Khám phá theo món ăn" — GET /api/v1/home/categories */
 export function fetchHomeCategories() {
   return apiGet('/api/v1/home/categories');

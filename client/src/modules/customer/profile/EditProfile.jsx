@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import Avatar from '../../../components/Avatar.jsx';
@@ -7,27 +7,92 @@ import Card from '../../../components/Card.jsx';
 import Icon from '../../../components/Icon.jsx';
 import Input from '../../../components/Input.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
+import { updateMeProfile } from '../../../lib/api.js';
+import { uploadFile } from '../../../lib/upload.js';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 
-// UC-G05 — Cập nhật hồ sơ cá nhân (avatar, tên, email, SĐT).
-// Demo only — values live in component state and surface as a toast on save.
 export default function EditProfile() {
   const nav = useNavigate();
-  const { currentCustomer, pushToast, permittedRoles } = useApp();
+  const { currentCustomer, permittedRoles, pushToast, updateUser } = useApp();
+  const fileInputRef = useRef(null);
 
-  const [name, setName] = useState(currentCustomer.name);
-  const [email, setEmail] = useState(currentCustomer.email);
-  const [phone, setPhone] = useState(currentCustomer.phone);
-  const [bio, setBio] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const onSave = (e) => {
+  useEffect(() => {
+    if (!currentCustomer) return;
+    setName(currentCustomer.name);
+    setEmail(currentCustomer.email);
+    setPhone(currentCustomer.phone ?? '');
+    setAvatarUrl(currentCustomer.avatar ?? '');
+  }, [currentCustomer]);
+
+  const onAvatarFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    try {
+      const { url } = await uploadFile(file, 'avatar');
+      setAvatarUrl(url);
+      pushToast({
+        kind: 'success',
+        title: 'Đã tải ảnh',
+        message: 'Nhấn "Lưu thay đổi" để cập nhật avatar.',
+      });
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Không tải được ảnh',
+        message: err.message ?? 'Vui lòng thử lại.',
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const onSave = async (e) => {
     e.preventDefault();
-    pushToast({
-      kind: 'success',
-      title: 'Đã lưu hồ sơ',
-      message: 'Thay đổi của bạn đã được cập nhật.',
-    });
-    nav('/app/profile');
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+
+    if (!trimmedName) {
+      pushToast({ kind: 'error', title: 'Thiếu họ tên', message: 'Vui lòng nhập họ và tên.' });
+      return;
+    }
+    if (!trimmedPhone) {
+      pushToast({ kind: 'error', title: 'Thiếu số điện thoại', message: 'Vui lòng nhập số điện thoại.' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const data = await updateMeProfile({
+        fullName: trimmedName,
+        phone: trimmedPhone,
+        avatarUrl: avatarUrl || null,
+      });
+      updateUser(data.user);
+      pushToast({
+        kind: 'success',
+        title: 'Đã lưu hồ sơ',
+        message: 'Thông tin cá nhân đã được cập nhật.',
+      });
+      nav('/app/profile');
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Không lưu được hồ sơ',
+        message: err.message ?? 'Vui lòng thử lại sau.',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!permittedRoles.customer) {
@@ -37,7 +102,7 @@ export default function EditProfile() {
         <Card padded>
           <div className="text-title-md text-ink">Cần đăng nhập</div>
           <p className="mt-1 text-body-sm text-body">
-            Đăng nhập để chỉnh sửa hồ sơ cá nhân của bạn.
+            Đăng nhập với tài khoản khách hàng để chỉnh sửa hồ sơ cá nhân.
           </p>
         </Card>
       </div>
@@ -51,37 +116,41 @@ export default function EditProfile() {
     >
       <ProfileSubHeader title="Chỉnh sửa hồ sơ" />
 
-      {/* Avatar block */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={onAvatarFile}
+      />
+
       <Card padded className="flex items-center gap-base">
         <div className="relative">
-          <Avatar src={currentCustomer.avatar} name={name} size="xl" />
+          <Avatar src={avatarUrl} name={name} size="xl" />
           <button
             type="button"
             aria-label="Đổi ảnh đại diện"
-            onClick={() =>
-              pushToast({ kind: 'info', title: 'Đổi ảnh đại diện', message: 'Tính năng tải ảnh sẽ sớm có mặt.' })
-            }
-            className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full border border-hairline-strong bg-canvas text-ink shadow-soft hover:bg-canvas-soft"
+            disabled={uploadingAvatar}
+            onClick={() => fileInputRef.current?.click()}
+            className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full border border-hairline-strong bg-canvas text-ink shadow-soft hover:bg-canvas-soft disabled:opacity-60"
           >
             <Icon name="camera" size={14} />
           </button>
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-title-md text-ink truncate">{name}</div>
+          <div className="text-title-md text-ink truncate">{name || '—'}</div>
           <div className="text-caption text-body truncate">{email}</div>
           <button
             type="button"
-            className="mt-1 text-button text-text-link hover:underline"
-            onClick={() =>
-              pushToast({ kind: 'info', title: 'Đổi ảnh đại diện', message: 'Tính năng tải ảnh sẽ sớm có mặt.' })
-            }
+            disabled={uploadingAvatar}
+            className="mt-1 text-button text-text-link hover:underline disabled:opacity-60"
+            onClick={() => fileInputRef.current?.click()}
           >
-            Tải ảnh mới
+            {uploadingAvatar ? 'Đang tải ảnh…' : 'Tải ảnh mới'}
           </button>
         </div>
       </Card>
 
-      {/* Editable fields */}
       <Card padded>
         <div className="flex flex-col gap-sm">
           <Field label="Họ và tên">
@@ -94,14 +163,13 @@ export default function EditProfile() {
             />
           </Field>
 
-          <Field label="Email" hint="Dùng để nhận biên lai và thông báo đơn hàng.">
+          <Field label="Email" hint="Email không thể thay đổi trong phạm vi này.">
             <Input
               type="email"
               leadingIcon="mail"
-              placeholder="ban@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              readOnly
+              disabled
             />
           </Field>
 
@@ -114,47 +182,16 @@ export default function EditProfile() {
               required
             />
           </Field>
-
-          <Field label="Giới thiệu ngắn (tuỳ chọn)">
-            <Input
-              leadingIcon="edit"
-              placeholder="Vài dòng về bạn…"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-            />
-          </Field>
         </div>
       </Card>
 
-      {/* Bảo mật */}
-      <Card padded>
-        <div className="text-caption-uppercase text-body mb-sm">Bảo mật</div>
-        <button
-          type="button"
-          onClick={() =>
-            pushToast({ kind: 'info', title: 'Đổi mật khẩu', message: 'Email khôi phục đã được gửi.' })
-          }
-          className="flex w-full items-center gap-sm rounded-md border border-hairline-strong bg-surface-card p-sm text-left hover:bg-canvas-soft"
-        >
-          <span className="grid h-9 w-9 place-items-center rounded-md bg-surface-strong text-ink">
-            <Icon name="shield" size={16} />
-          </span>
-          <span className="flex-1">
-            <span className="block text-body-sm font-semibold text-ink">Đổi mật khẩu</span>
-            <span className="text-caption text-body">
-              Gửi liên kết đặt lại mật khẩu đến email của bạn.
-            </span>
-          </span>
-          <Icon name="chevronRight" size={14} className="text-body" />
-        </button>
-      </Card>
-
-      {/* Action bar */}
       <div className="flex items-center justify-end gap-xs">
         <Button variant="secondary" type="button" onClick={() => nav('/app/profile')}>
           Hủy
         </Button>
-        <Button type="submit">Lưu thay đổi</Button>
+        <Button type="submit" loading={saving}>
+          Lưu thay đổi
+        </Button>
       </div>
     </form>
   );
