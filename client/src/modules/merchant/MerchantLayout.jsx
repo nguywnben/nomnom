@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import Avatar from '../../components/Avatar.jsx';
@@ -9,6 +9,7 @@ import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { fetchMerchantRestaurantApi } from '../../lib/api.js';
 
 const links = [
   { to: '/merchant', label: 'Bảng điều khiển', icon: 'grid', end: true },
@@ -31,8 +32,52 @@ const links = [
 export default function MerchantLayout() {
   const nav = useNavigate();
   const { currentMerchant, merchantOrders, pushToast, logout } = useApp();
+  const [checkingRestaurant, setCheckingRestaurant] = useState(true);
+  const [restaurant, setRestaurant] = useState(null);
   const [restaurantOpen, setRestaurantOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    async function check() {
+      try {
+        const data = await fetchMerchantRestaurantApi();
+        if (!active) return;
+        if (!data || !data.restaurant) {
+          nav('/merchant/onboarding', { replace: true });
+          return;
+        }
+        if (data.restaurant.status !== 'active') {
+          nav('/merchant/pending', { replace: true });
+          return;
+        }
+        setRestaurant(data.restaurant);
+      } catch (err) {
+        console.error('Error fetching restaurant status:', err);
+        pushToast({
+          kind: 'error',
+          title: 'Lỗi kết nối',
+          message: 'Không thể xác thực trạng thái nhà hàng.',
+        });
+      } finally {
+        if (active) setCheckingRestaurant(false);
+      }
+    }
+    check();
+    return () => {
+      active = false;
+    };
+  }, [nav, pushToast]);
+
+  if (checkingRestaurant) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-canvas-soft">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="mt-base text-body text-body-md font-medium animate-pulse">Đang xác thực thông tin quán ăn...</p>
+      </div>
+    );
+  }
+
   const newCount = merchantOrders.new.length;
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',

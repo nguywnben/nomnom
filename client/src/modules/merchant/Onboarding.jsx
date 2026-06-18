@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import clsx from 'clsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { applyMerchantApi, fetchMe, fetchCuisinesApi } from '../../lib/api.js';
 
 // Onboarding cho chủ quán — gom toàn bộ trường KYC khớp với bảng `restaurants`:
-// name, slug, tagline, description, address, ward, district, city, lat/lng,
-// business_license_url, food_safety_cert_url, base_delivery_fee, min_order_amount,
-// avg_prep_time_min, cuisine_id.
 const STEPS = [
   { id: 'info', label: 'Thông tin quán', icon: 'store' },
   { id: 'address', label: 'Địa chỉ', icon: 'pin' },
@@ -18,55 +18,216 @@ const STEPS = [
   { id: 'review', label: 'Xác nhận', icon: 'check' },
 ];
 
-const CUISINES = [
-  { value: 'italian', label: 'Ý' },
-  { value: 'american', label: 'Mỹ' },
-  { value: 'japanese', label: 'Nhật' },
-  { value: 'healthy', label: 'Lành mạnh' },
-  { value: 'mexican', label: 'Mexico' },
-  { value: 'coffee', label: 'Cà phê' },
-  { value: 'bakery', label: 'Tiệm bánh' },
-];
+const STEP_FIELDS = {
+  info: ['name', 'cuisine', 'phone', 'avgPrepTime', 'tagline', 'description', 'minOrderAmount'],
+  address: ['addressLine', 'ward', 'district', 'city', 'baseDeliveryFee'],
+  docs: ['logoUrl', 'bannerUrl', 'licenseUrl', 'foodSafetyUrl'],
+  banking: ['bankName', 'bankAccountNo', 'bankAccountHolder'],
+  review: [],
+};
 
 export default function MerchantOnboarding() {
   const nav = useNavigate();
-  const { pushToast } = useApp();
+  const { pushToast, setUser, setRole } = useApp();
   const [stepIdx, setStepIdx] = useState(0);
-  const [form, setForm] = useState({
-    name: '',
-    slug: '',
-    cuisine: 'italian',
-    tagline: '',
-    description: '',
-    phone: '',
-    avgPrepTime: 20,
-    addressLine: '',
-    ward: '',
-    district: '',
-    city: 'TP. Hồ Chí Minh',
-    baseDeliveryFee: 25000,
-    minOrderAmount: 50000,
-    licenseFile: null,
-    foodSafetyFile: null,
-    bankName: 'Vietcombank',
-    bankAccountNo: '',
-    bankAccountHolder: '',
+  const [cuisines, setCuisines] = useState([]);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    setError,
+    clearErrors,
+    watch,
+    trigger,
+    formState: { errors },
+  } = useForm({
+    defaultValues: {
+      name: '',
+      cuisine: '',
+      tagline: '',
+      description: '',
+      phone: '',
+      avgPrepTime: 20,
+      addressLine: '',
+      ward: '',
+      district: '',
+      city: 'TP. Hồ Chí Minh',
+      baseDeliveryFee: 25000,
+      minOrderAmount: 50000,
+      logoUrl: '',
+      bannerUrl: '',
+      licenseUrl: '',
+      foodSafetyUrl: '',
+      bankName: 'Vietcombank',
+      bankAccountNo: '',
+      bankAccountHolder: '',
+    },
+    mode: 'onTouched',
   });
 
-  const set = (patch) => setForm((cur) => ({ ...cur, ...patch }));
+  useEffect(() => {
+    async function loadCuisines() {
+      try {
+        const res = await fetchCuisinesApi();
+        if (res?.data) {
+          const list = res.data.map(c => ({ value: String(c.id), label: c.name }));
+          setCuisines(list);
+          if (list.length > 0) {
+            setValue('cuisine', list[0].value);
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi lấy danh sách ẩm thực:', err);
+      }
+    }
+    loadCuisines();
+  }, [setValue]);
+
+  const [files, setFiles] = useState({
+    logoFile: null,
+    bannerFile: null,
+    licenseFile: null,
+    foodSafetyFile: null,
+  });
+
+  const [uploading, setUploading] = useState({
+    logo: false,
+    banner: false,
+    license: false,
+    foodSafety: false,
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+
   const step = STEPS[stepIdx];
 
-  const next = () => setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
   const back = () => setStepIdx((i) => Math.max(i - 1, 0));
 
-  const submit = () => {
-    pushToast({
-      kind: 'success',
-      title: 'Đã gửi hồ sơ đăng ký',
-      message: 'Đội ngũ NomNom sẽ xét duyệt trong 1-3 ngày làm việc.',
+  // Tải ảnh trực tiếp lên Cloudinary
+  const uploadToCloudinary = async (file) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'demo';
+    const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'docs_upload_example_us_preset';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', preset);
+
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData,
     });
-    nav('/merchant/pending', { replace: true });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('Cloudinary error:', errText);
+      throw new Error('Tải ảnh lên Cloudinary thất bại. Vui lòng kiểm tra lại kết nối hoặc định dạng tệp.');
+    }
+    const data = await res.json();
+    return data.secure_url;
   };
+
+  const handleFileChange = async (key, file) => {
+    if (!file) return;
+    setUploading((prev) => ({ ...prev, [key]: true }));
+    try {
+      const url = await uploadToCloudinary(file);
+      
+      setFiles((prev) => ({ ...prev, [`${key}File`]: file }));
+      setValue(`${key}Url`, url, { shouldValidate: true });
+      clearErrors(`${key}Url`);
+
+      pushToast({
+        kind: 'success',
+        title: 'Tải ảnh thành công',
+        message: `Đã cập nhật ảnh ${key === 'logo' ? 'logo' : key === 'banner' ? 'banner' : key === 'license' ? 'giấy phép' : 'VSATTP'}.`,
+        duration: 3000,
+      });
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Lỗi tải ảnh',
+        message: err.message || 'Mạng lỗi hoặc kích thước tệp quá lớn.',
+        duration: 5000,
+      });
+    } finally {
+      setUploading((prev) => ({ ...prev, [key]: false }));
+    }
+  };
+
+  const handleNext = async () => {
+    const fields = STEP_FIELDS[step.id];
+    const isValid = await trigger(fields);
+    if (isValid) {
+      setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
+    }
+  };
+
+  const onSubmit = handleSubmit(async (data) => {
+    setSubmitting(true);
+    try {
+      const cuisineId = Number(data.cuisine);
+
+      // Gửi dữ liệu đăng ký lên backend
+      await applyMerchantApi({
+        name: data.name,
+        cuisineId,
+        tagline: data.tagline,
+        description: data.description,
+        phone: data.phone,
+        addressLine: data.addressLine,
+        ward: data.ward,
+        district: data.district,
+        city: data.city,
+        baseDeliveryFee: data.baseDeliveryFee,
+        minOrderAmount: data.minOrderAmount,
+        avgPrepTimeMin: data.avgPrepTime,
+        bannerUrl: data.bannerUrl,
+        logoUrl: data.logoUrl,
+        businessLicenseUrl: data.licenseUrl,
+        foodSafetyCertUrl: data.foodSafetyUrl || null,
+      });
+
+      pushToast({
+        kind: 'success',
+        title: 'Đăng ký thành công',
+        message: 'Hồ sơ quán của bạn đã được gửi và đang chờ Admin duyệt.',
+        duration: 5000,
+      });
+
+      // Đồng bộ thông tin phiên làm việc hiện tại của user để nạp vai trò merchant vừa được cấp
+      try {
+        const { user: me } = await fetchMe();
+        if (me) {
+          setUser(me);
+          setRole(me.primaryRole);
+        }
+      } catch (err) {
+        console.error('Lỗi đồng bộ thông tin phiên đăng nhập:', err);
+      }
+
+      nav('/merchant/pending', { replace: true });
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.includes('Số điện thoại') || msg.includes('phone')) {
+        setError('phone', { type: 'manual', message: 'Số điện thoại này đã được một nhà hàng khác sử dụng.' });
+        setStepIdx(0); // Quay về step 1
+      } else if (msg.includes('Tên quán') || msg.includes('name')) {
+        setError('name', { type: 'manual', message: 'Tên quán ăn này đã tồn tại trên hệ thống.' });
+        setStepIdx(0); // Quay về step 1
+      } else {
+        pushToast({
+          kind: 'error',
+          title: 'Đăng ký thất bại',
+          message: msg || 'Số điện thoại hoặc tên quán đã được đăng ký trên hệ thống.',
+          duration: 6000,
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  });
+
+  const formValues = watch();
 
   return (
     <div className="container-page py-xl">
@@ -89,7 +250,27 @@ export default function MerchantOnboarding() {
                 <li key={s.id} className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => i <= stepIdx && setStepIdx(i)}
+                    onClick={async () => {
+                      if (i < stepIdx) {
+                        setStepIdx(i);
+                      } else if (i === stepIdx) {
+                        // Stay
+                      } else {
+                        // Check validation of intermediate steps
+                        let canAdvance = true;
+                        for (let j = stepIdx; j < i; j++) {
+                          const isValid = await trigger(STEP_FIELDS[STEPS[j].id]);
+                          if (!isValid) {
+                            canAdvance = false;
+                            setStepIdx(j);
+                            break;
+                          }
+                        }
+                        if (canAdvance) {
+                          setStepIdx(i);
+                        }
+                      }
+                    }}
                     className={
                       'inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-caption transition-colors ' +
                       (current
@@ -119,70 +300,153 @@ export default function MerchantOnboarding() {
 
           {step.id === 'info' && (
             <div className="grid gap-sm md:grid-cols-2">
-              <Input placeholder="Tên quán" aria-label="Tên quán" required value={form.name} onChange={(e) => set({ name: e.target.value })} />
-              <Input placeholder="Slug (vd: cinque-pizzeria)" aria-label="Slug" value={form.slug} onChange={(e) => set({ slug: e.target.value })} />
+              <Input
+                id="name"
+                label="Tên quán ăn"
+                required
+                placeholder="Nhập tên quán ăn của bạn"
+                aria-label="Tên quán"
+                error={errors.name?.message}
+                {...register('name', {
+                  required: 'Vui lòng nhập tên quán ăn.',
+                  minLength: { value: 3, message: 'Tên quán ăn phải từ 3 đến 160 ký tự.' },
+                  maxLength: { value: 160, message: 'Tên quán ăn phải từ 3 đến 160 ký tự.' }
+                })}
+              />
               <Select
+                id="cuisine"
+                label="Loại hình ẩm thực"
+                required
                 aria-label="Loại ẩm thực"
-                options={CUISINES}
-                value={form.cuisine}
-                onChange={(e) => set({ cuisine: e.target.value })}
+                options={cuisines}
+                error={errors.cuisine?.message}
+                {...register('cuisine', { required: 'Vui lòng chọn loại hình ẩm thực.' })}
               />
               <Input
-                placeholder="Số điện thoại liên hệ"
+                id="phone"
+                label="Số điện thoại liên hệ"
+                required
+                placeholder="Nhập số điện thoại quán"
                 aria-label="Số điện thoại"
                 inputMode="tel"
-                value={form.phone}
-                onChange={(e) => set({ phone: e.target.value })}
+                error={errors.phone?.message}
+                {...register('phone', {
+                  required: 'Vui lòng nhập số điện thoại liên hệ.',
+                  pattern: { value: /^\d{9,11}$/, message: 'Số điện thoại không hợp lệ (yêu cầu từ 9 đến 11 chữ số).' }
+                })}
               />
               <Input
+                id="avgPrepTime"
+                label="Thời gian chuẩn bị trung bình (phút)"
+                required
+                placeholder="Nhập thời gian chuẩn bị"
+                aria-label="Thời gian chuẩn bị"
+                type="number"
+                hint="Hiển thị cho khách trong ETA."
+                error={errors.avgPrepTime?.message}
+                {...register('avgPrepTime', {
+                  valueAsNumber: true,
+                  required: 'Vui lòng nhập thời gian chuẩn bị.',
+                  min: { value: 1, message: 'Thời gian chuẩn bị phải lớn hơn 0 phút.' }
+                })}
+              />
+              <Input
+                id="tagline"
+                label="Slogan / Khẩu hiệu quán"
                 className="md:col-span-2"
                 placeholder="Slogan ngắn (vd: Pizza nướng củi kiểu Neapolitan)"
                 aria-label="Slogan"
-                value={form.tagline}
-                onChange={(e) => set({ tagline: e.target.value })}
+                error={errors.tagline?.message}
+                {...register('tagline', {
+                  maxLength: { value: 160, message: 'Slogan không được vượt quá 160 ký tự.' }
+                })}
               />
               <Textarea
+                id="description"
+                label="Giới thiệu về quán"
                 className="md:col-span-2"
-                placeholder="Giới thiệu quán (250 ký tự)"
+                placeholder="Giới thiệu quán (tối đa 250 ký tự)"
                 rows={4}
-                value={form.description}
-                onChange={(e) => set({ description: e.target.value })}
+                error={errors.description?.message}
+                {...register('description', {
+                  maxLength: { value: 250, message: 'Giới thiệu quán không được vượt quá 250 ký tự.' }
+                })}
               />
               <Input
-                type="number"
-                placeholder="Thời gian chuẩn bị trung bình (phút)"
-                aria-label="Thời gian chuẩn bị"
-                value={form.avgPrepTime}
-                onChange={(e) => set({ avgPrepTime: Number(e.target.value) })}
-                hint="Hiển thị cho khách trong ETA."
-              />
-              <Input
+                id="minOrderAmount"
+                label="Giá trị đơn hàng tối thiểu (VND)"
+                required
+                className="md:col-span-2"
                 type="number"
                 placeholder="Đơn tối thiểu (VND)"
                 aria-label="Đơn tối thiểu"
-                value={form.minOrderAmount}
-                onChange={(e) => set({ minOrderAmount: Number(e.target.value) })}
+                error={errors.minOrderAmount?.message}
+                {...register('minOrderAmount', {
+                  valueAsNumber: true,
+                  required: 'Vui lòng nhập giá trị đơn hàng tối thiểu.',
+                  min: { value: 0, message: 'Giá trị đơn hàng tối thiểu phải lớn hơn hoặc bằng 0.' }
+                })}
               />
             </div>
           )}
 
           {step.id === 'address' && (
             <div className="grid gap-sm md:grid-cols-2">
-              <Input className="md:col-span-2" placeholder="Số nhà, đường" aria-label="Địa chỉ" value={form.addressLine} onChange={(e) => set({ addressLine: e.target.value })} />
-              <Input placeholder="Phường/Xã" aria-label="Phường/Xã" value={form.ward} onChange={(e) => set({ ward: e.target.value })} />
-              <Input placeholder="Quận/Huyện" aria-label="Quận/Huyện" value={form.district} onChange={(e) => set({ district: e.target.value })} />
-              <Input placeholder="Tỉnh/Thành phố" aria-label="Tỉnh/Thành phố" required value={form.city} onChange={(e) => set({ city: e.target.value })} />
               <Input
+                id="addressLine"
+                label="Số nhà, tên đường"
+                required
+                className="md:col-span-2"
+                placeholder="Số nhà, đường"
+                aria-label="Địa chỉ"
+                error={errors.addressLine?.message}
+                {...register('addressLine', { required: 'Vui lòng nhập số nhà, tên đường.' })}
+              />
+              <Input
+                id="ward"
+                label="Phường / Xã"
+                placeholder="Phường/Xã"
+                aria-label="Phường/Xã"
+                error={errors.ward?.message}
+                {...register('ward')}
+              />
+              <Input
+                id="district"
+                label="Quận / Huyện"
+                required
+                placeholder="Quận/Huyện"
+                aria-label="Quận/Huyện"
+                error={errors.district?.message}
+                {...register('district', { required: 'Vui lòng nhập quận/huyện.' })}
+              />
+              <Input
+                id="city"
+                label="Tỉnh / Thành phố"
+                required
+                placeholder="Tỉnh/Thành phố"
+                aria-label="Tỉnh/Thành phố"
+                error={errors.city?.message}
+                {...register('city', { required: 'Vui lòng nhập tỉnh/thành phố.' })}
+              />
+              <Input
+                id="baseDeliveryFee"
+                label="Phí giao hàng cơ bản (VND)"
+                required
+                className="md:col-span-2"
                 type="number"
                 placeholder="Phí giao hàng cơ bản (VND)"
                 aria-label="Phí giao hàng cơ bản"
-                value={form.baseDeliveryFee}
-                onChange={(e) => set({ baseDeliveryFee: Number(e.target.value) })}
+                error={errors.baseDeliveryFee?.message}
+                {...register('baseDeliveryFee', {
+                  valueAsNumber: true,
+                  required: 'Vui lòng nhập phí giao hàng cơ bản.',
+                  min: { value: 0, message: 'Phí giao hàng cơ bản phải lớn hơn hoặc bằng 0.' }
+                })}
               />
               <div className="md:col-span-2 rounded-md border border-dashed border-hairline-strong bg-canvas-soft p-base text-center">
                 <Icon name="pin" size={18} className="mx-auto text-body" />
                 <p className="mt-1 text-body-sm text-body">
-                  Khi tích hợp bản đồ thật, kéo ghim để xác định kinh độ / vĩ độ (cột latitude, longitude).
+                  Hệ thống tự động xác định kinh độ & vĩ độ dựa trên thông tin địa chỉ quán của bạn.
                 </p>
               </div>
             </div>
@@ -190,17 +454,49 @@ export default function MerchantOnboarding() {
 
           {step.id === 'docs' && (
             <div className="grid gap-sm md:grid-cols-2">
+              <input type="hidden" {...register('logoUrl', { required: 'Vui lòng tải lên ảnh đại diện (logo).' })} />
+              <input type="hidden" {...register('bannerUrl', { required: 'Vui lòng tải lên ảnh bìa (banner).' })} />
+              <input type="hidden" {...register('licenseUrl', { required: 'Vui lòng tải lên ảnh chụp giấy phép kinh doanh.' })} />
+              <input type="hidden" {...register('foodSafetyUrl')} />
+
+              <FileBox
+                title="Ảnh đại diện (Logo)"
+                required
+                hint="Định dạng JPEG, PNG dưới 5 MB."
+                file={files.logoFile}
+                url={formValues.logoUrl}
+                uploading={uploading.logo}
+                onChange={(f) => handleFileChange('logo', f)}
+                error={errors.logoUrl?.message}
+              />
+              <FileBox
+                title="Ảnh bìa (Banner)"
+                required
+                hint="Định dạng JPEG, PNG dưới 5 MB."
+                file={files.bannerFile}
+                url={formValues.bannerUrl}
+                uploading={uploading.banner}
+                onChange={(f) => handleFileChange('banner', f)}
+                error={errors.bannerUrl?.message}
+              />
               <FileBox
                 title="Giấy phép kinh doanh"
-                hint="Ảnh chụp rõ nội dung, dung lượng dưới 5 MB."
-                file={form.licenseFile}
-                onChange={(f) => set({ licenseFile: f })}
+                required
+                hint="Ảnh chụp rõ nội dung, dưới 5 MB."
+                file={files.licenseFile}
+                url={formValues.licenseUrl}
+                uploading={uploading.license}
+                onChange={(f) => handleFileChange('license', f)}
+                error={errors.licenseUrl?.message}
               />
               <FileBox
                 title="Chứng nhận VSATTP"
-                hint="Bắt buộc với quán đang hoạt động."
-                file={form.foodSafetyFile}
-                onChange={(f) => set({ foodSafetyFile: f })}
+                hint="Tùy chọn. Ảnh chụp rõ nội dung."
+                file={files.foodSafetyFile}
+                url={formValues.foodSafetyUrl}
+                uploading={uploading.foodSafety}
+                onChange={(f) => handleFileChange('foodSafety', f)}
+                error={errors.foodSafetyUrl?.message}
               />
             </div>
           )}
@@ -208,6 +504,9 @@ export default function MerchantOnboarding() {
           {step.id === 'banking' && (
             <div className="grid gap-sm md:grid-cols-2">
               <Select
+                id="bankName"
+                label="Ngân hàng thụ hưởng"
+                required
                 aria-label="Ngân hàng"
                 options={[
                   'Vietcombank',
@@ -220,21 +519,33 @@ export default function MerchantOnboarding() {
                   'VPBank',
                   'Sacombank',
                 ].map((b) => ({ value: b, label: b }))}
-                value={form.bankName}
-                onChange={(e) => set({ bankName: e.target.value })}
+                error={errors.bankName?.message}
+                {...register('bankName', { required: 'Vui lòng chọn ngân hàng thụ hưởng.' })}
               />
               <Input
-                placeholder="Số tài khoản"
+                id="bankAccountNo"
+                label="Số tài khoản ngân hàng"
+                required
+                placeholder="Nhập số tài khoản"
                 aria-label="Số tài khoản"
-                value={form.bankAccountNo}
-                onChange={(e) => set({ bankAccountNo: e.target.value })}
+                error={errors.bankAccountNo?.message}
+                {...register('bankAccountNo', { required: 'Vui lòng nhập số tài khoản ngân hàng.' })}
               />
               <Input
+                id="bankAccountHolder"
+                label="Tên chủ tài khoản"
+                required
                 className="md:col-span-2"
-                placeholder="Chủ tài khoản (không dấu)"
+                placeholder="Chủ tài khoản (viết hoa không dấu)"
                 aria-label="Chủ tài khoản"
-                value={form.bankAccountHolder}
-                onChange={(e) => set({ bankAccountHolder: e.target.value })}
+                error={errors.bankAccountHolder?.message}
+                {...register('bankAccountHolder', {
+                  required: 'Vui lòng nhập tên chủ tài khoản.',
+                  pattern: { value: /^[A-Z\s]+$/, message: 'Tên chủ tài khoản phải viết hoa không dấu.' },
+                  onChange: (e) => {
+                    e.target.value = e.target.value.toUpperCase();
+                  }
+                })}
               />
               <p className="md:col-span-2 text-caption text-body">
                 Tài khoản này sẽ dùng để NomNom chuyển doanh thu sau khi đối soát hằng tuần (xem trang <strong>Ví & Rút tiền</strong>).
@@ -244,30 +555,33 @@ export default function MerchantOnboarding() {
 
           {step.id === 'review' && (
             <div className="space-y-sm">
-              <ReviewRow label="Tên quán" value={form.name || '—'} />
-              <ReviewRow label="Loại ẩm thực" value={CUISINES.find((c) => c.value === form.cuisine)?.label} />
-              <ReviewRow label="Địa chỉ" value={[form.addressLine, form.ward, form.district, form.city].filter(Boolean).join(', ') || '—'} />
-              <ReviewRow label="Giấy phép kinh doanh" value={form.licenseFile ? form.licenseFile.name : '— (chưa tải lên)'} />
-              <ReviewRow label="VSATTP" value={form.foodSafetyFile ? form.foodSafetyFile.name : '— (chưa tải lên)'} />
-              <ReviewRow label="Ngân hàng" value={form.bankName} />
-              <ReviewRow label="Số tài khoản" value={form.bankAccountNo || '—'} />
+              <ReviewRow label="Tên quán" value={formValues.name || '—'} />
+              <ReviewRow label="Loại ẩm thực" value={cuisines.find((c) => c.value === formValues.cuisine)?.label || '—'} />
+              <ReviewRow label="Địa chỉ" value={[formValues.addressLine, formValues.ward, formValues.district, formValues.city].filter(Boolean).join(', ') || '—'} />
+              <ReviewRow label="Logo" value={formValues.logoUrl ? 'Đã tải lên Cloudinary' : '— (chưa tải)'} />
+              <ReviewRow label="Ảnh bìa" value={formValues.bannerUrl ? 'Đã tải lên Cloudinary' : '— (chưa tải)'} />
+              <ReviewRow label="Giấy phép kinh doanh" value={formValues.licenseUrl ? 'Đã tải lên Cloudinary' : '— (chưa tải)'} />
+              <ReviewRow label="Chứng nhận VSATTP" value={formValues.foodSafetyUrl ? 'Đã tải lên Cloudinary' : 'Chưa cung cấp (Tùy chọn)'} />
+              <ReviewRow label="Ngân hàng" value={formValues.bankName} />
+              <ReviewRow label="Số tài khoản" value={formValues.bankAccountNo || '—'} />
+              <ReviewRow label="Chủ tài khoản" value={formValues.bankAccountHolder || '—'} />
               <p className="text-caption text-body">
-                Sau khi gửi, hồ sơ chuyển sang trạng thái <span className="font-medium text-ink">Chờ duyệt</span>. Bạn vẫn có thể chỉnh sửa thực đơn trong khi chờ.
+                Sau khi gửi, hồ sơ chuyển sang trạng thái <span className="font-semibold text-ink">Chờ duyệt</span>. Bạn có thể theo dõi tiến trình tại trang Chờ duyệt.
               </p>
             </div>
           )}
 
           <div className="flex flex-col gap-2 border-t border-hairline pt-base md:flex-row md:justify-between">
-            <Button variant="secondary" onClick={back} disabled={stepIdx === 0}>
+            <Button variant="secondary" onClick={back} disabled={stepIdx === 0 || submitting}>
               Quay lại
             </Button>
             {stepIdx < STEPS.length - 1 ? (
-              <Button onClick={next} trailingIcon="arrowRight">
+              <Button onClick={handleNext} trailingIcon="arrowRight">
                 Tiếp tục
               </Button>
             ) : (
-              <Button onClick={submit} trailingIcon="check">
-                Gửi hồ sơ
+              <Button onClick={onSubmit} disabled={submitting} trailingIcon="check">
+                {submitting ? 'Đang gửi hồ sơ...' : 'Gửi hồ sơ'}
               </Button>
             )}
           </div>
@@ -277,22 +591,47 @@ export default function MerchantOnboarding() {
   );
 }
 
-function FileBox({ title, hint, file, onChange }) {
+function FileBox({ title, hint, file, url, uploading, onChange, error, required }) {
   return (
-    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed border-hairline-strong bg-canvas-soft p-base text-center transition-colors hover:bg-canvas">
-      <Icon name="upload" size={20} className="text-body" />
-      <span className="text-body-sm font-medium text-ink">{title}</span>
-      <span className="text-caption text-body">{hint}</span>
-      {file && (
-        <span className="text-caption text-text-link">{file.name}</span>
-      )}
-      <input
-        type="file"
-        accept="image/*,application/pdf"
-        className="hidden"
-        onChange={(e) => onChange(e.target.files?.[0] || null)}
-      />
-    </label>
+    <div className="flex flex-col gap-xxs">
+      <label className={clsx(
+        "relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed p-base text-center transition-colors min-h-[150px]",
+        error ? "border-error bg-[#fbeaea] hover:bg-[#fae2e2]" : "border-hairline-strong bg-canvas-soft hover:bg-canvas"
+      )}>
+        {uploading ? (
+          <div className="flex flex-col items-center gap-1.5 py-sm">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-caption text-body">Đang tải lên Cloudinary...</span>
+          </div>
+        ) : url ? (
+          <div className="space-y-1.5 py-xs">
+            <img src={url} alt={title} className="mx-auto max-h-[80px] rounded object-cover shadow-sm" />
+            <span className="block text-caption font-semibold text-ink truncate max-w-[200px]">{file?.name || 'Đã tải lên'}</span>
+            <span className="text-caption text-text-link">Thay đổi ảnh</span>
+          </div>
+        ) : (
+          <>
+            <Icon name="upload" size={20} className="text-body animate-pulse" />
+            <span className="text-body-sm font-medium text-ink">
+              {title}
+              {required && <span className="text-error ml-1">*</span>}
+            </span>
+            <span className="text-caption text-body">{hint}</span>
+          </>
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={uploading}
+          onChange={(e) => {
+            const f = e.target.files?.[0] || null;
+            if (f) onChange(f);
+          }}
+        />
+      </label>
+      {error && <span className="text-caption text-error">{error}</span>}
+    </div>
   );
 }
 

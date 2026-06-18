@@ -1,16 +1,42 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
+import { fetchDriverProfile } from '../../lib/api.js';
 
 // driver_profiles.approval_status: 'pending' | 'rejected' | 'suspended'
 export default function DriverPending({ status = 'pending', reason }) {
+  const [liveStatus, setLiveStatus] = useState(status);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchDriverProfile();
+        if (cancelled) return;
+        setLiveStatus(data.approval_status ?? 'pending');
+      } catch {
+        if (!cancelled) setLiveStatus(status);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status]);
+
   const view = {
     pending: {
       tone: 'bg-canvas-soft text-ink',
       icon: 'clock',
       title: 'Hồ sơ tài xế đang chờ duyệt',
       message: 'Chúng tôi đang xem xét CCCD và bằng lái của bạn — kết quả trong 24-48 giờ.',
+    },
+    approved: {
+      tone: 'bg-[#e9f8ef] text-success',
+      icon: 'check',
+      title: 'Hồ sơ tài xế đã được duyệt',
+      message: 'Bạn đã có thể vào khu vực tài xế để bắt đầu nhận đơn.',
     },
     rejected: {
       tone: 'bg-[#fbeaea] text-error',
@@ -24,7 +50,7 @@ export default function DriverPending({ status = 'pending', reason }) {
       title: 'Tài khoản tài xế đang bị tạm dừng',
       message: reason || 'Tài khoản tạm thời không thể nhận đơn theo quyết định của quản trị viên.',
     },
-  }[status];
+  }[liveStatus];
 
   return (
     <div className="px-base py-xl">
@@ -52,8 +78,16 @@ export default function DriverPending({ status = 'pending', reason }) {
         </ul>
 
         <div className="mt-md flex flex-col gap-2 md:flex-row md:justify-center">
-          <Button as={Link} to="/driver/account" variant="secondary">Mở tài khoản</Button>
-          <Button as={Link} to="/driver/onboarding" trailingIcon="arrowRight">Cập nhật giấy tờ</Button>
+          {liveStatus === 'approved' ? (
+            <Button as={Link} to="/driver" trailingIcon="arrowRight">
+              Vào trang tài xế
+            </Button>
+          ) : (
+            <>
+              <Button as={Link} to="/driver/account" variant="secondary">Mở tài khoản</Button>
+              <Button as={Link} to="/driver/onboarding" trailingIcon="arrowRight">Cập nhật giấy tờ</Button>
+            </>
+          )}
         </div>
       </Card>
     </div>

@@ -7,11 +7,17 @@ import Icon from './Icon.jsx';
 //   border 1px hairline-strong (không đổi viền khi focus; không nhãn trên — chỉ placeholder)
 
 const Input = forwardRef(function Input(
-  { className, fieldClassName, leadingIcon, trailingIcon, trailingButton, error, hint, id, ...props },
+  { className, fieldClassName, leadingIcon, trailingIcon, trailingButton, error, hint, id, label, required, ...props },
   ref,
 ) {
   return (
     <div className={clsx('flex flex-col gap-xxs', className)}>
+      {label && (
+        <label htmlFor={id} className="text-body-sm font-semibold text-ink">
+          {label}
+          {required && <span className="text-error ml-1">*</span>}
+        </label>
+      )}
       <div
         className={clsx(
           // 48px tap target on mobile, 44px editorial on desktop
@@ -50,10 +56,20 @@ const Input = forwardRef(function Input(
 
 export default Input;
 
-export function Textarea({ className, id, hint, rows = 4, error, ...props }) {
+export const Textarea = forwardRef(function Textarea(
+  { className, id, hint, label, required, rows = 4, error, ...props },
+  ref,
+) {
   return (
     <div className="flex flex-col gap-xxs">
+      {label && (
+        <label htmlFor={id} className="text-body-sm font-semibold text-ink">
+          {label}
+          {required && <span className="text-error ml-1">*</span>}
+        </label>
+      )}
       <textarea
+        ref={ref}
         id={id}
         rows={rows}
         className={clsx(
@@ -68,13 +84,23 @@ export function Textarea({ className, id, hint, rows = 4, error, ...props }) {
       {error && <span className="text-caption text-error">{error}</span>}
     </div>
   );
-}
+});
 
-export function Select({ className, id, options = [], hint, error, ...props }) {
+export const Select = forwardRef(function Select(
+  { className, id, options = [], hint, label, required, error, ...props },
+  ref,
+) {
   return (
     <div className="flex flex-col gap-xxs">
+      {label && (
+        <label htmlFor={id} className="text-body-sm font-semibold text-ink">
+          {label}
+          {required && <span className="text-error ml-1">*</span>}
+        </label>
+      )}
       <div className="relative">
         <select
+          ref={ref}
           id={id}
           className={clsx(
             'w-full appearance-none rounded-md border bg-surface-card px-base pr-10 text-body-md text-ink',
@@ -100,4 +126,4 @@ export function Select({ className, id, options = [], hint, error, ...props }) {
       {error && <span className="text-caption text-error">{error}</span>}
     </div>
   );
-}
+});
