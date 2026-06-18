@@ -5,8 +5,10 @@ import homeRoutes from './routes/home.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import meRoutes from './routes/me.routes.js';
 import restaurantRoutes from './routes/restaurants.routes.js';
+import cartRoutes from './routes/cart.routes.js';
 import cuisinesRoutes from './routes/cuisines.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import driverRoutes from './routes/driver.routes.js';
 import uploadsRoutes from './routes/uploads.routes.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 import ordersRoutes from './routes/orders.routes.js';
@@ -30,7 +32,9 @@ app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/me', meRoutes);
 app.use('/api/v1/restaurants', restaurantRoutes);
+app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/driver', driverRoutes);
 app.use('/api/v1/cuisines', cuisinesRoutes);
 app.use('/api/v1/uploads', uploadsRoutes);
 app.use('/api/v1/orders', ordersRoutes);
@@ -61,10 +65,19 @@ async function ensureSuspensionColumn() {
   }
 }
 
+async function ensureSuspensionReasonColumn() {
+  const [rows] = await pool.query("SHOW COLUMNS FROM users LIKE 'suspension_reason'");
+  if (!rows.length) {
+    console.log('[DB] Thêm cột suspension_reason vào bảng users');
+    await pool.query("ALTER TABLE users ADD COLUMN suspension_reason text DEFAULT NULL");
+  }
+}
+
 async function start() {
   try {
     await verifyDbConnection();
     await ensureSuspensionColumn();
+    await ensureSuspensionReasonColumn();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(
