@@ -144,9 +144,21 @@ export default function CartDrawer() {
             ))}
           </div>
         ) : (
-          <div className="text-caption text-body">
-            Thêm món từ bất kỳ quán ăn nào đang mở cửa để bắt đầu.
-          </div>
+          <EmptyState
+            icon="cart"
+            title="Giỏ hàng trống"
+            message="Thêm món từ bất kỳ quán ăn nào đang mở cửa để bắt đầu."
+            action={
+              <Button
+                onClick={() => {
+                  setCartOpen(false);
+                  nav('/app/search');
+                }}
+              >
+                Tiếp tục mua sắm
+              </Button>
+            }
+          />
         )}
 
         {/* Promo */}
