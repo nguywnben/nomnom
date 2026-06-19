@@ -17,7 +17,6 @@ const EMPTY_FORM = {
   recipientPhone: '',
   line1: '',
   ward: '',
-  district: '',
   city: '',
   deliveryNote: '',
 };
@@ -28,6 +27,31 @@ export default function Addresses() {
   const [loading, setLoading] = useState(false);
   const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const [provinces, setProvinces] = useState([]);
+  const [wards, setWards] = useState([]);
+  
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedWardCode, setSelectedWardCode] = useState('');
+
+  useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/v2/p/')
+      .then(res => res.json())
+      .then(data => setProvinces(data))
+      .catch(err => console.error('Failed to load provinces:', err));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProvinceCode) {
+      setWards([]);
+      setSelectedWardCode('');
+      return;
+    }
+    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
+      .then(res => res.json())
+      .then(data => setWards(data.wards || []))
+      .catch(err => console.error('Failed to load wards:', err));
+  }, [selectedProvinceCode]);
 
   useEffect(() => {
     if (authedRoles.customer) {
@@ -47,10 +71,23 @@ export default function Addresses() {
     }
   };
 
-  const openCreate = () =>
+  const openCreate = () => {
+    setSelectedProvinceCode('');
+    setSelectedWardCode('');
     setEditor({ open: true, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
+  };
 
-  const openEdit = (addr) =>
+  const openEdit = (addr) => {
+    // Tìm province code từ tên
+    const p = provinces.find((x) => x.name === addr.city);
+    if (p) setSelectedProvinceCode(p.code);
+
+    // Ward sẽ load ở useEffect do dependency selectedProvinceCode
+    // Ta xài setTimeout hoặc giữ addr.ward vào properties tạm để useEffect set lại
+    setTimeout(() => {
+      setEditor(c => ({...c, __initialWard: addr.ward}));
+    }, 0);
+
     setEditor({
       open: true,
       mode: 'edit',
@@ -61,13 +98,22 @@ export default function Addresses() {
         recipientPhone: addr.recipientPhone || '',
         line1: addr.line1 || '',
         ward: addr.ward || '',
-        district: addr.district || '',
         city: addr.city || '',
         deliveryNote: addr.deliveryNote || '',
       },
       submitting: false,
       fieldErrors: {}
     });
+  };
+
+  useEffect(() => {
+    // Tự set ward code khi load song wards
+    if (editor.__initialWard && wards.length > 0) {
+      const w = wards.find((x) => x.name === editor.__initialWard);
+      if (w) setSelectedWardCode(w.code);
+      setEditor(c => ({...c, __initialWard: null}));
+    }
+  }, [wards, editor.__initialWard]);
 
   const close = () => setEditor((c) => ({ ...c, open: false }));
 
@@ -93,9 +139,6 @@ export default function Addresses() {
     }
     if (!v.city.trim()) {
       newErrors.city = 'Tỉnh/Thành phố không được để trống';
-    }
-    if (!v.district.trim()) {
-      newErrors.district = 'Quận/Huyện không được để trống';
     }
     if (!v.ward.trim()) {
       newErrors.ward = 'Phường/Xã không được để trống';
@@ -275,90 +318,94 @@ export default function Addresses() {
       >
         <form onSubmit={submit} className="flex flex-col gap-sm">
           <div className="flex flex-col gap-1">
+            <label className="text-body-sm font-medium text-ink">Nhãn địa chỉ</label>
             <Input
-              placeholder="Nhãn (Nhà, Văn phòng...)"
+              placeholder="Nhà, Văn phòng..."
               value={editor.values.label}
               onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, label: e.target.value }, fieldErrors: { ...c.fieldErrors, label: undefined } }))}
-              required
+              error={editor.fieldErrors?.label}
             />
-            {editor.fieldErrors?.label && (
-              <small className="text-error mt-1">{editor.fieldErrors.label}</small>
-            )}
           </div>
           <div className="grid grid-cols-2 gap-sm">
             <div className="flex flex-col gap-1">
+              <label className="text-body-sm font-medium text-ink">Tên người nhận</label>
               <Input
-                placeholder="Tên người nhận (Nguyễn Văn A)"
+                placeholder="Nguyễn Văn A"
                 value={editor.values.recipientName}
                 onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, recipientName: e.target.value }, fieldErrors: { ...c.fieldErrors, recipientName: undefined } }))}
-                required
+                error={editor.fieldErrors?.recipientName}
               />
-              {editor.fieldErrors?.recipientName && (
-                <small className="text-error mt-1">{editor.fieldErrors.recipientName}</small>
-              )}
             </div>
             <div className="flex flex-col gap-1">
+              <label className="text-body-sm font-medium text-ink">Số điện thoại</label>
               <Input
-                placeholder="Số điện thoại (09...)"
+                placeholder="09..."
                 type="tel"
                 value={editor.values.recipientPhone}
                 onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, recipientPhone: e.target.value }, fieldErrors: { ...c.fieldErrors, recipientPhone: undefined } }))}
-                required
+                error={editor.fieldErrors?.recipientPhone}
               />
-              {editor.fieldErrors?.recipientPhone && (
-                <small className="text-error mt-1">{editor.fieldErrors.recipientPhone}</small>
-              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-sm">
+            <div className="flex flex-col gap-1">
+              <label className="text-body-sm font-medium text-ink">Tỉnh/Thành phố</label>
+              <select
+                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.city ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none`}
+                value={selectedProvinceCode}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  const name = e.target.options[e.target.selectedIndex].text;
+                  setSelectedProvinceCode(code);
+                  setEditor((c) => ({ ...c, values: { ...c.values, city: code ? name : '' }, fieldErrors: { ...c.fieldErrors, city: undefined } }));
+                }}
+              >
+                <option value="">Chọn Tỉnh/Thành phố</option>
+                {provinces.map((p) => (
+                  <option key={p.code} value={p.code}>{p.name}</option>
+                ))}
+              </select>
+              {editor.fieldErrors?.city && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.city}</div>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-body-sm font-medium text-ink">Phường/Xã</label>
+              <select
+                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.ward ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
+                value={selectedWardCode}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  const name = e.target.options[e.target.selectedIndex].text;
+                  setSelectedWardCode(code);
+                  setEditor((c) => ({ ...c, values: { ...c.values, ward: code ? name : '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } }));
+                }}
+                disabled={!selectedProvinceCode}
+              >
+                <option value="">Chọn Phường/Xã</option>
+                {wards.map((w) => (
+                  <option key={w.code} value={w.code}>{w.name}</option>
+                ))}
+              </select>
+              {editor.fieldErrors?.ward && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.ward}</div>}
             </div>
           </div>
           <div className="flex flex-col gap-1">
+            <label className="text-body-sm font-medium text-ink">Địa chỉ cụ thể</label>
             <Input
               placeholder="Số nhà, tên đường..."
               value={editor.values.line1}
               onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, line1: e.target.value }, fieldErrors: { ...c.fieldErrors, line1: undefined } }))}
-              required
+              error={editor.fieldErrors?.line1}
             />
-            {editor.fieldErrors?.line1 && (
-              <small className="text-error mt-1">{editor.fieldErrors.line1}</small>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-sm">
-            <div className="flex flex-col gap-1">
-              <Input
-                placeholder="Tỉnh/Thành phố..."
-                value={editor.values.city}
-                onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, city: e.target.value }, fieldErrors: { ...c.fieldErrors, city: undefined } }))}
-                required
-              />
-              {editor.fieldErrors?.city && (
-                <small className="text-error mt-1">{editor.fieldErrors.city}</small>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <Input
-                placeholder="Quận/Huyện..."
-                value={editor.values.district}
-                onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, district: e.target.value }, fieldErrors: { ...c.fieldErrors, district: undefined } }))}
-              />
-              {editor.fieldErrors?.district && (
-                <small className="text-error mt-1">{editor.fieldErrors.district}</small>
-              )}
-            </div>
           </div>
           <div className="flex flex-col gap-1">
+            <label className="text-body-sm font-medium text-ink">Ghi chú giao hàng</label>
             <Input
-              placeholder="Phường/Xã..."
-              value={editor.values.ward}
-              onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, ward: e.target.value }, fieldErrors: { ...c.fieldErrors, ward: undefined } }))}
+              placeholder="Ghi chú giao hàng (tuỳ chọn)..."
+              value={editor.values.deliveryNote}
+              onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, deliveryNote: e.target.value } }))}
             />
-            {editor.fieldErrors?.ward && (
-              <small className="text-error mt-1">{editor.fieldErrors.ward}</small>
-            )}
           </div>
-          <Input
-            placeholder="Ghi chú giao hàng (tuỳ chọn)..."
-            value={editor.values.deliveryNote}
-            onChange={(e) => setEditor((c) => ({ ...c, values: { ...c.values, deliveryNote: e.target.value } }))}
-          />
         </form>
       </Modal>
 
