@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Drawer from '../../components/Drawer.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
+import Modal from '../../components/Modal.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
 import Image from '../../components/Image.jsx';
@@ -30,6 +31,12 @@ export default function CartDrawer() {
     user,
   } = useApp();
   const [promoCode, setPromoCode] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState({
+    open: false,
+    itemName: '',
+    onConfirm: null,
+    onCancel: null,
+  });
 
   const restaurant = cart.restaurantName ? null : restaurants.find((r) => String(r.id) === String(cart.restaurantId));
   const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
@@ -38,13 +45,56 @@ export default function CartDrawer() {
   const restaurantStatusLabel = restaurant ? (restaurant.open ? 'Mở cửa' : 'Đóng cửa') : 'Đã đồng bộ';
 
   return (
-    <Drawer
+    <>
+      <Drawer
       open={cartOpen}
       onClose={() => setCartOpen(false)}
       title="Giỏ hàng của bạn"
       footer={
         cart.items.length ? (
           <div className="flex flex-col gap-sm">
+            {/* Promo */}
+            <div className="flex flex-col gap-xs border-b border-hairline pb-sm mb-xs">
+              <div className="text-caption-uppercase text-body">Mã khuyến mãi</div>
+              {appliedPromo ? (
+                <div className="flex items-center justify-between rounded-md border border-success bg-[#e6f4ea] px-sm py-2">
+                  <div>
+                    <div className="text-body-sm font-semibold text-ink">{appliedPromo.code}</div>
+                    <div className="text-caption text-body">{appliedPromo.label}</div>
+                  </div>
+                  <button
+                    onClick={() => setAppliedPromo(null)}
+                    className="text-body hover:text-ink"
+                    aria-label="Xóa"
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-xs">
+                  <Input
+                    className="flex-1"
+                    placeholder="NOMNOM15"
+                    aria-label="Mã khuyến mãi"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      applyPromo(promoCode);
+                      setPromoCode('');
+                    }}
+                  >
+                    Áp dụng
+                  </Button>
+                </div>
+              )}
+              <div className="text-caption text-body">
+                Thử dùng <span className="font-mono text-ink">NOMNOM15</span>, <span className="font-mono text-ink">WELCOME5</span>, hoặc <span className="font-mono text-ink">FREEFEE</span>.
+              </div>
+            </div>
+
             <div className="flex items-center justify-between text-body-sm">
               <span className="text-body">Tạm tính</span>
               <span className="nums text-ink">{formatVnd(cartSubtotal)}</span>
@@ -122,9 +172,32 @@ export default function CartDrawer() {
                     size="sm"
                     variant="secondary"
                     label="Giảm"
-                    onClick={() => setItemQty(i.id, i.quantity - 1)}
+                    onClick={() => {
+                      if (i.quantity === 1) {
+                        setConfirmDelete({
+                          open: true,
+                          itemName: i.name,
+                          onConfirm: () => setItemQty(i.id, 0),
+                        });
+                      } else {
+                        setItemQty(i.id, i.quantity - 1);
+                      }
+                    }}
                   />
-                  <span className="w-7 text-center text-body-sm font-semibold nums">{i.quantity}</span>
+                  <CartItemQtyInput
+                    itemId={i.id}
+                    quantity={i.quantity}
+                    itemName={i.name}
+                    onChange={(newQty) => setItemQty(i.id, newQty)}
+                    onZero={(confirm, cancel) => {
+                      setConfirmDelete({
+                        open: true,
+                        itemName: i.name,
+                        onConfirm: confirm,
+                        onCancel: cancel,
+                      });
+                    }}
+                  />
                   <IconButton
                     icon="plus"
                     size="sm"
@@ -135,7 +208,13 @@ export default function CartDrawer() {
                 </div>
                 <button
                   className="ml-1 text-body hover:text-error"
-                  onClick={() => removeFromCart(i.id)}
+                  onClick={() => {
+                    setConfirmDelete({
+                      open: true,
+                      itemName: i.name,
+                      onConfirm: () => removeFromCart(i.id),
+                    });
+                  }}
                   aria-label="Xóa"
                 >
                   <Icon name="trash" size={16} />
@@ -150,6 +229,7 @@ export default function CartDrawer() {
             message="Thêm món từ bất kỳ quán ăn nào đang mở cửa để bắt đầu."
             action={
               <Button
+                variant="secondary"
                 onClick={() => {
                   setCartOpen(false);
                   nav('/app/search');
@@ -160,51 +240,89 @@ export default function CartDrawer() {
             }
           />
         )}
-
-        {/* Promo */}
-        {cart.items.length > 0 && (
-          <div className="mt-xs flex flex-col gap-xs">
-            <div className="text-caption-uppercase text-body">Mã khuyến mãi</div>
-            {appliedPromo ? (
-              <div className="flex items-center justify-between rounded-md border border-success bg-[#e6f4ea] px-sm py-2">
-                <div>
-                  <div className="text-body-sm font-semibold text-ink">{appliedPromo.code}</div>
-                  <div className="text-caption text-body">{appliedPromo.label}</div>
-                </div>
-                <button
-                  onClick={() => setAppliedPromo(null)}
-                  className="text-body hover:text-ink"
-                  aria-label="Xóa"
-                >
-                  <Icon name="close" size={14} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-xs">
-                <Input
-                  className="flex-1"
-                  placeholder="NOMNOM15"
-                  aria-label="Mã khuyến mãi"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                />
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    applyPromo(promoCode);
-                    setPromoCode('');
-                  }}
-                >
-                  Áp dụng
-                </Button>
-              </div>
-            )}
-            <div className="text-caption text-body">
-              Thử dùng <span className="font-mono text-ink">NOMNOM15</span>, <span className="font-mono text-ink">WELCOME5</span>, hoặc <span className="font-mono text-ink">FREEFEE</span>.
-            </div>
-          </div>
-        )}
       </div>
     </Drawer>
+
+      <Modal
+        open={confirmDelete.open}
+        onClose={() => {
+          confirmDelete.onCancel?.();
+          setConfirmDelete({ open: false, itemName: '', onConfirm: null, onCancel: null });
+        }}
+        title="Xác nhận xóa món"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                confirmDelete.onCancel?.();
+                setConfirmDelete({ open: false, itemName: '', onConfirm: null, onCancel: null });
+              }}
+            >
+              Hủy
+            </Button>
+            <Button
+              className="!bg-[#ea4335] !border-[#ea4335] hover:!bg-[#d32f2f] hover:!border-[#d32f2f] text-white"
+              onClick={() => {
+                confirmDelete.onConfirm?.();
+                setConfirmDelete({ open: false, itemName: '', onConfirm: null, onCancel: null });
+              }}
+            >
+              Xóa món
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn xóa món <strong className="text-ink font-semibold">"{confirmDelete.itemName}"</strong> khỏi giỏ hàng không?
+        </p>
+      </Modal>
+    </>
+  );
+}
+
+function CartItemQtyInput({ quantity, itemName, onZero, onChange }) {
+  const [val, setVal] = useState(String(quantity));
+
+  useEffect(() => {
+    setVal(String(quantity));
+  }, [quantity]);
+
+  const handleBlur = () => {
+    const parsed = parseInt(val, 10);
+    if (isNaN(parsed) || parsed < 0) {
+      setVal(String(quantity));
+    } else if (parsed === 0) {
+      if (onZero) {
+        onZero(
+          () => onChange(0),
+          () => setVal(String(quantity))
+        );
+      } else {
+        onChange(0);
+      }
+    } else {
+      onChange(parsed);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.target.blur();
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      min="0"
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      style={{ appearance: 'textfield', WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+      className="w-12 text-center text-body-sm font-semibold nums bg-canvas-soft border border-hairline rounded py-0.5 focus:outline-none focus:border-ink-strong"
+    />
   );
 }
