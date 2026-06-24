@@ -39,11 +39,12 @@ Tài liệu mô tả phạm vi **đã triển khai** cho 6 issue Wave 2 (`docs/p
 - Một giỏ active mỗi khách; đổi quán → xóa giỏ cũ (server + toast client).
 - `unit_price` snapshot từ `menu_items.price` khi thêm.
 
-**Client** (`client/src/context/AppContext.jsx`, `client/src/lib/guestCart.js`)
+**Client** (`client/src/context/AppContext.jsx`, `client/src/lib/guestCart.js`, `client/src/modules/customer/CartDrawer.jsx`)
 
 - Đã login: mọi thao tác giỏ gọi API; reload trang → `fetchCartApi()` khôi phục giỏ.
 - Chưa login (guest): giỏ lưu `localStorage` (`nomnom_guest_cart`); reload vẫn còn.
 - Sau login / đăng ký xong: merge giỏ guest vào DB (lặp `POST /cart/items`) rồi fetch lại.
+- `CartDrawer`: modal xác nhận trước khi xóa món; hiển thị tên quán/logo từ giỏ DB.
 
 ### Lưu ý vận hành
 
@@ -86,6 +87,7 @@ Body tạo đơn: `addressId`, `paymentMethod` (`cod` \| `vnpay`), `customerNote
 | `/app/order/success/:code` | `client/src/modules/customer/OrderSuccess.jsx` |
 
 - Chọn địa chỉ từ `GET /api/v1/me/addresses` hoặc nhập địa chỉ mới.
+- Form địa chỉ mới: dropdown tỉnh/thành + phường/xã qua [`provinces.open-api.vn`](https://provinces.open-api.vn/) (cùng nguồn với [CUS-09](./wave-1-completed.md#cus-09--sổ-địa-chỉ-giao-hàng)).
 - Phí giao hiển thị từ `cart.baseDeliveryFee` (khớp server).
 - COD → redirect success page với mã đơn thật.
 

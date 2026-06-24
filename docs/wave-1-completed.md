@@ -172,12 +172,14 @@ Body tạo/sửa: `label`, `recipientName`, `recipientPhone`, `line1`, `ward`, `
 | `/app/profile/addresses` | `client/src/modules/customer/profile/Addresses.jsx` |
 
 - CRUD đầy đủ + đặt mặc định.
+- Dropdown **tỉnh/thành phố** và **phường/xã** từ API công khai [`provinces.open-api.vn`](https://provinces.open-api.vn/) (`/api/v2/p/`, `/api/v2/p/{code}?depth=2`) — không qua backend NomNom.
+- Form có label/tiêu đề rõ ràng cho từng input (cập nhật PR `cus-09`).
 - Cần quyền `customer` trong `user_roles` (xem `docs/AUTH.md`).
 
 ### Chưa làm
 
-- Bản đồ / geocoding (`latitude`, `longitude` có cột DB nhưng form chưa gửi).
-- Checkout chọn địa chỉ từ API — xem [CUS-04](./wave-2-completed.md#cus-04--đặt-đơn-checkout-cod).
+- Bản đồ / geocoding: `latitude`, `longitude` có cột DB nhưng form chưa gửi tọa độ.
+- Checkout dùng địa chỉ đã lưu — xem [CUS-04](./wave-2-completed.md#cus-04--đặt-đơn-checkout-cod) (form địa chỉ mới tại checkout cũng dùng API tỉnh/thành).
 
 ### Database
 
