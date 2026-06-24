@@ -1,27 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import Avatar from '../../../components/Avatar.jsx';
 import Button from '../../../components/Button.jsx';
 import Card from '../../../components/Card.jsx';
-import Icon from '../../../components/Icon.jsx';
 import Input from '../../../components/Input.jsx';
+import ImageUploader from '../../../components/ImageUploader.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import { updateMeProfile } from '../../../lib/api.js';
-import { uploadFile } from '../../../lib/upload.js';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 
 export default function EditProfile() {
   const nav = useNavigate();
   const { user, currentCustomer, pushToast, updateUser } = useApp();
-  const fileInputRef = useRef(null);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -32,42 +29,30 @@ export default function EditProfile() {
     setAvatarUrl(src.avatar ?? user.avatarUrl ?? '');
   }, [user, currentCustomer]);
 
-  const onAvatarFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-
-    setUploadingAvatar(true);
-    try {
-      const { url } = await uploadFile(file, 'avatar');
-      setAvatarUrl(url);
-      pushToast({
-        kind: 'success',
-        title: 'Đã tải ảnh',
-        message: 'Nhấn "Lưu thay đổi" để cập nhật avatar.',
-      });
-    } catch (err) {
-      pushToast({
-        kind: 'error',
-        title: 'Không tải được ảnh',
-        message: err.message ?? 'Vui lòng thử lại.',
-      });
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
   const onSave = async (e) => {
     e.preventDefault();
+    setErrors({});
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
 
+    const newErrors = {};
     if (!trimmedName) {
-      pushToast({ kind: 'error', title: 'Thiếu họ tên', message: 'Vui lòng nhập họ và tên.' });
-      return;
+      newErrors.name = 'Họ và tên không được để trống.';
     }
+    const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/;
     if (!trimmedPhone) {
-      pushToast({ kind: 'error', title: 'Thiếu số điện thoại', message: 'Vui lòng nhập số điện thoại.' });
+      newErrors.phone = 'Số điện thoại không được để trống.';
+    } else if (!phoneRegex.test(trimmedPhone)) {
+      newErrors.phone = 'Vui lòng nhập đúng định dạng số điện thoại.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      pushToast({
+        kind: 'error',
+        title: 'Lỗi nhập liệu',
+        message: 'Vui lòng sửa các lỗi nhập liệu trước khi lưu.',
+      });
       return;
     }
 
@@ -86,6 +71,9 @@ export default function EditProfile() {
       });
       nav('/app/profile');
     } catch (err) {
+      if (err.status === 409) {
+        setErrors({ phone: err.message ?? 'Số điện thoại này đã được sử dụng.' });
+      }
       pushToast({
         kind: 'error',
         title: 'Không lưu được hồ sơ',
@@ -107,38 +95,16 @@ export default function EditProfile() {
     >
       <ProfileSubHeader title="Chỉnh sửa hồ sơ" />
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={onAvatarFile}
-      />
-
       <Card padded className="flex items-center gap-base">
-        <div className="relative">
-          <Avatar src={avatarUrl} name={name} size="xl" />
-          <button
-            type="button"
-            aria-label="Đổi ảnh đại diện"
-            disabled={uploadingAvatar}
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full border border-hairline-strong bg-canvas text-ink shadow-soft hover:bg-canvas-soft disabled:opacity-60"
-          >
-            <Icon name="camera" size={14} />
-          </button>
-        </div>
+        <ImageUploader
+          value={avatarUrl}
+          onUploaded={(url) => setAvatarUrl(url)}
+          folder="avatar"
+          shape="circle"
+        />
         <div className="min-w-0 flex-1">
           <div className="text-title-md text-ink truncate">{name || '—'}</div>
           <div className="text-caption text-body truncate">{email}</div>
-          <button
-            type="button"
-            disabled={uploadingAvatar}
-            className="mt-1 text-button text-text-link hover:underline disabled:opacity-60"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploadingAvatar ? 'Đang tải ảnh…' : 'Tải ảnh mới'}
-          </button>
         </div>
       </Card>
 
@@ -149,8 +115,12 @@ export default function EditProfile() {
               leadingIcon="user"
               placeholder="Nguyễn Văn A"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
+              }}
               required
+              error={errors.name}
             />
           </Field>
 
@@ -169,8 +139,12 @@ export default function EditProfile() {
               leadingIcon="phone"
               placeholder="+84 ..."
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
+              }}
               required
+              error={errors.phone}
             />
           </Field>
         </div>
