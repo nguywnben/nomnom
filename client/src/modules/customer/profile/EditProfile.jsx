@@ -6,15 +6,14 @@ import Button from '../../../components/Button.jsx';
 import Card from '../../../components/Card.jsx';
 import Icon from '../../../components/Icon.jsx';
 import Input from '../../../components/Input.jsx';
+import ImageUploader from '../../../components/ImageUploader.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import { updateMeProfile } from '../../../lib/api.js';
-import { uploadFile } from '../../../lib/upload.js';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 
 export default function EditProfile() {
   const nav = useNavigate();
   const { currentCustomer, permittedRoles, pushToast, updateUser } = useApp();
-  const fileInputRef = useRef(null);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -22,7 +21,6 @@ export default function EditProfile() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (!currentCustomer) return;
@@ -31,31 +29,6 @@ export default function EditProfile() {
     setPhone(currentCustomer.phone ?? '');
     setAvatarUrl(currentCustomer.avatar ?? '');
   }, [currentCustomer]);
-
-  const onAvatarFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-
-    setUploadingAvatar(true);
-    try {
-      const { url } = await uploadFile(file, 'avatar');
-      setAvatarUrl(url);
-      pushToast({
-        kind: 'success',
-        title: 'Đã tải ảnh',
-        message: 'Nhấn "Lưu thay đổi" để cập nhật avatar.',
-      });
-    } catch (err) {
-      pushToast({
-        kind: 'error',
-        title: 'Không tải được ảnh',
-        message: err.message ?? 'Vui lòng thử lại.',
-      });
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
 
   const onSave = async (e) => {
     e.preventDefault();
@@ -133,38 +106,16 @@ export default function EditProfile() {
     >
       <ProfileSubHeader title="Chỉnh sửa hồ sơ" />
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={onAvatarFile}
-      />
-
       <Card padded className="flex items-center gap-base">
-        <div className="relative">
-          <Avatar src={avatarUrl} name={name} size="xl" />
-          <button
-            type="button"
-            aria-label="Đổi ảnh đại diện"
-            disabled={uploadingAvatar}
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full border border-hairline-strong bg-canvas text-ink shadow-soft hover:bg-canvas-soft disabled:opacity-60"
-          >
-            <Icon name="camera" size={14} />
-          </button>
-        </div>
+        <ImageUploader
+          value={avatarUrl}
+          onUploaded={(url) => setAvatarUrl(url)}
+          folder="avatar"
+          shape="circle"
+        />
         <div className="min-w-0 flex-1">
           <div className="text-title-md text-ink truncate">{name || '—'}</div>
           <div className="text-caption text-body truncate">{email}</div>
-          <button
-            type="button"
-            disabled={uploadingAvatar}
-            className="mt-1 text-button text-text-link hover:underline disabled:opacity-60"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploadingAvatar ? 'Đang tải ảnh…' : 'Tải ảnh mới'}
-          </button>
         </div>
       </Card>
 
