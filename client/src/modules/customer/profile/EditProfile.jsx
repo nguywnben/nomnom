@@ -20,6 +20,7 @@ export default function EditProfile() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
@@ -58,15 +59,28 @@ export default function EditProfile() {
 
   const onSave = async (e) => {
     e.preventDefault();
+    setErrors({});
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
 
+    const newErrors = {};
     if (!trimmedName) {
-      pushToast({ kind: 'error', title: 'Thiếu họ tên', message: 'Vui lòng nhập họ và tên.' });
-      return;
+      newErrors.name = 'Họ và tên không được để trống.';
     }
+    const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/;
     if (!trimmedPhone) {
-      pushToast({ kind: 'error', title: 'Thiếu số điện thoại', message: 'Vui lòng nhập số điện thoại.' });
+      newErrors.phone = 'Số điện thoại không được để trống.';
+    } else if (!phoneRegex.test(trimmedPhone)) {
+      newErrors.phone = 'Vui lòng nhập đúng định dạng số điện thoại.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      pushToast({
+        kind: 'error',
+        title: 'Lỗi nhập liệu',
+        message: 'Vui lòng sửa các lỗi nhập liệu trước khi lưu.',
+      });
       return;
     }
 
@@ -85,6 +99,9 @@ export default function EditProfile() {
       });
       nav('/app/profile');
     } catch (err) {
+      if (err.status === 409) {
+        setErrors({ phone: err.message ?? 'Số điện thoại này đã được sử dụng.' });
+      }
       pushToast({
         kind: 'error',
         title: 'Không lưu được hồ sơ',
@@ -158,8 +175,12 @@ export default function EditProfile() {
               leadingIcon="user"
               placeholder="Nguyễn Văn A"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
+              }}
               required
+              error={errors.name}
             />
           </Field>
 
@@ -178,8 +199,12 @@ export default function EditProfile() {
               leadingIcon="phone"
               placeholder="+84 ..."
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
+              }}
               required
+              error={errors.phone}
             />
           </Field>
         </div>

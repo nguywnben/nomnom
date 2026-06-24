@@ -137,7 +137,7 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+  const [passwordErrors, setPasswordErrors] = useState({});
   const [changingPassword, setChangingPassword] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
 
@@ -210,23 +210,30 @@ export default function Settings() {
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setPasswordError('');
+    setPasswordErrors({});
   };
 
   const onChangePassword = async (e) => {
     e.preventDefault();
-    setPasswordError('');
+    setPasswordErrors({});
 
-    if (!currentPassword || !newPassword) {
-      setPasswordError('Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới.');
-      return;
+    const newErrors = {};
+    if (!currentPassword) {
+      newErrors.currentPassword = 'Mật khẩu cũ không được để trống.';
     }
-    if (newPassword.length < 8) {
-      setPasswordError('Mật khẩu mới phải có ít nhất 8 ký tự.');
-      return;
+    if (!newPassword) {
+      newErrors.newPassword = 'Mật khẩu mới không được để trống.';
+    } else if (newPassword.length < 8) {
+      newErrors.newPassword = 'Mật khẩu mới phải có ít nhất 8 ký tự.';
     }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('Mật khẩu xác nhận không khớp.');
+    if (!confirmPassword) {
+      newErrors.confirmPassword = 'Vui lòng xác nhận mật khẩu mới.';
+    } else if (newPassword !== confirmPassword) {
+      newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setPasswordErrors(newErrors);
       return;
     }
 
@@ -241,7 +248,12 @@ export default function Settings() {
         message: 'Mật khẩu mới có hiệu lực ngay.',
       });
     } catch (err) {
-      setPasswordError(err.message ?? 'Không thể đổi mật khẩu.');
+      const msg = err.message ?? 'Không thể đổi mật khẩu.';
+      if (msg.toLowerCase().includes('hiện tại') || msg.toLowerCase().includes('cũ') || msg.toLowerCase().includes('current')) {
+        setPasswordErrors({ currentPassword: msg });
+      } else {
+        setPasswordErrors({ newPassword: msg });
+      }
     } finally {
       setChangingPassword(false);
     }
@@ -587,34 +599,46 @@ export default function Settings() {
         <form id="change-password-form" onSubmit={onChangePassword} className="flex flex-col gap-sm">
           <Input
             type="password"
+            label="Mật khẩu cũ"
             leadingIcon="shield"
-            placeholder="Mật khẩu hiện tại"
+            placeholder="Nhập mật khẩu hiện tại"
             value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
+            onChange={(e) => {
+              setCurrentPassword(e.target.value);
+              if (passwordErrors.currentPassword) setPasswordErrors(prev => ({ ...prev, currentPassword: '' }));
+            }}
             autoComplete="current-password"
             required
+            error={passwordErrors.currentPassword}
           />
           <Input
             type="password"
+            label="Mật khẩu mới"
             leadingIcon="shield"
-            placeholder="Mật khẩu mới"
+            placeholder="Tối thiểu 8 ký tự"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            onChange={(e) => {
+              setNewPassword(e.target.value);
+              if (passwordErrors.newPassword) setPasswordErrors(prev => ({ ...prev, newPassword: '' }));
+            }}
             autoComplete="new-password"
             required
+            error={passwordErrors.newPassword}
           />
           <Input
             type="password"
+            label="Xác nhận mật khẩu"
             leadingIcon="shield"
-            placeholder="Xác nhận mật khẩu mới"
+            placeholder="Nhập lại mật khẩu mới"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              if (passwordErrors.confirmPassword) setPasswordErrors(prev => ({ ...prev, confirmPassword: '' }));
+            }}
             autoComplete="new-password"
             required
+            error={passwordErrors.confirmPassword}
           />
-          {passwordError && (
-            <p className="text-caption text-error">{passwordError}</p>
-          )}
         </form>
       </Modal>
 
