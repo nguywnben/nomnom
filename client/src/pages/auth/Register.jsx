@@ -123,7 +123,7 @@ export default function RegisterPage() {
           <span>
             Tôi đồng ý với{' '}
             <Link
-              to="/dieu-khoan-su-dung"
+              to="/terms-of-service"
               className="text-text-link hover:underline"
               target="_blank"
               rel="noopener noreferrer"
@@ -132,7 +132,7 @@ export default function RegisterPage() {
             </Link>{' '}
             và{' '}
             <Link
-              to="/chinh-sach-bao-mat"
+              to="/privacy-policy"
               className="text-text-link hover:underline"
               target="_blank"
               rel="noopener noreferrer"

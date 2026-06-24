@@ -457,8 +457,12 @@ export default function Landing() {
           <div className="mt-12 flex flex-col gap-xs border-t border-hairline pt-base md:flex-row md:items-center md:justify-between">
             <div className="text-body-sm text-body">© {new Date().getFullYear()} NomNom</div>
             <div className="flex items-center gap-base text-body-sm">
-              <Link to="#" className="text-body hover:text-ink">Điều khoản</Link>
-              <Link to="#" className="text-body hover:text-ink">Bảo mật</Link>
+              <Link to="/terms-of-service" className="text-body hover:text-ink">
+                Điều khoản
+              </Link>
+              <Link to="/privacy-policy" className="text-body hover:text-ink">
+                Bảo mật
+              </Link>
               <Link to="#" className="text-body hover:text-ink">Cookie</Link>
             </div>
           </div>

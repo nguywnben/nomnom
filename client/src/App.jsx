@@ -94,8 +94,10 @@ export default function App() {
           <Route path="/verify-otp" element={<VerifyOtpPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
-        <Route path="/dieu-khoan-su-dung" element={<TermsOfServicePage />} />
-        <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicyPage />} />
+        <Route path="/dieu-khoan-su-dung" element={<Navigate to="/terms-of-service" replace />} />
+        <Route path="/chinh-sach-bao-mat" element={<Navigate to="/privacy-policy" replace />} />
+        <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
 
         <Route path="/app" element={<CustomerLayout />}>
           <Route index element={<CustomerHome />} />
