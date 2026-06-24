@@ -33,15 +33,30 @@ export default function CustomerCheckout() {
   const [addresses, setAddresses] = useState([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [addressId, setAddressId] = useState(null);
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
   
-  // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào
+  // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
+  const [newRecipientName, setNewRecipientName] = useState('');
   const [newLine1, setNewLine1] = useState('');
-  const [newCity, setNewCity] = useState('TP. Hồ Chí Minh');
+  
+  // Location states
+  const [provinces, setProvinces] = useState([]);
+  const [wards, setWards] = useState([]);
+  
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedProvinceName, setSelectedProvinceName] = useState('');
+  
+  const [selectedWardCode, setSelectedWardCode] = useState('');
+  const [selectedWardName, setSelectedWardName] = useState('');
   
   const [note, setNote] = useState('');
   const [placing, setPlacing] = useState(false);
   const [phone, setPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [recipientNameError, setRecipientNameError] = useState('');
+  const [line1Error, setLine1Error] = useState('');
+  const [provinceError, setProvinceError] = useState('');
+  const [wardError, setWardError] = useState('');
   
   // Dữ liệu nhà hàng tạm cho giao diện nếu giỏ hàng có `restaurantId`
   // Ứng dụng thực tế nên lấy từ API /cart hoặc /orders
@@ -60,6 +75,7 @@ export default function CustomerCheckout() {
         } else {
           // Bật số điện thoại mặc định cho form tạo địa chỉ mới nếu giỏ address bị trống
           setPhone(currentCustomer?.phone || '');
+          setIsAddingNewAddress(true);
         }
       })
       .catch((err) => console.error('Failed to load addresses:', err))
@@ -69,7 +85,26 @@ export default function CustomerCheckout() {
   const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
 
   useEffect(() => {
-    if (addressId && addresses.length > 0) {
+    fetch('https://provinces.open-api.vn/api/v2/p/')
+      .then(res => res.json())
+      .then(data => setProvinces(data))
+      .catch(err => console.error('Failed to load provinces:', err));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProvinceCode) {
+      setWards([]);
+      setSelectedWardCode('');
+      return;
+    }
+    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
+      .then(res => res.json())
+      .then(data => setWards(data.wards || []))
+      .catch(err => console.error('Failed to load wards:', err));
+  }, [selectedProvinceCode]);
+
+  useEffect(() => {
+    if (addressId && addresses.length > 0 && !isAddingNewAddress) {
       const addr = addresses.find((a) => a.id === addressId);
       if (addr) {
         setPhone(addr.recipientPhone || currentCustomer?.phone || '');
@@ -77,7 +112,7 @@ export default function CustomerCheckout() {
         setPhoneError('');
       }
     }
-  }, [addressId, addresses, currentCustomer]);
+  }, [addressId, addresses, currentCustomer, isAddingNewAddress]);
 
   if (!cart?.items?.length) {
     return (
@@ -97,13 +132,40 @@ export default function CustomerCheckout() {
   }
 
   const onPlace = async () => {
+    let hasError = false;
+
     if (!phone.trim()) {
       setPhoneError('Vui lòng nhập số điện thoại');
-      return;
+      hasError = true;
+    } else {
+      const phoneRegex = /^[0-9+\-\s()]{8,15}$/;
+      if (!phoneRegex.test(phone.trim())) {
+        setPhoneError('Số điện thoại không hợp lệ');
+        hasError = true;
+      }
     }
-    const phoneRegex = /^[0-9+\-\s()]{8,15}$/;
-    if (!phoneRegex.test(phone.trim())) {
-      setPhoneError('Số điện thoại không hợp lệ');
+
+    if (isAddingNewAddress) {
+      if (!newRecipientName.trim()) {
+        setRecipientNameError('Vui lòng nhập tên người nhận');
+        hasError = true;
+      }
+      if (!newLine1.trim()) {
+        setLine1Error('Vui lòng nhập địa chỉ cụ thể');
+        hasError = true;
+      }
+      if (!selectedProvinceCode) {
+        setProvinceError('Vui lòng chọn Tỉnh/Thành phố');
+        hasError = true;
+      }
+      if (!selectedWardCode) {
+        setWardError('Vui lòng chọn Phường/Xã');
+        hasError = true;
+      }
+    }
+
+    if (hasError) {
+      pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra lại thông tin nhập' });
       return;
     }
 
@@ -111,21 +173,16 @@ export default function CustomerCheckout() {
     try {
       let finalAddressId = addressId;
 
-      // Logic tạo tự động nếu người dùng chưa có Address nào
-      if (addresses.length === 0) {
-        if (!newLine1.trim()) {
-          pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng nhập địa chỉ giao hàng' });
-          setPlacing(false);
-          return;
-        }
-        
+      // Logic tạo tự động nếu người chọn thêm địa chỉ mới
+      if (isAddingNewAddress) {
         // Gọi API tạo địa chỉ
         const newAddr = await apiPost('/api/v1/me/addresses', {
           label: 'Nhà',
-          recipientName: currentCustomer?.name || 'Khách hàng',
+          recipientName: newRecipientName.trim(),
           recipientPhone: phone.trim(),
           line1: newLine1.trim(),
-          city: newCity.trim(),
+          ward: selectedWardName,
+          city: selectedProvinceName,
           deliveryNote: note
         });
         finalAddressId = newAddr.id;
@@ -190,60 +247,161 @@ export default function CustomerCheckout() {
         <div className="mt-base grid gap-base md:mt-xl md:gap-xl lg:grid-cols-[1fr_360px]">
           <div className="flex flex-col gap-base">
           <Card padded>
-            <div className="mb-sm text-title-md text-ink">Giao đến</div>
+            <div className="mb-sm flex items-center justify-between">
+              <div className="text-title-md text-ink">Giao đến</div>
+              {addresses.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  onClick={() => setIsAddingNewAddress(!isAddingNewAddress)}
+                >
+                  {isAddingNewAddress ? 'Chọn địa chỉ đã lưu' : 'Thêm địa chỉ mới'}
+                </Button>
+              )}
+            </div>
             <div className="flex flex-col gap-xs">
               {loadingAddresses ? (
                 <div className="text-body-sm text-body px-2">Đang tải địa chỉ...</div>
-              ) : addresses.length === 0 ? (
-                <>
-                  {/* Form nhỏ điền nhanh địa chỉ khi chưa có cái nào */}
-                  <Input
-                    leadingIcon="pin"
-                    placeholder="Địa chỉ nhận hàng (Ví dụ: 123 Lê Lợi)"
-                    value={newLine1}
-                    onChange={(e) => setNewLine1(e.target.value)}
-                  />
-                  <Input
-                    leadingIcon="map"
-                    placeholder="Thành phố"
-                    value={newCity}
-                    onChange={(e) => setNewCity(e.target.value)}
-                    hint="Chỉ hỗ trợ TP. Hồ Chí Minh"
-                  />
-                </>
-              ) : (
-                <select
-                  className="flex h-11 w-full items-center rounded-md border border-hairline-strong bg-surface bg-transparent px-3 text-body-base text-ink placeholder:text-body focus:border-ink hover:border-ink focus:outline-none"
-                  value={addressId || ''}
-                  onChange={(e) => setAddressId(Number(e.target.value))}
-                >
-                  {addresses.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.label ? `[${a.label}] ` : ''}{a.line1}, {a.city}
-                    </option>
-                  ))}
-                </select>
-              )}
+              ) : isAddingNewAddress ? (
+                <div className="flex flex-col gap-sm mt-2">
+                  <div className="grid grid-cols-2 gap-sm">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Tên người nhận</label>
+                      <Input
+                        leadingIcon="user"
+                        placeholder="Nhập tên người nhận"
+                        value={newRecipientName}
+                        onChange={(e) => {
+                          setNewRecipientName(e.target.value);
+                          if (recipientNameError) setRecipientNameError('');
+                        }}
+                        error={recipientNameError}
+                      />
+                    </div>
+                    
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Số điện thoại</label>
+                      <Input
+                        leadingIcon="phone"
+                        placeholder="Số điện thoại"
+                        value={phone}
+                        onChange={(e) => {
+                          setPhone(e.target.value);
+                          if (phoneError) setPhoneError('');
+                        }}
+                        error={phoneError}
+                      />
+                    </div>
+                  </div>
 
-              <Input
-                leadingIcon="phone"
-                placeholder="Số điện thoại"
-                aria-label="Số điện thoại"
-                value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value);
-                  if (phoneError) setPhoneError('');
-                }}
-                error={phoneError}
-                hint="Tài xế có thể gọi số này để giao hàng."
-              />
-              <Textarea
-                id="checkout-note"
-                placeholder="Ghi chú giao hàng (không bắt buộc). Mã cổng, lối vào tòa nhà, hướng dẫn nhận hàng…"
-                aria-label="Ghi chú giao hàng"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
+                  <div className="grid grid-cols-2 gap-sm">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Tỉnh/Thành phố</label>
+                      <select
+                        className={`flex h-11 w-full items-center rounded-md border ${provinceError ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none`}
+                        value={selectedProvinceCode}
+                        onChange={(e) => {
+                          setSelectedProvinceCode(e.target.value);
+                          setSelectedProvinceName(e.target.options[e.target.selectedIndex].text);
+                          if (provinceError) setProvinceError('');
+                        }}
+                      >
+                        <option value="">Chọn Tỉnh/Thành phố</option>
+                        {provinces.map((p) => (
+                          <option key={p.code} value={p.code}>{p.name}</option>
+                        ))}
+                      </select>
+                      {provinceError && <div className="text-xs text-red-500 mt-1">{provinceError}</div>}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Phường/Xã</label>
+                      <select
+                        className={`flex h-11 w-full items-center rounded-md border ${wardError ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
+                        value={selectedWardCode}
+                        onChange={(e) => {
+                          setSelectedWardCode(e.target.value);
+                          setSelectedWardName(e.target.options[e.target.selectedIndex].text);
+                          if (wardError) setWardError('');
+                        }}
+                        disabled={!selectedProvinceCode}
+                      >
+                        <option value="">Chọn Phường/Xã</option>
+                        {wards.map((w) => (
+                          <option key={w.code} value={w.code}>{w.name}</option>
+                        ))}
+                      </select>
+                      {wardError && <div className="text-xs text-red-500 mt-1">{wardError}</div>}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Địa chỉ cụ thể</label>
+                    <Input
+                      leadingIcon="pin"
+                      placeholder="Ví dụ: 123 Lê Lợi"
+                      value={newLine1}
+                      onChange={(e) => {
+                        setNewLine1(e.target.value);
+                        if (line1Error) setLine1Error('');
+                      }}
+                      error={line1Error}
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Ghi chú giao hàng</label>
+                    <Textarea
+                      id="checkout-note"
+                      placeholder="Không bắt buộc. Mã cổng, lối vào tòa nhà..."
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-sm">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Địa chỉ giao hàng</label>
+                    <select
+                      className="flex h-11 w-full items-center rounded-md border border-hairline-strong bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none"
+                      value={addressId || ''}
+                      onChange={(e) => setAddressId(Number(e.target.value))}
+                    >
+                      {addresses.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.label ? `[${a.label}] ` : ''}{a.line1}, {a.ward ? `${a.ward}, ` : ''}{a.district ? `${a.district}, ` : ''}{a.city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Số điện thoại</label>
+                    <Input
+                      leadingIcon="phone"
+                      placeholder="Số điện thoại"
+                      value={phone}
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (phoneError) setPhoneError('');
+                      }}
+                      error={phoneError}
+                      hint="Tài xế sẽ gọi số này khi giao tới."
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Ghi chú mở rộng</label>
+                    <Textarea
+                      id="checkout-note"
+                      placeholder="Ghi chú giao hàng (không bắt buộc)..."
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
 
