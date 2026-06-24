@@ -18,7 +18,7 @@ import { useRestaurantReviews } from '../../hooks/useRestaurantReviews.js';
 export default function CustomerRestaurant() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { addToCart, setCartOpen, pushToast } = useApp();
+  const { addToCart, setCartOpen, pushToast, shopAsCustomer, customerCartRestriction } = useApp();
   const [cat, setCat] = useState('Tất cả');
 
   const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantDetail(id);
@@ -247,8 +247,17 @@ export default function CustomerRestaurant() {
                 <MenuCard
                   key={item.id}
                   item={item}
-                  disabled={!isOpen}
+                  disabled={!isOpen || !shopAsCustomer}
                   onAdd={() => {
+                    if (!shopAsCustomer) {
+                      pushToast({
+                        kind: 'warning',
+                        title: customerCartRestriction?.title ?? 'Không thể đặt món',
+                        message: customerCartRestriction?.message ?? 'Tài khoản này không thể đặt hàng.',
+                        duration: 4200,
+                      });
+                      return;
+                    }
                     if (!isOpen) {
                       pushToast({
                         kind: 'error',

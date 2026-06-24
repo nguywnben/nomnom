@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   initialOrders,
@@ -11,6 +11,7 @@ import {
 } from '../data/mock.js';
 import { formatVnd } from '../lib/formatVnd.js';
 import { buildPermittedRoles } from '../lib/auth.js';
+import { canShopAsCustomer, getCustomerCartRestriction } from '../lib/customerCart.js';
 import { clearTokens, hasStoredSession, saveTokens } from '../lib/authStorage.js';
 import {
   addCartItemApi,
@@ -44,8 +45,20 @@ export function AppProvider({ children }) {
     [user],
   );
 
+  const shopAsCustomer = useMemo(
+    () => canShopAsCustomer(user, permittedRoles),
+    [permittedRoles, user],
+  );
+
+  const customerCartRestriction = useMemo(
+    () => getCustomerCartRestriction(user, permittedRoles),
+    [permittedRoles, user],
+  );
+
+  const cartHydratedKey = useRef(null);
+
   const currentCustomer = useMemo(() => {
-    if (!user || !permittedRoles.customer) return null;
+    if (!user || !shopAsCustomer) return null;
     return {
       id: String(user.id),
       name: user.fullName,
@@ -54,7 +67,7 @@ export function AppProvider({ children }) {
       avatar: user.avatarUrl,
       address: '',
     };
-  }, [user, permittedRoles.customer]);
+  }, [user, shopAsCustomer]);
 
   const currentDriver = useMemo(() => {
     if (!user || !permittedRoles.driver) return null;
@@ -207,6 +220,17 @@ export function AppProvider({ children }) {
 
   const addToCart = useCallback(
     async (restaurantId, item, qty = 1, restaurantMeta = {}) => {
+      if (user && !permittedRoles.customer) {
+        const restriction = getCustomerCartRestriction(user, permittedRoles);
+        pushToast({
+          kind: 'warning',
+          title: restriction?.title ?? 'Không thể đặt món',
+          message: restriction?.message ?? 'Tài khoản này không thể sử dụng giỏ hàng khách hàng.',
+          duration: 4200,
+        });
+        return null;
+      }
+
       const nextRestaurantName = item.restaurantName ?? restaurantMeta.restaurantName ?? restaurantMeta.name ?? null;
       const nextRestaurantLogo = item.restaurantLogo ?? restaurantMeta.restaurantLogo ?? restaurantMeta.logo ?? null;
       const nextBaseDeliveryFee = Number(
@@ -379,6 +403,8 @@ export function AppProvider({ children }) {
 
   const setItemQty = useCallback(
     async (itemId, qty, note) => {
+      if (user && !permittedRoles.customer) return null;
+
       const quantity = Math.max(0, Math.trunc(Number(qty) || 0));
       if (permittedRoles.customer && user) {
         setSyncing(true);
@@ -427,6 +453,8 @@ export function AppProvider({ children }) {
 
   const removeFromCart = useCallback(
     async (itemId) => {
+      if (user && !permittedRoles.customer) return null;
+
       if (permittedRoles.customer && user) {
         setSyncing(true);
         try {
@@ -452,6 +480,11 @@ export function AppProvider({ children }) {
   );
 
   const clearCart = useCallback(async () => {
+    if (user && !permittedRoles.customer) {
+      resetCartState();
+      return;
+    }
+
     if (permittedRoles.customer && user) {
       setSyncing(true);
       try {
@@ -461,10 +494,15 @@ export function AppProvider({ children }) {
       }
     }
     resetCartState();
+    if (!user) {
+      clearGuestCart();
+    }
   }, [permittedRoles.customer, resetCartState, user]);
 
   const applyPromo = useCallback(
     (code) => {
+      if (user && !permittedRoles.customer) return false;
+
       const c = promoCodes.find((p) => p.code.toLowerCase() === code.trim().toLowerCase());
       if (!c) {
         pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
@@ -474,7 +512,7 @@ export function AppProvider({ children }) {
       pushToast({ kind: 'success', title: 'Đã áp dụng khuyến mãi', message: c.label });
       return true;
     },
-    [pushToast],
+    [permittedRoles.customer, pushToast, user],
   );
 
   // ---- Order placement (customer) ----
@@ -644,24 +682,53 @@ export function AppProvider({ children }) {
 
     let cancelled = false;
     (async () => {
-      if (!user || !permittedRoles.customer) {
-        if (!user) {
-          const guest = loadGuestCart();
-          if (!cancelled) {
-            setCart(guest ? normalizeCart(guest) : emptyCart());
-            setAppliedPromo(null);
-          }
-        } else {
+      if (!user) {
+        if (cartHydratedKey.current === 'guest') return;
+        cartHydratedKey.current = 'guest';
+        const guest = loadGuestCart();
+        if (!cancelled) {
+          setCart(guest ? normalizeCart(guest) : emptyCart());
+          setAppliedPromo(null);
+        }
+        return;
+      }
+
+      if (!permittedRoles.customer) {
+        const blockedKey = `blocked:${user.id}`;
+        if (cartHydratedKey.current === blockedKey) return;
+        cartHydratedKey.current = blockedKey;
+        if (!cancelled) {
           resetCartState();
         }
         return;
       }
 
+      const hydrationKey = `customer:${user.id}`;
+      if (cartHydratedKey.current === hydrationKey) return;
+      cartHydratedKey.current = hydrationKey;
+
       setSyncing(true);
       try {
         const guest = loadGuestCart();
         if (guest?.items?.length) {
-          for (const item of guest.items) {
+          const guestRestaurantId = guest.restaurantId;
+          const itemsToMerge = guestRestaurantId
+            ? guest.items.filter(
+                (item) =>
+                  !item.restaurantId || String(item.restaurantId) === String(guestRestaurantId),
+              )
+            : guest.items;
+
+          if (itemsToMerge.length < guest.items.length) {
+            pushToast({
+              kind: 'warning',
+              title: 'Một phần giỏ khách không được gộp',
+              message: 'Chỉ gộp món cùng quán. Các món quán khác đã được bỏ qua.',
+              duration: 3600,
+            });
+          }
+
+          for (const item of itemsToMerge) {
             const menuItemId = Number(item.menuItemId ?? item.id);
             if (!menuItemId) continue;
             await addCartItemApi({
@@ -690,7 +757,7 @@ export function AppProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [authReady, emptyCart, normalizeCart, permittedRoles.customer, resetCartState, user]);
+  }, [authReady, emptyCart, normalizeCart, permittedRoles.customer, pushToast, resetCartState, user]);
 
   useEffect(() => {
     if (!authReady || user) return undefined;
@@ -731,11 +798,15 @@ export function AppProvider({ children }) {
 
   const logout = useCallback(
     async ({ redirectTo = '/app', silent = false } = {}) => {
+      const hadCustomerCart = Boolean(user && permittedRoles.customer);
       await logoutApi().catch(() => {});
       clearTokens();
+      cartHydratedKey.current = null;
       setUser(null);
       setRole('customer');
-      resetCartState();
+      if (hadCustomerCart) {
+        resetCartState();
+      }
       if (!silent) {
         pushToast({
           kind: 'info',
@@ -746,7 +817,7 @@ export function AppProvider({ children }) {
       }
       navigate(redirectTo, { replace: true });
     },
-    [navigate, pushToast, resetCartState],
+    [navigate, permittedRoles.customer, pushToast, resetCartState, user],
   );
 
   const grantCurrentUserRole = useCallback((nextRole) => {
@@ -805,6 +876,8 @@ export function AppProvider({ children }) {
     logout,
     grantCurrentUserRole,
     permittedRoles,
+    shopAsCustomer,
+    customerCartRestriction,
 
     cart,
     cartOpen,

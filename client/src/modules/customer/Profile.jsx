@@ -41,6 +41,16 @@ export default function CustomerProfile() {
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
   const activeCount = orders.filter((o) => !['delivered', 'cancelled', 'failed'].includes(o.status)).length;
 
+  const profile = user
+    ? (currentCustomer ?? {
+        name: user.fullName,
+        email: user.email ?? '',
+        phone: user.phone ?? '',
+        avatar: user.avatarUrl,
+        address: '',
+      })
+    : null;
+
   return (
     <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
       <div className="md:mb-base">
@@ -52,11 +62,11 @@ export default function CustomerProfile() {
       <Card padded className="flex items-center gap-sm">
         {user ? (
           <>
-            <Avatar src={currentCustomer.avatar} name={currentCustomer.name} size="xl" />
+            <Avatar src={profile.avatar} name={profile.name} size="xl" />
             <div className="flex-1 min-w-0">
-              <div className="text-title-md text-ink truncate">{currentCustomer.name}</div>
-              <div className="text-caption text-body truncate">{currentCustomer.email}</div>
-              <div className="text-caption text-body truncate">{currentCustomer.phone}</div>
+              <div className="text-title-md text-ink truncate">{profile.name}</div>
+              <div className="text-caption text-body truncate">{profile.email}</div>
+              <div className="text-caption text-body truncate">{profile.phone}</div>
             </div>
             <Link to="/app/profile/edit" aria-label="Chỉnh sửa hồ sơ">
               <Button size="sm" variant="secondary" leadingIcon="edit">
@@ -94,7 +104,7 @@ export default function CustomerProfile() {
               <div className="flex-1 min-w-0">
                 <div className="text-caption-uppercase text-body">Địa chỉ mặc định</div>
                 <div className="text-body-sm font-semibold text-ink truncate">
-                  {currentCustomer.address}
+                  {profile.address || 'Chưa có địa chỉ mặc định'}
                 </div>
               </div>
               <Icon name="chevronRight" size={14} className="text-body" />

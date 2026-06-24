@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import clsx from 'clsx';
-import Button from '../../components/Button.jsx';
-import Card from '../../components/Card.jsx';
-import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
+import {
+  BANK_OPTIONS,
+  OnboardingFileBox,
+  OnboardingFormCard,
+  OnboardingInfoBanner,
+  OnboardingBlocked,
+  OnboardingLoading,
+  OnboardingProgress,
+  OnboardingReviewRow,
+  OnboardingShell,
+  OnboardingStepHeader,
+  OnboardingStepNav,
+  OnboardingStepper,
+} from '../../components/onboarding/shared.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { applyMerchantApi, fetchMe, fetchCuisinesApi } from '../../lib/api.js';
+import { applyMerchantApi, fetchMe, fetchCuisinesApi, fetchMerchantRestaurantApi } from '../../lib/api.js';
 import { uploadFile } from '../../lib/upload.js';
 
 // Onboarding cho chủ quán — gom toàn bộ trường KYC khớp với bảng `restaurants`:
@@ -32,6 +42,9 @@ export default function MerchantOnboarding() {
   const { pushToast, setUser, setRole } = useApp();
   const [stepIdx, setStepIdx] = useState(0);
   const [cuisines, setCuisines] = useState([]);
+  const [checkingRestaurant, setCheckingRestaurant] = useState(true);
+  const [applyBlockedReason, setApplyBlockedReason] = useState(null);
+  const [isResubmit, setIsResubmit] = useState(false);
 
   const {
     register,
@@ -68,22 +81,82 @@ export default function MerchantOnboarding() {
   });
 
   useEffect(() => {
-    async function loadCuisines() {
+    let active = true;
+
+    async function bootstrap() {
       try {
-        const res = await fetchCuisinesApi();
-        if (res?.data) {
-          const list = res.data.map(c => ({ value: String(c.id), label: c.name }));
-          setCuisines(list);
-          if (list.length > 0) {
+        const [cuisineRes, merchantRes, meRes] = await Promise.all([
+          fetchCuisinesApi().catch(() => null),
+          fetchMerchantRestaurantApi().catch(() => null),
+          fetchMe().catch(() => null),
+        ]);
+
+        if (!active) return;
+
+        if (meRes?.user) {
+          setUser(meRes.user);
+          setRole(meRes.user.primaryRole);
+        }
+
+        const partnerAccess = meRes?.user?.partnerAccess;
+        if (partnerAccess && !partnerAccess.canApplyMerchant) {
+          setApplyBlockedReason(partnerAccess.merchantApplyBlockReason);
+        }
+
+        const list = cuisineRes?.data?.map((c) => ({ value: String(c.id), label: c.name })) ?? [];
+        setCuisines(list);
+
+        const restaurant = merchantRes?.restaurant;
+        if (restaurant) {
+          if (restaurant.status === 'pending') {
+            nav('/merchant/pending', { replace: true });
+            return;
+          }
+          if (restaurant.status === 'active') {
+            nav('/merchant', { replace: true });
+            return;
+          }
+
+          // suspended / closed — cho phép chỉnh sửa và nộp lại
+          setIsResubmit(true);
+          setValue('name', restaurant.name ?? '');
+          setValue('phone', restaurant.phone ?? '');
+          setValue('tagline', restaurant.tagline ?? '');
+          setValue('description', restaurant.description ?? '');
+          setValue('addressLine', restaurant.address_line ?? '');
+          setValue('ward', restaurant.ward ?? '');
+          setValue('district', restaurant.district ?? '');
+          setValue('city', restaurant.city ?? 'TP. Hồ Chí Minh');
+          setValue('baseDeliveryFee', Number(restaurant.base_delivery_fee ?? 25000));
+          setValue('minOrderAmount', Number(restaurant.min_order_amount ?? 50000));
+          setValue('avgPrepTime', Number(restaurant.avg_prep_time_min ?? 20));
+          setValue('logoUrl', restaurant.logo_url ?? '');
+          setValue('bannerUrl', restaurant.banner_url ?? '');
+          setValue('licenseUrl', restaurant.business_license_url ?? '');
+          setValue('foodSafetyUrl', restaurant.food_safety_cert_url ?? '');
+          setValue('bankName', restaurant.bank_name ?? 'Vietcombank');
+          setValue('bankAccountNo', restaurant.bank_account_no ?? '');
+          setValue('bankAccountHolder', restaurant.bank_account_holder ?? '');
+          if (restaurant.cuisine_id && list.some((c) => c.value === String(restaurant.cuisine_id))) {
+            setValue('cuisine', String(restaurant.cuisine_id));
+          } else if (list.length > 0) {
             setValue('cuisine', list[0].value);
           }
+        } else if (list.length > 0) {
+          setValue('cuisine', list[0].value);
         }
       } catch (err) {
-        console.error('Lỗi lấy danh sách ẩm thực:', err);
+        console.error('Lỗi khởi tạo đăng ký quán:', err);
+      } finally {
+        if (active) setCheckingRestaurant(false);
       }
     }
-    loadCuisines();
-  }, [setValue]);
+
+    bootstrap();
+    return () => {
+      active = false;
+    };
+  }, [nav, setRole, setUser, setValue]);
 
   const [files, setFiles] = useState({
     logoFile: null,
@@ -103,7 +176,39 @@ export default function MerchantOnboarding() {
 
   const step = STEPS[stepIdx];
 
+  if (checkingRestaurant) {
+    return <OnboardingLoading message="Đang kiểm tra hồ sơ quán…" />;
+  }
+
+  if (applyBlockedReason) {
+    return (
+      <OnboardingBlocked
+        title="Không thể đăng ký quán"
+        message={applyBlockedReason}
+        backHref="/app"
+        backLabel="Về trang đặt món"
+      />
+    );
+  }
+
   const back = () => setStepIdx((i) => Math.max(i - 1, 0));
+
+  const goToStep = async (targetIdx) => {
+    if (targetIdx < stepIdx) {
+      setStepIdx(targetIdx);
+      return;
+    }
+    if (targetIdx === stepIdx) return;
+
+    for (let j = stepIdx; j < targetIdx; j++) {
+      const isValid = await trigger(STEP_FIELDS[STEPS[j].id]);
+      if (!isValid) {
+        setStepIdx(j);
+        return;
+      }
+    }
+    setStepIdx(targetIdx);
+  };
 
   const handleFileChange = async (key, file) => {
     if (!file) return;
@@ -191,6 +296,16 @@ export default function MerchantOnboarding() {
       nav('/merchant/pending', { replace: true });
     } catch (err) {
       const msg = err.message || '';
+      if (msg.includes('đang chờ xét duyệt')) {
+        pushToast({
+          kind: 'warning',
+          title: 'Hồ sơ đang chờ duyệt',
+          message: 'Bạn không thể gửi thêm hồ sơ mới khi đơn đang được xem xét.',
+          duration: 5000,
+        });
+        nav('/merchant/pending', { replace: true });
+        return;
+      }
       if (msg.includes('Số điện thoại') || msg.includes('phone')) {
         setError('phone', { type: 'manual', message: 'Số điện thoại này đã được một nhà hàng khác sử dụng.' });
         setStepIdx(0); // Quay về step 1
@@ -213,73 +328,20 @@ export default function MerchantOnboarding() {
   const formValues = watch();
 
   return (
-    <div className="container-page py-xl">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-base">
-          <div className="text-caption-uppercase text-body">Đối tác NomNom</div>
-          <h1 className="text-display-md text-ink md:text-display-lg">Đăng ký quán ăn</h1>
-          <p className="mt-xs text-body-md text-body">
-            Hoàn tất 5 bước để hồ sơ quán được xét duyệt. Bạn có thể quay lại sửa trước khi gửi.
-          </p>
-        </div>
+    <OnboardingShell
+      eyebrow="Đối tác NomNom"
+      title={isResubmit ? 'Cập nhật hồ sơ quán' : 'Đăng ký quán ăn'}
+      subtitle={
+        isResubmit
+          ? 'Chỉnh sửa thông tin theo phản hồi từ NomNom và gửi lại hồ sơ để được xét duyệt.'
+          : 'Hoàn tất 5 bước để hồ sơ quán được xét duyệt. Bạn có thể quay lại sửa trước khi gửi.'
+      }
+    >
+      <OnboardingProgress stepIdx={stepIdx} totalSteps={STEPS.length} />
+      <OnboardingStepper steps={STEPS} stepIdx={stepIdx} onStepClick={goToStep} />
 
-        {/* Stepper */}
-        <div className="mb-base overflow-x-auto no-scrollbar">
-          <ol className="flex min-w-max items-center gap-2">
-            {STEPS.map((s, i) => {
-              const done = i < stepIdx;
-              const current = i === stepIdx;
-              return (
-                <li key={s.id} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (i < stepIdx) {
-                        setStepIdx(i);
-                      } else if (i === stepIdx) {
-                        // Stay
-                      } else {
-                        // Check validation of intermediate steps
-                        let canAdvance = true;
-                        for (let j = stepIdx; j < i; j++) {
-                          const isValid = await trigger(STEP_FIELDS[STEPS[j].id]);
-                          if (!isValid) {
-                            canAdvance = false;
-                            setStepIdx(j);
-                            break;
-                          }
-                        }
-                        if (canAdvance) {
-                          setStepIdx(i);
-                        }
-                      }
-                    }}
-                    className={
-                      'inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-caption transition-colors ' +
-                      (current
-                        ? 'border-ink bg-primary text-on-primary'
-                        : done
-                          ? 'border-hairline-strong bg-canvas-soft text-ink'
-                          : 'border-hairline-strong bg-surface-card text-body')
-                    }
-                  >
-                    <Icon name={done ? 'check' : s.icon} size={12} />
-                    {i + 1}. {s.label}
-                  </button>
-                  {i < STEPS.length - 1 && (
-                    <span className="h-px w-6 bg-hairline-strong" aria-hidden />
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-
-        <Card padded className="space-y-base">
-          <div>
-            <h2 className="text-display-sm text-ink">{step.label}</h2>
-            <p className="text-body-sm text-body">Bước {stepIdx + 1} trên {STEPS.length}</p>
-          </div>
+      <OnboardingFormCard>
+        <OnboardingStepHeader label={step.label} stepIdx={stepIdx} totalSteps={STEPS.length} />
 
           {step.id === 'info' && (
             <div className="grid gap-sm md:grid-cols-2">
@@ -426,11 +488,10 @@ export default function MerchantOnboarding() {
                   min: { value: 0, message: 'Phí giao hàng cơ bản phải lớn hơn hoặc bằng 0.' }
                 })}
               />
-              <div className="md:col-span-2 rounded-md border border-dashed border-hairline-strong bg-canvas-soft p-base text-center">
-                <Icon name="pin" size={18} className="mx-auto text-body" />
-                <p className="mt-1 text-body-sm text-body">
+              <div className="md:col-span-2">
+                <OnboardingInfoBanner>
                   Hệ thống tự động xác định kinh độ & vĩ độ dựa trên thông tin địa chỉ quán của bạn.
-                </p>
+                </OnboardingInfoBanner>
               </div>
             </div>
           )}
@@ -442,7 +503,7 @@ export default function MerchantOnboarding() {
               <input type="hidden" {...register('licenseUrl', { required: 'Vui lòng tải lên ảnh chụp giấy phép kinh doanh.' })} />
               <input type="hidden" {...register('foodSafetyUrl')} />
 
-              <FileBox
+              <OnboardingFileBox
                 title="Ảnh đại diện (Logo)"
                 required
                 hint="Định dạng JPEG, PNG dưới 5 MB."
@@ -452,7 +513,7 @@ export default function MerchantOnboarding() {
                 onChange={(f) => handleFileChange('logo', f)}
                 error={errors.logoUrl?.message}
               />
-              <FileBox
+              <OnboardingFileBox
                 title="Ảnh bìa (Banner)"
                 required
                 hint="Định dạng JPEG, PNG dưới 5 MB."
@@ -462,7 +523,7 @@ export default function MerchantOnboarding() {
                 onChange={(f) => handleFileChange('banner', f)}
                 error={errors.bannerUrl?.message}
               />
-              <FileBox
+              <OnboardingFileBox
                 title="Giấy phép kinh doanh"
                 required
                 hint="Ảnh chụp rõ nội dung, dưới 5 MB."
@@ -472,7 +533,7 @@ export default function MerchantOnboarding() {
                 onChange={(f) => handleFileChange('license', f)}
                 error={errors.licenseUrl?.message}
               />
-              <FileBox
+              <OnboardingFileBox
                 title="Chứng nhận VSATTP"
                 hint="Tùy chọn. Ảnh chụp rõ nội dung."
                 file={files.foodSafetyFile}
@@ -491,17 +552,7 @@ export default function MerchantOnboarding() {
                 label="Ngân hàng thụ hưởng"
                 required
                 aria-label="Ngân hàng"
-                options={[
-                  'Vietcombank',
-                  'Techcombank',
-                  'BIDV',
-                  'VietinBank',
-                  'ACB',
-                  'MB Bank',
-                  'TPBank',
-                  'VPBank',
-                  'Sacombank',
-                ].map((b) => ({ value: b, label: b }))}
+                options={BANK_OPTIONS}
                 error={errors.bankName?.message}
                 {...register('bankName', { required: 'Vui lòng chọn ngân hàng thụ hưởng.' })}
               />
@@ -538,91 +589,31 @@ export default function MerchantOnboarding() {
 
           {step.id === 'review' && (
             <div className="space-y-sm">
-              <ReviewRow label="Tên quán" value={formValues.name || '—'} />
-              <ReviewRow label="Loại ẩm thực" value={cuisines.find((c) => c.value === formValues.cuisine)?.label || '—'} />
-              <ReviewRow label="Địa chỉ" value={[formValues.addressLine, formValues.ward, formValues.district, formValues.city].filter(Boolean).join(', ') || '—'} />
-              <ReviewRow label="Logo" value={formValues.logoUrl ? 'Đã tải lên' : '— (chưa tải)'} />
-              <ReviewRow label="Ảnh bìa" value={formValues.bannerUrl ? 'Đã tải lên' : '— (chưa tải)'} />
-              <ReviewRow label="Giấy phép kinh doanh" value={formValues.licenseUrl ? 'Đã tải lên' : '— (chưa tải)'} />
-              <ReviewRow label="Chứng nhận VSATTP" value={formValues.foodSafetyUrl ? 'Đã tải lên' : 'Chưa cung cấp (Tùy chọn)'} />
-              <ReviewRow label="Ngân hàng" value={formValues.bankName} />
-              <ReviewRow label="Số tài khoản" value={formValues.bankAccountNo || '—'} />
-              <ReviewRow label="Chủ tài khoản" value={formValues.bankAccountHolder || '—'} />
+              <OnboardingReviewRow label="Tên quán" value={formValues.name || '—'} />
+              <OnboardingReviewRow label="Loại ẩm thực" value={cuisines.find((c) => c.value === formValues.cuisine)?.label || '—'} />
+              <OnboardingReviewRow label="Địa chỉ" value={[formValues.addressLine, formValues.ward, formValues.district, formValues.city].filter(Boolean).join(', ') || '—'} />
+              <OnboardingReviewRow label="Logo" value={formValues.logoUrl ? 'Đã tải lên' : '— (chưa tải)'} />
+              <OnboardingReviewRow label="Ảnh bìa" value={formValues.bannerUrl ? 'Đã tải lên' : '— (chưa tải)'} />
+              <OnboardingReviewRow label="Giấy phép kinh doanh" value={formValues.licenseUrl ? 'Đã tải lên' : '— (chưa tải)'} />
+              <OnboardingReviewRow label="Chứng nhận VSATTP" value={formValues.foodSafetyUrl ? 'Đã tải lên' : 'Chưa cung cấp (Tùy chọn)'} />
+              <OnboardingReviewRow label="Ngân hàng" value={formValues.bankName} />
+              <OnboardingReviewRow label="Số tài khoản" value={formValues.bankAccountNo || '—'} />
+              <OnboardingReviewRow label="Chủ tài khoản" value={formValues.bankAccountHolder || '—'} />
               <p className="text-caption text-body">
                 Sau khi gửi, hồ sơ chuyển sang trạng thái <span className="font-semibold text-ink">Chờ duyệt</span>. Bạn có thể theo dõi tiến trình tại trang Chờ duyệt.
               </p>
             </div>
           )}
 
-          <div className="flex flex-col gap-2 border-t border-hairline pt-base md:flex-row md:justify-between">
-            <Button variant="secondary" onClick={back} disabled={stepIdx === 0 || submitting}>
-              Quay lại
-            </Button>
-            {stepIdx < STEPS.length - 1 ? (
-              <Button onClick={handleNext} trailingIcon="arrowRight">
-                Tiếp tục
-              </Button>
-            ) : (
-              <Button onClick={onSubmit} disabled={submitting} trailingIcon="check">
-                {submitting ? 'Đang gửi hồ sơ...' : 'Gửi hồ sơ'}
-              </Button>
-            )}
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function FileBox({ title, hint, file, url, uploading, onChange, error, required }) {
-  return (
-    <div className="flex flex-col gap-xxs">
-      <label className={clsx(
-        "relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed p-base text-center transition-colors min-h-[150px]",
-        error ? "border-error bg-[#fbeaea] hover:bg-[#fae2e2]" : "border-hairline-strong bg-canvas-soft hover:bg-canvas"
-      )}>
-        {uploading ? (
-          <div className="flex flex-col items-center gap-1.5 py-sm">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-caption text-body">Đang tải lên...</span>
-          </div>
-        ) : url ? (
-          <div className="space-y-1.5 py-xs">
-            <img src={url} alt={title} className="mx-auto max-h-[80px] rounded object-cover shadow-sm" />
-            <span className="block text-caption font-semibold text-ink truncate max-w-[200px]">{file?.name || 'Đã tải lên'}</span>
-            <span className="text-caption text-text-link">Thay đổi ảnh</span>
-          </div>
-        ) : (
-          <>
-            <Icon name="upload" size={20} className="text-body animate-pulse" />
-            <span className="text-body-sm font-medium text-ink">
-              {title}
-              {required && <span className="text-error ml-1">*</span>}
-            </span>
-            <span className="text-caption text-body">{hint}</span>
-          </>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          disabled={uploading}
-          onChange={(e) => {
-            const f = e.target.files?.[0] || null;
-            if (f) onChange(f);
-          }}
-        />
-      </label>
-      {error && <span className="text-caption text-error">{error}</span>}
-    </div>
-  );
-}
-
-function ReviewRow({ label, value }) {
-  return (
-    <div className="flex items-start justify-between gap-base border-b border-hairline pb-2 last:border-0">
-      <span className="text-caption-uppercase text-body">{label}</span>
-      <span className="text-body-sm text-ink text-right">{value}</span>
-    </div>
+          <OnboardingStepNav
+            stepIdx={stepIdx}
+            totalSteps={STEPS.length}
+            onBack={back}
+            onNext={handleNext}
+            onSubmit={onSubmit}
+            submitting={submitting}
+          />
+      </OnboardingFormCard>
+    </OnboardingShell>
   );
 }

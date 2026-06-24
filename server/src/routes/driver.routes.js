@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
+import {
+  loadPartnerAccess,
+  loadPartnerStatus,
+  assertCanApplyDriver,
+  assertCanResubmitRejectedDriver,
+} from '../lib/partnerAccess.js';
 
 const router = Router();
 
@@ -71,27 +77,34 @@ router.get('/me/profile', async (req, res, next) => {
 });
 
 router.post('/apply', async (req, res, next) => {
+  const userId = req.auth.userId;
+  const {
+    nationalId,
+    driverLicenseNo,
+    vehicleType,
+    vehicleModel,
+    licensePlate,
+    idCardUrl,
+    driverLicenseUrl,
+    portraitUrl,
+    bankAccountNo,
+    bankName,
+    bankAccountHolder,
+  } = req.body ?? {};
+
+  if (!nationalId || !driverLicenseNo || !vehicleType || !vehicleModel || !licensePlate || !idCardUrl || !driverLicenseUrl || !portraitUrl || !bankAccountNo || !bankName || !bankAccountHolder) {
+    return res.status(400).json({ error: 'Thiếu thông tin bắt buộc để đăng ký tài xế.' });
+  }
+
+  try {
+    const access = await loadPartnerAccess(pool, userId, req.auth.roles);
+    assertCanApplyDriver(access);
+  } catch (err) {
+    return next(err);
+  }
+
   const conn = await pool.getConnection();
   try {
-    const userId = req.auth.userId;
-    const {
-      nationalId,
-      driverLicenseNo,
-      vehicleType,
-      vehicleModel,
-      licensePlate,
-      idCardUrl,
-      driverLicenseUrl,
-      portraitUrl,
-      bankAccountNo,
-      bankName,
-      bankAccountHolder,
-    } = req.body ?? {};
-
-    if (!nationalId || !driverLicenseNo || !vehicleType || !vehicleModel || !licensePlate || !idCardUrl || !driverLicenseUrl || !portraitUrl || !bankAccountNo || !bankName || !bankAccountHolder) {
-      return res.status(400).json({ error: 'Thiếu thông tin bắt buộc để đăng ký tài xế.' });
-    }
-
     const existing = await loadDriverProfile(userId);
     if (existing) {
       if (existing.approval_status === 'rejected') {
@@ -165,6 +178,9 @@ router.patch('/me/profile', async (req, res, next) => {
     if (current.approval_status !== 'rejected') {
       return res.status(409).json({ error: 'Chỉ có thể sửa lại hồ sơ khi trạng thái là rejected.' });
     }
+
+    const partnerStatus = await loadPartnerStatus(pool, userId);
+    assertCanResubmitRejectedDriver(partnerStatus);
 
     const updates = [];
     const values = [];

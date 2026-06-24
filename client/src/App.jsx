@@ -101,20 +101,26 @@ export default function App() {
           <Route index element={<CustomerHome />} />
           <Route path="search" element={<CustomerSearch />} />
           <Route path="restaurant/:id" element={<CustomerRestaurant />} />
-          <Route path="checkout" element={<CustomerCheckout />} />
-          <Route path="checkout/vnpay/return" element={<VnpayReturn />} />
-          <Route path="order/success/:id" element={<CustomerOrderSuccess />} />
-          <Route path="orders" element={<CustomerOrders />} />
           <Route path="track/:id" element={<CustomerTracking />} />
-          <Route path="reviews/:id" element={<CustomerReviews />} />
-          <Route path="notifications" element={<CustomerNotifications />} />
-          <Route path="profile" element={<CustomerProfile />} />
-          <Route path="profile/edit" element={<CustomerProfileEdit />} />
-          <Route path="profile/addresses" element={<CustomerProfileAddresses />} />
-          <Route path="profile/payments" element={<CustomerProfilePayments />} />
-          <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
-          <Route path="profile/notifications" element={<CustomerProfileNotifications />} />
-          <Route path="profile/settings" element={<CustomerProfileSettings />} />
+
+          <Route element={<RequireAuth role="customer" />}>
+            <Route path="checkout" element={<CustomerCheckout />} />
+            <Route path="checkout/vnpay/return" element={<VnpayReturn />} />
+            <Route path="order/success/:id" element={<CustomerOrderSuccess />} />
+            <Route path="orders" element={<CustomerOrders />} />
+            <Route path="profile/addresses" element={<CustomerProfileAddresses />} />
+            <Route path="profile/payments" element={<CustomerProfilePayments />} />
+            <Route path="profile/notifications" element={<CustomerProfileNotifications />} />
+          </Route>
+
+          <Route element={<RequireAuth />}>
+            <Route path="reviews/:id" element={<CustomerReviews />} />
+            <Route path="notifications" element={<CustomerNotifications />} />
+            <Route path="profile" element={<CustomerProfile />} />
+            <Route path="profile/edit" element={<CustomerProfileEdit />} />
+            <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
+            <Route path="profile/settings" element={<CustomerProfileSettings />} />
+          </Route>
         </Route>
 
         {/* Merchant onboarding/pending — không dùng layout chính, chỉ yêu cầu đăng nhập */}

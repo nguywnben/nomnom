@@ -46,7 +46,7 @@ const MOODS = [
 export default function CustomerHome() {
   const nav = useNavigate();
   const { deliveryLocalityLine } = useOutletContext() ?? {};
-  const { orders, addToCart, setCartOpen } = useApp();
+  const { orders, addToCart, setCartOpen, shopAsCustomer } = useApp();
   const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories();
   const { promos, loading: promosLoading, error: promosError } = useHomePromos();
   const exploreScroll = useHorizontalDragScroll();
@@ -325,9 +325,11 @@ export default function CustomerHome() {
               key={d.id}
               dish={d}
               onAdd={() => {
+                if (!shopAsCustomer) return;
                 addToCart(d.restaurantId, d, 1, { baseDeliveryFee: d.fee, restaurantName: d.restaurantName, restaurantLogo: d.restaurantLogo });
                 setCartOpen(true);
               }}
+              addDisabled={!shopAsCustomer}
             />
           ))}
         </div>
@@ -546,13 +548,14 @@ function RestaurantCard({ restaurant: r }) {
   );
 }
 
-function DishCard({ dish, onAdd }) {
+function DishCard({ dish, onAdd, addDisabled = false }) {
   return (
     <div className="w-[240px] shrink-0">
       <div className="group relative overflow-hidden rounded-lg border border-hairline-strong bg-surface-card">
         <Link to={`/app/restaurant/${dish.restaurantId}`} aria-label={`Open ${dish.restaurantName}`}>
           <Image src={dish.image} alt={dish.name} ratio="1" className="w-full transition-transform group-hover:scale-105" />
         </Link>
+        {!addDisabled && (
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -563,6 +566,7 @@ function DishCard({ dish, onAdd }) {
         >
           <Icon name="plus" size={16} />
         </button>
+        )}
       </div>
       <div className="mt-2">
         <div className="flex items-start justify-between gap-2">

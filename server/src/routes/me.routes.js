@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { requireAuth } from '../middleware/auth.js';
 import db from '../db/pool.js';
 import { normalizeRoles } from '../lib/roles.js';
+import { loadPartnerAccess } from '../lib/partnerAccess.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -12,7 +13,8 @@ async function loadRoles(userId) {
   return rows.map((r) => r.role);
 }
 
-function serializeUser(row, roles) {
+async function serializeUser(row, roles) {
+  const partnerAccess = await loadPartnerAccess(db, row.id, roles);
   return {
     id: row.id,
     email: row.email,
@@ -23,6 +25,7 @@ function serializeUser(row, roles) {
     status: row.status,
     suspensionExpiresAt: row.suspension_expires_at ?? null,
     roles,
+    partnerAccess,
   };
 }
 
@@ -41,7 +44,7 @@ router.get('/', async (req, res, next) => {
       return res.status(403).json({ error: 'Tài khoản chưa được kích hoạt hoặc đã bị khóa.' });
     }
     const roles = normalizeRoles(await loadRoles(user.id));
-    res.json({ user: serializeUser(user, roles) });
+    res.json({ user: await serializeUser(user, roles) });
   } catch (err) {
     next(err);
   }
@@ -107,7 +110,7 @@ router.patch('/', async (req, res, next) => {
       [userId],
     );
     const roles = normalizeRoles(await loadRoles(userId));
-    res.json({ user: serializeUser(updatedRows[0], roles) });
+    res.json({ user: await serializeUser(updatedRows[0], roles) });
   } catch (err) {
     if (err?.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'Số điện thoại này đã được sử dụng.' });

@@ -13,7 +13,7 @@ import ProfileSubHeader from './ProfileSubHeader.jsx';
 
 export default function EditProfile() {
   const nav = useNavigate();
-  const { currentCustomer, permittedRoles, pushToast, updateUser } = useApp();
+  const { user, currentCustomer, pushToast, updateUser } = useApp();
   const fileInputRef = useRef(null);
 
   const [name, setName] = useState('');
@@ -24,12 +24,13 @@ export default function EditProfile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
-    if (!currentCustomer) return;
-    setName(currentCustomer.name);
-    setEmail(currentCustomer.email);
-    setPhone(currentCustomer.phone ?? '');
-    setAvatarUrl(currentCustomer.avatar ?? '');
-  }, [currentCustomer]);
+    if (!user) return;
+    const src = currentCustomer ?? user;
+    setName(src.name ?? user.fullName);
+    setEmail(src.email ?? user.email ?? '');
+    setPhone(src.phone ?? user.phone ?? '');
+    setAvatarUrl(src.avatar ?? user.avatarUrl ?? '');
+  }, [user, currentCustomer]);
 
   const onAvatarFile = async (e) => {
     const file = e.target.files?.[0];
@@ -95,18 +96,8 @@ export default function EditProfile() {
     }
   };
 
-  if (!permittedRoles.customer) {
-    return (
-      <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
-        <ProfileSubHeader title="Chỉnh sửa hồ sơ" />
-        <Card padded>
-          <div className="text-title-md text-ink">Cần đăng nhập</div>
-          <p className="mt-1 text-body-sm text-body">
-            Đăng nhập với tài khoản khách hàng để chỉnh sửa hồ sơ cá nhân.
-          </p>
-        </Card>
-      </div>
-    );
+  if (!user) {
+    return null;
   }
 
   return (

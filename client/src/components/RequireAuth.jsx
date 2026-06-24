@@ -19,18 +19,19 @@ export default function RequireAuth({ role }) {
     );
   }
 
-  if (role && !permittedRoles[role]) {
-    if (user) {
-      if (role === 'merchant') return <Navigate to="/merchant/onboarding" replace />;
-      if (role === 'driver') return <Navigate to="/driver/onboarding" replace />;
-      const primary = user.primaryRole;
-      const primaryHome = ROLE_HOME[primary] ?? '/app';
-      const canEnterPrimary =
-        primary === 'customer' || Boolean(permittedRoles[primary]);
-      return <Navigate to={canEnterPrimary ? primaryHome : '/app'} replace />;
-    }
+  if (!user) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?next=${next}`} replace />;
+  }
+
+  if (role && !permittedRoles[role]) {
+    if (role === 'merchant') return <Navigate to="/merchant/onboarding" replace />;
+    if (role === 'driver') return <Navigate to="/driver/onboarding" replace />;
+    const primary = user.primaryRole;
+    const primaryHome = ROLE_HOME[primary] ?? '/app';
+    const canEnterPrimary =
+      primary === 'customer' || Boolean(permittedRoles[primary]);
+    return <Navigate to={canEnterPrimary ? primaryHome : '/app'} replace />;
   }
 
   return <Outlet />;

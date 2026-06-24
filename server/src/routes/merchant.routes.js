@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
+import { loadPartnerAccess, assertCanApplyMerchant } from '../lib/partnerAccess.js';
 
 const router = Router();
 
@@ -23,6 +24,13 @@ function slugify(text) {
  */
 router.post('/apply', requireAuth, async (req, res, next) => {
   const userId = req.auth.userId;
+
+  try {
+    const access = await loadPartnerAccess(pool, userId, req.auth.roles);
+    assertCanApplyMerchant(access);
+  } catch (err) {
+    return next(err);
+  }
 
   const {
     name,

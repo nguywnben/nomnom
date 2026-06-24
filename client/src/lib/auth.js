@@ -45,7 +45,7 @@ export function resolveLoginRedirect(nextPath, user) {
       if (nextPath === '/driver/onboarding' || nextPath === '/driver/pending') return nextPath;
       if (roles.includes('driver')) return nextPath;
     }
-    if (nextPath.startsWith('/app') && roles.includes('customer')) return nextPath;
+    if (nextPath.startsWith('/app') && roles.length > 0) return nextPath;
     if (
       !nextPath.startsWith('/admin') &&
       !nextPath.startsWith('/merchant') &&

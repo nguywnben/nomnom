@@ -23,6 +23,7 @@ import {
   savePendingRegistration,
 } from '../lib/registration.js';
 import { normalizeRoles } from '../lib/roles.js';
+import { loadPartnerAccess } from '../lib/partnerAccess.js';
 
 const router = Router();
 
@@ -53,7 +54,8 @@ async function restoreExpiredSuspension(user) {
   return user;
 }
 
-function serializeUser(row, roles) {
+async function serializeUser(row, roles) {
+  const partnerAccess = await loadPartnerAccess(pool, row.id, roles);
   return {
     id: row.id,
     email: row.email,
@@ -64,6 +66,7 @@ function serializeUser(row, roles) {
     status: row.status,
     suspensionExpiresAt: row.suspension_expires_at ?? null,
     roles,
+    partnerAccess,
   };
 }
 
@@ -90,7 +93,7 @@ async function issueSession(userRow, roles, req, { remember = true } = {}) {
     accessToken,
     refreshToken,
     expiresIn: accessExpiresInSeconds(),
-    user: serializeUser(userRow, roles),
+    user: await serializeUser(userRow, roles),
   };
 }
 
@@ -406,7 +409,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     const roles = normalizeRoles(await loadRoles(user.id));
-    res.json({ user: serializeUser(user, roles) });
+    res.json({ user: await serializeUser(user, roles) });
   } catch (err) {
     next(err);
   }

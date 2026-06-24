@@ -354,8 +354,8 @@ export default function Landing() {
               <PartnerPoint>Thanh toán hàng ngày vào tài khoản ngân hàng</PartnerPoint>
             </ul>
             <div className="mt-lg flex flex-wrap items-center gap-xs">
-              <Button as={Link} to="/hop-tac" trailingIcon="arrowRight">
-                Liên hệ hợp tác
+              <Button as={Link} to="/merchant/onboarding" trailingIcon="arrowRight">
+                Đăng ký nhà hàng
               </Button>
               <Button as={Link} to="/faq#faq-quan-an" variant="secondary">
                 Tìm hiểu thêm
@@ -380,8 +380,8 @@ export default function Landing() {
               <PartnerPoint>Điều hướng và trò chuyện với khách hàng trong ứng dụng</PartnerPoint>
             </ul>
             <div className="mt-lg flex flex-wrap items-center gap-xs">
-              <Button onClick={() => scrollToSection('lien-he')} trailingIcon="arrowRight">
-                Ứng tuyển tài xế
+              <Button as={Link} to="/driver/onboarding" trailingIcon="arrowRight">
+                Đăng ký tài xế
               </Button>
               <Button as={Link} to="/faq#faq-tai-xe" variant="secondary">
                 Tìm hiểu thêm
@@ -443,7 +443,14 @@ export default function Landing() {
               </p>
             </div>
             <FooterGroup title="Thưởng thức" links={['Quán ăn', 'Danh mục', 'Khuyến mãi', 'Thẻ quà tặng']} />
-            <FooterGroup title="Đối tác" links={['Trở thành quán ăn', 'Lái xe cùng NomNom', 'Tiếp thị liên kết']} />
+            <FooterGroup
+              title="Đối tác"
+              links={[
+                { label: 'Đăng ký nhà hàng', to: '/merchant/onboarding' },
+                { label: 'Đăng ký tài xế', to: '/driver/onboarding' },
+                { label: 'FAQ đối tác', to: '/faq' },
+              ]}
+            />
             <FooterGroup title="Công ty" links={['Giới thiệu', 'Báo chí', 'Tuyển dụng', 'Blog']} />
             <FooterGroup title="Hỗ trợ" links={['Trung tâm trợ giúp', 'Liên hệ', 'Đồ thất lạc', 'Trạng thái']} />
           </div>
@@ -477,13 +484,17 @@ function FooterGroup({ title, links }) {
     <div>
       <div className="text-caption-uppercase text-ink mb-2">{title}</div>
       <ul className="space-y-1.5">
-        {links.map((l) => (
-          <li key={l}>
-            <Link to="#" className="text-body-sm text-body hover:text-ink">
-              {l}
-            </Link>
-          </li>
-        ))}
+        {links.map((l) => {
+          const label = typeof l === 'string' ? l : l.label;
+          const to = typeof l === 'string' ? '#' : l.to;
+          return (
+            <li key={label}>
+              <Link to={to} className="text-body-sm text-body hover:text-ink">
+                {label}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

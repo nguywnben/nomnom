@@ -29,6 +29,8 @@ export default function CartDrawer() {
     appliedPromo,
     setAppliedPromo,
     user,
+    shopAsCustomer,
+    customerCartRestriction,
   } = useApp();
   const [promoCode, setPromoCode] = useState('');
   const [confirmDelete, setConfirmDelete] = useState({
@@ -119,6 +121,7 @@ export default function CartDrawer() {
                 setCartOpen(false);
                 nav('/app/checkout');
               }}
+              disabled={!shopAsCustomer}
             >
               Thanh toán
             </Button>
@@ -127,8 +130,16 @@ export default function CartDrawer() {
       }
     >
       <div className="flex flex-col gap-base p-lg">
-        {/* Sync status — only visible when logged in */}
-        {user && cart.items.length > 0 && (
+        {!shopAsCustomer && customerCartRestriction ? (
+          <EmptyState
+            icon="shield"
+            title={customerCartRestriction.title}
+            message={customerCartRestriction.message}
+          />
+        ) : (
+          <>
+        {/* Sync status — only visible when logged in as customer */}
+        {user && shopAsCustomer && cart.items.length > 0 && (
           <div className="flex items-center gap-2 rounded-md bg-canvas-soft px-sm py-2 text-caption text-body">
             <Icon
               name="refresh"
@@ -239,6 +250,8 @@ export default function CartDrawer() {
               </Button>
             }
           />
+        )}
+          </>
         )}
       </div>
     </Drawer>
