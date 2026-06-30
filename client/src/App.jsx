@@ -25,6 +25,7 @@ import CustomerRestaurant from './modules/customer/Restaurant.jsx';
 import CustomerTracking from './modules/customer/Tracking.jsx';
 import CustomerOrders from './modules/customer/Orders.jsx';
 import CustomerReviews from './modules/customer/Reviews.jsx';
+import CustomerRestaurantReviews from './modules/customer/RestaurantReviews.jsx';
 import CustomerCheckout from './modules/customer/Checkout.jsx';
 import CustomerOrderSuccess from './modules/customer/OrderSuccess.jsx';
 import CustomerProfile from './modules/customer/Profile.jsx';
@@ -116,7 +117,8 @@ export default function App() {
           </Route>
 
           <Route element={<RequireAuth />}>
-            <Route path="reviews/:id" element={<CustomerReviews />} />
+            <Route path="reviews/write/:id" element={<CustomerReviews />} />
+            <Route path="reviews/:id" element={<CustomerRestaurantReviews />} />
             <Route path="notifications" element={<CustomerNotifications />} />
             <Route path="profile" element={<CustomerProfile />} />
             <Route path="profile/edit" element={<CustomerProfileEdit />} />

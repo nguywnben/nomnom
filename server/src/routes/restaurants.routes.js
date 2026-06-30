@@ -245,32 +245,50 @@ router.get('/:id/reviews', async (req, res, next) => {
       return res.status(404).json({ error: 'Không tìm thấy quán ăn' });
     }
 
+    const limitVal = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const pageVal = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const offset = (pageVal - 1) * limitVal;
+
+    const [[{ total }]] = await pool.query(
+      `SELECT COUNT(*) as total FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
+      [restaurant.id]
+    );
+
     const [rows] = await pool.query(
       `SELECT
          rv.id,
          rv.rating,
          rv.comment,
          rv.created_at AS createdAt,
-         u.full_name AS authorName,
-         u.avatar_url AS avatarUrl
+         u.full_name AS customerName,
+         u.avatar_url AS customerAvatar,
+         rv.reply_text AS replyText,
+         rv.reply_at AS replyAt
        FROM reviews rv
        INNER JOIN users u ON u.id = rv.customer_id
        WHERE rv.restaurant_id = ?
          AND rv.is_hidden = 0
        ORDER BY rv.created_at DESC, rv.id DESC
-       LIMIT 6`,
-      [restaurant.id],
+       LIMIT ? OFFSET ?`,
+      [restaurant.id, limitVal, offset],
     );
 
     res.json({
-      reviews: rows.map((row) => ({
+      data: rows.map((row) => ({
         id: Number(row.id),
         rating: Number(row.rating ?? 0),
         comment: row.comment ?? '',
         createdAt: row.createdAt,
-        authorName: row.authorName,
-        avatarUrl: row.avatarUrl,
+        customerName: row.customerName,
+        customerAvatar: row.customerAvatar,
+        replyText: row.replyText ?? null,
+        replyAt: row.replyAt ?? null,
       })),
+      pagination: {
+        page: pageVal,
+        limit: limitVal,
+        total,
+      },
     });
   } catch (err) {
     next(err);

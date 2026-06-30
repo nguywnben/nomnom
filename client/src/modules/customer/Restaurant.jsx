@@ -316,6 +316,14 @@ export default function CustomerRestaurant() {
                       <StarRating value={rev.rating} />
                     </div>
                     <p className="text-body-sm text-body">{rev.text}</p>
+                    {rev.replyText && (
+                      <div className="mt-2 ml-4 p-2 bg-canvas-soft border-l-2 border-primary rounded-r text-body-sm leading-relaxed">
+                        <div className="font-semibold text-ink text-xs mb-1">
+                          Phản hồi của quán ({rev.replyAt || 'gần đây'}):
+                        </div>
+                        <p className="text-body text-xs">{rev.replyText}</p>
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>

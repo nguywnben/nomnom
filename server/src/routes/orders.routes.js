@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import db from '../db/pool.js';
+import pool from '../db/pool.js';
 import { calculateDistance } from '../lib/geo.js';
 import crypto from 'crypto';
 
@@ -26,7 +26,7 @@ function generateOrderCode() {
 }
 
 router.post('/', requireAuth, async (req, res, next) => {
-  const connection = await db.getConnection();
+  const connection = await pool.getConnection();
   try {
     const { userId: customerId } = req.auth;
     const { addressId, paymentMethod, customerNote, voucherCode } = req.body;
@@ -191,23 +191,34 @@ router.post('/', requireAuth, async (req, res, next) => {
 router.get('/', requireAuth, async (req, res, next) => {
   try {
     const { userId } = req.auth;
-    const [orders] = await db.query(
-      `SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC`,
-      [userId]
-    );
+    const { restaurantId } = req.query;
+
+    let query = `SELECT o.*, (SELECT id FROM reviews WHERE order_id = o.id LIMIT 1) AS review_id 
+                 FROM orders o 
+                 WHERE o.customer_id = ? `;
+    const params = [userId];
+
+    if (restaurantId) {
+      query += ` AND o.restaurant_id = ? `;
+      params.push(restaurantId);
+    }
+
+    query += ` ORDER BY o.created_at DESC`;
+
+    const [orders] = await pool.query(query, params);
 
     if (orders.length === 0) {
       return res.json([]);
     }
 
     const orderIds = orders.map(o => o.id);
-    const [items] = await db.query(
+    const [items] = await pool.query(
       `SELECT * FROM order_items WHERE order_id IN (?)`,
       [orderIds]
     );
 
     const restaurantIds = [...new Set(orders.map(o => o.restaurant_id))];
-    const [rests] = await db.query(
+    const [rests] = await pool.query(
       `SELECT id, name, address_line, banner_url, phone FROM restaurants WHERE id IN (?)`,
       [restaurantIds]
     );
@@ -219,7 +230,9 @@ router.get('/', requireAuth, async (req, res, next) => {
       return {
         ...o,
         restaurant: restMap[o.restaurant_id],
-        items: items.filter(i => i.order_id === o.id)
+        items: items.filter(i => i.order_id === o.id),
+        reviewId: o.review_id ? Number(o.review_id) : null,
+        isReviewed: Boolean(o.review_id)
       };
     });
 
@@ -234,6 +247,65 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
     const { userId } = req.auth;
     const { idOrCode } = req.params;
 
+    let query = `SELECT o.*, (SELECT id FROM reviews WHERE order_id = o.id LIMIT 1) AS review_id FROM orders o WHERE o.customer_id = ? AND `;
+    let params = [userId];
+
+    if (idOrCode.startsWith('ORD-')) {
+      query += `o.order_code = ?`;
+      params.push(idOrCode);
+    } else {
+      query += `o.id = ?`;
+      params.push(idOrCode);
+    }
+
+    const [orders] = await pool.query(query, params);
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orders[0];
+    order.reviewId = order.review_id ? Number(order.review_id) : null;
+    order.isReviewed = Boolean(order.review_id);
+
+    // Lấy thông tin order items
+    const [items] = await pool.query(
+      `SELECT oi.*, m.image_url 
+       FROM order_items oi 
+       LEFT JOIN menu_items m ON oi.menu_item_id = m.id 
+       WHERE oi.order_id = ?`,
+      [order.id]
+    );
+    order.items = items;
+
+    // Lấy thông tin nhà hàng liên quan
+    const [rests] = await pool.query(
+      `SELECT id, name, address_line, banner_url, phone FROM restaurants WHERE id = ?`,
+      [order.restaurant_id]
+    );
+    order.restaurant = rests[0];
+
+    res.json(order);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const { userId } = req.auth;
+    const { idOrCode } = req.params;
+    const rating = parseInt(req.body?.rating, 10);
+    const comment = req.body?.comment ? String(req.body.comment).trim() : null;
+
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
+    }
+
+    await connection.beginTransaction();
+
+    // 1. Tìm đơn hàng
     let query = `SELECT * FROM orders WHERE customer_id = ? AND `;
     let params = [userId];
 
@@ -245,34 +317,69 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
       params.push(idOrCode);
     }
 
-    const [orders] = await db.query(query, params);
+    const [orders] = await connection.query(query, params);
 
     if (orders.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
     }
 
     const order = orders[0];
 
-    // Lấy thông tin order items
-    const [items] = await db.query(
-      `SELECT oi.*, m.image_url 
-       FROM order_items oi 
-       LEFT JOIN menu_items m ON oi.menu_item_id = m.id 
-       WHERE oi.order_id = ?`,
+    // 2. Kiểm tra trạng thái đơn hàng (phải là đã giao - 'delivered')
+    if (order.status !== 'delivered') {
+      await connection.rollback();
+      return res.status(403).json({ error: 'Chưa thể đánh giá đơn hàng này.' });
+    }
+
+    // 3. Kiểm tra xem đơn hàng đã được đánh giá trước đó chưa
+    const [existingReviews] = await connection.query(
+      `SELECT id FROM reviews WHERE order_id = ? LIMIT 1`,
       [order.id]
     );
-    order.items = items;
 
-    // Lấy thông tin nhà hàng liên quan
-    const [rests] = await db.query(
-      `SELECT id, name, address_line, banner_url, phone FROM restaurants WHERE id = ?`,
+    if (existingReviews.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Đơn hàng này đã được đánh giá rồi.' });
+    }
+
+    // 4. Thêm đánh giá mới vào cơ sở dữ liệu
+    const [reviewResult] = await connection.query(
+      `INSERT INTO reviews (order_id, customer_id, restaurant_id, rating, comment) VALUES (?, ?, ?, ?, ?)`,
+      [order.id, userId, order.restaurant_id, rating, comment]
+    );
+
+    const reviewId = reviewResult.insertId;
+
+    // 5. Tính toán lại điểm trung bình (AVG) và số lượng đánh giá (COUNT) của nhà hàng
+    const [stats] = await connection.query(
+      `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
       [order.restaurant_id]
     );
-    order.restaurant = rests[0];
+    
+    const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
+    const nextCount = stats[0].cnt || 0;
 
-    res.json(order);
+    await connection.query(
+      `UPDATE restaurants SET rating_avg = ?, review_count = ? WHERE id = ?`,
+      [nextAvg, nextCount, order.restaurant_id]
+    );
+
+    await connection.commit();
+
+    // Lấy thông tin review vừa tạo để phản hồi
+    const [inserted] = await pool.query(
+      `SELECT id, order_id as orderId, customer_id as customerId, restaurant_id as restaurantId, rating, comment, is_hidden as isHidden, reply_text as replyText, reply_at as replyAt, created_at as createdAt FROM reviews WHERE id = ?`,
+      [reviewId]
+    );
+
+    res.status(201).json({ review: inserted[0] });
+
   } catch (err) {
+    await connection.rollback();
     next(err);
+  } finally {
+    connection.release();
   }
 });
 

@@ -204,7 +204,7 @@ export default function CustomerTracking() {
               </p>
               <Button
                 className="mt-sm w-full"
-                onClick={() => nav('/app/reviews/' + order.restaurant_id)}
+                onClick={() => nav('/app/reviews/write/' + order.id)}
               >
                 Để lại đánh giá
               </Button>
