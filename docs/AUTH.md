@@ -159,7 +159,7 @@
 | `RedirectIfAuthed` | Đã login mà vào `/login`, `/register`, `/forgot-password`, `/verify-otp`, `/reset-password` → **`/app`** |
 | `RequireAuth role=...` | Chưa login vào `/merchant/*`, `/driver/*`, `/admin/*` → **`/login?next=...`** |
 
-Trang pháp lý (`/dieu-khoan-su-dung`, `/chinh-sach-bao-mat`): không chặn.
+Trang pháp lý (`/terms-of-service`, `/privacy-policy`): không chặn.
 
 ---
 

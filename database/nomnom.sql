@@ -793,6 +793,9 @@ CREATE TABLE `restaurants` (
   `approved_at` datetime DEFAULT NULL,
   `approved_by_admin_id` bigint UNSIGNED DEFAULT NULL,
   `rejection_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account_no` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_name` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `bank_account_holder` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -858,6 +861,7 @@ CREATE TABLE `users` (
   `email_verified_at` datetime DEFAULT NULL,
   `phone_verified_at` datetime DEFAULT NULL,
   `last_login_at` datetime DEFAULT NULL,
+  `token_version` int UNSIGNED NOT NULL DEFAULT '0',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `suspension_expires_at` datetime DEFAULT NULL
@@ -867,7 +871,7 @@ CREATE TABLE `users` (
 -- Đang đổ dữ liệu cho bảng `users`
 --
 
-INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `full_name`, `avatar_url`, `primary_role`, `status`, `email_verified_at`, `phone_verified_at`, `last_login_at`, `created_at`, `updated_at`, `suspension_expires_at`) VALUES
+INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `full_name`, `avatar_url`, `primary_role`, `status`, `email_verified_at`, `phone_verified_at`, `last_login_at`, `token_version`, `created_at`, `updated_at`, `suspension_expires_at`) VALUES
 (1, 'avery@nomnom.example', '+84901000001', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Avery Park', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Avery%20Park&radius=50', 'admin', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', '2026-05-30 20:24:50', '2026-05-21 21:42:10', '2026-05-30 20:24:50', NULL),
 (2, 'mara@example.com', '+84901000002', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Mara Chen', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Mara%20Chen&radius=50', 'customer', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', '2026-05-30 20:24:42', '2026-05-21 21:42:10', '2026-05-30 20:24:42', NULL),
 (3, 'owen.r@example.com', '+84901000003', '$2b$10$CJ7Jw5i.tGECVqMW/dpzreHp4n.oQPZzbZI9LY9N6uZPNG4vrIfEO', 'Owen Reyes', 'https://api.dicebear.com/9.x/avataaars/svg?seed=Owen%20Reyes&radius=50', 'driver', 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10', NULL, '2026-05-21 21:42:10', '2026-05-21 21:50:17', NULL),

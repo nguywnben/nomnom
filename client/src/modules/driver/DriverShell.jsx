@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import Icon from '../../components/Icon.jsx';
@@ -5,6 +6,7 @@ import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
 import { IconButton } from '../../components/Button.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { fetchDriverProfile } from '../../lib/api.js';
 import DriverDesktopBlock from './DriverDesktopBlock.jsx';
 import { useDriverLayoutMode } from './useDriverLayoutMode.js';
 
@@ -24,10 +26,51 @@ const TABS = [
 export default function DriverShell() {
   const nav = useNavigate();
   const { pathname } = useLocation();
-  const { currentDriver, driverOnline, activeDriverJob } = useApp();
+  const { currentDriver, driverOnline, activeDriverJob, pushToast } = useApp();
   const { showDesktopBlock } = useDriverLayoutMode();
+  const [checkingProfile, setCheckingProfile] = useState(true);
 
   const isActiveScreen = pathname === '/driver/active';
+
+  useEffect(() => {
+    let active = true;
+    async function check() {
+      try {
+        const data = await fetchDriverProfile();
+        if (!active) return;
+        if (!data?.profile) {
+          nav('/driver/onboarding', { replace: true });
+          return;
+        }
+        const status = data.approval_status ?? data.profile.approvalStatus ?? 'pending';
+        if (status !== 'approved') {
+          nav('/driver/pending', { replace: true, state: { approvalStatus: status } });
+        }
+      } catch (err) {
+        console.error('Error fetching driver profile:', err);
+        pushToast({
+          kind: 'error',
+          title: 'Lỗi kết nối',
+          message: 'Không thể xác thực trạng thái tài xế.',
+        });
+      } finally {
+        if (active) setCheckingProfile(false);
+      }
+    }
+    check();
+    return () => {
+      active = false;
+    };
+  }, [nav, pushToast]);
+
+  if (checkingProfile) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-canvas-soft">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="mt-base text-body text-body-md font-medium animate-pulse">Đang xác thực hồ sơ tài xế...</p>
+      </div>
+    );
+  }
 
   if (showDesktopBlock) {
     return <DriverDesktopBlock />;

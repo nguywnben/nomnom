@@ -11,8 +11,21 @@ import {
 } from '../data/mock.js';
 import { formatVnd } from '../lib/formatVnd.js';
 import { buildPermittedRoles } from '../lib/auth.js';
+import { canShopAsCustomer, getCustomerCartRestriction } from '../lib/customerCart.js';
 import { clearTokens, hasStoredSession, saveTokens } from '../lib/authStorage.js';
-import { fetchMe, loginApi, logoutApi, registerSendCodeApi, registerVerifyApi } from '../lib/api.js';
+import {
+  addCartItemApi,
+  clearCartApi,
+  deleteCartItemApi,
+  fetchCartApi,
+  fetchMe,
+  loginApi,
+  logoutApi,
+  registerSendCodeApi,
+  registerVerifyApi,
+  updateCartItemApi,
+} from '../lib/api.js';
+import { clearGuestCart, loadGuestCart, saveGuestCart } from '../lib/guestCart.js';
 
 const AppContext = createContext(null);
 
@@ -32,8 +45,20 @@ export function AppProvider({ children }) {
     [user],
   );
 
+  const shopAsCustomer = useMemo(
+    () => canShopAsCustomer(user, permittedRoles),
+    [permittedRoles, user],
+  );
+
+  const customerCartRestriction = useMemo(
+    () => getCustomerCartRestriction(user, permittedRoles),
+    [permittedRoles, user],
+  );
+
+  const cartHydratedKey = useRef(null);
+
   const currentCustomer = useMemo(() => {
-    if (!user) return null;
+    if (!user || !shopAsCustomer) return null;
     return {
       id: String(user.id),
       name: user.fullName,
@@ -42,7 +67,7 @@ export function AppProvider({ children }) {
       avatar: user.avatarUrl,
       address: '',
     };
-  }, [user]);
+  }, [user, shopAsCustomer]);
 
   const currentDriver = useMemo(() => {
     if (!user || !permittedRoles.driver) return null;
@@ -80,8 +105,47 @@ export function AppProvider({ children }) {
     };
   }, [user, permittedRoles.admin, user?.primaryRole]);
 
+  const emptyCart = useCallback(
+    () => ({
+      id: null,
+      restaurantId: null,
+      restaurantName: null,
+      restaurantLogo: null,
+      baseDeliveryFee: 0,
+      items: [],
+    }),
+    [],
+  );
+
+  const normalizeCartItem = useCallback((item) => ({
+    id: Number(item.id),
+    menuItemId: Number(item.menuItemId ?? item.menu_item_id ?? item.id),
+    name: item.name,
+    imageUrl: item.imageUrl ?? item.image ?? null,
+    image: item.imageUrl ?? item.image ?? null,
+    price: Number(item.price ?? 0),
+    quantity: Number(item.quantity ?? 0),
+    note: item.note ?? null,
+    lineSubtotal: Number(item.lineSubtotal ?? Number(item.price ?? 0) * Number(item.quantity ?? 0)),
+  }), []);
+
+  const normalizeCart = useCallback(
+    (nextCart) => {
+      if (!nextCart) return emptyCart();
+      return {
+        id: nextCart.id ?? null,
+        restaurantId: nextCart.restaurantId ?? null,
+        restaurantName: nextCart.restaurantName ?? null,
+        restaurantLogo: nextCart.restaurantLogo ?? null,
+        baseDeliveryFee: Number(nextCart.baseDeliveryFee ?? 0),
+        items: (nextCart.items ?? []).map(normalizeCartItem),
+      };
+    },
+    [emptyCart, normalizeCartItem],
+  );
+
   // Cart (customer)
-  const [cart, setCart] = useState({ restaurantId: null, items: [] });
+  const [cart, setCart] = useState(() => emptyCart());
   const [cartOpen, setCartOpen] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -140,7 +204,7 @@ export function AppProvider({ children }) {
     () => cart.items.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart.items],
   );
-  const deliveryFee = cart.items.length ? 62000 : 0;
+  const deliveryFee = cart.items.length ? Number(cart.baseDeliveryFee ?? 0) : 0;
   const discount = useMemo(() => {
     if (!appliedPromo) return 0;
     if (appliedPromo.kind === 'percent') return Math.min(cartSubtotal * (appliedPromo.amount / 100), appliedPromo.cap ?? 9e9);
@@ -148,58 +212,297 @@ export function AppProvider({ children }) {
   }, [appliedPromo, cartSubtotal]);
   const cartTotal = Math.max(0, cartSubtotal + deliveryFee - discount);
 
-  const simulateSync = useRef(null);
-  const triggerSync = useCallback(() => {
-    if (!permittedRoles.customer) return;
-    setSyncing(true);
-    clearTimeout(simulateSync.current);
-    simulateSync.current = setTimeout(() => setSyncing(false), 700);
-  }, [permittedRoles.customer]);
+  const resetCartState = useCallback(() => {
+    setCart(emptyCart());
+    setAppliedPromo(null);
+    setSyncing(false);
+  }, [emptyCart]);
 
   const addToCart = useCallback(
-    (restaurantId, item, qty = 1) => {
-      setCart((cur) => {
-        // Different restaurant -> reset
-        if (cur.restaurantId && cur.restaurantId !== restaurantId) {
-          return { restaurantId, items: [{ ...item, quantity: qty }] };
+    async (restaurantId, item, qty = 1, restaurantMeta = {}) => {
+      if (user && !permittedRoles.customer) {
+        const restriction = getCustomerCartRestriction(user, permittedRoles);
+        pushToast({
+          kind: 'warning',
+          title: restriction?.title ?? 'Không thể đặt món',
+          message: restriction?.message ?? 'Tài khoản này không thể sử dụng giỏ hàng khách hàng.',
+          duration: 4200,
+        });
+        return null;
+      }
+
+      const nextRestaurantName = item.restaurantName ?? restaurantMeta.restaurantName ?? restaurantMeta.name ?? null;
+      const nextRestaurantLogo = item.restaurantLogo ?? restaurantMeta.restaurantLogo ?? restaurantMeta.logo ?? null;
+      const nextBaseDeliveryFee = Number(
+        restaurantMeta.baseDeliveryFee ?? restaurantMeta.fee ?? item.baseDeliveryFee ?? cart.baseDeliveryFee ?? 0,
+      );
+      const nextRestaurantId = Number.isNaN(Number(restaurantId)) ? restaurantId : Number(restaurantId);
+      const rawMenuItemId = item.menuItemId ?? item.menu_item_id;
+      const parsedMenuItemId = Number(rawMenuItemId);
+      const fallbackMenuItemId = Number(item.id);
+      const resolvedMenuItemId = Number.isFinite(parsedMenuItemId) && parsedMenuItemId > 0
+        ? parsedMenuItemId
+        : Number.isFinite(fallbackMenuItemId) && fallbackMenuItemId > 0
+          ? fallbackMenuItemId
+          : null;
+      const itemId = Number.isFinite(fallbackMenuItemId) && fallbackMenuItemId > 0 ? fallbackMenuItemId : item.id;
+      const quantity = Math.max(1, Math.trunc(Number(qty) || 1));
+
+      if (permittedRoles.customer && user) {
+        const sameRestaurant = cart.restaurantId === null || String(cart.restaurantId) === String(nextRestaurantId);
+        if (!sameRestaurant && cart.items.length > 0) {
+          pushToast({
+            kind: 'warning',
+            title: 'Đã thay giỏ hàng',
+            message: 'Giỏ hàng cũ đã được thay bằng món từ quán mới.',
+            duration: 2800,
+          });
         }
-        const existing = cur.items.find((i) => i.id === item.id);
+
+        if (!resolvedMenuItemId) {
+          setCart((cur) => {
+            const nextItem = {
+              ...item,
+              id: itemId,
+              menuItemId: item.menuItemId ?? itemId,
+              restaurantId: nextRestaurantId,
+              restaurantName: nextRestaurantName,
+              restaurantLogo: nextRestaurantLogo,
+              imageUrl: item.imageUrl ?? item.image ?? null,
+              image: item.image ?? item.imageUrl ?? null,
+              price: Number(item.price ?? 0),
+              quantity,
+              note: item.note ?? null,
+              lineSubtotal: Number(item.price ?? 0) * quantity,
+            };
+
+            if (cur.restaurantId && String(cur.restaurantId) !== String(nextRestaurantId)) {
+              return {
+                id: null,
+                restaurantId: nextRestaurantId,
+                restaurantName: nextRestaurantName,
+                restaurantLogo: nextRestaurantLogo,
+                baseDeliveryFee: nextBaseDeliveryFee,
+                items: [nextItem],
+              };
+            }
+
+            const existing = cur.items.find((i) => String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id));
+            const items = existing
+              ? cur.items.map((i) =>
+                  String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
+                    ? {
+                        ...i,
+                        quantity: Number(i.quantity ?? 0) + quantity,
+                        lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
+                      }
+                    : i,
+                )
+              : [...cur.items, nextItem];
+            return {
+              ...cur,
+              restaurantId: nextRestaurantId,
+              restaurantName: nextRestaurantName,
+              restaurantLogo: nextRestaurantLogo,
+              baseDeliveryFee: nextBaseDeliveryFee,
+              items,
+            };
+          });
+
+          pushToast({ kind: 'info', title: 'Hãy đăng nhập để đặt món', message: 'Món đã được thêm vào giỏ cục bộ.', duration: 3200 });
+          return null;
+        }
+
+        setSyncing(true);
+        try {
+          const data = await addCartItemApi({
+            menuItemId: resolvedMenuItemId,
+            quantity,
+            note: item.note ?? undefined,
+          });
+          setCart(normalizeCart(data.cart));
+          setAppliedPromo(null);
+          if (data.cart) {
+            pushToast({ kind: 'success', title: 'Đã thêm vào giỏ hàng', message: item.name, duration: 2200 });
+          }
+          return data.cart;
+        } catch (error) {
+          pushToast({
+            kind: 'error',
+            title: 'Không thể thêm vào giỏ hàng',
+            message: error.message ?? 'Vui lòng thử lại sau.',
+          });
+          throw error;
+        } finally {
+          setSyncing(false);
+        }
+      }
+
+      setCart((cur) => {
+        const nextItem = {
+          ...item,
+          id: itemId,
+          menuItemId: resolvedMenuItemId ?? item.menuItemId ?? itemId,
+          restaurantId: nextRestaurantId,
+          restaurantName: nextRestaurantName,
+          restaurantLogo: nextRestaurantLogo,
+          imageUrl: item.imageUrl ?? item.image ?? null,
+          image: item.image ?? item.imageUrl ?? null,
+          price: Number(item.price ?? 0),
+          quantity,
+          note: item.note ?? null,
+          lineSubtotal: Number(item.price ?? 0) * quantity,
+        };
+
+        if (cur.restaurantId && String(cur.restaurantId) !== String(nextRestaurantId)) {
+          return {
+            id: null,
+            restaurantId: nextRestaurantId,
+            restaurantName: nextRestaurantName,
+            restaurantLogo: nextRestaurantLogo,
+            baseDeliveryFee: nextBaseDeliveryFee,
+            items: [nextItem],
+          };
+        }
+
+        const existing = cur.items.find((i) => String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id));
         const items = existing
-          ? cur.items.map((i) => (i.id === item.id ? { ...i, quantity: i.quantity + qty } : i))
-          : [...cur.items, { ...item, quantity: qty }];
-        return { restaurantId, items };
+          ? cur.items.map((i) =>
+              String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
+                ? {
+                    ...i,
+                    quantity: Number(i.quantity ?? 0) + quantity,
+                    lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
+                  }
+                : i,
+            )
+          : [...cur.items, nextItem];
+        return {
+          ...cur,
+          restaurantId: nextRestaurantId,
+          restaurantName: nextRestaurantName,
+          restaurantLogo: nextRestaurantLogo,
+          baseDeliveryFee: nextBaseDeliveryFee,
+          items,
+        };
       });
-      triggerSync();
+
       pushToast({ kind: 'success', title: 'Đã thêm vào giỏ hàng', message: item.name, duration: 2200 });
+      if (!user) {
+        pushToast({
+          kind: 'info',
+          title: 'Hãy đăng nhập để đặt món',
+          message: 'Đăng nhập để đồng bộ giỏ hàng giữa các thiết bị.',
+          duration: 3200,
+        });
+      }
+      return null;
     },
-    [pushToast, triggerSync],
+    [cart.baseDeliveryFee, cart.items.length, cart.restaurantId, normalizeCart, permittedRoles.customer, pushToast, user],
   );
 
   const setItemQty = useCallback(
-    (itemId, qty) => {
+    async (itemId, qty, note) => {
+      if (user && !permittedRoles.customer) return null;
+
+      const quantity = Math.max(0, Math.trunc(Number(qty) || 0));
+      if (permittedRoles.customer && user) {
+        setSyncing(true);
+        try {
+          const data = await updateCartItemApi(itemId, { quantity, note });
+          setCart(normalizeCart(data.cart));
+          if (!data.cart) setAppliedPromo(null);
+          return data.cart;
+        } catch (error) {
+          pushToast({
+            kind: 'error',
+            title: 'Không thể cập nhật giỏ hàng',
+            message: error.message ?? 'Vui lòng thử lại sau.',
+          });
+          throw error;
+        } finally {
+          setSyncing(false);
+        }
+      }
+
       setCart((cur) => {
         const items = cur.items
-          .map((i) => (i.id === itemId ? { ...i, quantity: qty } : i))
-          .filter((i) => i.quantity > 0);
-        return { ...cur, items, restaurantId: items.length ? cur.restaurantId : null };
+          .map((i) => {
+            if (String(i.id) !== String(itemId)) return i;
+            const nextQty = quantity;
+            if (nextQty <= 0) return null;
+            return {
+              ...i,
+              quantity: nextQty,
+              note: note === undefined ? i.note : note,
+              lineSubtotal: Number(i.price ?? 0) * nextQty,
+            };
+          })
+          .filter(Boolean);
+        return items.length
+          ? {
+              ...cur,
+              items,
+            }
+          : emptyCart();
       });
-      triggerSync();
+      return null;
     },
-    [triggerSync],
+    [emptyCart, normalizeCart, permittedRoles.customer, pushToast, user],
   );
 
   const removeFromCart = useCallback(
-    (itemId) => setItemQty(itemId, 0),
-    [setItemQty],
+    async (itemId) => {
+      if (user && !permittedRoles.customer) return null;
+
+      if (permittedRoles.customer && user) {
+        setSyncing(true);
+        try {
+          const data = await deleteCartItemApi(itemId);
+          setCart(normalizeCart(data.cart));
+          if (!data.cart) setAppliedPromo(null);
+          return data.cart;
+        } catch (error) {
+          pushToast({
+            kind: 'error',
+            title: 'Không thể xóa món khỏi giỏ',
+            message: error.message ?? 'Vui lòng thử lại sau.',
+          });
+          throw error;
+        } finally {
+          setSyncing(false);
+        }
+      }
+
+      return setItemQty(itemId, 0);
+    },
+    [normalizeCart, permittedRoles.customer, pushToast, setItemQty, user],
   );
 
-  const clearCart = useCallback(() => {
-    setCart({ restaurantId: null, items: [] });
-    setAppliedPromo(null);
-  }, []);
+  const clearCart = useCallback(async () => {
+    if (user && !permittedRoles.customer) {
+      resetCartState();
+      return;
+    }
+
+    if (permittedRoles.customer && user) {
+      setSyncing(true);
+      try {
+        await clearCartApi();
+      } finally {
+        setSyncing(false);
+      }
+    }
+    resetCartState();
+    if (!user) {
+      clearGuestCart();
+    }
+  }, [permittedRoles.customer, resetCartState, user]);
 
   const applyPromo = useCallback(
     (code) => {
+      if (user && !permittedRoles.customer) return false;
+
       const c = promoCodes.find((p) => p.code.toLowerCase() === code.trim().toLowerCase());
       if (!c) {
         pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
@@ -209,7 +512,7 @@ export function AppProvider({ children }) {
       pushToast({ kind: 'success', title: 'Đã áp dụng khuyến mãi', message: c.label });
       return true;
     },
-    [pushToast],
+    [permittedRoles.customer, pushToast, user],
   );
 
   // ---- Order placement (customer) ----
@@ -374,6 +677,98 @@ export function AppProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!authReady) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      if (!user) {
+        if (cartHydratedKey.current === 'guest') return;
+        cartHydratedKey.current = 'guest';
+        const guest = loadGuestCart();
+        if (!cancelled) {
+          setCart(guest ? normalizeCart(guest) : emptyCart());
+          setAppliedPromo(null);
+        }
+        return;
+      }
+
+      if (!permittedRoles.customer) {
+        const blockedKey = `blocked:${user.id}`;
+        if (cartHydratedKey.current === blockedKey) return;
+        cartHydratedKey.current = blockedKey;
+        if (!cancelled) {
+          resetCartState();
+        }
+        return;
+      }
+
+      const hydrationKey = `customer:${user.id}`;
+      if (cartHydratedKey.current === hydrationKey) return;
+      cartHydratedKey.current = hydrationKey;
+
+      setSyncing(true);
+      try {
+        const guest = loadGuestCart();
+        if (guest?.items?.length) {
+          const guestRestaurantId = guest.restaurantId;
+          const itemsToMerge = guestRestaurantId
+            ? guest.items.filter(
+                (item) =>
+                  !item.restaurantId || String(item.restaurantId) === String(guestRestaurantId),
+              )
+            : guest.items;
+
+          if (itemsToMerge.length < guest.items.length) {
+            pushToast({
+              kind: 'warning',
+              title: 'Một phần giỏ khách không được gộp',
+              message: 'Chỉ gộp món cùng quán. Các món quán khác đã được bỏ qua.',
+              duration: 3600,
+            });
+          }
+
+          for (const item of itemsToMerge) {
+            const menuItemId = Number(item.menuItemId ?? item.id);
+            if (!menuItemId) continue;
+            await addCartItemApi({
+              menuItemId,
+              quantity: Math.max(1, Number(item.quantity ?? 1)),
+              note: item.note ?? undefined,
+            });
+          }
+          clearGuestCart();
+        }
+
+        const data = await fetchCartApi();
+        if (!cancelled) {
+          setCart(normalizeCart(data.cart));
+          setAppliedPromo(null);
+        }
+      } catch {
+        if (!cancelled) {
+          resetCartState();
+        }
+      } finally {
+        if (!cancelled) setSyncing(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, emptyCart, normalizeCart, permittedRoles.customer, pushToast, resetCartState, user]);
+
+  useEffect(() => {
+    if (!authReady || user) return undefined;
+    if (!cart.items.length) {
+      clearGuestCart();
+      return undefined;
+    }
+    saveGuestCart(cart);
+    return undefined;
+  }, [authReady, cart, user]);
+
   const login = useCallback(async (email, password, { remember = true } = {}) => {
     const data = await loginApi(email, password, remember);
     saveTokens(data.accessToken, data.refreshToken, { remember });
@@ -394,13 +789,24 @@ export function AppProvider({ children }) {
     return data.user;
   }, []);
 
+  const updateUser = useCallback((nextUser) => {
+    setUser(nextUser);
+    if (nextUser?.primaryRole) {
+      setRole(nextUser.primaryRole);
+    }
+  }, []);
+
   const logout = useCallback(
     async ({ redirectTo = '/app', silent = false } = {}) => {
+      const hadCustomerCart = Boolean(user && permittedRoles.customer);
       await logoutApi().catch(() => {});
       clearTokens();
+      cartHydratedKey.current = null;
       setUser(null);
       setRole('customer');
-      clearCart();
+      if (hadCustomerCart) {
+        resetCartState();
+      }
       if (!silent) {
         pushToast({
           kind: 'info',
@@ -411,8 +817,17 @@ export function AppProvider({ children }) {
       }
       navigate(redirectTo, { replace: true });
     },
-    [clearCart, navigate, pushToast],
+    [navigate, permittedRoles.customer, pushToast, resetCartState, user],
   );
+
+  const grantCurrentUserRole = useCallback((nextRole) => {
+    setUser((cur) => {
+      if (!cur) return cur;
+      const roles = Array.isArray(cur.roles) ? cur.roles : [];
+      if (roles.includes(nextRole)) return cur;
+      return { ...cur, roles: [...roles, nextRole].sort() };
+    });
+  }, []);
 
   // Simulate live "new order" pings to merchant every ~25s if window stays open
   useEffect(() => {
@@ -452,12 +867,17 @@ export function AppProvider({ children }) {
     role,
     setRole,
     user,
+    setUser,
     authReady,
     login,
     registerSendCode,
     completeRegistration,
+    updateUser,
     logout,
+    grantCurrentUserRole,
     permittedRoles,
+    shopAsCustomer,
+    customerCartRestriction,
 
     cart,
     cartOpen,

@@ -224,10 +224,127 @@ export async function sendAdminResetPasswordEmail({ to, fullName, newPassword })
   return { dev: false };
 }
 
+export async function sendAccountSuspensionEmail({ to, fullName, reason, expiresAt }) {
+  const transport = getTransporter();
+  const from = resolveFrom();
+  const safeName = escapeHtml(fullName);
+  const safeReason = escapeHtml(reason);
+  const expiresText = expiresAt ? new Date(expiresAt).toLocaleDateString('vi-VN') : null;
+
+  if (!transport || !from) {
+    console.log(`[NomNom DEV] Tài khoản ${to} bị đình chỉ đến ${expiresText ?? 'không xác định'} vì: ${reason}`);
+    return { dev: true };
+  }
+
+  const logo = buildLogoParts();
+  await transport.sendMail({
+    from,
+    to,
+    subject: 'Tài khoản NomNom đã bị đình chỉ',
+    text: `Xin chào ${fullName},\n\nTài khoản NomNom của bạn đã bị đình chỉ${expiresText ? ` đến ${expiresText}` : ''}.\nLý do: ${reason}\n\nNếu bạn cần hỗ trợ, vui lòng liên hệ bộ phận quản trị.\n\n— NomNom`,
+    html: `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head><body style="margin:0;padding:0;background:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#000000;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;padding:32px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;"><tr><td style="padding-bottom:20px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>${logo.html ? `<td style="padding-right:10px;vertical-align:middle;">${logo.html}</td>` : ''}<td style="vertical-align:middle;font-size:22px;font-weight:600;color:#000;">nomnom<span style="color:#0d74ce;">.</span></td></tr></table></td></tr><tr><td style="background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;padding:28px 24px;"><p style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Thông báo đình chỉ tài khoản</p><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;line-height:1.3;color:#000;">Xin chào, ${safeName}</h1><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">Tài khoản của bạn đã bị đình chỉ${expiresText ? ` đến ${escapeHtml(expiresText)}` : ''}.</p><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;"><strong>Lý do:</strong> ${safeReason}</p><p style="margin:0 0 0;font-size:13px;line-height:1.5;color:#666;">Nếu bạn cần hỗ trợ thêm, vui lòng liên hệ bộ phận quản trị NomNom.</p></td></tr><tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Giao đồ ăn tận nơi</td></tr></table></td></tr></table></body></html>`,
+    attachments: logo.attachments,
+  });
+
+  return { dev: false };
+}
+
 /**
  * Gửi mã OTP đăng ký qua Gmail SMTP.
  * Dev: nếu chưa cấu hình SMTP, in mã ra console.
  */
+function buildKycStatusHtml({ fullName, headline, message, ctaLabel, ctaPath }) {
+  const safeName = escapeHtml(fullName);
+  const safeHeadline = escapeHtml(headline);
+  const safeMessage = escapeHtml(message);
+  const safeCta = escapeHtml(ctaLabel);
+  const { html: logoBlock } = buildLogoParts();
+  const appUrl = process.env.APP_URL?.trim() || 'http://localhost:5173';
+  const ctaHref = ctaPath ? `${appUrl.replace(/\/$/, '')}${ctaPath}` : appUrl;
+
+  return `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#000;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;">
+        <tr><td style="padding-bottom:20px;text-align:center;">
+          <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>
+            ${logoBlock ? `<td style="padding-right:10px;vertical-align:middle;">${logoBlock}</td>` : ''}
+            <td style="vertical-align:middle;font-size:22px;font-weight:600;color:#000;">nomnom<span style="color:#0d74ce;">.</span></td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:28px 24px;">
+          <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;">Xin chào, ${safeName}</h1>
+          <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:#000;">${safeHeadline}</p>
+          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">${safeMessage}</p>
+          ${ctaPath ? `<p style="margin:0;"><a href="${escapeHtml(ctaHref)}" style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;">${safeCta}</a></p>` : ''}
+        </td></tr>
+        <tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+export async function sendKycApprovedEmail({ to, fullName, subjectKind, portalPath }) {
+  const transport = getTransporter();
+  const from = resolveFrom();
+  const headline = `Hồ sơ ${subjectKind} đã được duyệt`;
+  const message = `Chúc mừng! Hồ sơ ${subjectKind} của bạn đã được đội ngũ NomNom phê duyệt. Bạn có thể đăng nhập và bắt đầu sử dụng portal ngay.`;
+
+  if (!transport || !from) {
+    console.log(`[NomNom DEV] KYC approved (${subjectKind}) cho ${to}`);
+    return { dev: true };
+  }
+
+  const logo = buildLogoParts();
+  await transport.sendMail({
+    from,
+    to,
+    subject: `NomNom — ${headline}`,
+    text: `Xin chào ${fullName},\n\n${message}\n\n— NomNom`,
+    html: buildKycStatusHtml({
+      fullName,
+      headline,
+      message,
+      ctaLabel: 'Mở portal',
+      ctaPath: portalPath,
+    }),
+    attachments: logo.attachments,
+  });
+  return { dev: false };
+}
+
+export async function sendKycRejectedEmail({ to, fullName, subjectKind, reason, portalPath }) {
+  const transport = getTransporter();
+  const from = resolveFrom();
+  const headline = `Hồ sơ ${subjectKind} chưa được chấp nhận`;
+  const safeReason = String(reason ?? '').trim() || 'Không có lý do cụ thể.';
+  const message = `Rất tiếc, hồ sơ ${subjectKind} của bạn chưa được chấp nhận.\n\nLý do: ${safeReason}\n\nVui lòng kiểm tra lại giấy tờ và nộp lại hồ sơ.`;
+
+  if (!transport || !from) {
+    console.log(`[NomNom DEV] KYC rejected (${subjectKind}) cho ${to}: ${safeReason}`);
+    return { dev: true };
+  }
+
+  const logo = buildLogoParts();
+  await transport.sendMail({
+    from,
+    to,
+    subject: `NomNom — ${headline}`,
+    text: `Xin chào ${fullName},\n\n${message}\n\n— NomNom`,
+    html: buildKycStatusHtml({
+      fullName,
+      headline,
+      message: message.replace(/\n/g, '<br/>'),
+      ctaLabel: 'Cập nhật hồ sơ',
+      ctaPath: portalPath,
+    }),
+    attachments: logo.attachments,
+  });
+  return { dev: false };
+}
+
 export async function sendRegisterOtpEmail({ to, code, fullName }) {
   const transport = getTransporter();
   const from = resolveFrom();

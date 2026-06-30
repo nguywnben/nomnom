@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -8,13 +8,13 @@ import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Input, { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { restaurants } from '../../data/mock.js';
+// Import formatVnd
 import { formatVnd } from '../../lib/formatVnd.js';
+import { apiGet, apiPost } from '../../lib/api.js';
 
 const PAYMENTS = [
-  { id: 'card', label: 'Thẻ', detail: 'Visa ··· 4823', icon: 'card' },
-  { id: 'wallet', label: 'Ví điện tử', detail: 'Ví NomNom · 1.180.000 ₫', icon: 'wallet' },
-  { id: 'cash', label: 'Thanh toán khi nhận hàng', detail: 'Thanh toán tiền mặt cho tài xế', icon: 'cash' },
+  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán tiền mặt cho tài xế', icon: 'cash' },
+  { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card', disabled: true },
 ];
 
 export default function CustomerCheckout() {
@@ -25,18 +25,96 @@ export default function CustomerCheckout() {
     deliveryFee,
     discount,
     cartTotal,
-    placeOrder,
     pushToast,
     currentCustomer,
+    clearCart,
   } = useApp();
-  const [payment, setPayment] = useState('card');
-  const [address, setAddress] = useState(currentCustomer?.address ?? '');
+  const [payment, setPayment] = useState('cod');
+  const [addresses, setAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [addressId, setAddressId] = useState(null);
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  
+  // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
+  const [newRecipientName, setNewRecipientName] = useState('');
+  const [newLine1, setNewLine1] = useState('');
+  
+  // Location states
+  const [provinces, setProvinces] = useState([]);
+  const [wards, setWards] = useState([]);
+  
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedProvinceName, setSelectedProvinceName] = useState('');
+  
+  const [selectedWardCode, setSelectedWardCode] = useState('');
+  const [selectedWardName, setSelectedWardName] = useState('');
+  
   const [note, setNote] = useState('');
   const [placing, setPlacing] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+  const [recipientNameError, setRecipientNameError] = useState('');
+  const [line1Error, setLine1Error] = useState('');
+  const [provinceError, setProvinceError] = useState('');
+  const [wardError, setWardError] = useState('');
+  
+  // Dữ liệu nhà hàng tạm cho giao diện nếu giỏ hàng có `restaurantId`
+  // Ứng dụng thực tế nên lấy từ API /cart hoặc /orders
+  const [restaurant, setRestaurant] = useState({ name: 'Nhà hàng' });
 
-  const restaurant = restaurants.find((r) => r.id === cart.restaurantId);
+  useEffect(() => {
+    setLoadingAddresses(true);
+    apiGet('/api/v1/me/addresses')
+      .then((data) => {
+        setAddresses(data || []);
+        if (data && data.length > 0) {
+          const defaultAddr = data.find((a) => a.isDefault) || data[0];
+          setAddressId(defaultAddr.id);
+          setPhone(defaultAddr.recipientPhone || currentCustomer?.phone || '');
+          setNote(defaultAddr.deliveryNote || '');
+        } else {
+          // Bật số điện thoại mặc định cho form tạo địa chỉ mới nếu giỏ address bị trống
+          setPhone(currentCustomer?.phone || '');
+          setIsAddingNewAddress(true);
+        }
+      })
+      .catch((err) => console.error('Failed to load addresses:', err))
+      .finally(() => setLoadingAddresses(false));
+  }, [currentCustomer]);
 
-  if (!cart.items.length) {
+  const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
+
+  useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/v2/p/')
+      .then(res => res.json())
+      .then(data => setProvinces(data))
+      .catch(err => console.error('Failed to load provinces:', err));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedProvinceCode) {
+      setWards([]);
+      setSelectedWardCode('');
+      return;
+    }
+    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
+      .then(res => res.json())
+      .then(data => setWards(data.wards || []))
+      .catch(err => console.error('Failed to load wards:', err));
+  }, [selectedProvinceCode]);
+
+  useEffect(() => {
+    if (addressId && addresses.length > 0 && !isAddingNewAddress) {
+      const addr = addresses.find((a) => a.id === addressId);
+      if (addr) {
+        setPhone(addr.recipientPhone || currentCustomer?.phone || '');
+        setNote(addr.deliveryNote || '');
+        setPhoneError('');
+      }
+    }
+  }, [addressId, addresses, currentCustomer, isAddingNewAddress]);
+
+  if (!cart?.items?.length) {
     return (
       <div className="container-page py-section">
         <EmptyState
@@ -53,34 +131,95 @@ export default function CustomerCheckout() {
     );
   }
 
-  const onPlace = () => {
+  const onPlace = async () => {
+    let hasError = false;
+
+    if (!phone.trim()) {
+      setPhoneError('Vui lòng nhập số điện thoại');
+      hasError = true;
+    } else {
+      const phoneRegex = /^[0-9+\-\s()]{8,15}$/;
+      if (!phoneRegex.test(phone.trim())) {
+        setPhoneError('Số điện thoại không hợp lệ');
+        hasError = true;
+      }
+    }
+
+    if (isAddingNewAddress) {
+      if (!newRecipientName.trim()) {
+        setRecipientNameError('Vui lòng nhập tên người nhận');
+        hasError = true;
+      }
+      if (!newLine1.trim()) {
+        setLine1Error('Vui lòng nhập địa chỉ cụ thể');
+        hasError = true;
+      }
+      if (!selectedProvinceCode) {
+        setProvinceError('Vui lòng chọn Tỉnh/Thành phố');
+        hasError = true;
+      }
+      if (!selectedWardCode) {
+        setWardError('Vui lòng chọn Phường/Xã');
+        hasError = true;
+      }
+    }
+
+    if (hasError) {
+      pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra lại thông tin nhập' });
+      return;
+    }
+
     setPlacing(true);
-    // Simulate failure for "card" with luck of 1-in-8
-    setTimeout(() => {
-      if (payment === 'card' && Math.random() < 0.125) {
-        setPlacing(false);
-        pushToast({
-          kind: 'error',
-          title: 'Thanh toán bị từ chối',
-          message: 'Thẻ của bạn bị từ chối. Hãy thử phương thức thanh toán khác.',
+    try {
+      let finalAddressId = addressId;
+
+      // Logic tạo tự động nếu người chọn thêm địa chỉ mới
+      if (isAddingNewAddress) {
+        // Gọi API tạo địa chỉ
+        const newAddr = await apiPost('/api/v1/me/addresses', {
+          label: 'Nhà',
+          recipientName: newRecipientName.trim(),
+          recipientPhone: phone.trim(),
+          line1: newLine1.trim(),
+          ward: selectedWardName,
+          city: selectedProvinceName,
+          deliveryNote: note
         });
+        finalAddressId = newAddr.id;
+      } else if (!finalAddressId) {
+        pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng chọn địa chỉ' });
+        setPlacing(false);
         return;
       }
-      const order = placeOrder(payment);
+
+      // Xử lý tạo Order
+      const res = await apiPost('/api/v1/orders', {
+        addressId: finalAddressId,
+        paymentMethod: payment,
+        customerNote: note
+      });
+      clearCart();
+      nav('/app/order/success/' + res.order.order_code);
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Lỗi đặt hàng',
+        message: err.message || 'Không thể tạo đơn hàng',
+      });
+    } finally {
       setPlacing(false);
-      nav('/app/order/success/' + order.id);
-    }, 900);
+    }
   };
 
   return (
     <div className="pb-32 lg:pb-0">
       <div className="container-page py-base md:py-xl">
-        {/* Mobile header — back arrow + title (no big "display-lg" wasting space) */}
+        {/* Header trên Mobile - Nút quay lại + Tiêu đề (không chứa "display-lg" chiếm diện tích) */}
         <div className="flex items-center gap-2 lg:hidden">
           <Link
             to="/app"
             className="grid h-11 w-11 place-items-center -ml-2 rounded-md text-ink hover:bg-canvas-soft"
-            aria-label="Back"
+            aria-label="Quay lại"
           >
             <Icon name="chevronLeft" size={18} />
           </Link>
@@ -91,7 +230,7 @@ export default function CustomerCheckout() {
           <Badge tone="default" dot>Bước 2 trên 3</Badge>
         </div>
 
-        {/* Desktop header */}
+        {/* Header trên Desktop */}
         <div className="hidden lg:block">
           <Link to="/app" className="text-button text-body hover:text-ink inline-flex items-center gap-1">
             <Icon name="chevronLeft" size={14} /> Về trang chủ
@@ -108,30 +247,161 @@ export default function CustomerCheckout() {
         <div className="mt-base grid gap-base md:mt-xl md:gap-xl lg:grid-cols-[1fr_360px]">
           <div className="flex flex-col gap-base">
           <Card padded>
-            <div className="mb-sm text-title-md text-ink">Giao đến</div>
+            <div className="mb-sm flex items-center justify-between">
+              <div className="text-title-md text-ink">Giao đến</div>
+              {addresses.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  onClick={() => setIsAddingNewAddress(!isAddingNewAddress)}
+                >
+                  {isAddingNewAddress ? 'Chọn địa chỉ đã lưu' : 'Thêm địa chỉ mới'}
+                </Button>
+              )}
+            </div>
             <div className="flex flex-col gap-xs">
-              <Input
-                leadingIcon="pin"
-                placeholder="Địa chỉ"
-                aria-label="Địa chỉ"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-              <Input
-                leadingIcon="phone"
-                placeholder="Số điện thoại"
-                aria-label="Số điện thoại"
-                value={currentCustomer?.phone ?? ''}
-                readOnly
-                hint="Tài xế có thể gọi số này để giao hàng."
-              />
-              <Textarea
-                id="checkout-note"
-                placeholder="Ghi chú giao hàng (không bắt buộc). Mã cổng, lối vào tòa nhà, hướng dẫn nhận hàng…"
-                aria-label="Ghi chú giao hàng"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
+              {loadingAddresses ? (
+                <div className="text-body-sm text-body px-2">Đang tải địa chỉ...</div>
+              ) : isAddingNewAddress ? (
+                <div className="flex flex-col gap-sm mt-2">
+                  <div className="grid grid-cols-2 gap-sm">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Tên người nhận</label>
+                      <Input
+                        leadingIcon="user"
+                        placeholder="Nhập tên người nhận"
+                        value={newRecipientName}
+                        onChange={(e) => {
+                          setNewRecipientName(e.target.value);
+                          if (recipientNameError) setRecipientNameError('');
+                        }}
+                        error={recipientNameError}
+                      />
+                    </div>
+                    
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Số điện thoại</label>
+                      <Input
+                        leadingIcon="phone"
+                        placeholder="Số điện thoại"
+                        value={phone}
+                        onChange={(e) => {
+                          setPhone(e.target.value);
+                          if (phoneError) setPhoneError('');
+                        }}
+                        error={phoneError}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-sm">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Tỉnh/Thành phố</label>
+                      <select
+                        className={`flex h-11 w-full items-center rounded-md border ${provinceError ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none`}
+                        value={selectedProvinceCode}
+                        onChange={(e) => {
+                          setSelectedProvinceCode(e.target.value);
+                          setSelectedProvinceName(e.target.options[e.target.selectedIndex].text);
+                          if (provinceError) setProvinceError('');
+                        }}
+                      >
+                        <option value="">Chọn Tỉnh/Thành phố</option>
+                        {provinces.map((p) => (
+                          <option key={p.code} value={p.code}>{p.name}</option>
+                        ))}
+                      </select>
+                      {provinceError && <div className="text-xs text-red-500 mt-1">{provinceError}</div>}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-body-sm font-medium text-ink">Phường/Xã</label>
+                      <select
+                        className={`flex h-11 w-full items-center rounded-md border ${wardError ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
+                        value={selectedWardCode}
+                        onChange={(e) => {
+                          setSelectedWardCode(e.target.value);
+                          setSelectedWardName(e.target.options[e.target.selectedIndex].text);
+                          if (wardError) setWardError('');
+                        }}
+                        disabled={!selectedProvinceCode}
+                      >
+                        <option value="">Chọn Phường/Xã</option>
+                        {wards.map((w) => (
+                          <option key={w.code} value={w.code}>{w.name}</option>
+                        ))}
+                      </select>
+                      {wardError && <div className="text-xs text-red-500 mt-1">{wardError}</div>}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Địa chỉ cụ thể</label>
+                    <Input
+                      leadingIcon="pin"
+                      placeholder="Ví dụ: 123 Lê Lợi"
+                      value={newLine1}
+                      onChange={(e) => {
+                        setNewLine1(e.target.value);
+                        if (line1Error) setLine1Error('');
+                      }}
+                      error={line1Error}
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Ghi chú giao hàng</label>
+                    <Textarea
+                      id="checkout-note"
+                      placeholder="Không bắt buộc. Mã cổng, lối vào tòa nhà..."
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-sm">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Địa chỉ giao hàng</label>
+                    <select
+                      className="flex h-11 w-full items-center rounded-md border border-hairline-strong bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none"
+                      value={addressId || ''}
+                      onChange={(e) => setAddressId(Number(e.target.value))}
+                    >
+                      {addresses.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.label ? `[${a.label}] ` : ''}{a.line1}, {a.ward ? `${a.ward}, ` : ''}{a.district ? `${a.district}, ` : ''}{a.city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Số điện thoại</label>
+                    <Input
+                      leadingIcon="phone"
+                      placeholder="Số điện thoại"
+                      value={phone}
+                      onChange={(e) => {
+                        setPhone(e.target.value);
+                        if (phoneError) setPhoneError('');
+                      }}
+                      error={phoneError}
+                      hint="Tài xế sẽ gọi số này khi giao tới."
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-body-sm font-medium text-ink">Ghi chú mở rộng</label>
+                    <Textarea
+                      id="checkout-note"
+                      placeholder="Ghi chú giao hàng (không bắt buộc)..."
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
 
@@ -143,12 +413,13 @@ export default function CustomerCheckout() {
                 return (
                   <button
                     key={p.id}
+                    disabled={p.disabled}
                     onClick={() => setPayment(p.id)}
                     className={
                       'flex flex-col items-start gap-2 rounded-md border p-sm text-left transition-colors ' +
                       (sel
                         ? 'border-ink bg-canvas-soft'
-                        : 'border-hairline-strong bg-surface-card hover:bg-canvas-soft')
+                        : 'border-hairline-strong py-sm px-sm ' + (p.disabled ? 'opacity-50 cursor-not-allowed bg-surface-card' : 'bg-surface-card hover:bg-canvas-soft'))
                     }
                   >
                     <span className="grid h-8 w-8 place-items-center rounded-md bg-surface-strong text-ink">
@@ -175,14 +446,19 @@ export default function CustomerCheckout() {
           </Card>
 
           <Card padded>
-            <div className="mb-sm flex items-center justify-between">
-              <div className="text-title-md text-ink">Tóm tắt đơn hàng</div>
-              <Badge tone="outline">{restaurant?.name}</Badge>
+            <div className="mb-sm flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {cart.restaurantLogo && (
+                  <Image src={cart.restaurantLogo} alt={restaurantName} className="h-8 w-8 rounded-md" ratio="1" />
+                )}
+                <div className="text-title-md text-ink truncate">Tóm tắt đơn hàng</div>
+              </div>
+              <Badge tone="outline">{restaurantName}</Badge>
             </div>
             <div className="flex flex-col divide-y divide-hairline">
               {cart.items.map((i) => (
                 <div key={i.id} className="flex items-center gap-sm py-sm">
-                  <Image src={i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
+                  <Image src={i.imageUrl ?? i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
                   <div className="flex-1">
                     <div className="text-body-sm font-semibold text-ink">{i.name}</div>
                     <div className="text-caption text-body">SL {i.quantity}</div>
@@ -202,7 +478,7 @@ export default function CustomerCheckout() {
             {discount > 0 && <Row label="Khuyến mãi" value={`−${formatVnd(discount)}`} tone="success" />}
             <div className="my-2 h-px bg-hairline" />
             <Row label="Tổng cộng" value={formatVnd(cartTotal)} bold />
-            {/* Desktop place-order button — mobile uses the sticky bottom bar */}
+            {/* Nút đặt hàng trên Desktop — màn hình Mobile sử dụng thanh dưới cùng cố định */}
             <Button onClick={onPlace} loading={placing} className="hidden lg:flex">
               {placing ? 'Đang đặt hàng…' : `Đặt hàng — ${formatVnd(cartTotal)}`}
             </Button>
@@ -214,7 +490,7 @@ export default function CustomerCheckout() {
       </div>
       </div>
 
-      {/* Mobile sticky checkout bar — fixed to bottom, above safe area */}
+      {/* Thanh thanh toán cố định trên Mobile — gắn chặt dưới cùng, ở trên safe area */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-hairline-strong bg-surface-card shadow-soft-lg lg:hidden">
         <div className="flex items-center gap-sm px-base py-sm">
           <div className="flex-1 leading-tight">

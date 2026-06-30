@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { fetchCuisinesApi } from '../../lib/api.js';
 
 // Cài đặt quán — gắn với `restaurants.*` (base_delivery_fee, min_order_amount,
 // avg_prep_time_min, is_open_now, address, cuisine, banner_url, logo_url) và
@@ -23,6 +24,7 @@ export default function MerchantSettings() {
   const { pushToast } = useApp();
   const [tab, setTab] = useState('profile');
   const [isOpenNow, setIsOpenNow] = useState(true);
+  const [cuisines, setCuisines] = useState([]);
   const [hours, setHours] = useState(() =>
     DAYS.reduce((acc, d) => {
       acc[d.id] = { open: true, from: '08:00', to: '22:00' };
@@ -38,13 +40,31 @@ export default function MerchantSettings() {
     ward: 'Phường Bến Nghé',
     district: 'Quận 1',
     city: 'TP. Hồ Chí Minh',
-    cuisine: 'italian',
+    cuisine: '',
     baseDeliveryFee: 25000,
     minOrderAmount: 50000,
     avgPrepTime: 22,
   });
 
   const set = (patch) => setForm((cur) => ({ ...cur, ...patch }));
+
+  useEffect(() => {
+    async function loadCuisines() {
+      try {
+        const res = await fetchCuisinesApi();
+        if (res?.data) {
+          const list = res.data.map(c => ({ value: String(c.id), label: c.name }));
+          setCuisines(list);
+          if (list.length > 0) {
+            setForm(prev => ({ ...prev, cuisine: list[0].value }));
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi lấy danh sách ẩm thực:', err);
+      }
+    }
+    loadCuisines();
+  }, []);
 
   const save = () => {
     pushToast({ kind: 'success', title: 'Đã lưu cài đặt', message: 'Thay đổi sẽ áp dụng ngay với khách hàng.' });
@@ -104,15 +124,7 @@ export default function MerchantSettings() {
           <Input placeholder="Quận/Huyện" value={form.district} onChange={(e) => set({ district: e.target.value })} />
           <Input placeholder="Tỉnh/Thành phố" value={form.city} onChange={(e) => set({ city: e.target.value })} />
           <Select
-            options={[
-              { value: 'italian', label: 'Ý' },
-              { value: 'american', label: 'Mỹ' },
-              { value: 'japanese', label: 'Nhật' },
-              { value: 'healthy', label: 'Lành mạnh' },
-              { value: 'mexican', label: 'Mexico' },
-              { value: 'coffee', label: 'Cà phê' },
-              { value: 'bakery', label: 'Tiệm bánh' },
-            ]}
+            options={cuisines}
             value={form.cuisine}
             onChange={(e) => set({ cuisine: e.target.value })}
           />

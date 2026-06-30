@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext.jsx';
 import { resolveLoginRedirect } from '../lib/auth.js';
 
@@ -7,6 +7,7 @@ import { resolveLoginRedirect } from '../lib/auth.js';
  */
 export default function RedirectIfAuthed() {
   const { authReady, user } = useApp();
+  const location = useLocation();
 
   if (!authReady) {
     return (
@@ -17,7 +18,10 @@ export default function RedirectIfAuthed() {
   }
 
   if (user) {
-    return <Navigate to={resolveLoginRedirect(null, user)} replace />;
+    const searchParams = new URLSearchParams(location.search);
+    const nextPath = searchParams.get('next');
+    const target = resolveLoginRedirect(nextPath, user);
+    return <Navigate to={target} replace />;
   }
 
   return <Outlet />;

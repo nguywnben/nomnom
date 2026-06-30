@@ -29,13 +29,31 @@ export const ROLE_HOME = {
 };
 
 /**
- * Sau đăng nhập: ưu tiên `next` nếu có; không thì theo `primary_role`.
+ * Sau đăng nhập: ưu tiên `next` nếu user có quyền portal tương ứng.
  * @param {string|null} nextPath
  * @param {{ primaryRole: Role, roles: Role[] }} user
  */
 export function resolveLoginRedirect(nextPath, user) {
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
   if (nextPath) {
-    return nextPath;
+    if (nextPath.startsWith('/admin') && roles.includes('admin')) return nextPath;
+    if (nextPath.startsWith('/merchant')) {
+      if (nextPath === '/merchant/onboarding' || nextPath === '/merchant/pending') return nextPath;
+      if (roles.includes('merchant')) return nextPath;
+    }
+    if (nextPath.startsWith('/driver')) {
+      if (nextPath === '/driver/onboarding' || nextPath === '/driver/pending') return nextPath;
+      if (roles.includes('driver')) return nextPath;
+    }
+    if (nextPath.startsWith('/app') && roles.length > 0) return nextPath;
+    if (
+      !nextPath.startsWith('/admin') &&
+      !nextPath.startsWith('/merchant') &&
+      !nextPath.startsWith('/driver') &&
+      !nextPath.startsWith('/app')
+    ) {
+      return nextPath;
+    }
   }
   return ROLE_HOME[user.primaryRole] ?? '/app';
 }
