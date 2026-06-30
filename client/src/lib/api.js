@@ -231,6 +231,22 @@ export function fetchMerchantRestaurantApi() {
   return apiGet('/api/v1/merchant/me/restaurant');
 }
 
+/** Đơn hàng của quán — GET /api/v1/merchant/me/orders */
+export function fetchMerchantOrdersApi({ date, status } = {}) {
+  const params = new URLSearchParams();
+  if (date) params.set('date', date);
+  if (status) params.set('status', status);
+  const qs = params.toString();
+  return apiGet(`/api/v1/merchant/me/orders${qs ? `?${qs}` : ''}`);
+}
+
+/** Cập nhật trạng thái đơn quán — PATCH /api/v1/merchant/me/orders/:orderCode/status */
+export function updateMerchantOrderStatusApi(orderCode, action, cancelReason) {
+  const body = { action };
+  if (cancelReason) body.cancelReason = cancelReason;
+  return apiPatch(`/api/v1/merchant/me/orders/${encodeURIComponent(orderCode)}/status`, body);
+}
+
 /** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');

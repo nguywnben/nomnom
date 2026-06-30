@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -22,6 +22,27 @@ const STEPS = [
 
 const STEP_INDEX = STEPS.reduce((acc, s, i) => ({ ...acc, [s.id]: i }), {});
 
+const POLL_MS = 15000;
+
+function mapOrderStatusToStep(status) {
+  switch (status) {
+    case 'placed':
+      return 'placed';
+    case 'accepted':
+    case 'preparing':
+    case 'ready_for_pickup':
+      return 'preparing';
+    case 'picked_up':
+      return 'picked_up';
+    case 'delivering':
+      return 'delivering';
+    case 'delivered':
+      return 'delivered';
+    default:
+      return 'placed';
+  }
+}
+
 export default function CustomerTracking() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -29,19 +50,39 @@ export default function CustomerTracking() {
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Tự động chuyển tiến trình theo thời gian để demo
   const [stepId, setStepId] = useState('placed');
 
-  useEffect(() => {
-    apiGet('/api/v1/orders/' + id)
-      .then(data => {
+  const loadOrder = useCallback(() => {
+    return apiGet('/api/v1/orders/' + id)
+      .then((data) => {
         setOrder(data);
-        setStepId(data.status);
+        setStepId(mapOrderStatusToStep(data.status));
+        return data;
       })
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        console.error(err);
+        return null;
+      });
   }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await loadOrder();
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadOrder]);
+
+  useEffect(() => {
+    if (loading) return undefined;
+    const timer = setInterval(() => {
+      loadOrder();
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [loadOrder, loading]);
 
   const progress = useMemo(() => (STEP_INDEX[stepId] || 1) / (STEPS.length - 1), [stepId]);
 
@@ -53,6 +94,22 @@ export default function CustomerTracking() {
     return (
       <div className="container-page py-section">
         <Card padded>Không có đơn hàng nào để theo dõi.</Card>
+      </div>
+    );
+  }
+
+  if (order.status === 'cancelled') {
+    return (
+      <div className="container-page py-xl">
+        <Link to="/app/orders" className="inline-flex items-center gap-1 text-button text-body hover:text-ink">
+          <Icon name="chevronLeft" size={14} /> Đơn hàng của tôi
+        </Link>
+        <Card padded className="mt-base">
+          <div className="text-title-md text-ink">Đơn {order.order_code} đã bị hủy</div>
+          <p className="mt-1 text-body-sm text-body">
+            {order.cancel_reason || 'Vui lòng liên hệ quán hoặc hỗ trợ NomNom nếu cần thêm thông tin.'}
+          </p>
+        </Card>
       </div>
     );
   }
