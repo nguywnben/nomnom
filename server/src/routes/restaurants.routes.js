@@ -188,6 +188,7 @@ router.get('/:id/menu', async (req, res, next) => {
          mi.price,
          mi.prep_time_min AS prepTimeMin,
          mi.is_featured AS isFeatured,
+         mi.in_stock AS inStock,
          mi.total_sold AS totalSold,
          mi.rating_avg AS ratingAvg
        FROM menu_categories mc
@@ -195,7 +196,6 @@ router.get('/:id/menu', async (req, res, next) => {
          ON mi.category_id = mc.id
         AND mi.restaurant_id = mc.restaurant_id
         AND mi.status = 'active'
-        AND mi.in_stock = 1
        WHERE mc.restaurant_id = ?
          AND mc.is_active = 1
        ORDER BY mc.sort_order ASC, mc.id ASC, mi.is_featured DESC, mi.total_sold DESC, mi.sort_order ASC, mi.id ASC`,
@@ -222,6 +222,7 @@ router.get('/:id/menu', async (req, res, next) => {
         price: Number(row.price ?? 0),
         prepTimeMin: Number(row.prepTimeMin ?? 0),
         isFeatured: Boolean(row.isFeatured),
+        inStock: Boolean(row.inStock),
         totalSold: Number(row.totalSold ?? 0),
         ratingAvg: Number(row.ratingAvg ?? 0),
       });

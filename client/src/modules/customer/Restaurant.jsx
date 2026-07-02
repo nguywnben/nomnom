@@ -357,8 +357,11 @@ export default function CustomerRestaurant() {
 }
 
 function MenuCard({ item, onAdd, disabled }) {
+  const isOutOfStock = !item.inStock;
+  const isDisabled = disabled || isOutOfStock;
+
   return (
-    <Card padded={false} className="flex overflow-hidden">
+    <Card padded={false} className={`flex overflow-hidden ${isOutOfStock ? 'opacity-50 select-none' : ''}`}>
       <div className="flex-1 p-base">
         <div className="flex items-start justify-between gap-2">
           <div className="text-title-md text-ink">{item.name}</div>
@@ -369,16 +372,17 @@ function MenuCard({ item, onAdd, disabled }) {
           {item.isFeatured && <Badge tone="outline">Nổi bật</Badge>}
           <Badge tone="outline">{item.prepTimeMin} phút</Badge>
           <Badge tone="outline">⭐ {item.ratingAvg.toFixed(1)}</Badge>
+          {isOutOfStock && <Badge tone="error">Hết hàng</Badge>}
         </div>
         <div className="mt-sm">
           <Button
-            variant={disabled ? 'secondary' : 'primary'}
+            variant={isDisabled ? 'secondary' : 'primary'}
             size="sm"
-            leadingIcon="plus"
-            disabled={disabled}
+            leadingIcon={isOutOfStock ? 'close' : 'plus'}
+            disabled={isDisabled}
             onClick={onAdd}
           >
-            Thêm vào giỏ hàng
+            {isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
           </Button>
         </div>
       </div>
