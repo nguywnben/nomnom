@@ -231,6 +231,11 @@ export function fetchMerchantRestaurantApi() {
   return apiGet('/api/v1/merchant/me/restaurant');
 }
 
+/** Lấy thông tin KPI và thống kê cho Dashboard của merchant — GET /api/v1/merchant/me/dashboard */
+export function fetchMerchantDashboardApi(range = 'today') {
+  return apiGet(`/api/v1/merchant/me/dashboard?range=${range}`);
+}
+
 /** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
