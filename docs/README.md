@@ -19,7 +19,9 @@
 
 | Tài liệu | Mô tả |
 |----------|--------|
-| [groups.txt](./planning/groups.txt) | Chia 28 issue thành 5 đợt (wave) |
+| [groups.txt](./planning/groups.txt) | Kế hoạch Đợt 1–2 (đã xong) |
+| [waves-remaining.txt](./planning/waves-remaining.txt) | Kế hoạch Đợt 3–5 (không gồm vận hành tài xế) |
+| [driver-phase.txt](./planning/driver-phase.txt) | Phase tài xế — làm sau khi xong Đợt 3–5 |
 | [wave-1-completed.md](./wave-1-completed.md) | Chức năng đã hoàn thành — Đợt 1 (INF-01 … ADM-02) |
 | [wave-2-completed.md](./wave-2-completed.md) | Chức năng đã hoàn thành — Đợt 2 (CUS-03 … ADM-03) |
 | [issues.txt](./planning/issues.txt) | Chi tiết từng issue *(chưa có trong repo)* |

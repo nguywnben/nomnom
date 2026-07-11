@@ -165,6 +165,23 @@ router.post('/', requireAuth, async (req, res, next) => {
       [orderId, status, customerId]
     );
 
+    const [customerRows] = await connection.query(
+      'SELECT full_name FROM users WHERE id = ? LIMIT 1',
+      [customerId],
+    );
+    const customerName = customerRows[0]?.full_name ?? 'Khách hàng';
+    const itemCount = cartItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+
+    await connection.query(
+      `INSERT INTO notifications (user_id, type, title, body, link_url)
+       VALUES (?, 'order_placed', ?, ?, '/merchant/orders')`,
+      [
+        restaurant.owner_user_id,
+        'Đơn hàng mới',
+        `${customerName} đặt đơn ${orderCode} với ${itemCount} món.`,
+      ],
+    );
+
     // 8. Đổi giỏ hàng sang converted (Xóa cứng)
     await connection.query(
       `DELETE FROM carts WHERE id = ?`,
