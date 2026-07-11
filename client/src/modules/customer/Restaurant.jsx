@@ -316,6 +316,14 @@ export default function CustomerRestaurant() {
                       <StarRating value={rev.rating} />
                     </div>
                     <p className="text-body-sm text-body">{rev.text}</p>
+                    {rev.replyText && (
+                      <div className="mt-2 ml-4 p-2 bg-canvas-soft border-l-2 border-primary rounded-r text-body-sm leading-relaxed">
+                        <div className="font-semibold text-ink text-xs mb-1">
+                          Phản hồi của quán ({rev.replyAt || 'gần đây'}):
+                        </div>
+                        <p className="text-body text-xs">{rev.replyText}</p>
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>
@@ -357,8 +365,11 @@ export default function CustomerRestaurant() {
 }
 
 function MenuCard({ item, onAdd, disabled }) {
+  const isOutOfStock = !item.inStock;
+  const isDisabled = disabled || isOutOfStock;
+
   return (
-    <Card padded={false} className="flex overflow-hidden">
+    <Card padded={false} className={`flex overflow-hidden ${isOutOfStock ? 'opacity-50 select-none' : ''}`}>
       <div className="flex-1 p-base">
         <div className="flex items-start justify-between gap-2">
           <div className="text-title-md text-ink">{item.name}</div>
@@ -369,16 +380,17 @@ function MenuCard({ item, onAdd, disabled }) {
           {item.isFeatured && <Badge tone="outline">Nổi bật</Badge>}
           <Badge tone="outline">{item.prepTimeMin} phút</Badge>
           <Badge tone="outline">⭐ {item.ratingAvg.toFixed(1)}</Badge>
+          {isOutOfStock && <Badge tone="error">Hết hàng</Badge>}
         </div>
         <div className="mt-sm">
           <Button
-            variant={disabled ? 'secondary' : 'primary'}
+            variant={isDisabled ? 'secondary' : 'primary'}
             size="sm"
-            leadingIcon="plus"
-            disabled={disabled}
+            leadingIcon={isOutOfStock ? 'close' : 'plus'}
+            disabled={isDisabled}
             onClick={onAdd}
           >
-            Thêm vào giỏ hàng
+            {isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
           </Button>
         </div>
       </div>

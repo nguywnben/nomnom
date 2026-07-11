@@ -231,6 +231,27 @@ export function fetchMerchantRestaurantApi() {
   return apiGet('/api/v1/merchant/me/restaurant');
 }
 
+/** Lấy thông tin KPI và thống kê cho Dashboard của merchant — GET /api/v1/merchant/me/dashboard */
+export function fetchMerchantDashboardApi(range = 'today') {
+  return apiGet(`/api/v1/merchant/me/dashboard?range=${range}`);
+}
+
+/** Đơn hàng của quán — GET /api/v1/merchant/me/orders */
+export function fetchMerchantOrdersApi({ date, status } = {}) {
+  const params = new URLSearchParams();
+  if (date) params.set('date', date);
+  if (status) params.set('status', status);
+  const qs = params.toString();
+  return apiGet(`/api/v1/merchant/me/orders${qs ? `?${qs}` : ''}`);
+}
+
+/** Cập nhật trạng thái đơn quán — PATCH /api/v1/merchant/me/orders/:orderCode/status */
+export function updateMerchantOrderStatusApi(orderCode, action, cancelReason) {
+  const body = { action };
+  if (cancelReason) body.cancelReason = cancelReason;
+  return apiPatch(`/api/v1/merchant/me/orders/${encodeURIComponent(orderCode)}/status`, body);
+}
+
 /** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
@@ -302,5 +323,33 @@ export function deleteCartItemApi(itemId) {
 
 export function clearCartApi() {
   return apiDelete('/api/v1/cart');
+}
+
+export function fetchMerchantMenuApi() {
+  return apiGet('/api/v1/merchant/me/menu');
+}
+
+export function createMerchantCategoryApi(body) {
+  return apiPost('/api/v1/merchant/me/categories', body);
+}
+
+export function updateMerchantCategoryApi(id, body) {
+  return apiPatch(`/api/v1/merchant/me/categories/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteMerchantCategoryApi(id) {
+  return apiDelete(`/api/v1/merchant/me/categories/${encodeURIComponent(id)}`);
+}
+
+export function createMerchantMenuItemApi(body) {
+  return apiPost('/api/v1/merchant/me/items', body);
+}
+
+export function updateMerchantMenuItemApi(id, body) {
+  return apiPatch(`/api/v1/merchant/me/items/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteMerchantMenuItemApi(id) {
+  return apiDelete(`/api/v1/merchant/me/items/${encodeURIComponent(id)}`);
 }
 

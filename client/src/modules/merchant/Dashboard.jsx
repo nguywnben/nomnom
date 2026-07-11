@@ -1,6 +1,5 @@
+import { useState, useEffect } from 'react';
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -14,37 +13,142 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import StatCard from '../../components/StatCard.jsx';
-import { merchantDailyRevenue, merchantTopItems, restaurants } from '../../data/mock.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { fetchMerchantDashboardApi } from '../../lib/api.js';
+import { restaurants } from '../../data/mock.js';
 
 export default function MerchantDashboard() {
-  const { merchantOrders, currentMerchant } = useApp();
-  // Khi tích hợp API: thay bằng isPending / isLoading từ fetch.
-  const metricsLoading = false;
+  const { currentMerchant } = useApp();
+  const [range, setRange] = useState('today');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [dashboardData, setDashboardData] = useState({
+    summary: {
+      orderCount: 0,
+      revenue: 0,
+      avgOrderValue: 0,
+      ratingAvg: 0,
+      newOrderCount: 0,
+    },
+    topItems: [],
+    recentOrders: [],
+    chart: [],
+  });
 
-  const r = restaurants.find((x) => x.id === currentMerchant.restaurantId);
+  useEffect(() => {
+    let active = true;
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await fetchMerchantDashboardApi(range);
+        if (active) {
+          setDashboardData(data);
+        }
+      } catch (err) {
+        if (active) {
+          console.error('Error fetching merchant dashboard data:', err);
+          setError('Không thể tải thông tin báo cáo. Vui lòng thử lại sau.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, [range]);
 
-  const activeCount = merchantOrders.new.length + merchantOrders.preparing.length + merchantOrders.ready.length;
-  const todayRevenue = merchantDailyRevenue[merchantDailyRevenue.length - 1].revenue;
-  const weekRevenue = merchantDailyRevenue.reduce((s, d) => s + d.revenue, 0);
+  const r = restaurants.find((x) => x.id === currentMerchant?.restaurantId || x.id === `r-${currentMerchant?.restaurantId}`);
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'placed':
+        return { tone: 'info', label: 'Mới nhận' };
+      case 'accepted':
+        return { tone: 'info', label: 'Đã xác nhận' };
+      case 'preparing':
+        return { tone: 'warning', label: 'Đang chuẩn bị' };
+      case 'ready_for_pickup':
+        return { tone: 'warning', label: 'Chờ tài xế' };
+      case 'picked_up':
+      case 'delivering':
+        return { tone: 'warning', label: 'Đang giao' };
+      case 'delivered':
+        return { tone: 'success', label: 'Thành công' };
+      case 'cancelled':
+        return { tone: 'error', label: 'Đã hủy' };
+      case 'failed':
+        return { tone: 'error', label: 'Thất bại' };
+      default:
+        return { tone: 'outline', label: status };
+    }
+  };
+
+  const formatDateLabel = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    return `${parts[2]}/${parts[1]}`; // 'DD/MM'
+  };
+
+  const formattedChartData = dashboardData.chart.map((item) => ({
+    ...item,
+    formattedDate: formatDateLabel(item.date),
+  }));
+
+  // Handle Error View
+  if (error) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed border-error bg-surface-card p-xl text-center">
+        <Icon name="x" className="h-12 w-12 text-error" />
+        <h3 className="mt-base text-title-md text-ink">Đã xảy ra lỗi</h3>
+        <p className="mt-sm max-w-md text-body text-body-sm">{error}</p>
+        <button
+          onClick={() => setRange(range)}
+          className="mt-xl rounded-md bg-primary px-base py-sm text-button text-on-primary hover:bg-opacity-90"
+        >
+          Tải lại dữ liệu
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-base">
-      <div className="flex items-end justify-between">
+      <div className="flex items-center justify-between">
         <div>
-          <div className="text-caption-uppercase text-body">Hôm nay, {new Date().toLocaleDateString('vi-VN')}</div>
+          <div className="text-caption-uppercase text-body">
+            {range === 'today' ? 'Hôm nay' : range === 'week' ? 'Tuần này' : 'Tháng này'}
+          </div>
           <h1 className="text-display-lg text-ink">Bảng điều khiển</h1>
         </div>
-        <Badge tone={r?.open ? 'success' : 'error'} dot>
-          {r?.open ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
-        </Badge>
+        <div className="flex items-center gap-sm">
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value)}
+            className="rounded-md border border-hairline bg-canvas px-base py-2 text-body-sm text-ink outline-none hover:border-body focus:border-ink font-medium"
+          >
+            <option value="today">Hôm nay</option>
+            <option value="week">Tuần này</option>
+            <option value="month">Tháng này</option>
+          </select>
+          {r && (
+            <Badge tone={r.open ? 'success' : 'error'} dot>
+              {r.open ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {/* Stats — skeleton mirrors StatCard + Card padding */}
-      {metricsLoading ? (
-        <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+      {/* KPI Cards */}
+      {loading ? (
+        <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
             <Card key={i} padded className="flex flex-col gap-sm">
               <div className="flex items-center justify-between">
                 <Skeleton className="h-3 min-h-[11px] w-[7.5rem]" rounded="sm" />
@@ -53,161 +157,215 @@ export default function MerchantDashboard() {
               <Skeleton className="h-8 min-h-8 w-28" rounded="sm" />
               <div className="flex min-h-[18px] flex-wrap items-center gap-2">
                 <Skeleton className="h-3 w-14" rounded="sm" />
-                <Skeleton className="h-3 w-24" rounded="sm" />
               </div>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-5">
           <StatCard
-            label="Doanh thu hôm nay"
-            value={formatVnd(todayRevenue)}
-            delta="+12.4%"
+            label="Đơn thành công"
+            value={dashboardData.summary.orderCount}
+            icon="list"
+            sub="Trong kỳ đã chọn"
+          />
+          <StatCard
+            label="Tổng doanh thu"
+            value={formatVnd(dashboardData.summary.revenue)}
             icon="cash"
-            sub="so với hôm qua"
+            sub="Doanh thu món ăn"
           />
           <StatCard
-            label="Đơn hàng đang hoạt động"
-            value={activeCount}
-            delta="3 mới"
-            icon="bike"
-            sub="cần xử lý"
-          />
-          <StatCard
-            label="Doanh thu tuần"
-            value={formatVnd(weekRevenue)}
-            delta="+8.1%"
+            label="Giá trị đơn TB"
+            value={formatVnd(dashboardData.summary.avgOrderValue)}
             icon="trending"
-            sub="so với tuần trước"
+            sub="Mỗi đơn thành công"
           />
           <StatCard
-            label="Đánh giá"
-            value="4.8"
-            delta="+0.1"
+            label="Đánh giá quán"
+            value={dashboardData.summary.ratingAvg.toFixed(1)}
             icon="starFilled"
-            sub="tuần này"
+            sub="Điểm trung bình chung"
+          />
+          <StatCard
+            label="Đơn mới chờ duyệt"
+            value={dashboardData.summary.newOrderCount}
+            icon="bell"
+            delta={dashboardData.summary.newOrderCount > 0 ? 'Cần xử lý' : ''}
+            deltaTone={dashboardData.summary.newOrderCount > 0 ? 'error' : 'success'}
+            sub="Trạng thái placed"
           />
         </div>
       )}
 
-      {/* Charts */}
+      {/* Charts & Top Items */}
       <div className="grid gap-base lg:grid-cols-3">
+        {/* Bar Chart */}
         <Card padded className="lg:col-span-2">
           <div className="mb-base flex items-center justify-between">
             <div>
-              <div className="text-caption-uppercase text-body">Doanh thu</div>
-              <div className="text-title-md text-ink">7 ngày qua</div>
+              <div className="text-caption-uppercase text-body">Xu hướng</div>
+              <div className="text-title-md text-ink">7 ngày vừa qua</div>
             </div>
-            <Badge tone="outline">tổng cộng {formatVnd(weekRevenue)}</Badge>
+            <Badge tone="outline">Đơn hàng đã giao</Badge>
           </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={merchantDailyRevenue}>
-                <defs>
-                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#171717" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#171717" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
-                <XAxis dataKey="day" stroke="#999999" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#999999" tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    border: '1px solid #dcdee0',
-                    borderRadius: 8,
-                    fontSize: 13,
-                  }}
-                  labelStyle={{ color: '#171717' }}
-                  formatter={(v) => [formatVnd(v), 'Doanh thu']}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#171717"
-                  strokeWidth={2}
-                  fill="url(#rev)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {loading ? (
+            <div className="flex h-64 items-center justify-center bg-canvas-soft rounded-md">
+              <Skeleton className="h-4/5 w-11/12" rounded="md" />
+            </div>
+          ) : dashboardData.chart.length === 0 ? (
+            <div className="flex h-64 items-center justify-center bg-canvas-soft rounded-md text-body-sm text-body">
+              Chưa có dữ liệu thống kê biểu đồ.
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={formattedChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
+                  <XAxis dataKey="formattedDate" stroke="#999999" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="left" orientation="left" stroke="#171717" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="right" orientation="right" stroke="#ea580c" tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      border: '1px solid #dcdee0',
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: '#171717', fontWeight: 'bold' }}
+                    formatter={(value, name) => {
+                      if (name === 'Doanh thu') return [formatVnd(value), name];
+                      return [value, name];
+                    }}
+                  />
+                  <Bar yAxisId="left" dataKey="revenue" fill="#171717" radius={[4, 4, 0, 0]} name="Doanh thu" />
+                  <Bar yAxisId="right" dataKey="orderCount" fill="#ea580c" radius={[4, 4, 0, 0]} name="Số đơn" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Card>
 
+        {/* Top Items Table */}
         <Card padded>
           <div className="mb-base">
             <div className="text-caption-uppercase text-body">Món bán chạy</div>
-            <div className="text-title-md text-ink">Tuần này</div>
+            <div className="text-title-md text-ink">Top 5 lượt mua nhiều</div>
+          </div>
+          {loading ? (
+            <div className="space-y-base">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-sm">
+                  <Skeleton className="h-7 w-7 shrink-0" rounded="md" />
+                  <div className="flex-1 space-y-1">
+                    <Skeleton className="h-3 w-3/4" rounded="sm" />
+                    <Skeleton className="h-3 w-1/2" rounded="sm" />
+                  </div>
+                  <Skeleton className="h-3 w-16" rounded="sm" />
+                </div>
+              ))}
+            </div>
+          ) : dashboardData.topItems.length === 0 ? (
+            <div className="flex h-64 items-center justify-center text-body-sm text-body">
+              Chưa có dữ liệu món bán chạy.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-body-sm">
+                <thead>
+                  <tr className="border-b border-hairline text-body text-caption font-semibold">
+                    <th className="pb-sm font-semibold">Hạng</th>
+                    <th className="pb-sm font-semibold">Món ăn</th>
+                    <th className="pb-sm font-semibold text-right">Lượt bán</th>
+                    <th className="pb-sm font-semibold text-right">Doanh thu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {dashboardData.topItems.map((item, idx) => (
+                    <tr key={item.menuItemId || idx} className="hover:bg-canvas-soft transition-colors">
+                      <td className="py-sm">
+                        <span className="grid h-6 w-6 place-items-center rounded bg-surface-strong text-caption font-bold text-ink">
+                          {idx + 1}
+                        </span>
+                      </td>
+                      <td className="py-sm font-medium text-ink truncate max-w-[120px]" title={item.name}>
+                        {item.name}
+                      </td>
+                      <td className="py-sm text-right font-medium text-ink nums">{item.totalSold}</td>
+                      <td className="py-sm text-right font-medium text-ink nums">{formatVnd(item.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Recent Orders */}
+      {loading ? (
+        <Card padded>
+          <div className="mb-base">
+            <Skeleton className="h-4 w-40" rounded="sm" />
+            <Skeleton className="mt-2 h-3 w-64" rounded="sm" />
           </div>
           <div className="space-y-sm">
-            {merchantTopItems.map((it, i) => (
-              <div key={it.name} className="flex items-center gap-sm">
-                <span className="grid h-7 w-7 place-items-center rounded-md bg-surface-strong text-caption font-semibold text-ink nums">
-                  {i + 1}
-                </span>
-                <div className="flex-1">
-                  <div className="text-body-sm font-semibold text-ink">{it.name}</div>
-                  <div className="text-caption text-body">đã bán {it.sold}</div>
-                </div>
-                <span className="nums text-body-sm text-ink">{formatVnd(it.revenue)}</span>
-              </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" rounded="sm" />
             ))}
           </div>
         </Card>
-      </div>
-
-      <div className="grid gap-base lg:grid-cols-3">
-        <Card padded className="lg:col-span-2">
+      ) : (
+        <Card padded>
           <div className="mb-base flex items-center justify-between">
             <div>
-              <div className="text-caption-uppercase text-body">Số lượng món</div>
-              <div className="text-title-md text-ink">Bán chạy nhất</div>
+              <div className="text-caption-uppercase text-body">Gần đây</div>
+              <div className="text-title-md text-ink">10 đơn hàng gần nhất</div>
             </div>
+            <Badge tone="info">Thời gian thực</Badge>
           </div>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={merchantTopItems}>
-                <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
-                <XAxis dataKey="name" stroke="#999999" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#999999" tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    border: '1px solid #dcdee0',
-                    borderRadius: 8,
-                    fontSize: 13,
-                  }}
-                />
-                <Bar dataKey="sold" fill="#171717" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {dashboardData.recentOrders.length === 0 ? (
+            <div className="py-xl text-center text-body-sm text-body">
+              Chưa có đơn hàng nào được ghi nhận.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-body-sm">
+                <thead>
+                  <tr className="border-b border-hairline text-body text-caption font-semibold">
+                    <th className="pb-sm font-semibold">Mã đơn</th>
+                    <th className="pb-sm font-semibold">Khách hàng</th>
+                    <th className="pb-sm font-semibold text-right">Tổng thanh toán</th>
+                    <th className="pb-sm font-semibold">Trạng thái</th>
+                    <th className="pb-sm font-semibold">Thời điểm đặt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {dashboardData.recentOrders.map((order, idx) => {
+                    const badge = getStatusBadge(order.status);
+                    const timeLabel = new Date(order.placedAt).toLocaleTimeString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit',
+                    });
+                    return (
+                      <tr key={order.orderCode || idx} className="hover:bg-canvas-soft transition-colors">
+                        <td className="py-sm font-semibold text-ink">{order.orderCode}</td>
+                        <td className="py-sm font-medium text-body">{order.customerName}</td>
+                        <td className="py-sm text-right font-medium text-ink nums">{formatVnd(order.totalAmount)}</td>
+                        <td className="py-sm">
+                          <Badge tone={badge.tone}>{badge.label}</Badge>
+                        </td>
+                        <td className="py-sm text-body text-caption nums">{timeLabel}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
-
-        <Card padded>
-          <div className="mb-base">
-            <div className="text-caption-uppercase text-body">Đang phục vụ</div>
-            <div className="text-title-md text-ink">Đơn hàng trực tiếp</div>
-          </div>
-          <ul className="space-y-2">
-            {[...merchantOrders.new, ...merchantOrders.preparing, ...merchantOrders.ready]
-              .slice(0, 6)
-              .map((o) => (
-                <li key={o.id} className="flex items-center gap-sm rounded-md border border-hairline px-sm py-2">
-                  <Icon name="package" size={14} className="text-body" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-body-sm font-semibold text-ink truncate">
-                      #{o.id} · {o.customerName}
-                    </div>
-                    <div className="text-caption text-body truncate">
-                      {o.items.map((i) => `${i.quantity}× ${i.name}`).join(', ')}
-                    </div>
-                  </div>
-                  <span className="nums text-body-sm text-ink">{formatVnd(o.total)}</span>
-                </li>
-              ))}
-          </ul>
-        </Card>
-      </div>
+      )}
     </div>
   );
 }

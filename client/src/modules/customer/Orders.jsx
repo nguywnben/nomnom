@@ -243,11 +243,13 @@ export default function CustomerOrders() {
                         >
                           {reorderingId === o.id ? 'Đang thêm...' : 'Đặt lại'}
                         </Button>
-                        <Link to={`/app/reviews/${o.restaurantId}`}>
-                          <Button size="sm" variant="secondary">
-                            Đánh giá
-                          </Button>
-                        </Link>
+                        {!o.isReviewed && (
+                          <Link to={`/app/reviews/write/${o.id}`}>
+                            <Button size="sm" variant="secondary">
+                              Đánh giá
+                            </Button>
+                          </Link>
+                        )}
                       </>
                     )}
                   </div>

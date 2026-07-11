@@ -47,13 +47,15 @@ export function useRestaurantReviews(idOrSlug) {
         const data = await fetchRestaurantReviews(idOrSlug);
         if (!cancelled) {
           setReviews(
-            (data?.reviews ?? []).map((review) => ({
+            (data?.data ?? []).map((review) => ({
               id: review.id,
-              author: review.authorName,
-              avatar: review.avatarUrl,
+              author: review.customerName,
+              avatar: review.customerAvatar,
               rating: review.rating,
               when: formatRelativeTime(review.createdAt),
               text: review.comment,
+              replyText: review.replyText,
+              replyAt: review.replyAt ? formatRelativeTime(review.replyAt) : null,
             })),
           );
           setError(null);
