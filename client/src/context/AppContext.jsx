@@ -103,7 +103,7 @@ export function AppProvider({ children }) {
       avatar: user.avatarUrl,
       role: user.primaryRole === 'admin' ? 'Quản trị viên' : 'Người dùng',
     };
-  }, [user, permittedRoles.admin, user?.primaryRole]);
+  }, [user, permittedRoles.admin]);
 
   const emptyCart = useCallback(
     () => ({
@@ -260,56 +260,11 @@ export function AppProvider({ children }) {
         }
 
         if (!resolvedMenuItemId) {
-          setCart((cur) => {
-            const nextItem = {
-              ...item,
-              id: itemId,
-              menuItemId: item.menuItemId ?? itemId,
-              restaurantId: nextRestaurantId,
-              restaurantName: nextRestaurantName,
-              restaurantLogo: nextRestaurantLogo,
-              imageUrl: item.imageUrl ?? item.image ?? null,
-              image: item.image ?? item.imageUrl ?? null,
-              price: Number(item.price ?? 0),
-              quantity,
-              note: item.note ?? null,
-              lineSubtotal: Number(item.price ?? 0) * quantity,
-            };
-
-            if (cur.restaurantId && String(cur.restaurantId) !== String(nextRestaurantId)) {
-              return {
-                id: null,
-                restaurantId: nextRestaurantId,
-                restaurantName: nextRestaurantName,
-                restaurantLogo: nextRestaurantLogo,
-                baseDeliveryFee: nextBaseDeliveryFee,
-                items: [nextItem],
-              };
-            }
-
-            const existing = cur.items.find((i) => String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id));
-            const items = existing
-              ? cur.items.map((i) =>
-                  String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
-                    ? {
-                        ...i,
-                        quantity: Number(i.quantity ?? 0) + quantity,
-                        lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
-                      }
-                    : i,
-                )
-              : [...cur.items, nextItem];
-            return {
-              ...cur,
-              restaurantId: nextRestaurantId,
-              restaurantName: nextRestaurantName,
-              restaurantLogo: nextRestaurantLogo,
-              baseDeliveryFee: nextBaseDeliveryFee,
-              items,
-            };
+          pushToast({
+            kind: 'error',
+            title: 'Không thể thêm vào giỏ hàng',
+            message: 'Món ăn chưa có mã dữ liệu hợp lệ. Vui lòng tải lại trang.',
           });
-
-          pushToast({ kind: 'info', title: 'Hãy đăng nhập để đặt món', message: 'Món đã được thêm vào giỏ cục bộ.', duration: 3200 });
           return null;
         }
 
@@ -398,7 +353,7 @@ export function AppProvider({ children }) {
       }
       return null;
     },
-    [cart.baseDeliveryFee, cart.items.length, cart.restaurantId, normalizeCart, permittedRoles.customer, pushToast, user],
+    [cart.baseDeliveryFee, cart.items.length, cart.restaurantId, normalizeCart, permittedRoles, pushToast, user],
   );
 
   const setItemQty = useCallback(

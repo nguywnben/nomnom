@@ -7,17 +7,19 @@ export function useRestaurants(filters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [hasMore, setHasMore] = useState(false);
+  const serializedFilters = JSON.stringify(filters ?? {});
 
   useEffect(() => {
     let ignore = false;
+    const requestFilters = JSON.parse(serializedFilters);
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetchRestaurants(filters);
+        const res = await fetchRestaurants(requestFilters);
         if (!ignore) {
           setData((prev) => {
-            if (filters.page > 1) {
+            if (requestFilters.page > 1) {
               return [...prev, ...res.data];
             }
             return res.data;
@@ -35,7 +37,7 @@ export function useRestaurants(filters) {
     return () => {
       ignore = true;
     };
-  }, [JSON.stringify(filters)]);
+  }, [serializedFilters]);
 
   return { data, pagination, loading, error, hasMore };
 }

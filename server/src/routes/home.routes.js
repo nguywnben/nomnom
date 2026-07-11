@@ -14,9 +14,14 @@ router.get('/categories', async (_req, res, next) => {
          mi.id,
          mi.name,
          mi.image_url AS imageUrl,
+         mi.price,
+         mi.prep_time_min AS prepTimeMin,
          c.slug AS cuisineSlug,
          mi.restaurant_id AS restaurantId,
-         r.name AS restaurantName
+         r.name AS restaurantName,
+         r.logo_url AS restaurantLogo,
+         r.base_delivery_fee AS baseDeliveryFee,
+         r.avg_prep_time_min AS avgPrepTimeMin
        FROM menu_items mi
        INNER JOIN restaurants r
          ON r.id = mi.restaurant_id
