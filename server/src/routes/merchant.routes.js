@@ -352,6 +352,24 @@ router.get('/me/restaurant', requireAuth, async (req, res, next) => {
   }
 });
 
+// Middleware phụ trợ để lấy ID nhà hàng và kiểm tra quyền sở hữu của merchant
+async function getMerchantRestaurant(req, res, next) {
+  try {
+    const userId = req.auth.userId;
+    const [rows] = await pool.query(
+      'SELECT id, status FROM restaurants WHERE owner_user_id = ? LIMIT 1',
+      [userId]
+    );
+    if (rows.length === 0) {
+      return res.status(403).json({ error: 'Bạn không sở hữu quán ăn nào trên hệ thống.' });
+    }
+    req.restaurantId = rows[0].id;
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
 /**
  * GET /api/v1/merchant/me/orders
  * Query: status (optional), date (YYYY-MM-DD, default today)
@@ -401,6 +419,54 @@ router.get('/me/orders', requireAuth, ensureMerchant, async (req, res, next) => 
     });
 
     res.json({ orders: serialized });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/v1/merchant/me/menu
+ * Lấy danh mục và món ăn của quán
+ */
+router.get('/me/menu', requireAuth, getMerchantRestaurant, async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurantId;
+    
+    const [categories] = await pool.query(
+      'SELECT * FROM menu_categories WHERE restaurant_id = ? ORDER BY sort_order ASC, id ASC',
+      [restaurantId]
+    );
+
+    const [items] = await pool.query(
+      'SELECT * FROM menu_items WHERE restaurant_id = ? ORDER BY sort_order ASC, id ASC',
+      [restaurantId]
+    );
+
+    const result = categories.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      sortOrder: cat.sort_order,
+      isActive: Boolean(cat.is_active),
+      items: items
+        .filter(item => item.category_id === cat.id)
+        .map(item => ({
+          id: item.id,
+          categoryId: item.category_id,
+          name: item.name,
+          description: item.description,
+          imageUrl: item.image_url,
+          price: Number(item.price),
+          prepTimeMin: item.prep_time_min,
+          inStock: Boolean(item.in_stock),
+          isFeatured: Boolean(item.is_featured),
+          sortOrder: item.sort_order,
+          totalSold: item.total_sold,
+          ratingAvg: Number(item.rating_avg),
+          status: item.status
+        }))
+    }));
+
+    res.json({ categories: result });
   } catch (err) {
     next(err);
   }
@@ -494,6 +560,320 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
     next(err);
   } finally {
     conn.release();
+  }
+});
+
+/**
+ * POST /api/v1/merchant/me/categories
+ * Tạo danh mục mới
+ */
+router.post('/me/categories', requireAuth, getMerchantRestaurant, async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurantId;
+    const { name, sortOrder = 0 } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Tên danh mục không được để trống.' });
+    }
+
+    const [result] = await pool.query(
+      'INSERT INTO menu_categories (restaurant_id, name, sort_order) VALUES (?, ?, ?)',
+      [restaurantId, name.trim(), Number(sortOrder)]
+    );
+
+    res.status(201).json({
+      id: result.insertId,
+      name: name.trim(),
+      sortOrder: Number(sortOrder),
+      isActive: true,
+      items: []
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/v1/merchant/me/categories/:id
+ * Chỉnh sửa danh mục
+ */
+router.patch('/me/categories/:id', requireAuth, getMerchantRestaurant, async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurantId;
+    const categoryId = req.params.id;
+
+    const [catRows] = await pool.query(
+      'SELECT id FROM menu_categories WHERE id = ? AND restaurant_id = ? LIMIT 1',
+      [categoryId, restaurantId]
+    );
+    if (catRows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy danh mục hoặc danh mục không thuộc quán của bạn.' });
+    }
+
+    const { name, sortOrder, isActive } = req.body;
+    const updates = [];
+    const params = [];
+
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({ error: 'Tên danh mục không được để trống.' });
+      }
+      updates.push('name = ?');
+      params.push(name.trim());
+    }
+    if (sortOrder !== undefined) {
+      updates.push('sort_order = ?');
+      params.push(Number(sortOrder));
+    }
+    if (isActive !== undefined) {
+      updates.push('is_active = ?');
+      params.push(isActive ? 1 : 0);
+    }
+
+    if (updates.length > 0) {
+      params.push(categoryId);
+      await pool.query(
+        `UPDATE menu_categories SET ${updates.join(', ')} WHERE id = ?`,
+        params
+      );
+    }
+
+    res.json({ message: 'Cập nhật danh mục thành công.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/v1/merchant/me/categories/:id
+ * Xóa danh mục (chặn nếu còn món)
+ */
+router.delete('/me/categories/:id', requireAuth, getMerchantRestaurant, async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurantId;
+    const categoryId = req.params.id;
+
+    const [catRows] = await pool.query(
+      'SELECT id FROM menu_categories WHERE id = ? AND restaurant_id = ? LIMIT 1',
+      [categoryId, restaurantId]
+    );
+    if (catRows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy danh mục hoặc danh mục không thuộc quán của bạn.' });
+    }
+
+    const [itemRows] = await pool.query(
+      'SELECT id FROM menu_items WHERE category_id = ? LIMIT 1',
+      [categoryId]
+    );
+    if (itemRows.length > 0) {
+      return res.status(400).json({ error: 'Không thể xóa danh mục vì vẫn còn món ăn trong danh mục này.' });
+    }
+
+    await pool.query('DELETE FROM menu_categories WHERE id = ?', [categoryId]);
+    res.json({ message: 'Xóa danh mục thành công.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/v1/merchant/me/items
+ * Tạo món ăn mới
+ */
+router.post('/me/items', requireAuth, getMerchantRestaurant, async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurantId;
+    const {
+      categoryId,
+      name,
+      description = '',
+      imageUrl = null,
+      price,
+      prepTimeMin = 15,
+      isFeatured = false,
+      sortOrder = 0
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Tên món ăn không được để trống.' });
+    }
+    if (price === undefined || isNaN(Number(price)) || Number(price) < 0) {
+      return res.status(400).json({ error: 'Giá món ăn phải lớn hơn hoặc bằng 0.' });
+    }
+    if (!categoryId) {
+      return res.status(400).json({ error: 'Vui lòng chọn danh mục món ăn.' });
+    }
+
+    const [catRows] = await pool.query(
+      'SELECT id FROM menu_categories WHERE id = ? AND restaurant_id = ? LIMIT 1',
+      [categoryId, restaurantId]
+    );
+    if (catRows.length === 0) {
+      return res.status(400).json({ error: 'Danh mục không hợp lệ hoặc không thuộc quán của bạn.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO menu_items (
+        restaurant_id, category_id, name, description, image_url, price, prep_time_min, is_featured, sort_order
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        restaurantId,
+        categoryId,
+        name.trim(),
+        description,
+        imageUrl,
+        Number(price),
+        Number(prepTimeMin),
+        isFeatured ? 1 : 0,
+        Number(sortOrder)
+      ]
+    );
+
+    res.status(201).json({
+      id: result.insertId,
+      categoryId,
+      name: name.trim(),
+      description,
+      imageUrl,
+      price: Number(price),
+      prepTimeMin: Number(prepTimeMin),
+      inStock: true,
+      isFeatured: Boolean(isFeatured),
+      sortOrder: Number(sortOrder),
+      totalSold: 0,
+      ratingAvg: 0,
+      status: 'active'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/v1/merchant/me/items/:id
+ * Chỉnh sửa món ăn
+ */
+router.patch('/me/items/:id', requireAuth, getMerchantRestaurant, async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurantId;
+    const itemId = req.params.id;
+
+    const [itemRows] = await pool.query(
+      'SELECT id FROM menu_items WHERE id = ? AND restaurant_id = ? LIMIT 1',
+      [itemId, restaurantId]
+    );
+    if (itemRows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy món ăn hoặc món ăn không thuộc quán của bạn.' });
+    }
+
+    const {
+      categoryId,
+      name,
+      description,
+      imageUrl,
+      price,
+      prepTimeMin,
+      isFeatured,
+      sortOrder,
+      inStock,
+      status
+    } = req.body;
+
+    const updates = [];
+    const params = [];
+
+    if (categoryId !== undefined) {
+      const [catRows] = await pool.query(
+        'SELECT id FROM menu_categories WHERE id = ? AND restaurant_id = ? LIMIT 1',
+        [categoryId, restaurantId]
+      );
+      if (catRows.length === 0) {
+        return res.status(400).json({ error: 'Danh mục không hợp lệ hoặc không thuộc quán của bạn.' });
+      }
+      updates.push('category_id = ?');
+      params.push(categoryId);
+    }
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return res.status(400).json({ error: 'Tên món ăn không được để trống.' });
+      }
+      updates.push('name = ?');
+      params.push(name.trim());
+    }
+    if (description !== undefined) {
+      updates.push('description = ?');
+      params.push(description);
+    }
+    if (imageUrl !== undefined) {
+      updates.push('image_url = ?');
+      params.push(imageUrl);
+    }
+    if (price !== undefined) {
+      if (isNaN(Number(price)) || Number(price) < 0) {
+        return res.status(400).json({ error: 'Giá món ăn phải lớn hơn hoặc bằng 0.' });
+      }
+      updates.push('price = ?');
+      params.push(Number(price));
+    }
+    if (prepTimeMin !== undefined) {
+      updates.push('prep_time_min = ?');
+      params.push(Number(prepTimeMin));
+    }
+    if (isFeatured !== undefined) {
+      updates.push('is_featured = ?');
+      params.push(isFeatured ? 1 : 0);
+    }
+    if (sortOrder !== undefined) {
+      updates.push('sort_order = ?');
+      params.push(Number(sortOrder));
+    }
+    if (inStock !== undefined) {
+      updates.push('in_stock = ?');
+      params.push(inStock ? 1 : 0);
+    }
+    if (status !== undefined) {
+      if (status !== 'active' && status !== 'hidden') {
+        return res.status(400).json({ error: 'Trạng thái món ăn không hợp lệ.' });
+      }
+      updates.push('status = ?');
+      params.push(status);
+    }
+
+    if (updates.length > 0) {
+      params.push(itemId);
+      await pool.query(
+        `UPDATE menu_items SET ${updates.join(', ')} WHERE id = ?`,
+        params
+      );
+    }
+
+    res.json({ message: 'Cập nhật món ăn thành công.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/v1/merchant/me/items/:id
+ * Xóa món ăn
+ */
+router.delete('/me/items/:id', requireAuth, getMerchantRestaurant, async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurantId;
+    const itemId = req.params.id;
+
+    const [itemRows] = await pool.query(
+      'SELECT id FROM menu_items WHERE id = ? AND restaurant_id = ? LIMIT 1',
+      [itemId, restaurantId]
+    );
+    if (itemRows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy món ăn hoặc món ăn không thuộc quán của bạn.' });
+    }
+
+    await pool.query('DELETE FROM menu_items WHERE id = ?', [itemId]);
+    res.json({ message: 'Xóa món ăn thành công.' });
+  } catch (err) {
+    next(err);
   }
 });
 
