@@ -1,5 +1,13 @@
 # Phân tích Dự án NomNom — Premium Food Delivery Ecosystem
 
+## Project Identity
+
+- **Institution:** FPT Polytechnic
+- **Project type:** Graduation Project
+- **Team size:** 6 members
+- **Team leader:** Nguyễn Công Ben
+- **Team members:** Hồ Minh Nhật, Nguyễn Văn Dĩ Khang, Ong Tuấn Nghĩa, Trần Minh Được, Nguyễn Thị Như Ngọc
+
 ## 1. Tổng quan dự án
 **NomNom** là một hệ sinh thái giao đồ ăn đa bên (multi-sided platform), được thiết kế để kết nối bốn nhóm đối tượng chính: Khách hàng, Nhà hàng, Tài xế và Quản trị viên. Dự án hướng tới trải nghiệm người dùng cao cấp (premium) với giao diện hiện đại, mượt mà và quy trình vận hành chặt chẽ.
 

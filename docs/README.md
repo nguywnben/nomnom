@@ -1,5 +1,19 @@
 # Tài liệu NomNom
 
+## Project Identity
+
+NomNom is a graduation project developed at **FPT Polytechnic** by a six-member team led by **Nguyễn Công Ben**. The team also includes Hồ Minh Nhật, Nguyễn Văn Dĩ Khang, Ong Tuấn Nghĩa, Trần Minh Được, and Nguyễn Thị Như Ngọc.
+
+## Open Source Community
+
+| Document | Purpose |
+|---|---|
+| [README](../README.md) | Public project overview and setup guide |
+| [CONTRIBUTING](../CONTRIBUTING.md) | Development and pull request workflow |
+| [SECURITY](../SECURITY.md) | Private vulnerability reporting policy |
+| [CODE_OF_CONDUCT](../CODE_OF_CONDUCT.md) | Community participation standards |
+| [LICENSE](../LICENSE) | MIT License |
+
 ## Vận hành & triển khai
 
 | Tài liệu | Mô tả |
@@ -24,7 +38,10 @@
 | [driver-phase.txt](./planning/driver-phase.txt) | Phase tài xế — làm sau khi xong Đợt 3–5 |
 | [wave-1-completed.md](./wave-1-completed.md) | Chức năng đã hoàn thành — Đợt 1 (INF-01 … ADM-02) |
 | [wave-2-completed.md](./wave-2-completed.md) | Chức năng đã hoàn thành — Đợt 2 (CUS-03 … ADM-03) |
-| [issues.txt](./planning/issues.txt) | Chi tiết từng issue *(chưa có trong repo)* |
+| [wave-3-completed.md](./wave-3-completed.md) | Chức năng đã hoàn thành — Đợt 3 (CUS-06 … MER-04) |
+| [issues-wave-4.md](./planning/issues-wave-4.md) | Hợp đồng và tiêu chí nhận việc Đợt 4 |
+| [`tasks/plan.md`](../tasks/plan.md) | Thứ tự triển khai và dependency Đợt 4 |
+| [`tasks/todo.md`](../tasks/todo.md) | Checklist khởi động, checkpoint và bàn giao Đợt 4 |
 
 ## Cơ sở dữ liệu
 
@@ -38,4 +55,10 @@ Migration bổ sung (DB đã có từ trước):
 
 ```bash
 mysql -u root -p nomnom < database/migrations/20260530_restaurant_bank.sql
+```
+
+Nền tảng dùng chung cho Đợt 4:
+
+```bash
+mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql
 ```
