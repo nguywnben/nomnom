@@ -1,26 +1,59 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
+import Badge from '../../components/Badge.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
-import Image from '../../components/Image.jsx';
-import Avatar from '../../components/Avatar.jsx';
-import MockMap from '../../components/MockMap.jsx';
-import { useApp } from '../../context/AppContext.jsx';
-import { currentDriver } from '../../data/mock.js';
-import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet } from '../../lib/api.js';
 
 const STEPS = [
   { id: 'placed', label: 'Đã đặt', icon: 'check' },
-  { id: 'preparing', label: 'Đang chuẩn bị', icon: 'store' },
-  { id: 'picked_up', label: 'Đã lấy hàng', icon: 'package' },
+  { id: 'accepted', label: 'Đã nhận đơn', icon: 'store' },
+  { id: 'preparing', label: 'Đang chuẩn bị', icon: 'package' },
+  { id: 'ready_for_pickup', label: 'Sẵn sàng lấy', icon: 'package' },
+  { id: 'picked_up', label: 'Đã lấy hàng', icon: 'bike' },
   { id: 'delivering', label: 'Đang giao', icon: 'bike' },
   { id: 'delivered', label: 'Đã giao', icon: 'check' },
 ];
 
-const STEP_INDEX = STEPS.reduce((acc, s, i) => ({ ...acc, [s.id]: i }), {});
+const STEP_INDEX = STEPS.reduce((acc, step, index) => ({ ...acc, [step.id]: index }), {});
+
+function formatTime(value) {
+  if (!value) return '--';
+  return new Date(value).toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return '--';
+  return new Date(value).toLocaleString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+  });
+}
+
+function buildTimeline(order) {
+  return STEPS.map((step) => {
+    const timestampMap = {
+      placed: order.placed_at ?? order.placedAt,
+      accepted: order.accepted_at ?? order.acceptedAt,
+      preparing: order.preparing_at ?? order.preparingAt,
+      ready_for_pickup: order.ready_for_pickup_at ?? order.ready_at ?? order.readyAt,
+      picked_up: order.picked_up_at ?? order.pickedUpAt,
+      delivering: order.delivering_at ?? order.deliveringAt,
+      delivered: order.delivered_at ?? order.deliveredAt,
+    };
+
+    return {
+      status: step.id,
+      at: timestampMap[step.id] ?? null,
+    };
+  });
+}
 
 const POLL_MS = 15000;
 
@@ -45,46 +78,64 @@ function mapOrderStatusToStep(status) {
 
 export default function CustomerTracking() {
   const { id } = useParams();
-  const nav = useNavigate();
-  const { setChatOpen, setActiveChatId } = useApp();
-  
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stepId, setStepId] = useState('placed');
-
-  const loadOrder = useCallback(() => {
-    return apiGet('/api/v1/orders/' + id)
-      .then((data) => {
-        setOrder(data);
-        setStepId(mapOrderStatusToStep(data.status));
-        return data;
-      })
-      .catch((err) => {
-        console.error(err);
-        return null;
-      });
-  }, [id]);
+  const nav = useNavigate();
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      await loadOrder();
-      if (!cancelled) setLoading(false);
-    })();
+    let intervalId = null;
+
+    const fetchOrder = async () => {
+      try {
+        const data = await apiGet(`/api/v1/orders/${encodeURIComponent(id)}`);
+        if (cancelled) return;
+
+        setOrder(data);
+        setError('');
+
+        if (intervalId && (data.status === 'delivered' || data.status === 'cancelled' || data.status === 'failed')) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(err.message || 'Không tải được trạng thái đơn hàng.');
+      }
+    };
+
+    fetchOrder().finally(() => {
+      if (!cancelled) {
+        setLoading(false);
+        intervalId = window.setInterval(fetchOrder, 5000);
+      }
+    });
+
     return () => {
       cancelled = true;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
-  }, [loadOrder]);
+  }, [id]);
 
-  useEffect(() => {
-    if (loading) return undefined;
-    const timer = setInterval(() => {
-      loadOrder();
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [loadOrder, loading]);
+  const activeStatus = order?.status ?? 'placed';
+  const isDelivered = activeStatus === 'delivered';
+  const timeline = useMemo(() => buildTimeline(order ?? {}), [order]);
 
-  const progress = useMemo(() => (STEP_INDEX[stepId] || 1) / (STEPS.length - 1), [stepId]);
+  const timelineByStatus = useMemo(() => {
+    const map = new Map();
+    timeline.forEach((item) => {
+      map.set(item.status, item.at);
+    });
+    return map;
+  }, [timeline]);
+
+  const progress = useMemo(() => {
+    const index = STEP_INDEX[activeStatus];
+    return Number.isFinite(index) ? index / (STEPS.length - 1) : 0;
+  }, [activeStatus]);
 
   if (loading) {
     return <div className="container-page py-section text-center">Đang tải...</div>;
@@ -93,7 +144,10 @@ export default function CustomerTracking() {
   if (!order) {
     return (
       <div className="container-page py-section">
-        <Card padded>Không có đơn hàng nào để theo dõi.</Card>
+        <Card padded>
+          <div className="text-title-md text-ink">Không thể tải đơn hàng.</div>
+          <p className="mt-1 text-body-sm text-body">{error || 'Không có dữ liệu theo dõi để hiển thị.'}</p>
+        </Card>
       </div>
     );
   }
@@ -113,15 +167,6 @@ export default function CustomerTracking() {
       </div>
     );
   }
-
-  const restaurant = order.restaurant;
-
-  const stops = [
-    { id: 'm', kind: 'merchant', x: 15, y: 78, label: restaurant?.name?.split(' ')[0] },
-    { id: 'd', kind: 'driver', x: 15 + progress * 70, y: 78 - progress * 56, label: 'Tài xế' },
-    { id: 'c', kind: 'customer', x: 85, y: 22, label: 'Bạn' },
-  ];
-
   return (
     <div className="container-page py-xl">
       <Link to="/app" className="inline-flex items-center gap-1 text-button text-body hover:text-ink">
@@ -130,130 +175,64 @@ export default function CustomerTracking() {
 
       <div className="mt-2 mb-base flex items-end justify-between">
         <div>
-          <div className="text-caption-uppercase text-body">Đơn hàng #{order.order_code}</div>
+          <div className="text-caption-uppercase text-body">Đơn hàng #{order.order_code ?? order.orderCode ?? id}</div>
           <h1 className="text-display-lg text-ink">Theo dõi trực tiếp</h1>
+          {error && <p className="mt-1 text-caption text-warning">{error}</p>}
         </div>
         <Badge tone="live" dot>
-          {stepId === 'delivered' ? 'Đã giao' : 'Trực tiếp'}
+          {isDelivered ? 'Đã giao' : 'Trực tiếp'}
         </Badge>
       </div>
 
       <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
-        <div className="flex flex-col gap-base">
-          {/* Bản đồ map */}
-          <MockMap stops={stops} progress={progress} />
-
-          {/* Stepper trạng thái quá trình */}
+        <div className="space-y-base lg:col-span-2">
           <Card padded>
-            <div className="text-title-md text-ink mb-base">Trạng thái</div>
-            <ol className="flex items-center justify-between gap-2">
-              {STEPS.map((s, idx) => {
-                const done = STEP_INDEX[stepId] >= idx;
-                const active = STEP_INDEX[stepId] === idx;
+            <div className="mb-base flex items-center justify-between gap-2">
+              <div>
+                <div className="text-title-md text-ink">Trạng thái đơn hàng</div>
+                <p className="text-caption text-body">
+                  Dự kiến giao lúc {formatTime(order.estimated_delivery_at ?? order.estimatedDeliveryAt)}
+                </p>
+              </div>
+              <span className="text-caption text-body">
+                Cập nhật gần nhất: {formatDateTime(timelineByStatus.get(activeStatus) ?? order.updated_at ?? order.updatedAt)}
+              </span>
+            </div>
+
+            <ol className="space-y-3">
+              {timeline.map((step) => {
+                const done = STEP_INDEX[activeStatus] >= STEP_INDEX[step.status];
+                const active = activeStatus === step.status;
+
                 return (
-                  <li key={s.id} className="flex flex-1 flex-col items-center gap-1">
+                  <li key={step.status} className="flex items-start gap-3">
                     <div
                       className={
-                        'grid h-9 w-9 place-items-center rounded-pill border-2 transition-colors ' +
+                        'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-pill border-2 transition-colors ' +
                         (done
                           ? 'bg-primary border-primary text-on-primary'
                           : 'bg-surface-card border-hairline-strong text-body')
                       }
                     >
-                      <Icon name={s.icon} size={16} />
+                      <Icon name={step.status === 'preparing' || step.status === 'ready_for_pickup' ? 'package' : step.status === 'delivering' || step.status === 'picked_up' ? 'bike' : 'check'} size={16} />
                     </div>
-                    <span
-                      className={
-                        'text-caption ' + (done ? 'text-ink font-semibold' : 'text-body')
-                      }
-                    >
-                      {s.label}
-                    </span>
-                    {active && stepId !== 'delivered' && (
-                      <span className="text-caption text-success">Đang tiến hành</span>
-                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className={'text-body-md font-semibold ' + (done ? 'text-ink' : 'text-body')}>
+                          {STEPS.find((item) => item.id === step.status)?.label ?? step.status}
+                        </div>
+                        <div className="text-caption text-body">{step.at ? formatTime(step.at) : active ? 'Đang cập nhật' : '--'}</div>
+                      </div>
+                      {active && !isDelivered && <div className="text-caption text-success">Đang tiến hành</div>}
+                    </div>
                   </li>
                 );
               })}
             </ol>
           </Card>
 
-          {/* Các món hàng (Items) */}
-          <Card padded>
-            <div className="text-title-md text-ink mb-base">Đơn hàng của bạn</div>
-            <div className="flex flex-col divide-y divide-hairline">
-              {order.items.map((i) => (
-                <div key={i.id} className="flex items-center gap-sm py-sm">
-                  <Image src={i.image_url} alt={i.item_name_snapshot} className="h-12 w-12 rounded-md" ratio="1" />
-                  <div className="flex-1">
-                    <div className="text-body-sm font-semibold text-ink">{i.item_name_snapshot}</div>
-                    <div className="text-caption text-body">SL {i.quantity}</div>
-                  </div>
-                  <span className="nums text-body-sm text-ink">
-                    {formatVnd(Number(i.unit_price_snapshot) * i.quantity)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-
-        <aside className="lg:sticky lg:top-24 lg:self-start space-y-base">
-          <Card padded>
-            <div className="text-title-md text-ink mb-base">Tài xế của bạn</div>
-            <div className="flex items-center gap-sm">
-              <Avatar src={currentDriver.avatar} name={currentDriver.name} size="lg" />
-              <div className="flex-1">
-                <div className="text-body-md font-semibold text-ink">{currentDriver.name}</div>
-                <div className="text-caption text-body">
-                  {currentDriver.vehicle} · ★ {currentDriver.rating}
-                </div>
-              </div>
-            </div>
-            <div className="mt-base grid grid-cols-2 gap-xs">
-              <Button
-                variant="secondary"
-                leadingIcon="phone"
-                onClick={() => null}
-              >
-                Gọi điện
-              </Button>
-              <Button
-                variant="secondary"
-                leadingIcon="chat"
-                onClick={() => {
-                  setActiveChatId('chat-driver');
-                  setChatOpen(true);
-                }}
-              >
-                Nhắn tin
-              </Button>
-            </div>
-          </Card>
-
-          <Card padded>
-            <div className="text-title-md text-ink mb-base">Quán ăn</div>
-            <div className="flex items-center gap-sm">
-              <Image src={restaurant?.banner_url} alt={restaurant?.name} className="h-12 w-12 rounded-md" ratio="1" />
-              <div className="flex-1 min-w-0">
-                <div className="text-body-md font-semibold text-ink truncate">{restaurant?.name}</div>
-                <div className="text-caption text-body truncate">{restaurant?.address_line}</div>
-              </div>
-            </div>
-            <Button
-              variant="secondary"
-              className="mt-base w-full"
-              leadingIcon="chat"
-              onClick={() => {
-                setActiveChatId('chat-merchant');
-                setChatOpen(true);
-              }}
-            >
-              Nhắn cho nhà bếp
-            </Button>
-          </Card>
-
-          {stepId === 'delivered' && (
+          {isDelivered && (
             <Card padded>
               <div className="text-title-md text-ink mb-1">Đánh giá trải nghiệm của bạn</div>
               <p className="text-body-sm text-body">
@@ -267,7 +246,7 @@ export default function CustomerTracking() {
               </Button>
             </Card>
           )}
-        </aside>
+        </div>
       </div>
     </div>
   );
