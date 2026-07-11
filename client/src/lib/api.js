@@ -304,3 +304,31 @@ export function clearCartApi() {
   return apiDelete('/api/v1/cart');
 }
 
+export function fetchMerchantMenuApi() {
+  return apiGet('/api/v1/merchant/me/menu');
+}
+
+export function createMerchantCategoryApi(body) {
+  return apiPost('/api/v1/merchant/me/categories', body);
+}
+
+export function updateMerchantCategoryApi(id, body) {
+  return apiPatch(`/api/v1/merchant/me/categories/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteMerchantCategoryApi(id) {
+  return apiDelete(`/api/v1/merchant/me/categories/${encodeURIComponent(id)}`);
+}
+
+export function createMerchantMenuItemApi(body) {
+  return apiPost('/api/v1/merchant/me/items', body);
+}
+
+export function updateMerchantMenuItemApi(id, body) {
+  return apiPatch(`/api/v1/merchant/me/items/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteMerchantMenuItemApi(id) {
+  return apiDelete(`/api/v1/merchant/me/items/${encodeURIComponent(id)}`);
+}
+
