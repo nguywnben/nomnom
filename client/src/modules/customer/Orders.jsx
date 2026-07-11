@@ -98,11 +98,13 @@ export default function CustomerOrders() {
                       <Button size="sm">Theo dõi</Button>
                     </Link>
                   )}
-                  <Link to={`/app/reviews/${o.restaurant_id}`}>
-                    <Button size="sm" variant="secondary">
-                      Đánh giá
-                    </Button>
-                  </Link>
+                  {o.status === 'delivered' && !o.isReviewed && (
+                    <Link to={`/app/reviews/write/${o.id}`}>
+                      <Button size="sm" variant="secondary">
+                        Đánh giá
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </Card>
             );

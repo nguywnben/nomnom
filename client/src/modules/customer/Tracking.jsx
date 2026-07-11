@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import Button from '../../components/Button.jsx';
 import Badge from '../../components/Badge.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -54,10 +55,32 @@ function buildTimeline(order) {
   });
 }
 
+const POLL_MS = 15000;
+
+function mapOrderStatusToStep(status) {
+  switch (status) {
+    case 'placed':
+      return 'placed';
+    case 'accepted':
+    case 'preparing':
+    case 'ready_for_pickup':
+      return 'preparing';
+    case 'picked_up':
+      return 'picked_up';
+    case 'delivering':
+      return 'delivering';
+    case 'delivered':
+      return 'delivered';
+    default:
+      return 'placed';
+  }
+}
+
 export default function CustomerTracking() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const nav = useNavigate();
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -129,6 +152,21 @@ export default function CustomerTracking() {
     );
   }
 
+  if (order.status === 'cancelled') {
+    return (
+      <div className="container-page py-xl">
+        <Link to="/app/orders" className="inline-flex items-center gap-1 text-button text-body hover:text-ink">
+          <Icon name="chevronLeft" size={14} /> Đơn hàng của tôi
+        </Link>
+        <Card padded className="mt-base">
+          <div className="text-title-md text-ink">Đơn {order.order_code} đã bị hủy</div>
+          <p className="mt-1 text-body-sm text-body">
+            {order.cancel_reason || 'Vui lòng liên hệ quán hoặc hỗ trợ NomNom nếu cần thêm thông tin.'}
+          </p>
+        </Card>
+      </div>
+    );
+  }
   return (
     <div className="container-page py-xl">
       <Link to="/app" className="inline-flex items-center gap-1 text-button text-body hover:text-ink">
@@ -196,8 +234,16 @@ export default function CustomerTracking() {
 
           {isDelivered && (
             <Card padded>
-              <div className="text-title-md text-ink">Đơn hàng đã hoàn tất</div>
-              <p className="mt-1 text-body-sm text-body">Bạn có thể mở trang đánh giá từ lịch sử đơn hàng.</p>
+              <div className="text-title-md text-ink mb-1">Đánh giá trải nghiệm của bạn</div>
+              <p className="text-body-sm text-body">
+                Hãy cho chúng tôi biết về đồ ăn và tài xế.
+              </p>
+              <Button
+                className="mt-sm w-full"
+                onClick={() => nav('/app/reviews/write/' + order.id)}
+              >
+                Để lại đánh giá
+              </Button>
             </Card>
           )}
         </div>
