@@ -4,7 +4,6 @@ import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
-import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet } from '../../lib/api.js';
 
@@ -48,12 +47,12 @@ export default function OrderSuccess() {
           <div className="flex flex-col divide-y divide-hairline">
             <Row label="Thời gian dự kiến" value={formatTime(order.estimated_delivery_at)} />
             <Row label="Thanh toán" value={order.payment_method === 'cod' ? 'Thanh toán khi nhận hàng' : 'VNPay'} />
-            <Row label="Tạm tính" value={formatVnd(Number(order.subtotal) ?? 0)} />
-            <Row label="Phí giao hàng" value={formatVnd(Number(order.delivery_fee) ?? 0)} />
+            <Row label="Tạm tính" value={formatVnd(Number(order.subtotal ?? 0))} />
+            <Row label="Phí giao hàng" value={formatVnd(Number(order.delivery_fee ?? 0))} />
             {Number(order.discount_amount) > 0 && (
               <Row label="Khuyến mãi" value={`−${formatVnd(Number(order.discount_amount))}`} tone="success" />
             )}
-            <Row label="Tổng cộng" value={formatVnd(Number(order.total_amount) ?? 0)} bold />
+            <Row label="Tổng cộng" value={formatVnd(Number(order.total_amount ?? 0))} bold />
           </div>
         </Card>
 

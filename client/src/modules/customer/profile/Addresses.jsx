@@ -64,7 +64,7 @@ export default function Addresses() {
     try {
       const data = await apiGet('/api/v1/me/addresses');
       setList(data);
-    } catch (err) {
+    } catch {
       pushToast({ kind: 'error', title: 'Lỗi', message: 'Không thể tải danh sách địa chỉ.' });
     } finally {
       setLoading(false);
@@ -192,7 +192,7 @@ export default function Addresses() {
            .sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
       );
       pushToast({ kind: 'success', title: 'Đã đặt mặc định', message: list.find((x) => x.id === id)?.label });
-    } catch (err) {
+    } catch {
       pushToast({ kind: 'error', title: 'Lỗi', message: 'Không thể đặt mặc định.' });
     }
   };
@@ -205,7 +205,7 @@ export default function Addresses() {
       await apiDelete(`/api/v1/me/addresses/${target.id}`);
       setList((cur) => cur.filter((a) => a.id !== target.id));
       pushToast({ kind: 'info', title: 'Đã xoá địa chỉ', message: target.label });
-    } catch (err) {
+    } catch {
       pushToast({ kind: 'error', title: 'Lỗi', message: 'Không thể xoá địa chỉ.' });
     } finally {
       setConfirmDelete(null);

@@ -14,11 +14,18 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+*.p12
 
 # IDEs and Tools
 .vscode/
 .idea/
 .skills/
+.agents/
 .antigravity/
 .gemini/
 *.log

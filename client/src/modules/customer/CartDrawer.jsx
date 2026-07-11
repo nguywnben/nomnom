@@ -295,7 +295,7 @@ export default function CartDrawer() {
   );
 }
 
-function CartItemQtyInput({ quantity, itemName, onZero, onChange }) {
+function CartItemQtyInput({ quantity, onZero, onChange }) {
   const [val, setVal] = useState(String(quantity));
 
   useEffect(() => {

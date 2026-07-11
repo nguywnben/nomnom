@@ -90,3 +90,19 @@ cd server && npm run dev
 # terminal 2
 cd client && npm run dev
 ```
+
+## Chuẩn bị Đợt 4
+
+Áp migration nền tảng voucher trước khi các nhánh CUS-10 và MER-05 bắt đầu:
+
+```bash
+mysql -u root -p nomnom < ../database/migrations/20260711_wave4_foundation.sql
+```
+
+Sau đó cấu hình các biến `VNPAY_*` theo `server/.env.example`. Không commit `VNPAY_HASH_SECRET` hoặc file `.env`.
+
+Contract API, thứ tự triển khai và checklist nằm tại:
+
+- `docs/planning/issues-wave-4.md`
+- `tasks/plan.md`
+- `tasks/todo.md`

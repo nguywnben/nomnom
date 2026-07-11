@@ -60,7 +60,7 @@ export default function CustomerCheckout() {
   
   // Dữ liệu nhà hàng tạm cho giao diện nếu giỏ hàng có `restaurantId`
   // Ứng dụng thực tế nên lấy từ API /cart hoặc /orders
-  const [restaurant, setRestaurant] = useState({ name: 'Nhà hàng' });
+  const [restaurant] = useState({ name: 'Nhà hàng' });
 
   useEffect(() => {
     setLoadingAddresses(true);
