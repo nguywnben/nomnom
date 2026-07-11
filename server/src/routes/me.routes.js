@@ -401,4 +401,130 @@ router.post('/addresses/:id/default', async (req, res, next) => {
   }
 });
 
+router.get('/orders', async (req, res, next) => {
+  try {
+    const { userId } = req.auth;
+    const status = req.query.status || 'all';
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
+    const offset = (page - 1) * limit;
+
+    let queryConds = ['o.customer_id = ?'];
+    let queryParams = [userId];
+
+    if (status === 'active') {
+      queryConds.push("o.status IN ('pending_payment', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
+    } else if (status === 'delivered') {
+      queryConds.push("o.status = 'delivered'");
+    } else if (status === 'cancelled') {
+      queryConds.push("o.status IN ('cancelled', 'failed')");
+    }
+
+    const whereClause = 'WHERE ' + queryConds.join(' AND ');
+
+    // Count query
+    const [countRows] = await db.query(
+      `SELECT COUNT(*) as total FROM orders o ${whereClause}`,
+      queryParams
+    );
+    const total = countRows[0]?.total || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // Data query
+    const [orders] = await db.query(
+      `SELECT o.*, r.name as restaurant_name, r.logo_url as restaurant_logo, r.banner_url as restaurant_banner
+       FROM orders o
+       LEFT JOIN restaurants r ON o.restaurant_id = r.id
+       ${whereClause}
+       ORDER BY o.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...queryParams, limit, offset]
+    );
+
+    if (orders.length === 0) {
+      return res.json({
+        data: [],
+        pagination: { total, page, limit, totalPages }
+      });
+    }
+
+    const orderIds = orders.map(o => o.id);
+    const [items] = await db.query(
+      `SELECT * FROM order_items WHERE order_id IN (?)`,
+      [orderIds]
+    );
+
+    const formattedOrders = orders.map(o => {
+      const orderItems = items.filter(i => i.order_id === o.id).map(i => ({
+        menuItemId: i.menu_item_id,
+        name: i.item_name_snapshot,
+        quantity: i.quantity,
+        unitPrice: Number(i.unit_price_snapshot)
+      }));
+
+      const itemCount = orderItems.reduce((acc, i) => acc + i.quantity, 0);
+
+      return {
+        id: o.id,
+        orderCode: o.order_code,
+        status: o.status,
+        paymentStatus: o.payment_status,
+        paymentMethod: o.payment_method,
+        totalAmount: Number(o.total_amount),
+        restaurantId: o.restaurant_id,
+        restaurantName: o.restaurant_name,
+        restaurantLogo: o.restaurant_logo,
+        restaurantBanner: o.restaurant_banner,
+        placedAt: o.placed_at || o.created_at,
+        deliveredAt: o.delivered_at,
+        items: orderItems,
+        itemCount
+      };
+    });
+
+    res.json({
+      data: formattedOrders,
+      pagination: { total, page, limit, totalPages }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/orders/:id/cancel', async (req, res, next) => {
+  try {
+    const { userId } = req.auth;
+    const { id } = req.params;
+
+    // Get order and check ownership
+    const [orders] = await db.query(
+      'SELECT * FROM orders WHERE id = ? AND customer_id = ?',
+      [id, userId]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+    }
+
+    const order = orders[0];
+
+    // Check cancellation constraints
+    if (order.status !== 'pending_payment' && order.status !== 'placed') {
+      return res.status(400).json({
+        error: 'Đơn hàng đang chuẩn bị hoặc đã vận chuyển, không thể hủy'
+      });
+    }
+
+    // Update status to cancelled
+    await db.query(
+      "UPDATE orders SET status = 'cancelled' WHERE id = ?",
+      [id]
+    );
+
+    res.json({ success: true, message: 'Hủy đơn hàng thành công' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
