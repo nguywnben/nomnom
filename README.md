@@ -174,6 +174,7 @@ Run commands from the relevant package directory.
 | Client | `npm run dev` | Start the Vite development server |
 | Client | `npm run build` | Create a production build |
 | Client | `npm run lint` | Run ESLint |
+| Client | `npm test` | Run focused Node regression tests |
 | Client | `npm run preview` | Preview the production build |
 | Server | `npm run dev` | Start the API with Node watch mode |
 | Server | `npm start` | Start the API without watch mode |
@@ -197,6 +198,7 @@ The repository does not yet have a complete automated test suite. Before opening
 
 ```bash
 cd client
+npm test
 npm run lint
 npm run build
 
@@ -204,7 +206,7 @@ cd ../server
 node --check src/index.js
 ```
 
-Also smoke-test the customer COD flow and any role-specific flow affected by your change. Adding automated API and browser tests is part of the roadmap.
+Also smoke-test the customer COD flow and any role-specific flow affected by your change. Expanding automated API and browser coverage remains part of the roadmap.
 
 ## API and Project Documentation
 

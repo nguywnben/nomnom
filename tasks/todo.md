@@ -5,10 +5,10 @@
 - [ ] Team review và chấp thuận `docs/planning/issues-wave-4.md` cùng `tasks/plan.md`.
 - [ ] Pull nhánh `dev`; xác nhận working tree sạch.
 - [ ] Backup DB dev.
-- [ ] Chạy `mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql`.
-- [ ] Kiểm tra `SHOW TABLES LIKE 'vouchers'` và `SHOW COLUMNS FROM orders LIKE 'voucher_id'`.
+- [x] Chạy `mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql`.
+- [x] Kiểm tra `SHOW TABLES LIKE 'vouchers'` và `SHOW COLUMNS FROM orders LIKE 'voucher_id'`.
 - [ ] Điền `VNPAY_*` vào `server/.env`/Railway, không commit secret.
-- [ ] Chạy server health, frontend lint/build và luồng COD smoke test.
+- [x] Chạy server health, frontend test/lint/build và luồng COD smoke test.
 - [ ] Chốt người phụ trách từng lát và tạo nhánh `feature/<issue>-<scope>`.
 
 ## CUS-05

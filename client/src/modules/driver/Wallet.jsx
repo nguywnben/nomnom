@@ -95,7 +95,7 @@ export default function DriverWallet() {
           />
         </div>
         <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             {range === 'week' ? (
               <BarChart data={data} margin={{ left: -20, right: 8, top: 5, bottom: 0 }}>
                 <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />

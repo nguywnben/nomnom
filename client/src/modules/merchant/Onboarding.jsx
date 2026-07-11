@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import {
   BANK_OPTIONS,
@@ -49,10 +49,10 @@ export default function MerchantOnboarding() {
   const {
     register,
     handleSubmit,
+    control,
     setValue,
     setError,
     clearErrors,
-    watch,
     trigger,
     formState: { errors },
   } = useForm({
@@ -79,6 +79,7 @@ export default function MerchantOnboarding() {
     },
     mode: 'onTouched',
   });
+  const formValues = useWatch({ control });
 
   useEffect(() => {
     let active = true;
@@ -324,8 +325,6 @@ export default function MerchantOnboarding() {
       setSubmitting(false);
     }
   });
-
-  const formValues = watch();
 
   return (
     <OnboardingShell

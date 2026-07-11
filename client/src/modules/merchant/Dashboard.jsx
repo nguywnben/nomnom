@@ -219,7 +219,7 @@ export default function MerchantDashboard() {
             </div>
           ) : (
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <BarChart data={formattedChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
                   <XAxis dataKey="formattedDate" stroke="#999999" tick={{ fontSize: 11 }} />

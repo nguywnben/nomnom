@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
@@ -34,7 +34,7 @@ export default function MerchantMenu() {
   // null | item object
   const [deletingItem, setDeletingItem] = useState(null);
 
-  const loadMenu = async () => {
+  const loadMenu = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchMerchantMenuApi();
@@ -44,11 +44,11 @@ export default function MerchantMenu() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pushToast]);
 
   useEffect(() => {
     loadMenu();
-  }, []);
+  }, [loadMenu]);
 
   const filteredCategories = useMemo(() => {
     if (!query.trim()) return categories;

@@ -11,6 +11,7 @@ import { useHomePromos } from '../../hooks/useHomePromos.js';
 import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatViInteger, formatVnd } from '../../lib/formatVnd.js';
+import { buildTrendingDishes } from '../../lib/homeDishes.js';
 
 // ---------------------------------------------------------------------------
 // Customer Home — native food-app composition.
@@ -52,16 +53,7 @@ export default function CustomerHome() {
   const exploreScroll = useHorizontalDragScroll();
   const featuredRestaurantsLoading = false;
 
-  // Compose a "trending dishes" carousel by pulling 1–2 items from each open restaurant.
-  const trending = restaurants
-    .filter((r) => r.open)
-    .flatMap((r) =>
-      r.menu
-        .filter((m) => m.inStock)
-        .slice(0, 2)
-        .map((m) => ({ ...m, restaurantId: r.id, restaurantName: r.name, restaurantLogo: r.logo, fee: r.fee, eta: r.eta })),
-    )
-    .slice(0, 10);
+  const trending = buildTrendingDishes(categories);
 
   // Order-again — distinct restaurants you've ordered from recently.
   const recentRestaurantIds = Array.from(new Set(orders.map((o) => o.restaurantId)));

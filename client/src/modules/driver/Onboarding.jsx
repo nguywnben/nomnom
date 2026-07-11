@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import Input, { Select } from '../../components/Input.jsx';
 import {
   BANK_OPTIONS,
@@ -56,9 +56,9 @@ export default function DriverOnboarding() {
   const {
     register,
     handleSubmit,
+    control,
     setValue,
     clearErrors,
-    watch,
     trigger,
     formState: { errors },
   } = useForm({
@@ -144,7 +144,7 @@ export default function DriverOnboarding() {
   }, [nav, setUser, setValue]);
 
   const step = STEPS[stepIdx];
-  const formValues = watch();
+  const formValues = useWatch({ control });
 
   const handleFileChange = async (key, file) => {
     const meta = DOC_UPLOAD_KEYS[key];

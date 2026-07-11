@@ -27,7 +27,7 @@ Migration + API contract (đã chuẩn bị)
 - [x] Task 0.1: Chốt contract API Đợt 4.
 - [x] Task 0.2: Thêm migration voucher và rollback.
 - [x] Task 0.3: Bổ sung cấu hình VNPay mẫu.
-- [ ] Task 0.4: Áp migration trên DB dev và chạy smoke query.
+- [x] Task 0.4: Áp migration trên DB dev và chạy smoke query.
 
 Verification: xem `tasks/todo.md`, mục Khởi động.
 

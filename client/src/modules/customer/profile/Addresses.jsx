@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
 import Badge from '../../../components/Badge.jsx';
 import Button from '../../../components/Button.jsx';
@@ -53,13 +53,7 @@ export default function Addresses() {
       .catch(err => console.error('Failed to load wards:', err));
   }, [selectedProvinceCode]);
 
-  useEffect(() => {
-    if (permittedRoles.customer) {
-      loadAddresses();
-    }
-  }, [permittedRoles.customer]);
-
-  const loadAddresses = async () => {
+  const loadAddresses = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiGet('/api/v1/me/addresses');
@@ -69,7 +63,13 @@ export default function Addresses() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pushToast]);
+
+  useEffect(() => {
+    if (permittedRoles.customer) {
+      loadAddresses();
+    }
+  }, [loadAddresses, permittedRoles.customer]);
 
   const openCreate = () => {
     setSelectedProvinceCode('');

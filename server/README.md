@@ -5,7 +5,7 @@ API Node.js (Express + MySQL) cho frontend NomNom.
 ## Yêu cầu
 
 - Node.js 18+
-- MySQL 8 với database `nomnom` (import `database.sql` ở thư mục gốc repo)
+- MySQL 8 với database `nomnom` (import `database/nomnom.sql` từ thư mục gốc repo)
 - Nếu dùng upload ảnh, cấu hình thêm Cloudinary trong `.env`
 
 ## Cài đặt & chạy
