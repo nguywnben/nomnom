@@ -352,6 +352,175 @@ router.get('/me/restaurant', requireAuth, async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/v1/merchant/me/dashboard
+ * Lấy thông tin KPI của nhà hàng
+ */
+router.get('/me/dashboard', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.user?.id || req.user?.userId || req.auth?.userId;
+    const roles = req.user?.roles || req.auth?.roles || [];
+    const primaryRole = req.user?.primaryRole || req.auth?.primaryRole;
+    
+    if (!roles.includes('merchant') && primaryRole !== 'merchant') {
+      return res.status(403).json({ error: 'Forbidden. Merchant access only.' });
+    }
+
+    let restaurantId = req.user?.restaurantId || req.auth?.restaurantId;
+    let ratingAvg = 0;
+
+    if (!restaurantId && userId) {
+      const [restRows] = await pool.query(
+        'SELECT id, rating_avg FROM restaurants WHERE owner_user_id = ? LIMIT 1',
+        [userId]
+      );
+      if (restRows.length > 0) {
+        restaurantId = restRows[0].id;
+        ratingAvg = Number(restRows[0].rating_avg ?? 0);
+      }
+    } else if (restaurantId) {
+      const [restRows] = await pool.query(
+        'SELECT rating_avg FROM restaurants WHERE id = ? LIMIT 1',
+        [restaurantId]
+      );
+      if (restRows.length > 0) {
+        ratingAvg = Number(restRows[0].rating_avg ?? 0);
+      }
+    }
+
+    if (!restaurantId) {
+      return res.status(404).json({ error: 'Không tìm thấy nhà hàng của đối tác này.' });
+    }
+
+    const range = ['today', 'week', 'month'].includes(req.query.range) ? req.query.range : 'today';
+
+    let dateConditionSql = 'placed_at >= CURDATE()';
+    if (range === 'week') {
+      dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)';
+    } else if (range === 'month') {
+      dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)';
+    }
+
+    // 1. Summary
+    const [[summaryRows]] = await pool.query(
+      `SELECT 
+         COUNT(CASE WHEN status = 'delivered' AND ${dateConditionSql} THEN 1 END) AS orderCount,
+         COALESCE(SUM(CASE WHEN status = 'delivered' AND ${dateConditionSql} THEN total_amount END), 0) AS revenue,
+         COUNT(CASE WHEN status = 'placed' THEN 1 END) AS newOrderCount
+       FROM orders
+       WHERE restaurant_id = ?`,
+      [restaurantId]
+    );
+
+    const orderCount = Number(summaryRows.orderCount);
+    const revenue = Number(summaryRows.revenue);
+    const newOrderCount = Number(summaryRows.newOrderCount);
+    const avgOrderValue = orderCount > 0 ? Math.round(revenue / orderCount) : 0;
+
+    // 2. Top Items (Top 5 bán chạy từ đơn hàng 'delivered')
+    const [topItems] = await pool.query(
+      `SELECT 
+         oi.menu_item_id AS menuItemId,
+         oi.item_name_snapshot AS name,
+         SUM(oi.quantity) AS totalSold,
+         SUM(oi.line_subtotal) AS revenue
+       FROM order_items oi
+       INNER JOIN orders o ON o.id = oi.order_id
+       WHERE o.restaurant_id = ? 
+         AND o.status = 'delivered'
+         AND o.${dateConditionSql}
+       GROUP BY oi.menu_item_id, oi.item_name_snapshot
+       ORDER BY totalSold DESC, revenue DESC
+       LIMIT 5`,
+      [restaurantId]
+    );
+
+    const formattedTopItems = topItems.map(item => ({
+      menuItemId: Number(item.menuItemId),
+      name: item.name,
+      totalSold: Number(item.totalSold),
+      revenue: Number(item.revenue)
+    }));
+
+    // 3. Recent Orders (10 đơn hàng gần nhất)
+    const [recentOrders] = await pool.query(
+      `SELECT 
+         o.order_code AS orderCode,
+         u.full_name AS customerName,
+         o.total_amount AS totalAmount,
+         o.status,
+         o.placed_at AS placedAt
+       FROM orders o
+       LEFT JOIN users u ON u.id = o.customer_id
+       WHERE o.restaurant_id = ?
+       ORDER BY o.placed_at DESC
+       LIMIT 10`,
+      [restaurantId]
+    );
+
+    const formattedRecentOrders = recentOrders.map(o => ({
+      orderCode: o.orderCode,
+      customerName: o.customerName ?? 'Khách hàng',
+      totalAmount: Number(o.totalAmount),
+      status: o.status,
+      placedAt: o.placedAt
+    }));
+
+    // 4. Chart (7 ngày gần nhất)
+    const chartData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      chartData.push({
+        date: dateStr,
+        orderCount: 0,
+        revenue: 0
+      });
+    }
+
+    const [chartRows] = await pool.query(
+      `SELECT 
+         DATE_FORMAT(placed_at, '%Y-%m-%d') AS dateStr,
+         COUNT(*) AS orderCount,
+         COALESCE(SUM(total_amount), 0) AS revenue
+       FROM orders
+       WHERE restaurant_id = ? 
+         AND status = 'delivered'
+         AND placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+       GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
+       ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
+      [restaurantId]
+    );
+
+    for (const row of chartRows) {
+      const match = chartData.find(c => c.date === row.dateStr);
+      if (match) {
+        match.orderCount = Number(row.orderCount);
+        match.revenue = Number(row.revenue);
+      }
+    }
+
+    res.json({
+      summary: {
+        orderCount,
+        revenue,
+        avgOrderValue,
+        ratingAvg,
+        newOrderCount
+      },
+      topItems: formattedTopItems,
+      recentOrders: formattedRecentOrders,
+      chart: chartData
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Middleware phụ trợ để lấy ID nhà hàng và kiểm tra quyền sở hữu của merchant
 async function getMerchantRestaurant(req, res, next) {
   try {
@@ -748,6 +917,7 @@ router.post('/me/items', requireAuth, getMerchantRestaurant, async (req, res, ne
     next(err);
   }
 });
+
 
 /**
  * PATCH /api/v1/merchant/me/items/:id
