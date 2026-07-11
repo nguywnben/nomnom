@@ -55,27 +55,6 @@ function buildTimeline(order) {
   });
 }
 
-const POLL_MS = 15000;
-
-function mapOrderStatusToStep(status) {
-  switch (status) {
-    case 'placed':
-      return 'placed';
-    case 'accepted':
-    case 'preparing':
-    case 'ready_for_pickup':
-      return 'preparing';
-    case 'picked_up':
-      return 'picked_up';
-    case 'delivering':
-      return 'delivering';
-    case 'delivered':
-      return 'delivered';
-    default:
-      return 'placed';
-  }
-}
-
 export default function CustomerTracking() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
@@ -131,11 +110,6 @@ export default function CustomerTracking() {
     });
     return map;
   }, [timeline]);
-
-  const progress = useMemo(() => {
-    const index = STEP_INDEX[activeStatus];
-    return Number.isFinite(index) ? index / (STEPS.length - 1) : 0;
-  }, [activeStatus]);
 
   if (loading) {
     return <div className="container-page py-section text-center">Đang tải...</div>;

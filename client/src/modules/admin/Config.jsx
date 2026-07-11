@@ -35,7 +35,8 @@ export default function AdminConfig() {
     setTimeout(() => {
       setItems((cur) => cur.map((c) => (c.key === k ? { ...c, value: edit[k] } : c)));
       setEdit((cur) => {
-        const { [k]: _, ...rest } = cur;
+        const rest = { ...cur };
+        delete rest[k];
         return rest;
       });
       setSavingKey(null);
@@ -44,7 +45,8 @@ export default function AdminConfig() {
   };
   const cancel = (k) =>
     setEdit((cur) => {
-      const { [k]: _, ...rest } = cur;
+      const rest = { ...cur };
+      delete rest[k];
       return rest;
     });
 

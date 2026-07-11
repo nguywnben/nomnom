@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';

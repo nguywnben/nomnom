@@ -33,7 +33,6 @@ export default function MerchantLayout() {
   const nav = useNavigate();
   const { currentMerchant, merchantOrders, pushToast, logout } = useApp();
   const [checkingRestaurant, setCheckingRestaurant] = useState(true);
-  const [restaurant, setRestaurant] = useState(null);
   const [restaurantOpen, setRestaurantOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -51,7 +50,6 @@ export default function MerchantLayout() {
           nav('/merchant/pending', { replace: true });
           return;
         }
-        setRestaurant(data.restaurant);
       } catch (err) {
         console.error('Error fetching restaurant status:', err);
         pushToast({

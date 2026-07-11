@@ -4,7 +4,6 @@ import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
-import Image from '../../components/Image.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { apiGet } from '../../lib/api.js';

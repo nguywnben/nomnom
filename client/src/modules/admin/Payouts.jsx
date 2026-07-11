@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
