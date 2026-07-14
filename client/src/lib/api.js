@@ -310,6 +310,32 @@ export function rejectAdminDriver(userId, reason) {
   return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
 }
 
+export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', q = '', page = 1 } = {}) {
+  const params = new URLSearchParams({
+    status,
+    paymentMethod,
+    q,
+    page: String(page),
+  });
+  return apiGet(`/api/v1/admin/orders?${params.toString()}`);
+}
+
+export function cancelAdminOrder(orderId, reason) {
+  return apiPost(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/cancel`, { reason });
+}
+
+export function fetchAdminReviews({ hidden = 'all', page = 1 } = {}) {
+  const params = new URLSearchParams({
+    hidden,
+    page: String(page),
+  });
+  return apiGet(`/api/v1/admin/reviews?${params.toString()}`);
+}
+
+export function updateAdminReviewHidden(reviewId, isHidden) {
+  return apiPatch(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}`, { isHidden });
+}
+
 export function fetchRestaurants(params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiGet(`/api/v1/restaurants${query ? `?${query}` : ''}`);
