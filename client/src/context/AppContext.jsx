@@ -23,6 +23,7 @@ import {
   logoutApi,
   registerSendCodeApi,
   registerVerifyApi,
+  fetchRestaurantVouchersApi,
   updateCartItemApi,
 } from '../lib/api.js';
 import { clearGuestCart, loadGuestCart, saveGuestCart } from '../lib/guestCart.js';
@@ -148,6 +149,7 @@ export function AppProvider({ children }) {
   const [cart, setCart] = useState(() => emptyCart());
   const [cartOpen, setCartOpen] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null);
+  const [restaurantVouchers, setRestaurantVouchers] = useState([]);
   const [syncing, setSyncing] = useState(false);
 
   // Toasts
@@ -211,6 +213,30 @@ export function AppProvider({ children }) {
     return Math.min(appliedPromo.amount, cartSubtotal);
   }, [appliedPromo, cartSubtotal]);
   const cartTotal = Math.max(0, cartSubtotal + deliveryFee - discount);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!cart.restaurantId) {
+      setRestaurantVouchers([]);
+      return () => {
+        active = false;
+      };
+    }
+
+    fetchRestaurantVouchersApi(cart.restaurantId)
+      .then((data) => {
+        if (!active) return;
+        setRestaurantVouchers(data?.items ?? []);
+      })
+      .catch(() => {
+        if (active) setRestaurantVouchers([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [cart.restaurantId]);
 
   const resetCartState = useCallback(() => {
     setCart(emptyCart());
@@ -458,16 +484,31 @@ export function AppProvider({ children }) {
     (code) => {
       if (user && !permittedRoles.customer) return false;
 
-      const c = promoCodes.find((p) => p.code.toLowerCase() === code.trim().toLowerCase());
+      const normalized = code.trim().toLowerCase();
+      const voucher = restaurantVouchers.find((p) => p.code.toLowerCase() === normalized);
+      const c = voucher ?? promoCodes.find((p) => p.code.toLowerCase() === normalized);
       if (!c) {
         pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
         return false;
       }
-      setAppliedPromo(c);
-      pushToast({ kind: 'success', title: 'Đã áp dụng khuyến mãi', message: c.label });
+      const applied = voucher
+        ? {
+            code: c.code,
+            kind: c.discountType,
+            amount: Number(c.discountValue ?? 0),
+            cap: c.maxDiscountAmount ?? undefined,
+            label:
+              c.discountType === 'percent'
+                ? `Giảm ${Number(c.discountValue)}%${c.maxDiscountAmount ? `, tối đa ${formatVnd(c.maxDiscountAmount)}` : ''}`
+                : `Giảm ${formatVnd(Number(c.discountValue))}`,
+            source: 'voucher',
+          }
+        : c;
+      setAppliedPromo(applied);
+      pushToast({ kind: 'success', title: 'Đã áp dụng khuyến mãi', message: applied.label });
       return true;
     },
-    [permittedRoles.customer, pushToast, user],
+    [permittedRoles.customer, promoCodes, pushToast, restaurantVouchers, user],
   );
 
   // ---- Order placement (customer) ----
