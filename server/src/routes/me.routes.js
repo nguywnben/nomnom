@@ -527,4 +527,36 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
   }
 });
 
+router.get('/vouchers', async (req, res, next) => {
+  try {
+    const now = new Date();
+    const [rows] = await db.query(
+      `SELECT id, code, kind, amount, min_order, max_discount, valid_from, valid_to, usage_limit, usage_count, is_active, created_at
+       FROM vouchers
+       WHERE is_active = 1 AND valid_from <= ? AND valid_to >= ? AND (usage_limit IS NULL OR usage_count < usage_limit)
+       ORDER BY created_at DESC`,
+      [now, now]
+    );
+
+    const formattedVouchers = rows.map((v) => ({
+      id: v.id,
+      code: v.code,
+      kind: v.kind,
+      amount: Number(v.amount),
+      min_order: Number(v.min_order),
+      max_discount: v.max_discount !== null ? Number(v.max_discount) : null,
+      valid_from: v.valid_from,
+      valid_to: v.valid_to,
+      usage_limit: v.usage_limit,
+      usage_count: v.usage_count,
+      is_active: Boolean(v.is_active),
+      created_at: v.created_at,
+    }));
+
+    res.json(formattedVouchers);
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

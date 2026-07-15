@@ -24,6 +24,7 @@ import {
   registerSendCodeApi,
   registerVerifyApi,
   updateCartItemApi,
+  validateVoucherApi,
 } from '../lib/api.js';
 import { clearGuestCart, loadGuestCart, saveGuestCart } from '../lib/guestCart.js';
 
@@ -455,19 +456,45 @@ export function AppProvider({ children }) {
   }, [permittedRoles.customer, resetCartState, user]);
 
   const applyPromo = useCallback(
-    (code) => {
+    async (code) => {
       if (user && !permittedRoles.customer) return false;
 
-      const c = promoCodes.find((p) => p.code.toLowerCase() === code.trim().toLowerCase());
-      if (!c) {
-        pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
+      try {
+        if (user && permittedRoles.customer) {
+          const result = await validateVoucherApi(code, cartSubtotal);
+          if (!result.ok) {
+            pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: result.message || `"${code}" không phải là mã khuyến mãi hợp lệ.` });
+            return false;
+          }
+          // Set the applied promo using the result voucher details
+          setAppliedPromo({
+            code: result.voucher.code,
+            label: result.voucher.kind === 'percent'
+              ? `Giảm ${result.voucher.amount}%${result.voucher.max_discount ? ` (tối đa ${formatVnd(result.voucher.max_discount)})` : ''}`
+              : `Giảm ${formatVnd(result.voucher.amount)}`,
+            kind: result.voucher.kind,
+            amount: result.voucher.amount,
+            cap: result.voucher.max_discount,
+          });
+          pushToast({ kind: 'success', title: 'Đã áp dụng khuyến mãi', message: result.voucher.kind === 'percent' ? `Giảm ${result.voucher.amount}%` : `Giảm ${formatVnd(result.voucher.amount)}` });
+          return true;
+        } else {
+          // Guest fallback
+          const c = promoCodes.find((p) => p.code.toLowerCase() === code.trim().toLowerCase());
+          if (!c) {
+            pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
+            return false;
+          }
+          setAppliedPromo(c);
+          pushToast({ kind: 'success', title: 'Đã áp dụng khuyến mãi', message: c.label });
+          return true;
+        }
+      } catch (error) {
+        pushToast({ kind: 'error', title: 'Lỗi áp dụng mã', message: error.message || 'Không thể kiểm tra mã giảm giá lúc này.' });
         return false;
       }
-      setAppliedPromo(c);
-      pushToast({ kind: 'success', title: 'Đã áp dụng khuyến mãi', message: c.label });
-      return true;
     },
-    [permittedRoles.customer, pushToast, user],
+    [permittedRoles.customer, pushToast, user, cartSubtotal],
   );
 
   // ---- Order placement (customer) ----
