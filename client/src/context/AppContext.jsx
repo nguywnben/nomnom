@@ -23,6 +23,7 @@ import {
   logoutApi,
   registerSendCodeApi,
   registerVerifyApi,
+  fetchRestaurantVouchersApi,
   updateCartItemApi,
   validateVoucherApi,
 } from '../lib/api.js';
@@ -149,6 +150,7 @@ export function AppProvider({ children }) {
   const [cart, setCart] = useState(() => emptyCart());
   const [cartOpen, setCartOpen] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null);
+  const [restaurantVouchers, setRestaurantVouchers] = useState([]);
   const [syncing, setSyncing] = useState(false);
 
   // Toasts
@@ -212,6 +214,30 @@ export function AppProvider({ children }) {
     return Math.min(appliedPromo.amount, cartSubtotal);
   }, [appliedPromo, cartSubtotal]);
   const cartTotal = Math.max(0, cartSubtotal + deliveryFee - discount);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!cart.restaurantId) {
+      setRestaurantVouchers([]);
+      return () => {
+        active = false;
+      };
+    }
+
+    fetchRestaurantVouchersApi(cart.restaurantId)
+      .then((data) => {
+        if (!active) return;
+        setRestaurantVouchers(data?.items ?? []);
+      })
+      .catch(() => {
+        if (active) setRestaurantVouchers([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [cart.restaurantId]);
 
   const resetCartState = useCallback(() => {
     setCart(emptyCart());
@@ -324,14 +350,14 @@ export function AppProvider({ children }) {
         const existing = cur.items.find((i) => String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id));
         const items = existing
           ? cur.items.map((i) =>
-              String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
-                ? {
-                    ...i,
-                    quantity: Number(i.quantity ?? 0) + quantity,
-                    lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
-                  }
-                : i,
-            )
+            String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
+              ? {
+                ...i,
+                quantity: Number(i.quantity ?? 0) + quantity,
+                lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
+              }
+              : i,
+          )
           : [...cur.items, nextItem];
         return {
           ...cur,
@@ -397,9 +423,9 @@ export function AppProvider({ children }) {
           .filter(Boolean);
         return items.length
           ? {
-              ...cur,
-              items,
-            }
+            ...cur,
+            items,
+          }
           : emptyCart();
       });
       return null;
@@ -494,7 +520,7 @@ export function AppProvider({ children }) {
         return false;
       }
     },
-    [permittedRoles.customer, pushToast, user, cartSubtotal],
+    [permittedRoles.customer, pushToast, user],
   );
 
   // ---- Order placement (customer) ----
@@ -608,9 +634,9 @@ export function AppProvider({ children }) {
       cur.map((c) =>
         c.id === chatId
           ? {
-              ...c,
-              messages: [...c.messages, { id: newId(), senderId, text, at: Date.now() }],
-            }
+            ...c,
+            messages: [...c.messages, { id: newId(), senderId, text, at: Date.now() }],
+          }
           : c,
       ),
     );
@@ -696,9 +722,9 @@ export function AppProvider({ children }) {
           const guestRestaurantId = guest.restaurantId;
           const itemsToMerge = guestRestaurantId
             ? guest.items.filter(
-                (item) =>
-                  !item.restaurantId || String(item.restaurantId) === String(guestRestaurantId),
-              )
+              (item) =>
+                !item.restaurantId || String(item.restaurantId) === String(guestRestaurantId),
+            )
             : guest.items;
 
           if (itemsToMerge.length < guest.items.length) {
@@ -781,7 +807,7 @@ export function AppProvider({ children }) {
   const logout = useCallback(
     async ({ redirectTo = '/app', silent = false } = {}) => {
       const hadCustomerCart = Boolean(user && permittedRoles.customer);
-      await logoutApi().catch(() => {});
+      await logoutApi().catch(() => { });
       clearTokens();
       cartHydratedKey.current = null;
       setUser(null);

@@ -25,6 +25,23 @@ function generateOrderCode() {
   return `ORD-${code}`;
 }
 
+function calculateVoucherDiscount(voucher, subtotal) {
+  if (!voucher) return 0;
+
+  let discount = 0;
+  if (voucher.discount_type === 'percent') {
+    discount = Math.floor((subtotal * Number(voucher.discount_value)) / 100);
+  } else {
+    discount = Number(voucher.discount_value);
+  }
+
+  if (voucher.max_discount_amount !== null && voucher.max_discount_amount !== undefined) {
+    discount = Math.min(discount, Number(voucher.max_discount_amount));
+  }
+
+  return Math.max(0, Math.min(subtotal, Math.floor(discount)));
+}
+
 router.post('/', requireAuth, async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
@@ -87,10 +104,32 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
     const restaurant = rests[0];
 
+    let voucher = null;
+    let voucherDiscount = 0;
+    const normalizedVoucherCode = String(voucherCode ?? '').trim().toUpperCase();
+    if (normalizedVoucherCode) {
+      const [voucherRows] = await connection.query(
+        `SELECT *
+           FROM vouchers
+          WHERE code = ?
+            AND status = 'active'
+            AND starts_at <= NOW()
+            AND ends_at >= NOW()
+            AND (restaurant_id IS NULL OR restaurant_id = ?)
+          LIMIT 1`,
+        [normalizedVoucherCode, restaurant.id],
+      );
+      voucher = voucherRows[0] ?? null;
+      if (!voucher) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Mã khuyến mãi không hợp lệ cho quán này.' });
+      }
+    }
+
     // 4. Tính toán tiền theo công thức đơn giản
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const delivery_fee = restaurant.base_delivery_fee;
-    
+
     let discount_amount = 0;
     if (voucherCode && voucherCode.trim()) {
       const [vouchers] = await connection.query(
@@ -165,7 +204,7 @@ router.post('/', requireAuth, async (req, res, next) => {
         Number(restaurant.latitude), Number(restaurant.longitude)
       );
     }
-    
+
     // Tìm thời gian chuẩn bị món lâu nhất
     const max_prep_time = cartItems.reduce((max, i) => Math.max(max, i.prep_time_min), 0);
     // Thời gian chuẩn bị dự kiến + mặc định 15 phút giao hàng
@@ -187,18 +226,37 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     const [orderResult] = await connection.query(
       `INSERT INTO orders (
-        order_code, customer_id, restaurant_id, delivery_address_id, delivery_address_snapshot,
+        order_code, customer_id, restaurant_id, voucher_id, delivery_address_id, delivery_address_snapshot,
         delivery_lat, delivery_lng, pickup_lat, pickup_lng, distance_km,
-        subtotal, delivery_fee, discount_amount, total_amount,
+        subtotal, delivery_fee, discount_amount, voucher_code_snapshot, total_amount,
         driver_earning, merchant_earning, platform_fee,
         status, payment_status, payment_method, customer_note, estimated_delivery_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        orderCode, customerId, restaurant.id, deliveryAddress.id, snapshotAddress,
-        deliveryAddress.latitude || 0, deliveryAddress.longitude || 0, restaurant.latitude || 0, restaurant.longitude || 0, distance_km,
-        subtotal, delivery_fee, discount_amount, total_amount,
-        driver_earning, merchant_earning, platform_fee,
-        status, payment_status, paymentMethod, customerNote || null, estimated_delivery_at
+        orderCode,
+        customerId,
+        restaurant.id,
+        voucher ? voucher.id : null,
+        deliveryAddress.id,
+        snapshotAddress,
+        deliveryAddress.latitude || 0,
+        deliveryAddress.longitude || 0,
+        restaurant.latitude || 0,
+        restaurant.longitude || 0,
+        distance_km,
+        subtotal,
+        delivery_fee,
+        discount_amount,
+        voucher ? voucher.code : null,
+        total_amount,
+        driver_earning,
+        merchant_earning,
+        platform_fee,
+        status,
+        payment_status,
+        paymentMethod,
+        customerNote || null,
+        estimated_delivery_at,
       ]
     );
 
@@ -211,12 +269,37 @@ router.post('/', requireAuth, async (req, res, next) => {
           order_id, menu_item_id, item_name_snapshot, unit_price_snapshot, quantity, line_subtotal, note
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          orderId, item.menu_item_id, item.item_name, item.price, item.quantity, 
+          orderId, item.menu_item_id, item.item_name, item.price, item.quantity,
           item.price * item.quantity, item.note || null
         ]
       );
     }
-    
+
+    if (voucher) {
+      await connection.query(
+        `INSERT INTO voucher_redemptions (
+          voucher_id, customer_id, order_id, discount_amount, status, redeemed_at
+        ) VALUES (?, ?, ?, ?, 'redeemed', NOW())`,
+        [voucher.id, customerId, orderId, discount_amount],
+      );
+
+      if (voucher.usage_limit !== null && voucher.usage_limit !== undefined) {
+        const [[usageRow]] = await connection.query(
+          `SELECT COUNT(*) AS totalUsage
+             FROM voucher_redemptions
+            WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')`,
+          [voucher.id],
+        );
+
+        if (Number(usageRow?.totalUsage ?? 0) >= Number(voucher.usage_limit)) {
+          await connection.query(
+            'UPDATE vouchers SET status = ? WHERE id = ?',
+            ['paused', voucher.id],
+          );
+        }
+      }
+    }
+
     // Lưu bản ghi trạng thái (Status log)
     await connection.query(
       `INSERT INTO order_status_logs (order_id, to_status, changed_by_role, changed_by_user_id, note)
@@ -402,8 +485,8 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
 
     const order = orders[0];
 
-    // 2. Kiểm tra trạng thái đơn hàng (phải là đã giao - 'delivered')
-    if (order.status !== 'delivered') {
+    // 2. Cho phép đánh giá sau khi đơn đã được tạo, nhưng vẫn chặn đơn bị hủy/thất bại
+    if (['cancelled', 'failed'].includes(order.status)) {
       await connection.rollback();
       return res.status(403).json({ error: 'Chưa thể đánh giá đơn hàng này.' });
     }
@@ -432,7 +515,7 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
       `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
       [order.restaurant_id]
     );
-    
+
     const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
     const nextCount = stats[0].cnt || 0;
 

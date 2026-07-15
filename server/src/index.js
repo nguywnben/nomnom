@@ -116,7 +116,6 @@ async function start() {
     await verifyDbConnection();
     await ensureSuspensionColumn();
     await ensureSuspensionReasonColumn();
-    await ensureVouchersTable();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(
