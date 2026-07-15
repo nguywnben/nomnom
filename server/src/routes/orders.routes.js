@@ -90,8 +90,67 @@ router.post('/', requireAuth, async (req, res, next) => {
     // 4. Tính toán tiền theo công thức đơn giản
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const delivery_fee = restaurant.base_delivery_fee;
-    const discount_amount = 0; // Chưa áp dụng voucher
-    const total_amount = subtotal + delivery_fee - discount_amount;
+    
+    let discount_amount = 0;
+    if (voucherCode && voucherCode.trim()) {
+      const [vouchers] = await connection.query(
+        'SELECT * FROM vouchers WHERE code = ? LIMIT 1 FOR UPDATE',
+        [voucherCode.trim()]
+      );
+      if (vouchers.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Mã giảm giá không tồn tại.' });
+      }
+      const voucher = vouchers[0];
+      if (!voucher.is_active) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Mã giảm giá không còn hoạt động.' });
+      }
+      const now = new Date();
+      const validFrom = new Date(voucher.valid_from);
+      const validTo = new Date(voucher.valid_to);
+      if (now < validFrom || now > validTo) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Mã giảm giá đã hết hạn.' });
+      }
+      if (voucher.usage_limit !== null && voucher.usage_count >= voucher.usage_limit) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Mã giảm giá đã hết lượt sử dụng.' });
+      }
+      if (BigInt(subtotal) < BigInt(voucher.min_order)) {
+        await connection.rollback();
+        return res.status(400).json({ error: `Mã này chỉ áp dụng cho đơn hàng từ ${Number(voucher.min_order).toLocaleString('vi-VN')} ₫.` });
+      }
+
+      let calcDiscount = 0n;
+      const subtotalBig = BigInt(subtotal);
+      const amountBig = BigInt(voucher.amount);
+      if (voucher.kind === 'percent') {
+        calcDiscount = (subtotalBig * amountBig) / 100n;
+        if (voucher.max_discount !== null) {
+          const maxDiscountBig = BigInt(voucher.max_discount);
+          if (calcDiscount > maxDiscountBig) {
+            calcDiscount = maxDiscountBig;
+          }
+        }
+      } else if (voucher.kind === 'flat') {
+        calcDiscount = amountBig;
+      }
+
+      if (calcDiscount > subtotalBig) {
+        calcDiscount = subtotalBig;
+      }
+
+      discount_amount = Number(calcDiscount);
+
+      // Cập nhật lượt sử dụng của voucher
+      await connection.query(
+        'UPDATE vouchers SET usage_count = usage_count + 1 WHERE id = ?',
+        [voucher.id]
+      );
+    }
+
+    const total_amount = Math.max(0, subtotal + delivery_fee - discount_amount);
 
     const driver_earning = Math.floor(delivery_fee * 0.8);
     const platform_commission = Math.floor(subtotal * Number(restaurant.commission_rate) / 100);
