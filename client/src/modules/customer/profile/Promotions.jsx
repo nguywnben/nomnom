@@ -6,9 +6,10 @@ import Card from '../../../components/Card.jsx';
 import Icon from '../../../components/Icon.jsx';
 import Input from '../../../components/Input.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
-import { promoCodes } from '../../../data/mock.js';
+import { fetchMyVouchersApi } from '../../../lib/api.js';
 import { formatVnd } from '../../../lib/formatVnd.js';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
+import { useEffect } from 'react';
 
 // Khuyến mãi & voucher — sử dụng chung dataset promoCodes từ mock,
 // hiển thị cùng 2 banner ưu đãi sắp diễn ra để trang sống động hơn.
@@ -32,9 +33,24 @@ const HIGHLIGHTS = [
 export default function Promotions() {
   const { applyPromo, appliedPromo, pushToast } = useApp();
   const [code, setCode] = useState('');
+  const [vouchers, setVouchers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const onApply = (c) => {
-    const ok = applyPromo(c);
+  useEffect(() => {
+    fetchMyVouchersApi()
+      .then((data) => {
+        setVouchers(data || []);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch vouchers:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const onApply = async (c) => {
+    const ok = await applyPromo(c);
     if (ok) setCode('');
   };
 
@@ -106,50 +122,65 @@ export default function Promotions() {
       <div>
         <div className="text-caption-uppercase text-body mb-sm">Mã có thể áp dụng</div>
         <div className="flex flex-col gap-sm">
-          {promoCodes.map((p) => {
-            const active = appliedPromo?.code === p.code;
-            return (
-              <Card key={p.code} padded>
-                <div className="flex items-start gap-sm">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface-strong text-ink">
-                    <Icon name="zap" size={16} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-body-sm font-semibold text-ink font-mono">{p.code}</span>
-                      <Badge tone={p.kind === 'percent' ? 'preview' : 'default'}>
+          {loading ? (
+            <Card padded>
+              <div className="text-body-sm text-body py-4 text-center">Đang tải danh sách khuyến mãi...</div>
+            </Card>
+          ) : vouchers.length === 0 ? (
+            <Card padded>
+              <div className="text-body-sm text-body py-4 text-center">Không có mã khuyến mãi nào khả dụng.</div>
+            </Card>
+          ) : (
+            vouchers.map((p) => {
+              const active = appliedPromo?.code === p.code;
+              const maxDiscount = p.max_discount ?? p.cap;
+              return (
+                <Card key={p.code} padded>
+                  <div className="flex items-start gap-sm">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface-strong text-ink">
+                      <Icon name="zap" size={16} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-body-sm font-semibold text-ink font-mono">{p.code}</span>
+                        <Badge tone={p.kind === 'percent' ? 'preview' : 'default'}>
+                          {p.kind === 'percent'
+                            ? `Giảm ${p.amount}%${maxDiscount ? ` (tối đa ${formatVnd(maxDiscount)})` : ''}`
+                            : `Giảm ${formatVnd(p.amount)}`}
+                        </Badge>
+                        {active && <Badge tone="success" dot>Đang áp dụng</Badge>}
+                      </div>
+                      <p className="mt-1 text-caption text-body">
                         {p.kind === 'percent'
-                          ? `Giảm ${p.amount}%${p.cap ? ` (tối đa ${formatVnd(p.cap)})` : ''}`
-                          : `Giảm ${formatVnd(p.amount)}`}
-                      </Badge>
-                      {active && <Badge tone="success" dot>Đang áp dụng</Badge>}
+                          ? `Giảm ${p.amount}%${maxDiscount ? ` (tối đa ${formatVnd(maxDiscount)})` : ''}${p.min_order > 0 ? ` cho đơn từ ${formatVnd(p.min_order)}` : ' cho mọi đơn hàng'}.`
+                          : `Giảm ${formatVnd(p.amount)}${p.min_order > 0 ? ` cho đơn từ ${formatVnd(p.min_order)}` : ' cho mọi đơn hàng'}.`}
+                      </p>
                     </div>
-                    <p className="mt-1 text-caption text-body">{p.label}</p>
+                    <div className="flex shrink-0 flex-col items-end gap-xs">
+                      <Button
+                        size="sm"
+                        variant={active ? 'secondary' : 'primary'}
+                        onClick={() => (active ? null : onApply(p.code))}
+                        disabled={active}
+                      >
+                        {active ? 'Đã áp dụng' : 'Áp dụng'}
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(p.code);
+                          pushToast({ kind: 'info', title: 'Đã sao chép', message: p.code, duration: 1800 });
+                        }}
+                        className="inline-flex items-center gap-1 text-caption text-body hover:text-ink"
+                      >
+                        <Icon name="copy" size={12} /> Sao chép
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 flex-col items-end gap-xs">
-                    <Button
-                      size="sm"
-                      variant={active ? 'secondary' : 'primary'}
-                      onClick={() => (active ? null : onApply(p.code))}
-                      disabled={active}
-                    >
-                      {active ? 'Đã áp dụng' : 'Áp dụng'}
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard?.writeText(p.code);
-                        pushToast({ kind: 'info', title: 'Đã sao chép', message: p.code, duration: 1800 });
-                      }}
-                      className="inline-flex items-center gap-1 text-caption text-body hover:text-ink"
-                    >
-                      <Icon name="copy" size={12} /> Sao chép
-                    </button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+                </Card>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
