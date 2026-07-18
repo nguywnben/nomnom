@@ -12,6 +12,7 @@ import adminRoutes from './routes/admin.routes.js';
 import driverRoutes from './routes/driver.routes.js';
 import uploadsRoutes from './routes/uploads.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
+import paymentsRoutes from './routes/payments.routes.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -40,6 +41,7 @@ app.use('/api/v1/driver', driverRoutes);
 app.use('/api/v1/cuisines', cuisinesRoutes);
 app.use('/api/v1/uploads', uploadsRoutes);
 app.use('/api/v1/orders', ordersRoutes);
+app.use('/api/v1/payments', paymentsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

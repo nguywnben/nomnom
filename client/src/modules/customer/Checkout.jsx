@@ -14,7 +14,7 @@ import { apiGet, apiPost } from '../../lib/api.js';
 
 const PAYMENTS = [
   { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán tiền mặt cho tài xế', icon: 'cash' },
-  { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card', disabled: true },
+  { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card' },
 ];
 
 export default function CustomerCheckout() {
@@ -199,7 +199,12 @@ export default function CustomerCheckout() {
         customerNote: note
       });
       clearCart();
-      nav('/app/order/success/' + res.order.order_code);
+      if (payment === 'vnpay') {
+        const payRes = await apiPost('/api/v1/payments/vnpay/create', { orderId: res.order.id });
+        window.location.href = payRes.paymentUrl;
+      } else {
+        nav('/app/order/success/' + res.order.order_code);
+      }
     } catch (err) {
       pushToast({
         kind: 'error',
