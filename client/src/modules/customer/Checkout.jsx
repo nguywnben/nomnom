@@ -28,6 +28,7 @@ export default function CustomerCheckout() {
     pushToast,
     currentCustomer,
     clearCart,
+    appliedPromo,
   } = useApp();
   const [payment, setPayment] = useState('cod');
   const [addresses, setAddresses] = useState([]);
@@ -196,7 +197,8 @@ export default function CustomerCheckout() {
       const res = await apiPost('/api/v1/orders', {
         addressId: finalAddressId,
         paymentMethod: payment,
-        customerNote: note
+        customerNote: note,
+        voucherCode: appliedPromo?.source === 'voucher' ? appliedPromo.code : null,
       });
       clearCart();
       nav('/app/order/success/' + res.order.order_code);

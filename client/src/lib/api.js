@@ -5,7 +5,7 @@ import {
   saveTokens,
 } from './authStorage.js';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '');
 
 let refreshInFlight = null;
 
@@ -250,6 +250,35 @@ export function updateMerchantOrderStatusApi(orderCode, action, cancelReason) {
   const body = { action };
   if (cancelReason) body.cancelReason = cancelReason;
   return apiPatch(`/api/v1/merchant/me/orders/${encodeURIComponent(orderCode)}/status`, body);
+}
+
+export function fetchMerchantVouchersApi() {
+  return apiGet('/api/v1/merchant/me/vouchers');
+}
+
+export function createMerchantVoucherApi(body) {
+  return apiPost('/api/v1/merchant/me/vouchers', body);
+}
+
+export function updateMerchantVoucherApi(id, body) {
+  return apiPatch(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteMerchantVoucherApi(id) {
+  return apiDelete(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`);
+}
+
+export function fetchMerchantReviewsApi({ page = 1, limit = 50 } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+  return apiGet(`/api/v1/merchant/me/reviews?${params.toString()}`);
+}
+
+export function replyMerchantReviewApi(reviewId, replyText) {
+  return apiPost(`/api/v1/merchant/me/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText });
+}
+
+export function fetchRestaurantVouchersApi(restaurantId) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(restaurantId)}/vouchers`);
 }
 
 /** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
