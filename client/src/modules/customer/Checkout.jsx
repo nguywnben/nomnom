@@ -29,11 +29,8 @@ export default function CustomerCheckout() {
     currentCustomer,
     clearCart,
     appliedPromo,
-<<<<<<< HEAD
     applyPromo,
     setAppliedPromo,
-=======
->>>>>>> e043213 (mer-05 curd voucher review products)
   } = useApp();
   const [payment, setPayment] = useState('cod');
   const [addresses, setAddresses] = useState([]);

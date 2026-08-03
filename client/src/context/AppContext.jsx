@@ -535,7 +535,7 @@ export function AppProvider({ children }) {
         return false;
       }
     },
-    [permittedRoles.customer, promoCodes, pushToast, restaurantVouchers, user, cartSubtotal],
+    [permittedRoles.customer, pushToast, restaurantVouchers, user, cartSubtotal],
   );
 
   // ---- Order placement (customer) ----
