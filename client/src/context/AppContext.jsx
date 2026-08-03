@@ -520,7 +520,11 @@ export function AppProvider({ children }) {
         return false;
       }
     },
+<<<<<<< HEAD
     [permittedRoles.customer, pushToast, user],
+=======
+    [cartSubtotal, permittedRoles.customer, pushToast, restaurantVouchers, user],
+>>>>>>> b45c151 (refactor: optimize dependencies in AppProvider and use useCallback for loadOrders and loadReviews in admin modules)
   );
 
   // ---- Order placement (customer) ----
