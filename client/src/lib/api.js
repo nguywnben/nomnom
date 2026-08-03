@@ -382,3 +382,10 @@ export function deleteMerchantMenuItemApi(id) {
   return apiDelete(`/api/v1/merchant/me/items/${encodeURIComponent(id)}`);
 }
 
+export function validateVoucherApi(code, subtotal) {
+  return apiPost('/api/v1/vouchers/validate', { code, subtotal });
+}
+
+export function fetchMyVouchersApi() {
+  return apiGet('/api/v1/me/vouchers');
+}

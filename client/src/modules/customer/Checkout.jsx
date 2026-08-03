@@ -35,6 +35,7 @@ export default function CustomerCheckout() {
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [addressId, setAddressId] = useState(null);
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
   
   // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
   const [newRecipientName, setNewRecipientName] = useState('');
@@ -197,8 +198,7 @@ export default function CustomerCheckout() {
       const res = await apiPost('/api/v1/orders', {
         addressId: finalAddressId,
         paymentMethod: payment,
-        customerNote: note,
-        voucherCode: appliedPromo?.source === 'voucher' ? appliedPromo.code : null,
+        voucherCode: appliedPromo?.code || null,
       });
       clearCart();
       nav('/app/order/success/' + res.order.order_code);
@@ -474,6 +474,46 @@ export default function CustomerCheckout() {
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <Card padded className="flex flex-col gap-sm">
+            {/* Promo Code Input */}
+            <div className="flex flex-col gap-xs border-b border-hairline pb-sm mb-xs">
+              <div className="text-caption-uppercase text-body">Mã giảm giá</div>
+              {appliedPromo ? (
+                <div className="flex items-center justify-between rounded-md border border-success/30 bg-[#e6f4ea] px-sm py-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-body-sm font-semibold text-success font-mono">{appliedPromo.code}</div>
+                    <div className="text-caption text-success truncate">{appliedPromo.label}</div>
+                  </div>
+                  <button
+                    onClick={() => setAppliedPromo(null)}
+                    className="text-body hover:text-ink shrink-0 ml-2"
+                    aria-label="Xóa"
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-xs">
+                  <Input
+                    className="flex-1"
+                    placeholder="Ví dụ: NOMNOM15"
+                    aria-label="Mã giảm giá"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  />
+                  <Button
+                    variant="secondary"
+                    disabled={!promoCode.trim()}
+                    onClick={async () => {
+                      const ok = await applyPromo(promoCode);
+                      if (ok) setPromoCode('');
+                    }}
+                  >
+                    Áp dụng
+                  </Button>
+                </div>
+              )}
+            </div>
+
             <div className="text-title-md text-ink">Tổng cộng</div>
             <Row label="Tạm tính" value={formatVnd(cartSubtotal)} />
             <Row label="Phí giao hàng" value={formatVnd(deliveryFee)} />
