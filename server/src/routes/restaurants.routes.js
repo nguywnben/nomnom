@@ -296,4 +296,43 @@ router.get('/:id/reviews', async (req, res, next) => {
   }
 });
 
+router.get('/:id/vouchers', async (req, res, next) => {
+  try {
+    const restaurant = await findActiveRestaurant(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Không tìm thấy quán ăn' });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT *
+         FROM vouchers
+        WHERE status = 'active'
+          AND starts_at <= NOW()
+          AND ends_at >= NOW()
+          AND (restaurant_id IS NULL OR restaurant_id = ?)
+        ORDER BY ends_at ASC, created_at DESC`,
+      [restaurant.id],
+    );
+
+    res.json({
+      items: rows.map((row) => ({
+        id: Number(row.id),
+        restaurantId: row.restaurant_id === null ? null : Number(row.restaurant_id),
+        code: row.code,
+        name: row.name,
+        description: row.description ?? null,
+        discountType: row.discount_type,
+        discountValue: Number(row.discount_value),
+        maxDiscountAmount: row.max_discount_amount === null ? null : Number(row.max_discount_amount),
+        minOrderAmount: Number(row.min_order_amount ?? 0),
+        perUserLimit: Number(row.per_user_limit ?? 1),
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

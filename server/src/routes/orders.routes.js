@@ -25,6 +25,23 @@ function generateOrderCode() {
   return `ORD-${code}`;
 }
 
+function calculateVoucherDiscount(voucher, subtotal) {
+  if (!voucher) return 0;
+
+  let discount = 0;
+  if (voucher.discount_type === 'percent') {
+    discount = Math.floor((subtotal * Number(voucher.discount_value)) / 100);
+  } else {
+    discount = Number(voucher.discount_value);
+  }
+
+  if (voucher.max_discount_amount !== null && voucher.max_discount_amount !== undefined) {
+    discount = Math.min(discount, Number(voucher.max_discount_amount));
+  }
+
+  return Math.max(0, Math.min(subtotal, Math.floor(discount)));
+}
+
 router.post('/', requireAuth, async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
@@ -87,70 +104,62 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
     const restaurant = rests[0];
 
+    let voucher = null;
+    let voucherDiscount = 0;
+    const normalizedVoucherCode = String(voucherCode ?? '').trim().toUpperCase();
+    if (normalizedVoucherCode) {
+      const [voucherRows] = await connection.query(
+        `SELECT *
+           FROM vouchers
+          WHERE code = ?
+            AND status = 'active'
+            AND starts_at <= NOW()
+            AND ends_at >= NOW()
+            AND (restaurant_id IS NULL OR restaurant_id = ?)
+          LIMIT 1`,
+        [normalizedVoucherCode, restaurant.id],
+      );
+      voucher = voucherRows[0] ?? null;
+      if (!voucher) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Mã khuyến mãi không hợp lệ cho quán này.' });
+      }
+    }
+
     // 4. Tính toán tiền theo công thức đơn giản
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const delivery_fee = restaurant.base_delivery_fee;
-    
-    let discount_amount = 0;
-    if (voucherCode && voucherCode.trim()) {
-      const [vouchers] = await connection.query(
-        'SELECT * FROM vouchers WHERE code = ? LIMIT 1 FOR UPDATE',
-        [voucherCode.trim()]
+    if (voucher) {
+      const minOrderAmount = Number(voucher.min_order_amount ?? 0);
+      if (subtotal < minOrderAmount) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Đơn hàng chưa đạt giá trị tối thiểu của voucher.' });
+      }
+
+      const [[voucherUsageRow]] = await connection.query(
+        `SELECT
+           COUNT(*) AS totalUsage,
+           COALESCE(SUM(CASE WHEN customer_id = ? THEN 1 ELSE 0 END), 0) AS customerUsage
+         FROM voucher_redemptions
+         WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')`,
+        [customerId, voucher.id],
       );
-      if (vouchers.length === 0) {
+
+      const totalUsage = Number(voucherUsageRow?.totalUsage ?? 0);
+      const customerUsage = Number(voucherUsageRow?.customerUsage ?? 0);
+      if (voucher.usage_limit !== null && voucher.usage_limit !== undefined && totalUsage >= Number(voucher.usage_limit)) {
         await connection.rollback();
-        return res.status(400).json({ error: 'Mã giảm giá không tồn tại.' });
+        return res.status(400).json({ error: 'Voucher đã hết lượt sử dụng.' });
       }
-      const voucher = vouchers[0];
-      if (!voucher.is_active) {
+      if (customerUsage >= Number(voucher.per_user_limit ?? 1)) {
         await connection.rollback();
-        return res.status(400).json({ error: 'Mã giảm giá không còn hoạt động.' });
-      }
-      const now = new Date();
-      const validFrom = new Date(voucher.valid_from);
-      const validTo = new Date(voucher.valid_to);
-      if (now < validFrom || now > validTo) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Mã giảm giá đã hết hạn.' });
-      }
-      if (voucher.usage_limit !== null && voucher.usage_count >= voucher.usage_limit) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Mã giảm giá đã hết lượt sử dụng.' });
-      }
-      if (BigInt(subtotal) < BigInt(voucher.min_order)) {
-        await connection.rollback();
-        return res.status(400).json({ error: `Mã này chỉ áp dụng cho đơn hàng từ ${Number(voucher.min_order).toLocaleString('vi-VN')} ₫.` });
+        return res.status(400).json({ error: 'Bạn đã dùng voucher này đủ số lần cho phép.' });
       }
 
-      let calcDiscount = 0n;
-      const subtotalBig = BigInt(subtotal);
-      const amountBig = BigInt(voucher.amount);
-      if (voucher.kind === 'percent') {
-        calcDiscount = (subtotalBig * amountBig) / 100n;
-        if (voucher.max_discount !== null) {
-          const maxDiscountBig = BigInt(voucher.max_discount);
-          if (calcDiscount > maxDiscountBig) {
-            calcDiscount = maxDiscountBig;
-          }
-        }
-      } else if (voucher.kind === 'flat') {
-        calcDiscount = amountBig;
-      }
-
-      if (calcDiscount > subtotalBig) {
-        calcDiscount = subtotalBig;
-      }
-
-      discount_amount = Number(calcDiscount);
-
-      // Cập nhật lượt sử dụng của voucher
-      await connection.query(
-        'UPDATE vouchers SET usage_count = usage_count + 1 WHERE id = ?',
-        [voucher.id]
-      );
+      voucherDiscount = calculateVoucherDiscount(voucher, subtotal);
     }
-
-    const total_amount = Math.max(0, subtotal + delivery_fee - discount_amount);
+    const discount_amount = voucherDiscount;
+    const total_amount = subtotal + delivery_fee - discount_amount;
 
     const driver_earning = Math.floor(delivery_fee * 0.8);
     const platform_commission = Math.floor(subtotal * Number(restaurant.commission_rate) / 100);
@@ -187,18 +196,37 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     const [orderResult] = await connection.query(
       `INSERT INTO orders (
-        order_code, customer_id, restaurant_id, delivery_address_id, delivery_address_snapshot,
+        order_code, customer_id, restaurant_id, voucher_id, delivery_address_id, delivery_address_snapshot,
         delivery_lat, delivery_lng, pickup_lat, pickup_lng, distance_km,
-        subtotal, delivery_fee, discount_amount, total_amount,
+        subtotal, delivery_fee, discount_amount, voucher_code_snapshot, total_amount,
         driver_earning, merchant_earning, platform_fee,
         status, payment_status, payment_method, customer_note, estimated_delivery_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        orderCode, customerId, restaurant.id, deliveryAddress.id, snapshotAddress,
-        deliveryAddress.latitude || 0, deliveryAddress.longitude || 0, restaurant.latitude || 0, restaurant.longitude || 0, distance_km,
-        subtotal, delivery_fee, discount_amount, total_amount,
-        driver_earning, merchant_earning, platform_fee,
-        status, payment_status, paymentMethod, customerNote || null, estimated_delivery_at
+        orderCode,
+        customerId,
+        restaurant.id,
+        voucher ? voucher.id : null,
+        deliveryAddress.id,
+        snapshotAddress,
+        deliveryAddress.latitude || 0,
+        deliveryAddress.longitude || 0,
+        restaurant.latitude || 0,
+        restaurant.longitude || 0,
+        distance_km,
+        subtotal,
+        delivery_fee,
+        discount_amount,
+        voucher ? voucher.code : null,
+        total_amount,
+        driver_earning,
+        merchant_earning,
+        platform_fee,
+        status,
+        payment_status,
+        paymentMethod,
+        customerNote || null,
+        estimated_delivery_at,
       ]
     );
 
@@ -215,6 +243,31 @@ router.post('/', requireAuth, async (req, res, next) => {
           item.price * item.quantity, item.note || null
         ]
       );
+    }
+
+    if (voucher) {
+      await connection.query(
+        `INSERT INTO voucher_redemptions (
+          voucher_id, customer_id, order_id, discount_amount, status, redeemed_at
+        ) VALUES (?, ?, ?, ?, 'redeemed', NOW())`,
+        [voucher.id, customerId, orderId, discount_amount],
+      );
+
+      if (voucher.usage_limit !== null && voucher.usage_limit !== undefined) {
+        const [[usageRow]] = await connection.query(
+          `SELECT COUNT(*) AS totalUsage
+             FROM voucher_redemptions
+            WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')`,
+          [voucher.id],
+        );
+
+        if (Number(usageRow?.totalUsage ?? 0) >= Number(voucher.usage_limit)) {
+          await connection.query(
+            'UPDATE vouchers SET status = ? WHERE id = ?',
+            ['paused', voucher.id],
+          );
+        }
+      }
     }
     
     // Lưu bản ghi trạng thái (Status log)
@@ -402,8 +455,8 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
 
     const order = orders[0];
 
-    // 2. Kiểm tra trạng thái đơn hàng (phải là đã giao - 'delivered')
-    if (order.status !== 'delivered') {
+    // 2. Cho phép đánh giá sau khi đơn đã được tạo, nhưng vẫn chặn đơn bị hủy/thất bại
+    if (['cancelled', 'failed'].includes(order.status)) {
       await connection.rollback();
       return res.status(403).json({ error: 'Chưa thể đánh giá đơn hàng này.' });
     }
