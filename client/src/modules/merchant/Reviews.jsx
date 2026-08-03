@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
-import { Textarea } from '../../components/Input.jsx';
+import { Select, Textarea } from '../../components/Input.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantReviewsApi, replyMerchantReviewApi } from '../../lib/api.js';
@@ -18,23 +18,28 @@ export default function MerchantReviews() {
   const [replyingId, setReplyingId] = useState(null);
   const [replyDrafts, setReplyDrafts] = useState({});
   const [savingId, setSavingId] = useState(null);
+  const [ratingFilter, setRatingFilter] = useState('all');
+  const [replyFilter, setReplyFilter] = useState('all');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchMerchantReviewsApi();
+      const data = await fetchMerchantReviewsApi({
+        rating: ratingFilter === 'all' ? undefined : Number(ratingFilter),
+        replied: replyFilter,
+      });
       setItems(data?.items ?? []);
     } catch (err) {
-      setError(err.message ?? 'Không thể tải review.');
+      setError(err.message ?? 'Không thể tải đánh giá.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [ratingFilter, replyFilter]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const stats = useMemo(() => {
     if (items.length === 0) return { avg: 0, count: 0 };
@@ -74,6 +79,32 @@ export default function MerchantReviews() {
         </div>
         <Badge tone="outline">{stats.count} đánh giá</Badge>
       </div>
+
+      <Card padded className="grid gap-sm sm:grid-cols-2">
+        <Select
+          aria-label="Lọc theo số sao"
+          value={ratingFilter}
+          onChange={(event) => setRatingFilter(event.target.value)}
+          options={[
+            { value: 'all', label: 'Tất cả mức đánh giá' },
+            { value: '5', label: '5 sao' },
+            { value: '4', label: '4 sao' },
+            { value: '3', label: '3 sao' },
+            { value: '2', label: '2 sao' },
+            { value: '1', label: '1 sao' },
+          ]}
+        />
+        <Select
+          aria-label="Lọc theo phản hồi"
+          value={replyFilter}
+          onChange={(event) => setReplyFilter(event.target.value)}
+          options={[
+            { value: 'all', label: 'Tất cả phản hồi' },
+            { value: 'false', label: 'Chưa phản hồi' },
+            { value: 'true', label: 'Đã phản hồi' },
+          ]}
+        />
+      </Card>
 
       <div className="grid gap-base lg:grid-cols-[280px_1fr]">
         <Card padded>

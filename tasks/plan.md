@@ -1,5 +1,7 @@
 # Implementation Plan: Đợt 4
 
+> **Implementation update (August 3, 2026):** Wave 4 code, migrations, unit tests, build, syntax checks, and authenticated API smoke tests are complete. See [the completion report](../docs/wave-4-completed.md). Live VNPay payment/refund acceptance remains pending `VNPAY_TMN_CODE` and `VNPAY_HASH_SECRET`.
+
 ## Overview
 
 Đợt 4 bổ sung VNPay sandbox, voucher, công cụ merchant và kiểm duyệt admin trên trục đơn hàng hiện có. Cách triển khai là contract-first, sau đó chia lát dọc để mỗi nhánh có API, UI và kiểm thử riêng.

@@ -8,7 +8,7 @@ import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { useApp } from '../../context/AppContext.jsx';
-import { fetchAdminOrders, cancelAdminOrder } from '../../lib/api.js';
+import { fetchAdminOrderDetail, fetchAdminOrders, cancelAdminOrder } from '../../lib/api.js';
 
 const ORDER_STATUS = {
   pending_payment: { label: 'Chờ thanh toán', tone: 'warning' },
@@ -85,6 +85,20 @@ export default function AdminOrders() {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  const handleOpenDetail = async (order) => {
+    setSelectedOrder(order);
+    try {
+      const data = await fetchAdminOrderDetail(order.id);
+      setSelectedOrder(data.order);
+    } catch (error) {
+      pushToast({
+        kind: 'error',
+        title: 'Không thể tải chi tiết đơn',
+        message: error.message || 'Vui lòng thử lại.',
+      });
+    }
+  };
 
   const handleCancelClick = (o) => {
     setCancelTarget({ id: o.id, code: o.order_code, isPaid: o.payment_status === 'paid' });
@@ -210,7 +224,7 @@ export default function AdminOrders() {
                   </td>
                   <td className="px-base py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="secondary" size="sm" onClick={() => setSelectedOrder(o)}>
+                      <Button variant="secondary" size="sm" onClick={() => handleOpenDetail(o)}>
                         Chi tiết
                       </Button>
                       {!['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(o.status) && (
@@ -252,7 +266,7 @@ export default function AdminOrders() {
                   <Badge tone={PAY_STATUS[o.payment_status]?.tone || 'default'}>
                     {PAY_STATUS[o.payment_status]?.label || o.payment_status}
                   </Badge>
-                  <Button variant="secondary" size="sm" onClick={() => setSelectedOrder(o)}>
+                  <Button variant="secondary" size="sm" onClick={() => handleOpenDetail(o)}>
                     Chi tiết
                   </Button>
                   {!['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(o.status) && (
@@ -293,8 +307,7 @@ export default function AdminOrders() {
             Bạn có chắc chắn muốn hủy đơn hàng <strong>{cancelTarget?.code}</strong>?
             {cancelTarget?.isPaid && (
               <span className="block mt-2 text-error font-medium">
-                ⚠️ Đơn hàng đã được thanh toán. Hệ thống sẽ tự động hoàn lại{' '}
-                <strong>{selectedOrder ? formatVnd(Number(selectedOrder.total_amount)) : 'tiền'}</strong> vào ví của khách hàng và khấu trừ tài khoản merchant tương ứng.
+                VNPay must confirm the refund before this paid order is cancelled.
               </span>
             )}
           </p>
@@ -405,6 +418,34 @@ export default function AdminOrders() {
                 </div>
               </div>
             </div>
+
+            {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 && (
+              <div className="border-t border-hairline pt-sm">
+                <span className="text-caption text-body block">Món trong đơn</span>
+                <div className="mt-xs space-y-xs">
+                  {selectedOrder.items.map((item) => (
+                    <div key={item.id} className="flex justify-between gap-sm">
+                      <span className="text-ink">{item.quantity} x {item.item_name_snapshot}</span>
+                      <span>{formatVnd(Number(item.line_subtotal))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(selectedOrder.statusLogs) && selectedOrder.statusLogs.length > 0 && (
+              <div className="border-t border-hairline pt-sm">
+                <span className="text-caption text-body block">Lịch sử trạng thái</span>
+                <ol className="mt-xs space-y-xs">
+                  {selectedOrder.statusLogs.map((log) => (
+                    <li key={log.id} className="flex justify-between gap-sm">
+                      <span className="text-ink">{log.from_status ? log.from_status + ' -> ' : ''}{log.to_status}</span>
+                      <span className="text-caption text-body">{new Date(log.created_at).toLocaleString('vi-VN')}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
 
             {selectedOrder.status === 'cancelled' && (
               <div className="bg-error/5 p-sm rounded-lg border border-error/20 text-xs text-error space-y-xs">
