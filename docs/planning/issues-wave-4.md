@@ -54,7 +54,7 @@ Các biến `VNPAY_*` đã có trong `server/.env.example`; secret thật chỉ 
 | Method | Endpoint | Input / Output |
 |---|---|---|
 | `GET` | `/api/v1/vouchers?restaurantId=:id` | `{ data: VoucherSummary[] }` |
-| `POST` | `/api/v1/vouchers/validate` | `{ code, restaurantId, subtotal }` -> `{ voucher, discountAmount }` |
+| `POST` | `/api/v1/vouchers/validate` | `{ code }` -> `{ voucher, discountAmount }`; restaurant and subtotal come from the authenticated server-side cart |
 | `POST` | `/api/v1/orders` | Dùng trường `voucherCode` đã có; response thêm snapshot voucher |
 
 `VoucherSummary`: `id`, `code`, `name`, `description`, `discountType`, `discountValue`, `maxDiscountAmount`, `minOrderAmount`, `startsAt`, `endsAt`.

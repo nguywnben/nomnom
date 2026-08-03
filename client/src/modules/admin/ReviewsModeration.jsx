@@ -19,7 +19,7 @@ export default function AdminReviewsModeration() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState('flagged');
+  const [tab, setTab] = useState('all');
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -37,36 +37,31 @@ export default function AdminReviewsModeration() {
     try {
       let apiHidden = 'all';
       if (tab === 'hidden') apiHidden = 'true';
-      else if (tab === 'low' || tab === 'flagged') apiHidden = 'false';
+      else if (tab === 'low') apiHidden = 'false';
 
-      const data = await fetchAdminReviews({ hidden: apiHidden, page });
-
-      // Map backend columns and mock flags locally for a premium feel
-      const mapped = (data.items || []).map((r) => {
-        let flags = 0;
-        if (r.rating === 1) flags = 3;
-        else if (r.rating === 2) flags = 1;
-
-        return {
-          id: r.id,
-          customer: r.customer_name || 'Khách ẩn danh',
-          customerAvatar: r.customer_avatar,
-          restaurant: r.restaurant_name || 'Quán ăn',
-          orderId: r.order_code || 'ORD-UNKNOWN',
-          rating: r.rating,
-          comment: r.comment || '',
-          isHidden: Boolean(r.is_hidden),
-          at: r.created_at,
-          flags: flags,
-        };
+      const data = await fetchAdminReviews({
+        hidden: apiHidden,
+        page,
+        q: debouncedSearch,
+        ratingMax: tab === 'low' ? 3 : undefined,
       });
 
-      // Filter locally for rating limit or flagged list
+      const mapped = (data.items || []).map((r) => ({
+        id: r.id,
+        customer: r.customer_name || 'Khách ẩn danh',
+        customerAvatar: r.customer_avatar,
+        restaurant: r.restaurant_name || 'Quán ăn',
+        orderId: r.order_code || 'ORD-UNKNOWN',
+        rating: r.rating,
+        comment: r.comment || '',
+        isHidden: Boolean(r.is_hidden),
+        at: r.created_at,
+      }));
+
+      // Filter locally for the low-rating view
       let filtered = mapped;
       if (tab === 'low') {
         filtered = mapped.filter((r) => r.rating <= 3);
-      } else if (tab === 'flagged') {
-        filtered = mapped.filter((r) => r.flags > 0);
       }
 
       setReviews(filtered);
@@ -80,7 +75,7 @@ export default function AdminReviewsModeration() {
     } finally {
       setLoading(false);
     }
-  }, [page, pushToast, tab]);
+  }, [debouncedSearch, page, pushToast, tab]);
 
   useEffect(() => {
     loadReviews();
@@ -106,10 +101,6 @@ export default function AdminReviewsModeration() {
     }
   };
 
-  const handleClearFlag = (id) => {
-    setReviews((cur) => cur.map((r) => (r.id === id ? { ...r, flags: 0 } : r)));
-    pushToast({ kind: 'success', title: 'Đã xóa cờ', message: 'Báo cáo vi phạm đã được bỏ qua.' });
-  };
 
   // Filter list by text input in frontend as well
   const displayedReviews = useMemo(() => {
@@ -142,7 +133,6 @@ export default function AdminReviewsModeration() {
       <Tabs
         className="w-fit max-w-full"
         items={[
-          { value: 'flagged', label: 'Bị báo cáo' },
           { value: 'low', label: '≤ 3 sao' },
           { value: 'hidden', label: 'Đã ẩn' },
           { value: 'all', label: 'Tất cả' },
@@ -178,7 +168,6 @@ export default function AdminReviewsModeration() {
                       </div>
                       <div className="flex items-center gap-2">
                         <StarRating value={r.rating} />
-                        {r.flags > 0 && <Badge tone="warning">{r.flags} báo cáo</Badge>}
                         {r.isHidden && <Badge tone="error">Đã ẩn</Badge>}
                       </div>
                     </div>
@@ -201,11 +190,6 @@ export default function AdminReviewsModeration() {
                           onClick={() => handleHide(r.id)}
                         >
                           Ẩn đánh giá
-                        </Button>
-                      )}
-                      {r.flags > 0 && (
-                        <Button size="sm" variant="ghost" onClick={() => handleClearFlag(r.id)}>
-                          Xóa cờ báo cáo
                         </Button>
                       )}
                     </div>

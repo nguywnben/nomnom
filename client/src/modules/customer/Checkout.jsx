@@ -205,7 +205,7 @@ export default function CustomerCheckout() {
       });
       clearCart();
       if (payment === 'vnpay') {
-        const payRes = await apiPost('/api/v1/payments/vnpay/create', { orderId: res.order.id });
+        const payRes = await apiPost('/api/v1/payments/vnpay', { orderId: res.order.id });
         window.location.href = payRes.paymentUrl;
       } else {
         nav('/app/order/success/' + res.order.order_code);

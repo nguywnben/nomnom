@@ -1,58 +1,35 @@
-# Đợt 4 - Checklist thực thi
+# Wave 4 Delivery Checklist
 
-## Khởi động
+## Completed implementation
 
-- [ ] Team review và chấp thuận `docs/planning/issues-wave-4.md` cùng `tasks/plan.md`.
-- [ ] Pull nhánh `dev`; xác nhận working tree sạch.
-- [ ] Backup DB dev.
-- [x] Chạy `mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql`.
-- [x] Kiểm tra `SHOW TABLES LIKE 'vouchers'` và `SHOW COLUMNS FROM orders LIKE 'voucher_id'`.
-- [ ] Điền `VNPAY_*` vào `server/.env`/Railway, không commit secret.
-- [x] Chạy server health, frontend test/lint/build và luồng COD smoke test.
-- [ ] Chốt người phụ trách từng lát và tạo nhánh `feature/<issue>-<scope>`.
+- [x] Payment attempt persistence before VNPay redirect.
+- [x] Signed payment URL with expiry and unique transaction reference.
+- [x] Read-only Return URL and trusted GET IPN processing.
+- [x] Signature, merchant, amount, order, and idempotency checks.
+- [x] Payment/order/log/notification update in one transaction.
+- [x] Server-side voucher validation using the authenticated cart.
+- [x] Voucher locking, quota checks, immutable order snapshot, and reservation lifecycle.
+- [x] Merchant voucher CRUD with ownership and safe archive behavior.
+- [x] Merchant review list/filter/reply and public reply display.
+- [x] Admin order list/detail/filter/pagination.
+- [x] Auditable VNPay refund before paid-order cancellation.
+- [x] Admin review list/search/filter/hide/unhide and aggregate recomputation.
+- [x] Database completion migration and rollback.
+- [x] Client tests, lint, production build, server tests, syntax checks, API smoke tests.
+- [x] No secrets or authentication debug output added to Git.
 
-## CUS-05
+## Credential-dependent acceptance
 
-- [ ] Backend tạo payment URL và lưu payment attempt.
-- [ ] Return/IPN kiểm tra chữ ký, amount, order, idempotency.
-- [ ] Checkout/return page nối API thật.
-- [ ] Test success, failure, tamper, duplicate callback.
+- [ ] Add `VNPAY_TMN_CODE` to `server/.env`.
+- [ ] Add `VNPAY_HASH_SECRET` to `server/.env`.
+- [ ] Complete a successful VNPay sandbox payment and verify the IPN transition.
+- [ ] Verify failed/cancelled payment and duplicate IPN behavior against the sandbox.
+- [ ] Complete a successful and failed administrator refund against the sandbox.
 
-## CUS-10
+## Team release actions
 
-- [ ] API list/validate voucher.
-- [ ] Order transaction áp voucher và snapshot.
-- [ ] Reservation lifecycle đúng với COD/VNPay/cancel/failure.
-- [ ] Test rule, quota và concurrency.
-
-## MER-05
-
-- [ ] CRUD voucher thật và ownership test.
-- [ ] Trang promotions nối API.
-- [ ] List/reply review thật và ownership test.
-- [ ] Reply hiển thị ở review công khai.
-
-## ADM-04
-
-- [ ] List/detail đơn thật, filter và pagination.
-- [ ] Cancel COD và refund VNPay với audit/notification.
-- [ ] List/hide/unhide review thật.
-- [ ] Recompute rating/count và test public visibility.
-
-## Checkpoint cuối đợt
-
-- [ ] VNPay sandbox -> return -> đơn paid.
-- [ ] Voucher giảm đúng và merchant voucher chỉ dùng đúng quán.
-- [ ] Merchant reply review hiển thị cho khách.
-- [ ] Admin hủy paid -> refunded + notification.
-- [ ] Admin ẩn review -> review biến mất và rating đúng.
-- [ ] Regression toàn bộ checkpoint Đợt 3.
-- [ ] `node --check` backend, test suite, frontend lint/build đều pass.
-- [ ] Không có secret/debug output/build artifact trong diff.
-- [ ] Demo, merge, tag `wave-4-done`, retro.
-
-## Rollback
-
-- [ ] Tắt lựa chọn VNPay/voucher ở client nếu cần rollback ứng dụng.
-- [ ] Revert code theo commit/PR độc lập.
-- [ ] Chỉ khi chưa có dữ liệu cần giữ: chạy `database/migrations/20260711_wave4_foundation_rollback.sql` trên DB đã backup.
+- [ ] Review the Wave 4 diff and this completion report.
+- [ ] Run the full regression checklist on the demonstration machine.
+- [ ] Commit and push the approved implementation.
+- [ ] Merge to the agreed release branch.
+- [ ] Create `wave-4-done` only after the credential-dependent acceptance checks pass.

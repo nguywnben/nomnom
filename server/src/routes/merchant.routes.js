@@ -811,6 +811,10 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
     const cancelReason = String(req.body?.cancelReason ?? '').trim()
       || 'Quán hủy đơn hàng.';
 
+    if (transition.cancel && order.payment_status === 'paid') {
+      return res.status(409).json({ error: 'Paid orders must be refunded and cancelled by an administrator.' });
+    }
+
     await conn.beginTransaction();
 
     const updates = ['status = ?', 'updated_at = NOW()'];
@@ -829,6 +833,13 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
 
     values.push(order.id);
     await conn.query(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    if (transition.cancel) {
+      await conn.query(
+        "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+        [order.id],
+      );
+    }
 
     const noteByAction = {
       accept: 'Quán xác nhận đơn',
@@ -1333,69 +1344,89 @@ router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, n
 });
 
 router.delete('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, next) => {
+  const connection = await pool.getConnection();
   try {
     const restaurant = await loadOwnedRestaurant(req.auth.userId);
     if (!restaurant) {
-      return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
+      return res.status(404).json({ error: 'Restaurant not found.' });
     }
 
     const voucherId = Number(req.params.id);
-    if (!voucherId) {
-      return res.status(400).json({ error: 'ID voucher không hợp lệ.' });
+    if (!Number.isInteger(voucherId) || voucherId <= 0) {
+      return res.status(400).json({ error: 'Invalid voucher ID.' });
     }
 
-    const [result] = await pool.query(
-      'DELETE FROM vouchers WHERE id = ? AND restaurant_id = ?',
+    await connection.beginTransaction();
+    const [voucherRows] = await connection.query(
+      'SELECT id FROM vouchers WHERE id = ? AND restaurant_id = ? FOR UPDATE',
       [voucherId, restaurant.id],
     );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy voucher của quán.' });
+    if (!voucherRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Voucher not found.' });
     }
 
-    res.json({ ok: true });
-  } catch (err) {
-    next(err);
+    const [[usage]] = await connection.query(
+      'SELECT COUNT(*) AS total FROM voucher_redemptions WHERE voucher_id = ?',
+      [voucherId],
+    );
+    const archived = Number(usage?.total ?? 0) > 0;
+    if (archived) {
+      await connection.query(
+        "UPDATE vouchers SET status = 'paused' WHERE id = ?",
+        [voucherId],
+      );
+    } else {
+      await connection.query('DELETE FROM vouchers WHERE id = ?', [voucherId]);
+    }
+
+    await connection.commit();
+    return res.json({ ok: true, archived });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
   }
 });
 
 router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) => {
   try {
     const restaurant = await loadOwnedRestaurant(req.auth.userId);
-    if (!restaurant) {
-      return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
-    }
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found.' });
 
     const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
     const page = Math.max(Number(req.query.page) || 1, 1);
     const offset = (page - 1) * limit;
+    const rating = req.query.rating === undefined ? null : Number(req.query.rating);
+    const replied = String(req.query.replied ?? 'all');
+    if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'rating must be an integer from 1 to 5.' });
+    }
+    if (!['all', 'true', 'false'].includes(replied)) {
+      return res.status(400).json({ error: 'replied must be all, true, or false.' });
+    }
+
+    const filters = ['rv.restaurant_id = ?'];
+    const params = [restaurant.id];
+    if (rating !== null) {
+      filters.push('rv.rating = ?');
+      params.push(rating);
+    }
+    if (replied === 'true') filters.push('rv.reply_text IS NOT NULL');
+    if (replied === 'false') filters.push('rv.reply_text IS NULL');
+    const where = filters.join(' AND ');
 
     const [[countRow]] = await pool.query(
-      'SELECT COUNT(*) AS total FROM reviews WHERE restaurant_id = ?',
-      [restaurant.id],
+      'SELECT COUNT(*) AS total FROM reviews rv WHERE ' + where,
+      params,
     );
-
     const [rows] = await pool.query(
-      `SELECT
-         rv.id,
-         rv.order_id,
-         rv.rating,
-         rv.comment,
-         rv.reply_text,
-         rv.reply_at,
-         rv.created_at,
-         u.full_name AS customer_name,
-         u.avatar_url AS customer_avatar,
-         o.order_code
-       FROM reviews rv
-       INNER JOIN users u ON u.id = rv.customer_id
-       INNER JOIN orders o ON o.id = rv.order_id
-       WHERE rv.restaurant_id = ?
-       ORDER BY rv.created_at DESC, rv.id DESC
-       LIMIT ? OFFSET ?`,
-      [restaurant.id, limit, offset],
+      'SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at, u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code FROM reviews rv INNER JOIN users u ON u.id = rv.customer_id INNER JOIN orders o ON o.id = rv.order_id WHERE ' + where + ' ORDER BY rv.created_at DESC, rv.id DESC LIMIT ? OFFSET ?',
+      [...params, limit, offset],
     );
 
-    res.json({
+    return res.json({
       items: rows.map((row) => ({
         id: Number(row.id),
         orderId: Number(row.order_id),
@@ -1412,12 +1443,12 @@ router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) =>
       page,
       limit,
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    return next(error);
   }
 });
 
-router.post('/me/reviews/:reviewId/reply', requireAuth, ensureMerchant, async (req, res, next) => {
+router.patch('/me/reviews/:reviewId/reply', requireAuth, ensureMerchant, async (req, res, next) => {
   try {
     const restaurant = await loadOwnedRestaurant(req.auth.userId);
     if (!restaurant) {
