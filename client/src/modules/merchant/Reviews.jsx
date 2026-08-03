@@ -1,154 +1,162 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Icon from '../../components/Icon.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-import Tabs from '../../components/Tabs.jsx';
-import StarRating from '../../components/StarRating.jsx';
-import Avatar from '../../components/Avatar.jsx';
+import Icon from '../../components/Icon.jsx';
 import { Textarea } from '../../components/Input.jsx';
+import StarRating from '../../components/StarRating.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { sampleReviews } from '../../data/mock.js';
+import { fetchMerchantReviewsApi, replyMerchantReviewApi } from '../../lib/api.js';
 
-// Trang đánh giá cho chủ quán — cho phép phản hồi từng review,
-// khớp với `reviews.reply_text` + `reply_at`.
 export default function MerchantReviews() {
   const { pushToast } = useApp();
-  const [items, setItems] = useState(() =>
-    (sampleReviews || []).map((r, i) => ({
-      id: r.id || `rv-${i}`,
-      customerName: r.author || r.name || 'Khách hàng',
-      avatar: r.avatar,
-      rating: r.rating ?? 5,
-      comment: r.text || r.comment || 'Món ăn ngon, giao nhanh.',
-      orderId: r.orderId || `ORD-${String(i).padStart(4, '0')}`,
-      at: r.at || Date.now() - i * 86400000,
-      reply: r.reply || null,
-    })),
-  );
-  const [filter, setFilter] = useState('all');
-  const [activeId, setActiveId] = useState(null);
-  const [draft, setDraft] = useState('');
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [replyingId, setReplyingId] = useState(null);
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const [savingId, setSavingId] = useState(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchMerchantReviewsApi();
+      setItems(data?.items ?? []);
+    } catch (err) {
+      setError(err.message ?? 'Không thể tải review.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const stats = useMemo(() => {
-    if (items.length === 0) return { avg: 0, count: 0, dist: [0, 0, 0, 0, 0] };
-    const sum = items.reduce((s, r) => s + r.rating, 0);
-    const dist = [0, 0, 0, 0, 0];
-    items.forEach((r) => (dist[Math.max(0, Math.min(4, r.rating - 1))] += 1));
-    return { avg: sum / items.length, count: items.length, dist };
+    if (items.length === 0) return { avg: 0, count: 0 };
+    return {
+      avg: items.reduce((sum, item) => sum + Number(item.rating ?? 0), 0) / items.length,
+      count: items.length,
+    };
   }, [items]);
 
-  const filtered = useMemo(() => {
-    if (filter === 'unreplied') return items.filter((r) => !r.reply);
-    if (filter === 'low') return items.filter((r) => r.rating <= 3);
-    return items;
-  }, [items, filter]);
+  const submitReply = async (reviewId) => {
+    const replyText = String(replyDrafts[reviewId] ?? '').trim();
+    if (!replyText) {
+      pushToast({ kind: 'error', title: 'Thiếu nội dung', message: 'Vui lòng nhập phản hồi.' });
+      return;
+    }
 
-  const submitReply = (id) => {
-    if (!draft.trim()) return;
-    setItems((cur) => cur.map((r) => (r.id === id ? { ...r, reply: { text: draft, at: Date.now() } } : r)));
-    setDraft('');
-    setActiveId(null);
-    pushToast({ kind: 'success', title: 'Đã phản hồi', message: 'Khách hàng sẽ nhận được thông báo.' });
+    setSavingId(reviewId);
+    try {
+      const data = await replyMerchantReviewApi(reviewId, replyText);
+      setItems((cur) => cur.map((item) => (Number(item.id) === Number(reviewId) ? { ...item, replyText: data.review.replyText, replyAt: data.review.replyAt } : item)));
+      setReplyDrafts((cur) => ({ ...cur, [reviewId]: '' }));
+      setReplyingId(null);
+      pushToast({ kind: 'success', title: 'Đã phản hồi', message: 'Khách sẽ thấy phản hồi trong trang quán.' });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể gửi phản hồi', message: err.message ?? 'Vui lòng thử lại.' });
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
     <div className="space-y-base">
-      <div>
-        <div className="text-caption-uppercase text-body">Khách hàng</div>
-        <h1 className="text-display-lg text-ink">Đánh giá</h1>
+      <div className="flex flex-wrap items-end justify-between gap-base">
+        <div>
+          <div className="text-caption-uppercase text-body">Khách hàng</div>
+          <h1 className="text-display-lg text-ink">Đánh giá</h1>
+        </div>
+        <Badge tone="outline">{stats.count} đánh giá</Badge>
       </div>
 
       <div className="grid gap-base lg:grid-cols-[280px_1fr]">
         <Card padded>
           <div className="text-display-lg text-ink nums">{stats.avg.toFixed(1)}</div>
           <StarRating value={stats.avg} />
-          <div className="mt-1 text-caption text-body">
-            {stats.count} đánh giá từ khách hàng
-          </div>
-          <div className="mt-base space-y-1">
-            {[5, 4, 3, 2, 1].map((star) => {
-              const c = stats.dist[star - 1];
-              const pct = stats.count ? Math.round((c / stats.count) * 100) : 0;
-              return (
-                <div key={star} className="flex items-center gap-2 text-caption">
-                  <span className="w-4 text-ink">{star}</span>
-                  <Icon name="starFilled" size={12} className="text-ink" />
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-canvas-soft">
-                    <div className="h-full bg-ink" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="w-8 text-right text-body nums">{c}</span>
-                </div>
-              );
-            })}
-          </div>
+          <div className="mt-1 text-caption text-body">{stats.count} đánh giá từ khách hàng</div>
         </Card>
 
         <div className="space-y-base">
-          <Tabs
-            className="w-fit max-w-full"
-            items={[
-              { value: 'all', label: 'Tất cả' },
-              { value: 'unreplied', label: 'Chưa phản hồi' },
-              { value: 'low', label: '≤ 3★' },
-            ]}
-            value={filter}
-            onChange={setFilter}
-          />
-
-          {filtered.length === 0 ? (
+          {loading ? (
+            <Card padded>
+              <div className="py-xl text-center text-body">Đang tải đánh giá...</div>
+            </Card>
+          ) : error ? (
+            <Card padded>
+              <div className="space-y-sm text-center">
+                <div className="text-title-md text-ink">Không thể tải đánh giá</div>
+                <p className="text-body text-body-sm">{error}</p>
+                <Button onClick={loadData}>Thử lại</Button>
+              </div>
+            </Card>
+          ) : items.length === 0 ? (
             <EmptyState
               icon="starFilled"
-              title="Chưa có đánh giá phù hợp"
+              title="Chưa có đánh giá"
               message="Khi khách đánh giá xong đơn hàng, các nhận xét sẽ xuất hiện ở đây."
             />
           ) : (
-            <ul className="space-y-base">
-              {filtered.map((r) => (
-                <Card key={r.id} padded as="li">
+            <div className="space-y-base">
+              {items.map((review) => (
+                <Card key={review.id} padded>
                   <div className="flex items-start gap-sm">
-                    <Avatar src={r.avatar} name={r.customerName} />
+                    <Avatar src={review.customerAvatar} name={review.customerName} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <div className="text-body-sm font-semibold text-ink">{r.customerName}</div>
+                          <div className="text-body-sm font-semibold text-ink">{review.customerName}</div>
                           <div className="text-caption text-body">
-                            Đơn <span className="nums">{r.orderId}</span> · {new Date(r.at).toLocaleDateString('vi-VN')}
+                            Đơn <span className="nums">{review.orderCode ?? review.orderId}</span> · {new Date(review.createdAt).toLocaleDateString('vi-VN')}
                           </div>
                         </div>
-                        <StarRating value={r.rating} />
+                        <StarRating value={review.rating} />
                       </div>
-                      <p className="mt-2 text-body-sm text-ink">{r.comment}</p>
+                      <p className="mt-2 text-body-sm text-ink">{review.comment}</p>
 
-                      {r.reply ? (
+                      {review.replyText ? (
                         <div className="mt-sm rounded-md border border-hairline-strong bg-canvas-soft p-sm">
                           <div className="flex items-center justify-between text-caption text-body">
                             <span className="inline-flex items-center gap-1">
                               <Icon name="store" size={12} /> Phản hồi của quán
                             </span>
-                            <span>{new Date(r.reply.at).toLocaleDateString('vi-VN')}</span>
+                            {review.replyAt && <span>{new Date(review.replyAt).toLocaleDateString('vi-VN')}</span>}
                           </div>
-                          <p className="mt-1 text-body-sm text-ink">{r.reply.text}</p>
+                          <p className="mt-1 text-body-sm text-ink">{review.replyText}</p>
                         </div>
-                      ) : activeId === r.id ? (
+                      ) : replyingId === review.id ? (
                         <div className="mt-sm space-y-2">
                           <Textarea
                             rows={3}
                             placeholder="Cảm ơn bạn đã đánh giá…"
-                            value={draft}
-                            onChange={(e) => setDraft(e.target.value)}
+                            value={replyDrafts[review.id] ?? ''}
+                            onChange={(e) => setReplyDrafts((cur) => ({ ...cur, [review.id]: e.target.value }))}
                           />
                           <div className="flex justify-end gap-2">
-                            <Button variant="secondary" onClick={() => { setActiveId(null); setDraft(''); }}>Hủy</Button>
-                            <Button onClick={() => submitReply(r.id)} leadingIcon="send">Gửi phản hồi</Button>
+                            <Button
+                              variant="secondary"
+                              onClick={() => {
+                                setReplyingId(null);
+                                setReplyDrafts((cur) => ({ ...cur, [review.id]: '' }));
+                              }}
+                            >
+                              Hủy
+                            </Button>
+                            <Button onClick={() => submitReply(review.id)} loading={savingId === review.id} leadingIcon="send">
+                              Gửi phản hồi
+                            </Button>
                           </div>
                         </div>
                       ) : (
                         <div className="mt-2 flex items-center gap-2">
                           <Badge tone="warning">Chưa phản hồi</Badge>
                           <button
-                            onClick={() => { setActiveId(r.id); setDraft(''); }}
+                            onClick={() => setReplyingId(review.id)}
                             className="text-button text-text-link hover:underline"
                           >
                             Trả lời khách
@@ -159,7 +167,7 @@ export default function MerchantReviews() {
                   </div>
                 </Card>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       </div>
