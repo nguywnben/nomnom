@@ -19,42 +19,57 @@ export default function VnpayReturn() {
   const [autoTick, setAutoTick] = useState(6);
 
   useEffect(() => {
+    let disposed = false;
+
     const verifyPayment = async () => {
-      const vnp_ResponseCode = params.get('vnp_ResponseCode');
-      const vnp_TxnRef = params.get('vnp_TxnRef') || '';
-      const vnp_Amount = Number(params.get('vnp_Amount') || 0) / 100;
-      const vnp_TransactionNo = params.get('vnp_TransactionNo') || '—';
+      const responseCode = params.get('vnp_ResponseCode');
+      const gatewayReference = params.get('vnp_TxnRef') || '';
+      const paidAmount = Number(params.get('vnp_Amount') || 0) / 100;
+      const transactionNo = params.get('vnp_TransactionNo') || '-';
 
-      setOrderCode(vnp_TxnRef);
-      setAmount(vnp_Amount);
-      setTxn(vnp_TransactionNo);
-
-      // Nếu người dùng chọn hủy giao dịch trên cổng VNPay
-      if (vnp_ResponseCode === '24') {
-        setStatus('cancelled');
-        setLoading(false);
-        return;
-      }
+      setOrderCode(gatewayReference);
+      setAmount(paidAmount);
+      setTxn(transactionNo);
 
       try {
-        // Gửi toàn bộ query parameters tới backend để đối soát
-        const res = await apiGet(`/api/v1/payments/vnpay/verify${window.location.search}`);
-        if (res.success) {
-          setStatus('succeeded');
-          setOrderCode(res.orderCode);
-        } else {
-          setStatus('failed');
-          setErrorReason(res.reason || 'Xác thực thanh toán thất bại');
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          const result = await apiGet('/api/v1/payments/vnpay/return' + window.location.search);
+          if (disposed) return;
+
+          if (result.success) {
+            setStatus('succeeded');
+            setOrderCode(result.orderCode);
+            setLoading(false);
+            return;
+          }
+          if (!result.pending) {
+            setStatus(responseCode === '24' ? 'cancelled' : 'failed');
+            setOrderCode(result.orderCode || gatewayReference);
+            setErrorReason(result.reason || 'Payment verification failed.');
+            setLoading(false);
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
-      } catch (err) {
-        setStatus('failed');
-        setErrorReason(err.message || 'Lỗi hệ thống khi xác thực giao dịch');
-      } finally {
-        setLoading(false);
+
+        if (!disposed) {
+          setStatus('processing');
+          setErrorReason('VNPay đã tiếp nhận giao dịch. Hệ thống vẫn đang chờ xác nhận từ máy chủ.');
+          setLoading(false);
+        }
+      } catch (error) {
+        if (!disposed) {
+          setStatus('failed');
+          setErrorReason(error.message || 'Payment verification failed.');
+          setLoading(false);
+        }
       }
     };
 
     verifyPayment();
+    return () => {
+      disposed = true;
+    };
   }, [params]);
 
   useEffect(() => {
@@ -75,6 +90,16 @@ export default function VnpayReturn() {
         message: 'Cảm ơn bạn! Chúng tôi đã nhận thanh toán và đang chuyển đơn đến nhà hàng.',
         toneBg: 'bg-[#e6f4ea] text-success',
         primary: { label: 'Theo dõi đơn hàng', to: `/app/track/${orderCode}` },
+        secondary: { label: 'Về trang chủ', to: '/app' },
+      };
+    }
+    if (status === 'processing') {
+      return {
+        icon: 'clock',
+        title: 'Đang chờ xác nhận thanh toán',
+        message: errorReason,
+        toneBg: 'bg-canvas-soft text-ink',
+        primary: { label: 'Xem đơn hàng', to: '/app/orders' },
         secondary: { label: 'Về trang chủ', to: '/app' },
       };
     }

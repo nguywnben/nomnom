@@ -91,18 +91,25 @@ cd server && npm run dev
 cd client && npm run dev
 ```
 
-## Chuẩn bị Đợt 4
+## Wave 4 Runtime
 
-Áp migration nền tảng voucher trước khi các nhánh CUS-10 và MER-05 bắt đầu:
+Apply both Wave 4 migrations after the base database import:
 
 ```bash
 mysql -u root -p nomnom < ../database/migrations/20260711_wave4_foundation.sql
+mysql -u root -p nomnom < ../database/migrations/20260803_wave4_completion.sql
 ```
 
-Sau đó cấu hình các biến `VNPAY_*` theo `server/.env.example`. Không commit `VNPAY_HASH_SECRET` hoặc file `.env`.
+Configure `VNPAY_TMN_CODE` and `VNPAY_HASH_SECRET` in `server/.env`. Sandbox URLs already have defaults in `.env.example`; never commit the real secret.
 
-Contract API, thứ tự triển khai và checklist nằm tại:
+Run backend regression tests with:
+
+```bash
+npm test
+```
+
+Wave 4 API contracts and verification evidence are documented in:
 
 - `docs/planning/issues-wave-4.md`
-- `tasks/plan.md`
+- `docs/wave-4-completed.md`
 - `tasks/todo.md`

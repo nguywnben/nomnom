@@ -268,13 +268,14 @@ export function deleteMerchantVoucherApi(id) {
   return apiDelete(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`);
 }
 
-export function fetchMerchantReviewsApi({ page = 1, limit = 50 } = {}) {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+export function fetchMerchantReviewsApi({ page = 1, limit = 50, rating, replied = 'all' } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), replied });
+  if (rating) params.set('rating', String(rating));
   return apiGet(`/api/v1/merchant/me/reviews?${params.toString()}`);
 }
 
 export function replyMerchantReviewApi(reviewId, replyText) {
-  return apiPost(`/api/v1/merchant/me/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText });
+  return apiPatch(`/api/v1/merchant/me/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText });
 }
 
 export function fetchRestaurantVouchersApi(restaurantId) {
@@ -320,15 +321,17 @@ export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', q = ''
   return apiGet(`/api/v1/admin/orders?${params.toString()}`);
 }
 
+export function fetchAdminOrderDetail(orderId) {
+  return apiGet(`/api/v1/admin/orders/${encodeURIComponent(orderId)}`);
+}
+
 export function cancelAdminOrder(orderId, reason) {
   return apiPost(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/cancel`, { reason });
 }
 
-export function fetchAdminReviews({ hidden = 'all', page = 1 } = {}) {
-  const params = new URLSearchParams({
-    hidden,
-    page: String(page),
-  });
+export function fetchAdminReviews({ hidden = 'all', page = 1, q = '', ratingMax } = {}) {
+  const params = new URLSearchParams({ hidden, page: String(page), q });
+  if (ratingMax) params.set('ratingMax', String(ratingMax));
   return apiGet(`/api/v1/admin/reviews?${params.toString()}`);
 }
 

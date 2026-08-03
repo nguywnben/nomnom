@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
+import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
 import {
   ensureWallet,
   insertNotification,
@@ -13,7 +14,6 @@ import {
 const router = Router();
 
 function ensureAdmin(req, res, next) {
-  console.log('[DEBUG Admin Auth] req.auth:', JSON.stringify(req.auth));
   if ((req.auth.roles ?? []).includes('admin')) {
     return next();
   }
@@ -676,6 +676,7 @@ router.get('/orders', async (req, res, next) => {
   try {
     const status = req.query.status;
     const paymentMethod = req.query.paymentMethod;
+    const paymentStatus = req.query.paymentStatus;
     const q = req.query.q;
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = 10;
@@ -692,6 +693,11 @@ router.get('/orders', async (req, res, next) => {
     if (paymentMethod && paymentMethod !== 'all') {
       filters.push('o.payment_method = ?');
       params.push(paymentMethod);
+    }
+
+    if (paymentStatus && paymentStatus !== 'all') {
+      filters.push('o.payment_status = ?');
+      params.push(paymentStatus);
     }
 
     if (q) {
@@ -734,128 +740,229 @@ router.get('/orders', async (req, res, next) => {
   }
 });
 
+router.get('/orders/:id', async (req, res, next) => {
+  try {
+    const orderId = Number(req.params.id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return res.status(400).json({ error: 'Invalid order ID.' });
+    }
+
+    const [orderRows] = await pool.query(
+      'SELECT o.*, u.full_name AS customer_name, u.email AS customer_email, r.name AS restaurant_name FROM orders o LEFT JOIN users u ON u.id = o.customer_id LEFT JOIN restaurants r ON r.id = o.restaurant_id WHERE o.id = ? LIMIT 1',
+      [orderId],
+    );
+    if (!orderRows.length) return res.status(404).json({ error: 'Order not found.' });
+
+    const [itemsResult, logsResult, paymentsResult, refundsResult] = await Promise.all([
+      pool.query('SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC', [orderId]),
+      pool.query('SELECT * FROM order_status_logs WHERE order_id = ? ORDER BY created_at ASC, id ASC', [orderId]),
+      pool.query('SELECT * FROM payments WHERE order_id = ? ORDER BY created_at DESC, id DESC', [orderId]),
+      pool.query('SELECT * FROM payment_refunds WHERE order_id = ? ORDER BY created_at DESC, id DESC', [orderId]),
+    ]);
+
+    return res.json({
+      order: {
+        ...orderRows[0],
+        items: itemsResult[0],
+        statusLogs: logsResult[0],
+        payments: paymentsResult[0],
+        refunds: refundsResult[0],
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post('/orders/:id/cancel', async (req, res, next) => {
   const orderId = Number(req.params.id);
-  const { reason } = req.body;
-
-  if (isNaN(orderId)) {
-    return res.status(400).json({ error: 'ID đơn hàng không hợp lệ' });
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 500)
+    || 'Cancelled by an administrator.';
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({ error: 'Invalid order ID.' });
   }
 
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-
     const [orders] = await connection.query(
-      `SELECT * FROM orders WHERE id = ? FOR UPDATE`,
-      [orderId]
+      'SELECT * FROM orders WHERE id = ? FOR UPDATE',
+      [orderId],
     );
-
-    if (orders.length === 0) {
-      await connection.rollback();
-      return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
-    }
-
     const order = orders[0];
-
+    if (!order) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Order not found.' });
+    }
     if (['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(order.status)) {
       await connection.rollback();
-      return res.status(400).json({ error: 'Không thể hủy đơn hàng ở trạng thái hiện tại' });
+      return res.status(409).json({ error: 'This order cannot be cancelled in its current state.' });
     }
 
-    const now = new Date();
     let paymentStatus = order.payment_status;
-
+    let refundResponse = null;
     if (order.payment_status === 'paid') {
+      if (order.payment_method !== 'vnpay') {
+        await connection.rollback();
+        return res.status(409).json({ error: 'Paid non-VNPay orders require a manual refund workflow.' });
+      }
+
+      const refundConfig = {
+        tmnCode: process.env.VNPAY_TMN_CODE,
+        secret: process.env.VNPAY_HASH_SECRET,
+        apiUrl: process.env.VNPAY_API_URL,
+      };
+      const missing = Object.entries(refundConfig)
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
+      if (missing.length) {
+        await connection.rollback();
+        return res.status(503).json({ error: 'VNPay refund is not configured.', missing });
+      }
+
+      const [paymentRows] = await connection.query(
+        "SELECT * FROM payments WHERE order_id = ? AND method = 'vnpay' AND status = 'succeeded' ORDER BY paid_at DESC, id DESC LIMIT 1 FOR UPDATE",
+        [order.id],
+      );
+      const payment = paymentRows[0];
+      if (!payment) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'No successful VNPay payment was found for this order.' });
+      }
+
+      const [activeRefundRows] = await connection.query(
+        "SELECT * FROM payment_refunds WHERE payment_id = ? AND status IN ('initiated', 'succeeded') ORDER BY id DESC LIMIT 1 FOR UPDATE",
+        [payment.id],
+      );
+      if (activeRefundRows.length) {
+        await connection.rollback();
+        return res.status(409).json({
+          error: activeRefundRows[0].status === 'succeeded'
+            ? 'This payment has already been refunded.'
+            : 'A refund is already in progress.',
+        });
+      }
+
+      const requestId = ('RF-' + order.order_code + '-' + Date.now()).slice(0, 120);
+      const [refundResult] = await connection.query(
+        "INSERT INTO payment_refunds (payment_id, order_id, request_id, amount, status) VALUES (?, ?, ?, ?, 'initiated')",
+        [payment.id, order.id, requestId, order.total_amount],
+      );
+      const payload = buildRefundPayload({
+        secret: refundConfig.secret,
+        tmnCode: refundConfig.tmnCode,
+        requestId,
+        txnRef: payment.gateway_reference || order.order_code,
+        amount: order.total_amount,
+        transactionNo: payment.gateway_txn_id,
+        transactionDate: formatVnpayDate(new Date(payment.gateway_created_at || payment.paid_at || payment.created_at)),
+        createBy: req.auth.userId,
+        ipAddress: String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1')
+          .split(',')[0].trim().replace(/^::ffff:/, ''),
+        orderInfo: 'Hoan tien don hang ' + order.order_code,
+      });
+
+      let refundFailure = null;
+      try {
+        const gatewayResult = await fetch(refundConfig.apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
+        });
+        const rawText = await gatewayResult.text();
+        try {
+          refundResponse = JSON.parse(rawText);
+        } catch {
+          refundResponse = { rawText: rawText.slice(0, 2000) };
+        }
+        const signatureValid = verifyRefundResponse(refundResponse, refundConfig.secret);
+        const gatewaySucceeded = gatewayResult.ok
+          && signatureValid
+          && refundResponse.vnp_ResponseCode === '00'
+          && refundResponse.vnp_TransactionStatus === '00';
+        if (!gatewaySucceeded) {
+          refundFailure = signatureValid
+            ? String(refundResponse.vnp_Message || refundResponse.vnp_ResponseCode || 'VNPay rejected the refund.')
+            : 'Invalid VNPay refund response signature.';
+        }
+      } catch (error) {
+        refundFailure = error.name === 'TimeoutError'
+          ? 'VNPay refund request timed out.'
+          : 'VNPay refund request failed: ' + error.message;
+        refundResponse = { error: refundFailure };
+      }
+
+      if (refundFailure) {
+        await connection.query(
+          "UPDATE payment_refunds SET status = 'failed', failure_reason = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
+          [refundFailure.slice(0, 500), JSON.stringify(refundResponse), refundResult.insertId],
+        );
+        await connection.commit();
+        return res.status(502).json({
+          error: 'The gateway did not confirm the refund. The order was not cancelled.',
+          reason: refundFailure,
+        });
+      }
+
+      await connection.query(
+        "UPDATE payment_refunds SET status = 'succeeded', gateway_txn_id = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
+        [refundResponse.vnp_TransactionNo || null, JSON.stringify(refundResponse), refundResult.insertId],
+      );
       paymentStatus = 'refunded';
     }
 
     await connection.query(
-      `UPDATE orders 
-       SET status = 'cancelled', 
-           cancelled_by_role = 'admin', 
-           cancel_reason = ?, 
-           cancelled_at = ?,
-           payment_status = ?
-       WHERE id = ?`,
-      [reason || null, now, paymentStatus, orderId]
+      "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'admin', cancel_reason = ?, cancelled_at = NOW(), payment_status = ? WHERE id = ?",
+      [reason, paymentStatus, order.id],
     );
-
     await connection.query(
-      `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note)
-       VALUES (?, ?, 'cancelled', 'admin', ?, ?)`,
-      [orderId, order.status, req.auth.userId, reason || 'Hủy đơn bởi Admin']
+      "UPDATE payments SET status = 'cancelled', failure_reason = 'Order cancelled by admin' WHERE order_id = ? AND status IN ('initiated', 'pending')",
+      [order.id],
     );
-
-    if (order.payment_status === 'paid') {
-      const [rests] = await connection.query(
-        `SELECT owner_user_id, name FROM restaurants WHERE id = ?`,
-        [order.restaurant_id]
-      );
-      if (rests.length > 0) {
-        const restaurant = rests[0];
-        const walletId = await ensureWallet(connection, restaurant.owner_user_id, 'merchant');
-        
-        const [walletRows] = await connection.query(
-          `SELECT balance FROM wallets WHERE id = ? FOR UPDATE`,
-          [walletId]
-        );
-        const currentBalance = Number(walletRows[0]?.balance ?? 0);
-        const amount = Number(order.total_amount);
-        const newBalance = currentBalance - amount;
-
-        await connection.query(
-          `UPDATE wallets SET balance = ? WHERE id = ?`,
-          [newBalance, walletId]
-        );
-
-        await connection.query(
-          `INSERT INTO wallet_transactions (wallet_id, direction, amount, balance_after, tx_type, reference_type, reference_id, description, performed_by_user_id)
-           VALUES (?, 'debit', ?, ?, 'adjustment', 'order', ?, ?, ?)`,
-          [
-            walletId,
-            amount,
-            newBalance,
-            order.id,
-            `Hoàn tiền thủ công đơn hàng ${order.order_code}: ${reason || 'Không có lý do cụ thể'}`,
-            req.auth.userId
-          ]
-        );
-      }
-    }
-
     await connection.query(
-      `INSERT INTO notifications (user_id, type, title, body, link_url)
-       VALUES (?, 'order_cancelled', ?, ?, ?)`,
+      "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+      [order.id],
+    );
+    await connection.query(
+      "INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note) VALUES (?, ?, 'cancelled', 'admin', ?, ?)",
+      [order.id, order.status, req.auth.userId, reason],
+    );
+    await connection.query(
+      "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'order_cancelled', ?, ?, '/app/orders')",
       [
         order.customer_id,
-        `Đơn hàng #${order.order_code} đã bị hủy`,
-        `Đơn hàng #${order.order_code} của bạn đã bị hủy bởi quản trị viên. Lý do: ${reason || 'Không có lý do cụ thể'}.`,
-        `/app/orders`
-      ]
+        'Don hang ' + order.order_code + ' da bi huy',
+        'Don hang ' + order.order_code + ' da bi quan tri vien huy. Ly do: ' + reason,
+      ],
     );
 
     await connection.commit();
-    
     const [updatedOrders] = await pool.query(
-      `SELECT * FROM orders WHERE id = ?`,
-      [orderId]
+      'SELECT * FROM orders WHERE id = ? LIMIT 1',
+      [order.id],
     );
-    res.json({ ok: true, order: updatedOrders[0] });
-
-  } catch (err) {
+    return res.json({
+      ok: true,
+      order: updatedOrders[0],
+      refund: refundResponse
+        ? { status: 'succeeded', transactionNo: refundResponse.vnp_TransactionNo || null }
+        : null,
+    });
+  } catch (error) {
     await connection.rollback();
-    next(err);
+    return next(error);
   } finally {
     connection.release();
   }
 });
 
-// --- KIỂM DUYỆT ĐÁNH GIÁ ---
+// --- KIEM DUYET DANH GIA ---
 
 router.get('/reviews', async (req, res, next) => {
   try {
-    const { hidden, page } = req.query;
+    const { hidden, page, q } = req.query;
+    const ratingMax = req.query.ratingMax === undefined ? null : Number(req.query.ratingMax);
     const pageVal = Math.max(1, parseInt(page, 10) || 1);
     const limit = 10;
     const offset = (pageVal - 1) * limit;
@@ -869,9 +976,26 @@ router.get('/reviews', async (req, res, next) => {
       whereSql += ' AND rv.is_hidden = 0';
     }
 
+    if (ratingMax !== null) {
+      if (!Number.isInteger(ratingMax) || ratingMax < 1 || ratingMax > 5) {
+        return res.status(400).json({ error: 'ratingMax must be an integer from 1 to 5.' });
+      }
+      whereSql += ' AND rv.rating <= ?';
+      params.push(ratingMax);
+    }
+    const search = String(q ?? '').trim();
+    if (search) {
+      whereSql += ' AND (rv.comment LIKE ? OR u.full_name LIKE ? OR r.name LIKE ? OR o.order_code LIKE ?)';
+      const needle = '%' + search + '%';
+      params.push(needle, needle, needle, needle);
+    }
+
     const [countRows] = await pool.query(
-      `SELECT COUNT(*) as total 
+      `SELECT COUNT(*) as total
        FROM reviews rv
+       LEFT JOIN users u ON rv.customer_id = u.id
+       LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN orders o ON rv.order_id = o.id
        WHERE ${whereSql}`,
       params
     );

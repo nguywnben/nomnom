@@ -39,6 +39,7 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 | [wave-1-completed.md](./wave-1-completed.md) | Chức năng đã hoàn thành — Đợt 1 (INF-01 … ADM-02) |
 | [wave-2-completed.md](./wave-2-completed.md) | Chức năng đã hoàn thành — Đợt 2 (CUS-03 … ADM-03) |
 | [wave-3-completed.md](./wave-3-completed.md) | Chức năng đã hoàn thành — Đợt 3 (CUS-06 … MER-04) |
+| [wave-4-completed.md](./wave-4-completed.md) | Wave 4 implementation, migrations, verification evidence, and sandbox gate |
 | [issues-wave-4.md](./planning/issues-wave-4.md) | Hợp đồng và tiêu chí nhận việc Đợt 4 |
 | [`tasks/plan.md`](../tasks/plan.md) | Thứ tự triển khai và dependency Đợt 4 |
 | [`tasks/todo.md`](../tasks/todo.md) | Checklist khởi động, checkpoint và bàn giao Đợt 4 |
@@ -61,4 +62,5 @@ Nền tảng dùng chung cho Đợt 4:
 
 ```bash
 mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql
+mysql -u root -p nomnom < database/migrations/20260803_wave4_completion.sql
 ```
