@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -32,7 +32,7 @@ export default function AdminReviewsModeration() {
     return () => clearTimeout(handle);
   }, [searchText]);
 
-  const loadReviews = async () => {
+  const loadReviews = useCallback(async () => {
     setLoading(true);
     try {
       let apiHidden = 'all';
@@ -80,11 +80,11 @@ export default function AdminReviewsModeration() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pushToast, tab]);
 
   useEffect(() => {
     loadReviews();
-  }, [tab, page, debouncedSearch]);
+  }, [loadReviews]);
 
   const handleHide = async (id) => {
     try {

@@ -537,8 +537,7 @@ export function AppProvider({ children }) {
       pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
       return false;
     },
-    [cartSubtotal, permittedRoles.customer, promoCodes, pushToast, restaurantVouchers, user],
-  );
+    [cartSubtotal, permittedRoles.customer, pushToast, restaurantVouchers, user],
   );
 
   // ---- Order placement (customer) ----

@@ -29,6 +29,8 @@ export default function CustomerCheckout() {
     currentCustomer,
     clearCart,
     appliedPromo,
+    applyPromo,
+    setAppliedPromo,
   } = useApp();
   const [payment, setPayment] = useState('cod');
   const [addresses, setAddresses] = useState([]);

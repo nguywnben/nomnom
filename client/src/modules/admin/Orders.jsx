@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
@@ -60,7 +60,7 @@ export default function AdminOrders() {
     return () => clearTimeout(handle);
   }, [searchText]);
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchAdminOrders({
@@ -80,11 +80,11 @@ export default function AdminOrders() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, page, paymentMethod, pushToast, status]);
 
   useEffect(() => {
     loadOrders();
-  }, [status, paymentMethod, debouncedSearch, page]);
+  }, [loadOrders]);
 
   const handleCancelClick = (o) => {
     setCancelTarget({ id: o.id, code: o.order_code, isPaid: o.payment_status === 'paid' });
