@@ -13,6 +13,7 @@ import {
 const router = Router();
 
 function ensureAdmin(req, res, next) {
+  console.log('[DEBUG Admin Auth] req.auth:', JSON.stringify(req.auth));
   if ((req.auth.roles ?? []).includes('admin')) {
     return next();
   }
@@ -668,5 +669,293 @@ async function sendKycRejectedEmailSafe(payload) {
     console.error('[mail] reject notification failed:', err.message);
   }
 }
+
+// --- QUẢN LÝ ĐƠN HÀNG TOÀN HỆ THỐNG ---
+
+router.get('/orders', async (req, res, next) => {
+  try {
+    const status = req.query.status;
+    const paymentMethod = req.query.paymentMethod;
+    const q = req.query.q;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = 10;
+    const offset = (page - 1) * limit;
+
+    const filters = ['1 = 1'];
+    const params = [];
+
+    if (status && status !== 'all') {
+      filters.push('o.status = ?');
+      params.push(status);
+    }
+
+    if (paymentMethod && paymentMethod !== 'all') {
+      filters.push('o.payment_method = ?');
+      params.push(paymentMethod);
+    }
+
+    if (q) {
+      filters.push('(o.order_code LIKE ? OR u.email LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`);
+    }
+
+    const whereClause = filters.join(' AND ');
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total 
+       FROM orders o
+       LEFT JOIN users u ON o.customer_id = u.id
+       WHERE ${whereClause}`,
+      params
+    );
+    const total = countRows[0]?.total ?? 0;
+
+    const [rows] = await pool.query(
+      `SELECT o.*, u.full_name AS customer_name, u.email AS customer_email, r.name AS restaurant_name
+       FROM orders o
+       LEFT JOIN users u ON o.customer_id = u.id
+       LEFT JOIN restaurants r ON o.restaurant_id = r.id
+       WHERE ${whereClause}
+       ORDER BY o.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows,
+      pagination: {
+        page,
+        limit,
+        total
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/orders/:id/cancel', async (req, res, next) => {
+  const orderId = Number(req.params.id);
+  const { reason } = req.body;
+
+  if (isNaN(orderId)) {
+    return res.status(400).json({ error: 'ID đơn hàng không hợp lệ' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [orders] = await connection.query(
+      `SELECT * FROM orders WHERE id = ? FOR UPDATE`,
+      [orderId]
+    );
+
+    if (orders.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+    }
+
+    const order = orders[0];
+
+    if (['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(order.status)) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Không thể hủy đơn hàng ở trạng thái hiện tại' });
+    }
+
+    const now = new Date();
+    let paymentStatus = order.payment_status;
+
+    if (order.payment_status === 'paid') {
+      paymentStatus = 'refunded';
+    }
+
+    await connection.query(
+      `UPDATE orders 
+       SET status = 'cancelled', 
+           cancelled_by_role = 'admin', 
+           cancel_reason = ?, 
+           cancelled_at = ?,
+           payment_status = ?
+       WHERE id = ?`,
+      [reason || null, now, paymentStatus, orderId]
+    );
+
+    await connection.query(
+      `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note)
+       VALUES (?, ?, 'cancelled', 'admin', ?, ?)`,
+      [orderId, order.status, req.auth.userId, reason || 'Hủy đơn bởi Admin']
+    );
+
+    if (order.payment_status === 'paid') {
+      const [rests] = await connection.query(
+        `SELECT owner_user_id, name FROM restaurants WHERE id = ?`,
+        [order.restaurant_id]
+      );
+      if (rests.length > 0) {
+        const restaurant = rests[0];
+        const walletId = await ensureWallet(connection, restaurant.owner_user_id, 'merchant');
+        
+        const [walletRows] = await connection.query(
+          `SELECT balance FROM wallets WHERE id = ? FOR UPDATE`,
+          [walletId]
+        );
+        const currentBalance = Number(walletRows[0]?.balance ?? 0);
+        const amount = Number(order.total_amount);
+        const newBalance = currentBalance - amount;
+
+        await connection.query(
+          `UPDATE wallets SET balance = ? WHERE id = ?`,
+          [newBalance, walletId]
+        );
+
+        await connection.query(
+          `INSERT INTO wallet_transactions (wallet_id, direction, amount, balance_after, tx_type, reference_type, reference_id, description, performed_by_user_id)
+           VALUES (?, 'debit', ?, ?, 'adjustment', 'order', ?, ?, ?)`,
+          [
+            walletId,
+            amount,
+            newBalance,
+            order.id,
+            `Hoàn tiền thủ công đơn hàng ${order.order_code}: ${reason || 'Không có lý do cụ thể'}`,
+            req.auth.userId
+          ]
+        );
+      }
+    }
+
+    await connection.query(
+      `INSERT INTO notifications (user_id, type, title, body, link_url)
+       VALUES (?, 'order_cancelled', ?, ?, ?)`,
+      [
+        order.customer_id,
+        `Đơn hàng #${order.order_code} đã bị hủy`,
+        `Đơn hàng #${order.order_code} của bạn đã bị hủy bởi quản trị viên. Lý do: ${reason || 'Không có lý do cụ thể'}.`,
+        `/app/orders`
+      ]
+    );
+
+    await connection.commit();
+    
+    const [updatedOrders] = await pool.query(
+      `SELECT * FROM orders WHERE id = ?`,
+      [orderId]
+    );
+    res.json({ ok: true, order: updatedOrders[0] });
+
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+});
+
+// --- KIỂM DUYỆT ĐÁNH GIÁ ---
+
+router.get('/reviews', async (req, res, next) => {
+  try {
+    const { hidden, page } = req.query;
+    const pageVal = Math.max(1, parseInt(page, 10) || 1);
+    const limit = 10;
+    const offset = (pageVal - 1) * limit;
+
+    let whereSql = '1 = 1';
+    const params = [];
+
+    if (hidden === 'true' || hidden === '1') {
+      whereSql += ' AND rv.is_hidden = 1';
+    } else if (hidden === 'false' || hidden === '0') {
+      whereSql += ' AND rv.is_hidden = 0';
+    }
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) as total 
+       FROM reviews rv
+       WHERE ${whereSql}`,
+      params
+    );
+    const total = countRows[0]?.total ?? 0;
+
+    const [rows] = await pool.query(
+      `SELECT rv.*, u.full_name AS customer_name, u.avatar_url AS customer_avatar, r.name AS restaurant_name, o.order_code
+       FROM reviews rv
+       LEFT JOIN users u ON rv.customer_id = u.id
+       LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN orders o ON rv.order_id = o.id
+       WHERE ${whereSql}
+       ORDER BY rv.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows,
+      pagination: {
+        page: pageVal,
+        limit,
+        total
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/reviews/:id', async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const id = Number(req.params.id);
+    const { isHidden } = req.body;
+
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'ID đánh giá không hợp lệ' });
+    }
+
+    if (isHidden === undefined) {
+      return res.status(400).json({ error: 'Thiếu trường isHidden' });
+    }
+
+    await connection.beginTransaction();
+
+    const [reviews] = await connection.query(
+      'SELECT restaurant_id FROM reviews WHERE id = ? FOR UPDATE',
+      [id]
+    );
+
+    if (reviews.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đánh giá' });
+    }
+
+    const { restaurant_id } = reviews[0];
+
+    await connection.query(
+      'UPDATE reviews SET is_hidden = ? WHERE id = ?',
+      [isHidden ? 1 : 0, id]
+    );
+
+    const [stats] = await connection.query(
+      `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
+      [restaurant_id]
+    );
+    
+    const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
+    const nextCount = stats[0].cnt || 0;
+
+    await connection.query(
+      `UPDATE restaurants SET rating_avg = ?, review_count = ? WHERE id = ?`,
+      [nextAvg, nextCount, restaurant_id]
+    );
+
+    await connection.commit();
+    res.json({ ok: true, isHidden: Boolean(isHidden) });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+});
 
 export default router;
