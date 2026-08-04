@@ -153,7 +153,7 @@ export default function CustomerProfile() {
       {user && (
         <Button
           variant="secondary"
-          className="!text-error !border-error/40 hover:!bg-[#fbeaea]"
+          className="!border-[#dc2626] !bg-white !font-normal !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
           onClick={() => logout()}
         >
           Đăng xuất
