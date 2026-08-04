@@ -135,7 +135,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The API starts at `http://localhost:3001`; `GET /api/health` returns the health status.
+The API starts at `http://localhost:3000`; `GET /api/health` returns the health status.
 
 ### 4. Configure and run the client
 
@@ -155,7 +155,7 @@ Copy the committed example files; never commit real `.env` files.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `PORT` | No | API port; defaults to `3001` |
+| `PORT` | No | API port; defaults to `3000` |
 | `MYSQL_URL` | Alternative | Full MySQL connection URL, recommended on Railway |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Yes locally | Individual MySQL connection settings |
 | `CORS_ORIGIN` | Yes | Allowed frontend origin |
