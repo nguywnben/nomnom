@@ -418,3 +418,76 @@ export function validateVoucherApi(code, subtotal) {
 export function fetchMyVouchersApi() {
   return apiGet('/api/v1/me/vouchers');
 }
+
+
+// Wave 5: notifications, merchant finance/settings, admin finance/config, and contextual chat.
+export function fetchNotificationsApi({ unread = false, type = 'all', page = 1, limit = 50 } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), type });
+  if (unread) params.set('unread', 'true');
+  return apiGet('/api/v1/me/notifications?' + params.toString());
+}
+
+export function markNotificationReadApi(id) {
+  return apiPatch('/api/v1/me/notifications/' + encodeURIComponent(id) + '/read', {});
+}
+
+export function markAllNotificationsReadApi() {
+  return apiPost('/api/v1/me/notifications/read-all', {});
+}
+
+export function fetchMerchantWalletApi() {
+  return apiGet('/api/v1/merchant/me/wallet');
+}
+
+export function requestMerchantPayoutApi(amount) {
+  return apiPost('/api/v1/merchant/me/payouts', { amount });
+}
+
+export function fetchMerchantSettingsApi() {
+  return apiGet('/api/v1/merchant/me/settings');
+}
+
+export function updateMerchantSettingsApi(body) {
+  return apiPatch('/api/v1/merchant/me/settings', body);
+}
+
+export function fetchAdminPayoutsApi({ status = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({ status, q, page: String(page), limit: String(limit), ownerType: 'merchant' });
+  return apiGet('/api/v1/admin/payouts?' + params.toString());
+}
+
+export function updateAdminPayoutApi(id, body) {
+  return apiPatch('/api/v1/admin/payouts/' + encodeURIComponent(id), body);
+}
+
+export function fetchAdminFinancialApi(range = 'month') {
+  return apiGet('/api/v1/admin/financial?range=' + encodeURIComponent(range));
+}
+
+export function fetchAdminConfigApi() {
+  return apiGet('/api/v1/admin/config');
+}
+
+export function updateAdminConfigApi(key, value) {
+  return apiPatch('/api/v1/admin/config/' + encodeURIComponent(key), { value });
+}
+
+export function fetchChatConversationsApi() {
+  return apiGet('/api/v1/chat/conversations');
+}
+
+export function createOrderConversationApi(orderId, counterpartRole) {
+  return apiPost('/api/v1/chat/conversations', { orderId, counterpartRole });
+}
+
+export function fetchChatMessagesApi(conversationId, afterId = 0) {
+  return apiGet('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/messages?afterId=' + encodeURIComponent(afterId));
+}
+
+export function sendChatMessageApi(conversationId, text) {
+  return apiPost('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/messages', { text });
+}
+
+export function markChatReadApi(conversationId) {
+  return apiPost('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/read', {});
+}

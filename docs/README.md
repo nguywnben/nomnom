@@ -40,9 +40,11 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 | [wave-2-completed.md](./wave-2-completed.md) | Chức năng đã hoàn thành — Đợt 2 (CUS-03 … ADM-03) |
 | [wave-3-completed.md](./wave-3-completed.md) | Chức năng đã hoàn thành — Đợt 3 (CUS-06 … MER-04) |
 | [wave-4-completed.md](./wave-4-completed.md) | Wave 4 implementation, migrations, verification evidence, and sandbox gate |
-| [issues-wave-4.md](./planning/issues-wave-4.md) | Hợp đồng và tiêu chí nhận việc Đợt 4 |
-| [`tasks/plan.md`](../tasks/plan.md) | Thứ tự triển khai và dependency Đợt 4 |
-| [`tasks/todo.md`](../tasks/todo.md) | Checklist khởi động, checkpoint và bàn giao Đợt 4 |
+| [issues-wave-4.md](./planning/issues-wave-4.md) | Hợp đồng và tiêu chí nhận việc Wave 4 |
+| [wave-5-completed.md](./wave-5-completed.md) | Wave 5 finance, settings, notifications, chat, and verification evidence |
+| [issues-wave-5.md](./planning/issues-wave-5.md) | Wave 5 issue contracts and acceptance criteria |
+| [`tasks/plan.md`](../tasks/plan.md) | Thứ tự triển khai và dependency Wave 5 |
+| [`tasks/todo.md`](../tasks/todo.md) | Checklist khởi động, checkpoint và bàn giao Wave 5 |
 
 ## Cơ sở dữ liệu
 
@@ -58,9 +60,10 @@ Migration bổ sung (DB đã có từ trước):
 mysql -u root -p nomnom < database/migrations/20260530_restaurant_bank.sql
 ```
 
-Nền tảng dùng chung cho Đợt 4:
+Migrations for Waves 4-5:
 
 ```bash
 mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql
 mysql -u root -p nomnom < database/migrations/20260803_wave4_completion.sql
+mysql -u root -p nomnom < database/migrations/20260804_wave5_completion.sql
 ```
