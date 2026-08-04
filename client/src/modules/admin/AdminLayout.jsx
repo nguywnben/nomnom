@@ -139,7 +139,7 @@ export default function AdminLayout() {
           </div>
           <div className="flex shrink-0 items-center gap-xs">
             <IconButton icon="bell" variant="secondary" label="Thông báo" />
-            <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/chat-admin')}>
+            <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ
             </Button>
             <Button leadingIcon="cog">Cài đặt</Button>

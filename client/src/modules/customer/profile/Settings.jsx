@@ -458,7 +458,7 @@ export default function Settings() {
             icon="chat"
             label="Trung tâm hỗ trợ"
             hint="Câu hỏi thường gặp và liên hệ trực tiếp."
-            onClick={() => nav('/chat/chat-admin')}
+            onClick={() => nav('/chat/inbox')}
           />
           <ActionRow
             icon="shield"

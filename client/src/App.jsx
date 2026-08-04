@@ -178,7 +178,9 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route path="/chat/:id" element={<ChatScreen />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/chat/:id" element={<ChatScreen />} />
+        </Route>
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

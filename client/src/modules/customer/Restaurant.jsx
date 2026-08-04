@@ -351,7 +351,7 @@ export default function CustomerRestaurant() {
                 <div className="text-body-sm text-ink">{restaurant.phone}</div>
               </div>
             )}
-            <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/chat-merchant')}>
+            <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Trò chuyện với quán
             </Button>
             <Button onClick={() => setCartOpen(true)} disabled={!isOpen}>

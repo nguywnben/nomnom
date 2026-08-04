@@ -113,3 +113,23 @@ Wave 4 API contracts and verification evidence are documented in:
 - `docs/planning/issues-wave-4.md`
 - `docs/wave-4-completed.md`
 - `tasks/todo.md`
+
+
+## Wave 5 Runtime
+
+Apply the Wave 5 migration after the Wave 4 migrations:
+
+    mysql -u root -p nomnom < ../database/migrations/20260804_wave5_completion.sql
+
+Wave 5 authenticated endpoint groups:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET, POST, PATCH | /api/v1/me/notifications/* | Notification inbox and read state |
+| GET, POST, PATCH | /api/v1/merchant/me/wallet, payouts, settings | Merchant finance and settings |
+| GET, PATCH | /api/v1/admin/payouts/* | Merchant payout review |
+| GET | /api/v1/admin/financial | Delivered-order financial report |
+| GET, PATCH | /api/v1/admin/config/* | Whitelisted platform configuration |
+| GET, POST | /api/v1/chat/conversations/* | Contextual order chat |
+
+Payout completion records an external transfer reference; the application does not call a bank transfer API. Chat uses HTTP polling and requires no additional runtime service.

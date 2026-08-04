@@ -15,7 +15,7 @@ const SETTINGS = [
   { id: 'payments', label: 'Phương thức thanh toán', icon: 'card', link: '/app/profile/payments' },
   { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap', link: '/app/profile/promotions' },
   { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/profile/notifications' },
-  { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/chat-admin' },
+  { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/inbox' },
   { id: 'settings', label: 'Cài đặt ứng dụng', icon: 'cog', link: '/app/profile/settings' },
 ];
 

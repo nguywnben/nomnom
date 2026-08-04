@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
 
 const APP_HOME_HEADER_ELEVATE_AFTER_PX = 16;
 
@@ -14,7 +15,7 @@ const HEADER_ICON_BADGE =
 
 export default function MobileTopBar() {
   const { pathname } = useLocation();
-  const { cartCount, setCartOpen, orders } = useApp();
+  const { cartCount, setCartOpen, user } = useApp();
   const [headerElevated, setHeaderElevated] = useState(false);
 
   const isAppHome = pathname === '/app';
@@ -31,7 +32,7 @@ export default function MobileTopBar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [isAppHome]);
 
-  const notifCount = useMemo(() => orders.filter((o) => o.status !== 'delivered').length, [orders]);
+  const notifCount = useUnreadNotificationCount(Boolean(user));
 
   return (
     <header
@@ -76,7 +77,7 @@ export default function MobileTopBar() {
           >
             <Icon name="cart" size={18} />
             {cartCount > 0 && (
-              <span className={clsx(HEADER_ICON_BADGE, cartCount > 9 && 'min-w-[22px]')}>{cartCount}</span>
+              <span className={clsx(HEADER_ICON_BADGE, cartCount > 9 && 'min-w-[22px]', cartCount > 99 && 'min-w-[26px]')}>{cartCount > 99 ? '99+' : cartCount}</span>
             )}
           </button>
         </div>
