@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-API mặc định: `http://localhost:3001`
+API mặc định: `http://localhost:3000`
 
 ## Upload ảnh (INF-01)
 
@@ -79,7 +79,7 @@ mysql -u root -p nomnom < sql/002_home_promo_banners.sql
 
 ## Frontend
 
-Vite proxy `/api` → `localhost:3001` (xem `client/vite.config.js`).
+Vite proxy `/api` → `localhost:3000` (xem `client/vite.config.js`).
 
 Chạy song song:
 
