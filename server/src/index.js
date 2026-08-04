@@ -14,6 +14,11 @@ import uploadsRoutes from './routes/uploads.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import paymentsRoutes from './routes/payments.routes.js';
 import vouchersRoutes from './routes/vouchers.routes.js';
+import notificationsRoutes from './routes/notifications.routes.js';
+import merchantFinanceRoutes from './routes/merchant-finance.routes.js';
+import adminFinanceRoutes from './routes/admin-finance.routes.js';
+import chatRoutes from './routes/chat.routes.js';
+import { ensureWave5Schema } from './lib/wave5Schema.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -32,6 +37,10 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/v1/home', homeRoutes);
+app.use('/api/v1/me/notifications', notificationsRoutes);
+app.use('/api/v1/merchant/me', merchantFinanceRoutes);
+app.use('/api/v1/admin', adminFinanceRoutes);
+app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/merchant', merchantRoutes);
 app.use('/api/v1/me', meRoutes);
@@ -240,6 +249,7 @@ async function start() {
     await ensureVoucherSchema();
     await ensurePaymentSchema();
     await ensureRestaurantBankColumns();
+    await ensureWave5Schema(pool);
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(

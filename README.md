@@ -32,12 +32,14 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 - KPI dashboard, order board, and order status transitions
 - Menu category and item management with image uploads
 - Restaurant-scoped promotion management and public review replies
+- Wallet, payout requests, restaurant settings, notification inbox, and order-context chat
 
 ### Admin and Driver
 
 - User administration and merchant/driver application approval
 - Platform overview with operational metrics
 - Global order audit/refund operations and review moderation
+- Merchant payout review, financial reporting, platform configuration, notifications, and support chat
 - Driver onboarding and approval status; delivery operations remain a planned phase
 
 ## Project Status
@@ -46,10 +48,10 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 |---|---|
 | Waves 1-3: discovery, COD ordering, merchant operations | Complete |
 | Wave 4: VNPay, vouchers, merchant promotions, moderation | Implementation complete; sandbox acceptance pending credentials |
-| Wave 5: merchant finance, configuration, and chat | Planned |
+| Wave 5: merchant finance, configuration, notifications, and chat | Complete and locally verified |
 | Driver delivery operations | Planned after Waves 4-5 |
 
-See [completed-wave documentation](./docs/README.md) and the [Wave 4 completion report](./docs/wave-4-completed.md) for verified scope and the remaining credential-dependent checks.
+See [completed-wave documentation](./docs/README.md), the [Wave 4 report](./docs/wave-4-completed.md), and the [Wave 5 report](./docs/wave-5-completed.md) for verified scope and remaining acceptance checks.
 
 ## Repository Structure
 
@@ -117,14 +119,15 @@ mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS nomnom"
 mysql -u root -p nomnom < database/nomnom.sql
 ```
 
-For a fresh Wave 4 environment, import the base file and then apply both Wave 4 migrations in order:
+For a fresh Waves 4-5 environment, import the base file and then apply the migrations in order:
 
 ```bash
 mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql
 mysql -u root -p nomnom < database/migrations/20260803_wave4_completion.sql
+mysql -u root -p nomnom < database/migrations/20260804_wave5_completion.sql
 ```
 
-The API also performs idempotent startup checks for these Wave 4 additions. Review [database migrations](./database/migrations/) before applying migrations to an existing shared database.
+The API also performs idempotent startup checks for the Wave 4 and Wave 5 additions. Review [database migrations](./database/migrations/) before applying migrations to an existing shared database.
 
 ### 3. Configure and run the API
 
@@ -217,7 +220,7 @@ npm test
 Get-ChildItem src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-Wave 4 adds focused server regression tests for VNPay signing/refund verification and voucher rules. Also smoke-test the affected authenticated role flows. Live VNPay payment and refund checks require sandbox credentials.
+Waves 4-5 add focused server regression tests for VNPay, voucher, payout transition, and platform configuration rules. Also smoke-test the affected authenticated role flows. Live VNPay payment and refund checks require sandbox credentials.
 
 ## API and Project Documentation
 

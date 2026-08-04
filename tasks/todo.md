@@ -1,35 +1,28 @@
-# Wave 4 Delivery Checklist
+# Wave 5 Delivery Checklist
 
-## Completed implementation
+## Implementation
 
-- [x] Payment attempt persistence before VNPay redirect.
-- [x] Signed payment URL with expiry and unique transaction reference.
-- [x] Read-only Return URL and trusted GET IPN processing.
-- [x] Signature, merchant, amount, order, and idempotency checks.
-- [x] Payment/order/log/notification update in one transaction.
-- [x] Server-side voucher validation using the authenticated cart.
-- [x] Voucher locking, quota checks, immutable order snapshot, and reservation lifecycle.
-- [x] Merchant voucher CRUD with ownership and safe archive behavior.
-- [x] Merchant review list/filter/reply and public reply display.
-- [x] Admin order list/detail/filter/pagination.
-- [x] Auditable VNPay refund before paid-order cancellation.
-- [x] Admin review list/search/filter/hide/unhide and aggregate recomputation.
-- [x] Database completion migration and rollback.
-- [x] Client tests, lint, production build, server tests, syntax checks, API smoke tests.
-- [x] No secrets or authentication debug output added to Git.
+- [x] Merchant wallet and payout request API/UI.
+- [x] Wallet reservation reconciliation and transaction history.
+- [x] Merchant profile, operations, open status, and bank settings.
+- [x] Shared authenticated notifications with unread/read-all.
+- [x] Admin payout filtering, approval, rejection, and completion.
+- [x] Payout transition validation and idempotency tests.
+- [x] Admin financial metrics and daily series.
+- [x] Whitelisted, range-validated platform configuration.
+- [x] Order-context customer-to-merchant/admin chat.
+- [x] Conversation access control, unread state, and polling UI.
+- [x] Wave 5 migration, rollback, and startup schema.
+- [x] Client tests, lint, build, server tests, and syntax checks.
+- [x] Public documentation and setup instructions.
 
-## Credential-dependent acceptance
+## Final acceptance
 
-- [ ] Add `VNPAY_TMN_CODE` to `server/.env`.
-- [ ] Add `VNPAY_HASH_SECRET` to `server/.env`.
-- [ ] Complete a successful VNPay sandbox payment and verify the IPN transition.
-- [ ] Verify failed/cancelled payment and duplicate IPN behavior against the sandbox.
-- [ ] Complete a successful and failed administrator refund against the sandbox.
-
-## Team release actions
-
-- [ ] Review the Wave 4 diff and this completion report.
-- [ ] Run the full regression checklist on the demonstration machine.
+- [x] Exercise payout request to approve to complete on demo data.
+- [x] Exercise payout rejection and reserved-balance release.
+- [x] Exercise customer to merchant and customer to admin chat.
+- [x] Confirm notifications appear and can be marked read.
+- [x] Verify merchant, admin, and customer screens at desktop and mobile widths.
+- [x] Review the diff and completion report.
 - [ ] Commit and push the approved implementation.
-- [ ] Merge to the agreed release branch.
-- [ ] Create `wave-4-done` only after the credential-dependent acceptance checks pass.
+- [ ] Create wave-5-done only after team acceptance.
