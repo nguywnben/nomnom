@@ -11,25 +11,6 @@ import { formatVnd } from '../../../lib/formatVnd.js';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 import { useEffect } from 'react';
 
-// Khuyến mãi & voucher — sử dụng chung dataset promoCodes từ mock,
-// hiển thị cùng 2 banner ưu đãi sắp diễn ra để trang sống động hơn.
-const HIGHLIGHTS = [
-  {
-    id: 'promo-banner-1',
-    title: 'Tuần lễ ẩm thực Việt',
-    subtitle: 'Giảm tới 50.000 ₫ cho phở, bún, bánh mì.',
-    until: '20/05',
-    tone: 'dark',
-  },
-  {
-    id: 'promo-banner-2',
-    title: 'Miễn phí giao hàng cuối tuần',
-    subtitle: 'Áp dụng cho đơn từ 150.000 ₫.',
-    until: '18/05',
-    tone: 'soft',
-  },
-];
-
 export default function Promotions() {
   const { applyPromo, appliedPromo, pushToast } = useApp();
   const [code, setCode] = useState('');
@@ -80,43 +61,6 @@ export default function Promotions() {
           </div>
         )}
       </Card>
-
-      {/* Highlights */}
-      <div className="grid gap-sm md:grid-cols-2">
-        {HIGHLIGHTS.map((h) => (
-          <Card
-            key={h.id}
-            padded
-            variant={h.tone === 'dark' ? 'dark' : 'soft'}
-            className="flex items-start gap-sm"
-          >
-            <span
-              className={
-                'grid h-10 w-10 shrink-0 place-items-center rounded-md ' +
-                (h.tone === 'dark' ? 'bg-surface-dark-elevated text-on-dark' : 'bg-surface-card text-ink')
-              }
-            >
-              <Icon name="zap" size={16} />
-            </span>
-            <div className="min-w-0">
-              <div className={h.tone === 'dark' ? 'text-title-md text-on-dark' : 'text-title-md text-ink'}>
-                {h.title}
-              </div>
-              <p className={h.tone === 'dark' ? 'text-body-sm text-on-dark-soft' : 'text-body-sm text-body'}>
-                {h.subtitle}
-              </p>
-              <div
-                className={
-                  'mt-1 text-caption ' +
-                  (h.tone === 'dark' ? 'text-on-dark-soft' : 'text-body')
-                }
-              >
-                Kết thúc {h.until}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
 
       {/* Available coupons */}
       <div>

@@ -9,7 +9,8 @@ import Logo from '../components/Logo.jsx';
 import Avatar from '../components/Avatar.jsx';
 import { useGeolocationLocalityLabel } from '../hooks/useGeolocationLocalityLabel.js';
 import { useHomeCategories } from '../hooks/useHomeCategories.js';
-import { helpers, restaurants } from '../data/mock.js';
+import { useRestaurants } from '../hooks/useRestaurants.js';
+import { helpers } from '../data/mock.js';
 
 // ---------------------------------------------------------------------------
 // Landing page — high-converting food brand splash, NOT a SaaS marketing page.
@@ -30,13 +31,12 @@ import { helpers, restaurants } from '../data/mock.js';
 
 const HERO_BG = helpers.unsplash('photo-1504674900247-0877df9cc836', 1800);
 const MERCHANT_BG = helpers.unsplash('photo-1517248135467-4c7edcad34c4', 1400);
-const DRIVER_BG = helpers.unsplash('photo-1532635241-17e820acc59f', 1400);
 
 const HOW_IT_WORKS = [
   {
     icon: 'search',
     title: 'Chọn món',
-    desc: 'Khám phá hơn 2.000 quán ăn gần bạn — được tuyển chọn kỹ lưỡng, không tài trợ.',
+    desc: 'Khám phá nhà hàng và món ăn phù hợp với nhu cầu của bạn.',
   },
   {
     icon: 'cart',
@@ -46,15 +46,8 @@ const HOW_IT_WORKS = [
   {
     icon: 'bike',
     title: 'Thưởng thức',
-    desc: 'Theo dõi tài xế tận cửa. Thời gian giao hàng trung bình là 22 phút.',
+    desc: 'Theo dõi trạng thái đơn hàng rõ ràng cho đến khi bạn nhận món.',
   },
-];
-
-const STATS = [
-  { value: '2,140', label: 'Quán ăn' },
-  { value: '22 phút', label: 'Thời gian giao trung bình' },
-  { value: '318', label: 'Tài xế hoạt động' },
-  { value: '4.9★', label: 'Đánh giá khách hàng' },
 ];
 
 /** Cuộn mượt. Các khối CTA (đối tác / tài xế) căn giữa khung nhìn; "Cách hoạt động" cuộn tự nhiên từ đầu section. */
@@ -69,6 +62,7 @@ export default function Landing() {
   const [headerElevated, setHeaderElevated] = useState(false);
   const heroLocalityLine = useGeolocationLocalityLabel();
   const { categories } = useHomeCategories();
+  const { data: featuredRestaurants } = useRestaurants({ sort: 'rating', limit: 4 });
 
   useEffect(() => {
     const onScroll = () => {
@@ -125,19 +119,6 @@ export default function Landing() {
             >
               Hợp tác
             </a>
-            <a
-              href="#tuyen-tai-xe"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('tuyen-tai-xe');
-              }}
-              className={clsx(
-                'hidden text-nav-link transition-colors duration-300 ease-out md:inline-flex',
-                headerElevated ? 'text-body hover:text-ink' : 'text-on-dark hover:text-on-dark-soft',
-              )}
-            >
-              Tuyển tài xế
-            </a>
             <Button
               as={Link}
               to="/app"
@@ -170,7 +151,7 @@ export default function Landing() {
 
         <div className="container-page flex min-h-[560px] flex-col justify-center pt-28 pb-xxl text-center text-on-dark md:min-h-[680px] md:pt-32 lg:min-h-[720px]">
           <Badge tone="dark" className="mx-auto mb-base !bg-canvas/15 !text-on-dark backdrop-blur">
-            Giao hàng trong 22 phút · {heroLocalityLine}
+            Giao nhanh, đặt món thuận tiện · {heroLocalityLine}
           </Badge>
           <h1 className="mx-auto max-w-3xl text-display-lg md:text-display-xl lg:text-display-mega">
             Đói bụng? Đặt món ngay.
@@ -254,13 +235,9 @@ export default function Landing() {
         </div>
         <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
           {categories.map((c) => (
-            <a
+            <Link
               key={c.id}
-              href="#dat-hang"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('dat-hang');
-              }}
+              to="/app/search"
               className="group flex w-[100px] shrink-0 flex-col items-center gap-1.5 md:w-[120px]"
             >
               <span className="relative overflow-hidden rounded-pill border border-hairline-strong bg-surface-card transition-shadow group-hover:shadow-soft">
@@ -270,7 +247,7 @@ export default function Landing() {
                 <span aria-hidden="true">{c.emoji} </span>
                 {c.name}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
@@ -294,25 +271,21 @@ export default function Landing() {
           </a>
         </div>
         <div className="grid grid-cols-2 gap-base lg:grid-cols-4">
-          {restaurants.slice(0, 4).map((r) => (
-            <a
+          {featuredRestaurants.map((r) => (
+            <Link
               key={r.id}
-              href="#dat-hang"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('dat-hang');
-              }}
+              to={`/app/restaurant/${r.id}`}
               className="group flex flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
             >
               <div className="relative">
                 <Image
-                  src={r.banner}
+                  src={r.bannerUrl}
                   alt={r.name}
                   ratio="16/10"
                   className="transition-transform group-hover:scale-[1.02]"
                 />
                 <div className="absolute -bottom-3 right-base">
-                  <Avatar src={r.logo} name={r.name} square size="md" className="ring-2 ring-canvas" />
+                  <Avatar src={r.logoUrl} name={r.name} square size="md" className="ring-2 ring-canvas" />
                 </div>
               </div>
               <div className="p-base pt-md">
@@ -320,14 +293,14 @@ export default function Landing() {
                   <div className="text-title-md text-ink leading-tight">{r.name}</div>
                   <span className="inline-flex items-center gap-0.5 text-body-sm text-ink">
                     <Icon name="starFilled" size={12} />
-                    <span className="nums">{r.rating.toFixed(1)}</span>
+                    <span className="nums">{Number(r.ratingAvg ?? 0).toFixed(1)}</span>
                   </span>
                 </div>
                 <div className="mt-1 text-caption text-body">
-                  {r.cuisine} · <span className="nums">{r.eta}</span>
+                  {r.tagline || 'Nhà hàng đối tác'} · <span className="nums">{r.avgPrepTimeMin ? `${r.avgPrepTimeMin} phút` : 'Đang cập nhật'}</span>
                 </div>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
@@ -362,51 +335,6 @@ export default function Landing() {
               </Button>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ---- Ride with us ------------------------------------------------ */}
-      <section id="tuyen-tai-xe" className="container-page pb-xxl md:pb-section">
-        <div className="grid overflow-hidden rounded-lg border border-hairline-strong md:grid-cols-2">
-          <div className="order-2 flex flex-col justify-center bg-surface-card p-xl md:order-1 md:p-xxl">
-            <h3 className="text-display-md text-ink">Lái xe cùng chúng tôi</h3>
-            <p className="mt-xs text-body-md text-body">
-              Kiếm tiền theo lịch trình, thành phố và tốc độ của bạn. Rút tiền hàng ngày — không cần đợi đến thứ Sáu.
-            </p>
-            <ul className="mt-base space-y-2 text-body-sm text-ink">
-              <PartnerPoint>Trung bình <span className="nums">450.000 ₫</span>/giờ trong giờ cao điểm</PartnerPoint>
-              <PartnerPoint>Thanh toán hàng ngày — rút tiền bất cứ lúc nào bạn muốn</PartnerPoint>
-              <PartnerPoint>Xe đạp, xe máy, hay ô tô — sự lựa chọn là của bạn</PartnerPoint>
-              <PartnerPoint>Điều hướng và trò chuyện với khách hàng trong ứng dụng</PartnerPoint>
-            </ul>
-            <div className="mt-lg flex flex-wrap items-center gap-xs">
-              <Button as={Link} to="/driver/onboarding" trailingIcon="arrowRight">
-                Đăng ký tài xế
-              </Button>
-              <Button as={Link} to="/faq#faq-tai-xe" variant="secondary">
-                Tìm hiểu thêm
-              </Button>
-            </div>
-          </div>
-          <div className="relative isolate order-1 aspect-video w-full overflow-hidden md:order-2 md:aspect-auto md:min-h-[360px]">
-            <Image src={DRIVER_BG} alt="Delivery rider" ratio="16/9" className="absolute inset-0 h-full w-full" />
-            <div className="absolute inset-0 bg-gradient-to-tl from-ink/40 to-transparent" />
-            <div className="absolute right-base top-base">
-              <Badge tone="dark" className="!bg-canvas/15 !text-on-dark backdrop-blur">Dành cho tài xế</Badge>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ---- By the numbers ---------------------------------------------- */}
-      <section className="border-y border-hairline bg-canvas-soft">
-        <div className="container-page grid grid-cols-2 gap-base py-xl md:grid-cols-4">
-          {STATS.map((s) => (
-            <div key={s.label} className="text-center md:text-left">
-              <div className="text-display-md text-ink nums">{s.value}</div>
-              <div className="text-caption-uppercase text-body">{s.label}</div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -447,7 +375,6 @@ export default function Landing() {
               title="Đối tác"
               links={[
                 { label: 'Đăng ký nhà hàng', to: '/merchant/onboarding' },
-                { label: 'Đăng ký tài xế', to: '/driver/onboarding' },
                 { label: 'FAQ đối tác', to: '/faq' },
               ]}
             />
@@ -463,7 +390,7 @@ export default function Landing() {
               <Link to="/privacy-policy" className="text-body hover:text-ink">
                 Bảo mật
               </Link>
-              <Link to="#" className="text-body hover:text-ink">Cookie</Link>
+              <Link to="/privacy-policy" className="text-body hover:text-ink">Cookie</Link>
             </div>
           </div>
         </div>

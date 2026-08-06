@@ -5,7 +5,6 @@ import RequireAuth from './components/RequireAuth.jsx';
 import RedirectIfAuthed from './components/RedirectIfAuthed.jsx';
 import Landing from './pages/Landing.jsx';
 import PartnerFaq from './pages/PartnerFaq.jsx';
-import MerchantPartnerContact from './pages/MerchantPartnerContact.jsx';
 import NotFoundPage from './pages/NotFound.jsx';
 
 // Auth
@@ -31,7 +30,6 @@ import CustomerOrderSuccess from './modules/customer/OrderSuccess.jsx';
 import CustomerProfile from './modules/customer/Profile.jsx';
 import CustomerProfileEdit from './modules/customer/profile/EditProfile.jsx';
 import CustomerProfileAddresses from './modules/customer/profile/Addresses.jsx';
-import CustomerProfilePayments from './modules/customer/profile/Payments.jsx';
 import CustomerProfilePromotions from './modules/customer/profile/Promotions.jsx';
 import CustomerProfileNotifications from './modules/customer/profile/Notifications.jsx';
 import CustomerProfileSettings from './modules/customer/profile/Settings.jsx';
@@ -51,26 +49,12 @@ import MerchantReviews from './modules/merchant/Reviews.jsx';
 import MerchantWallet from './modules/merchant/Wallet.jsx';
 import MerchantNotifications from './modules/merchant/Notifications.jsx';
 
-// Driver
-import DriverShell from './modules/driver/DriverShell.jsx';
-import DriverHome from './modules/driver/Home.jsx';
-import DriverJobs from './modules/driver/JobPool.jsx';
-import DriverActive from './modules/driver/ActiveDelivery.jsx';
-import DriverWallet from './modules/driver/Wallet.jsx';
-import DriverAccount from './modules/driver/Account.jsx';
-import DriverOnboarding from './modules/driver/Onboarding.jsx';
-import DriverPending from './modules/driver/Pending.jsx';
-import DriverPayouts from './modules/driver/Payouts.jsx';
-import DriverTrips from './modules/driver/Trips.jsx';
-import DriverNotifications from './modules/driver/Notifications.jsx';
-
 // Admin
 import AdminLayout from './modules/admin/AdminLayout.jsx';
 import AdminOverview from './modules/admin/Overview.jsx';
 import AdminAccounts from './modules/admin/Accounts.jsx';
 import AdminFinancial from './modules/admin/Financial.jsx';
 import AdminRestaurantApprovals from './modules/admin/RestaurantApprovals.jsx';
-import AdminDriverApprovals from './modules/admin/DriverApprovals.jsx';
 import AdminPayouts from './modules/admin/Payouts.jsx';
 import AdminOrders from './modules/admin/Orders.jsx';
 import AdminReviewsModeration from './modules/admin/ReviewsModeration.jsx';
@@ -85,7 +69,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/faq" element={<PartnerFaq />} />
-        <Route path="/hop-tac" element={<MerchantPartnerContact />} />
+        <Route path="/hop-tac" element={<Navigate to="/merchant/onboarding" replace />} />
 
         {/* Auth — đã đăng nhập thì không vào, chuyển /app */}
         <Route element={<RedirectIfAuthed />}>
@@ -104,15 +88,13 @@ export default function App() {
           <Route index element={<CustomerHome />} />
           <Route path="search" element={<CustomerSearch />} />
           <Route path="restaurant/:id" element={<CustomerRestaurant />} />
-          <Route path="track/:id" element={<CustomerTracking />} />
-
           <Route element={<RequireAuth role="customer" />}>
             <Route path="checkout" element={<CustomerCheckout />} />
             <Route path="checkout/vnpay/return" element={<VnpayReturn />} />
             <Route path="order/success/:id" element={<CustomerOrderSuccess />} />
             <Route path="orders" element={<CustomerOrders />} />
+            <Route path="track/:id" element={<CustomerTracking />} />
             <Route path="profile/addresses" element={<CustomerProfileAddresses />} />
-            <Route path="profile/payments" element={<CustomerProfilePayments />} />
             <Route path="profile/notifications" element={<CustomerProfileNotifications />} />
           </Route>
 
@@ -146,31 +128,12 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route element={<RequireAuth />}>
-          <Route path="/driver/onboarding" element={<DriverOnboarding />} />
-          <Route path="/driver/pending" element={<DriverPending />} />
-        </Route>
-
-        <Route element={<RequireAuth role="driver" />}>
-          <Route path="/driver" element={<DriverShell />}>
-            <Route index element={<DriverHome />} />
-            <Route path="jobs" element={<DriverJobs />} />
-            <Route path="active" element={<DriverActive />} />
-            <Route path="wallet" element={<DriverWallet />} />
-            <Route path="payouts" element={<DriverPayouts />} />
-            <Route path="trips" element={<DriverTrips />} />
-            <Route path="notifications" element={<DriverNotifications />} />
-            <Route path="account" element={<DriverAccount />} />
-          </Route>
-        </Route>
-
         <Route element={<RequireAuth role="admin" />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
             <Route path="accounts" element={<AdminAccounts />} />
             <Route path="financial" element={<AdminFinancial />} />
             <Route path="restaurants" element={<AdminRestaurantApprovals />} />
-            <Route path="drivers" element={<AdminDriverApprovals />} />
             <Route path="payouts" element={<AdminPayouts />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="reviews" element={<AdminReviewsModeration />} />

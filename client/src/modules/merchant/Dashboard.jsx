@@ -74,7 +74,7 @@ export default function MerchantDashboard() {
       case 'preparing':
         return { tone: 'warning', label: 'Đang chuẩn bị' };
       case 'ready_for_pickup':
-        return { tone: 'warning', label: 'Chờ tài xế' };
+        return { tone: 'warning', label: 'Sẵn sàng giao' };
       case 'picked_up':
       case 'delivering':
         return { tone: 'warning', label: 'Đang giao' };

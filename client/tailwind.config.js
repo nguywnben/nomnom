@@ -51,7 +51,7 @@ export default {
         'accent-warning': '#ab6400',
         'accent-preview': '#8145b5',
         'accent-link-bright': '#47c2ff',
-        error: '#eb8e90',
+        error: '#dc2626',
         success: '#16a34a',
       },
 

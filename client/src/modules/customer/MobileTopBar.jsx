@@ -15,7 +15,7 @@ const HEADER_ICON_BADGE =
 
 export default function MobileTopBar() {
   const { pathname } = useLocation();
-  const { cartCount, setCartOpen, user } = useApp();
+  const { cartCount, setCartOpen, shopAsCustomer, user } = useApp();
   const [headerElevated, setHeaderElevated] = useState(false);
 
   const isAppHome = pathname === '/app';
@@ -67,7 +67,7 @@ export default function MobileTopBar() {
               </span>
             )}
           </Link>
-          <button
+          {(!user || shopAsCustomer) && <button
             onClick={() => setCartOpen(true)}
             aria-label="Cart"
             className={clsx(
@@ -79,7 +79,7 @@ export default function MobileTopBar() {
             {cartCount > 0 && (
               <span className={clsx(HEADER_ICON_BADGE, cartCount > 9 && 'min-w-[22px]', cartCount > 99 && 'min-w-[26px]')}>{cartCount > 99 ? '99+' : cartCount}</span>
             )}
-          </button>
+          </button>}
         </div>
       </div>
     </header>

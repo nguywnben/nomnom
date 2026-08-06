@@ -39,7 +39,7 @@ export default function NotFoundPage() {
 
       <footer className="border-t border-hairline px-base py-md text-caption text-body md:px-xl">
         Nếu bạn nghĩ đây là lỗi của chúng tôi, hãy{' '}
-        <Link to="/hop-tac" className="text-text-link hover:underline">liên hệ hỗ trợ</Link>.
+        <Link to="/faq" className="text-text-link hover:underline">liên hệ hỗ trợ</Link>.
       </footer>
     </div>
   );
