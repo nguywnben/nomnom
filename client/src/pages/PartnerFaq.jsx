@@ -41,25 +41,6 @@ const MERCHANT_FAQ = [
   },
 ];
 
-const DRIVER_FAQ = [
-  {
-    q: 'Điều kiện để trở thành tài xế NomNom?',
-    a: 'Đủ tuổi theo quy định, có giấy tờ định danh và bằng lái phù hợp phương tiện (nếu có). Hoàn tất hồ sơ KYC trong ứng dụng — NomNom sẽ xét duyệt trước khi bạn nhận đơn.',
-  },
-  {
-    q: 'Thu nhập và rút tiền ra sao?',
-    a: 'Thu nhập gồm phí giao và phụ phí theo từng đơn hoàn thành. Số dư có thể rút theo lịch đã công bố trong khu vực tài xế.',
-  },
-  {
-    q: 'Tôi có được chọn giờ làm việc không?',
-    a: 'Có. Bạn chủ động bật/tắt trạng thái nhận việc theo lịch của mình. Một số khung giờ cao điểm có thể có ưu đãi thêm.',
-  },
-  {
-    q: 'Phương tiện nào được chấp nhận?',
-    a: 'Xe máy, xe đạp hoặc ô tô tùy khu vực và loại hàng. Chi tiết cập nhật trong màn hình đăng ký tài xế.',
-  },
-];
-
 function FaqBlock({ question, answer }) {
   return (
     <details className="group rounded-lg border border-hairline-strong bg-surface-card open:shadow-soft">
@@ -113,7 +94,7 @@ export default function PartnerFaq() {
         <p className="text-caption-uppercase text-body">Hỏi &amp; đáp</p>
         <h1 className="mt-1 text-display-md text-ink md:text-display-lg">Mọi điều bạn cần biết về NomNom</h1>
         <p className="mt-sm max-w-2xl text-body-md text-body">
-          Đồ ăn thực, giao hàng nhanh — từ đặt món đến hợp tác quán và tài xế. Chưa thấy câu trả lời? Liên
+          Đồ ăn thực, đặt món thuận tiện và hợp tác cùng nhà hàng. Chưa thấy câu trả lời? Liên
           hệ đội NomNom qua mục cuối trang chủ.
         </p>
 
@@ -123,9 +104,6 @@ export default function PartnerFaq() {
           </Button>
           <Button as={Link} to="/merchant/onboarding" variant="secondary" size="sm">
             Đăng ký quán
-          </Button>
-          <Button as={Link} to="/driver/onboarding" variant="secondary" size="sm">
-            Đăng ký tài xế
           </Button>
         </div>
 
@@ -141,12 +119,6 @@ export default function PartnerFaq() {
             title="Quán ăn &amp; nhà hàng"
             subtitle="Onboarding, phí và vận hành hàng ngày."
             items={MERCHANT_FAQ}
-          />
-          <FaqSection
-            id="faq-tai-xe"
-            title="Tài xế giao hàng"
-            subtitle="Thu nhập, lịch làm việc và phương tiện."
-            items={DRIVER_FAQ}
           />
         </div>
 

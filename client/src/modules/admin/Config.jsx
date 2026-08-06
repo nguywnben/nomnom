@@ -7,7 +7,6 @@ import { useApp } from '../../context/AppContext.jsx';
 
 const LABELS = {
   default_commission_rate: { label: 'Hoa hồng mặc định', suffix: '%', min: 0, max: 50, step: 0.1 },
-  default_driver_share: { label: 'Tỷ lệ chia cho tài xế', suffix: '%', min: 0, max: 100, step: 0.1 },
   max_search_radius_km: { label: 'Bán kính tìm kiếm', suffix: 'km', min: 1, max: 100, step: 0.1 },
   min_payout_amount: { label: 'Số tiền rút tối thiểu', suffix: 'VND', min: 10000, max: 1000000000, step: 1000 },
   order_auto_cancel_minutes: { label: 'Tự hủy đơn sau', suffix: 'phút', min: 1, max: 120, step: 1 },

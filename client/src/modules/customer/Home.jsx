@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -5,13 +6,16 @@ import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
-import { helpers, restaurants } from '../../data/mock.js';
+import { helpers } from '../../data/mock.js';
 import { useHomeCategories } from '../../hooks/useHomeCategories.js';
 import { useHomePromos } from '../../hooks/useHomePromos.js';
+import { useRestaurants } from '../../hooks/useRestaurants.js';
 import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
-import { formatViInteger, formatVnd } from '../../lib/formatVnd.js';
+import { formatVnd } from '../../lib/formatVnd.js';
+import { apiGet } from '../../lib/api.js';
 import { buildTrendingDishes } from '../../lib/homeDishes.js';
+import { toHomeRestaurant } from '../../lib/homeRestaurants.js';
 
 // ---------------------------------------------------------------------------
 // Customer Home — native food-app composition.
@@ -47,19 +51,47 @@ const MOODS = [
 export default function CustomerHome() {
   const nav = useNavigate();
   const { deliveryLocalityLine } = useOutletContext() ?? {};
-  const { orders, addToCart, setCartOpen, shopAsCustomer } = useApp();
+  const { user, addToCart, setCartOpen, shopAsCustomer } = useApp();
   const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories();
   const { promos, loading: promosLoading, error: promosError } = useHomePromos();
   const exploreScroll = useHorizontalDragScroll();
-  const featuredRestaurantsLoading = false;
+  const { data: featuredRestaurants, loading: featuredRestaurantsLoading } = useRestaurants({ sort: 'rating', limit: 6 });
+  const [recentOrders, setRecentOrders] = useState([]);
 
   const trending = buildTrendingDishes(categories);
+  useEffect(() => {
+    if (!user || !shopAsCustomer) {
+      setRecentOrders([]);
+      return undefined;
+    }
 
-  // Order-again — distinct restaurants you've ordered from recently.
-  const recentRestaurantIds = Array.from(new Set(orders.map((o) => o.restaurantId)));
-  const recentRestaurants = recentRestaurantIds
-    .map((id) => restaurants.find((r) => r.id === id))
-    .filter(Boolean);
+    let cancelled = false;
+    apiGet('/api/v1/me/orders?limit=6')
+      .then((response) => {
+        if (!cancelled) setRecentOrders(response?.data ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setRecentOrders([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shopAsCustomer, user]);
+
+  const recentRestaurants = Array.from(
+    new Map(
+      recentOrders.map((order) => [
+        order.restaurantId,
+        {
+          id: order.restaurantId,
+          name: order.restaurantName,
+          logo: order.restaurantLogo,
+          eta: order.avgPrepTimeMin ? `${order.avgPrepTimeMin} phút` : 'Đang cập nhật',
+        },
+      ]),
+    ).values(),
+  ).filter((restaurant) => restaurant.id && restaurant.name);
 
   return (
     <div className="bg-canvas">
@@ -91,9 +123,7 @@ export default function CustomerHome() {
               Đói bụng? Đặt món ngay.
             </h1>
             <p className="mt-xs text-body-md text-on-dark-soft">
-              Tìm bữa ăn tiếp theo từ{' '}
-              <span className="nums">{formatViInteger(restaurants.length * 268)}</span>{' '}
-              quán ăn gần đây.
+              Khám phá món ngon từ những quán ăn phù hợp với bạn.
             </p>
 
             {/* Hero search bar — prominent, white card on dark hero */}
@@ -285,7 +315,7 @@ export default function CustomerHome() {
       <section className="container-page pb-xl">
         <SectionHeader
           caption="Nổi bật"
-          title="Lựa chọn hàng đầu cho bạn"
+          title="Quán nổi bật"
           right={
             <Link to="/app/search" className="text-button text-text-link hover:underline">
               Xem tất cả
@@ -296,8 +326,8 @@ export default function CustomerHome() {
           <FeaturedRestaurantGridSkeleton />
         ) : (
           <div className="grid grid-cols-2 gap-base lg:grid-cols-3">
-            {restaurants.slice(0, 6).map((r) => (
-              <RestaurantCard key={r.id} restaurant={r} />
+            {featuredRestaurants.map((r) => (
+              <RestaurantCard key={r.id} restaurant={toHomeRestaurant(r)} />
             ))}
           </div>
         )}
@@ -309,7 +339,7 @@ export default function CustomerHome() {
       <section className="container-page pb-xl">
         <SectionHeader
           caption="Đang hot"
-          title="Các món thịnh hành gần bạn"
+          title="Các món thịnh hành"
         />
         <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
           {trending.map((d) => (
@@ -373,9 +403,6 @@ export default function CustomerHome() {
           <div className="flex items-center gap-xs">
             <Button variant="secondary" size="sm" onClick={() => nav('/merchant')}>
               Dành cho quán ăn
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => nav('/driver')}>
-              Dành cho tài xế
             </Button>
           </div>
         </div>

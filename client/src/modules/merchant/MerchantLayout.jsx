@@ -9,7 +9,7 @@ import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
+import { fetchMerchantOrdersApi, fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
 
 const links = [
   { to: '/merchant', label: 'Bảng điều khiển', icon: 'grid', end: true },
@@ -31,12 +31,13 @@ const links = [
 // ---------------------------------------------------------------------------
 export default function MerchantLayout() {
   const nav = useNavigate();
-  const { currentMerchant, merchantOrders, pushToast, logout } = useApp();
+  const { currentMerchant, pushToast, logout } = useApp();
   const [checkingRestaurant, setCheckingRestaurant] = useState(true);
   const [restaurantOpen, setRestaurantOpen] = useState(true);
   const [restaurantProfile, setRestaurantProfile] = useState(null);
   const [changingOpen, setChangingOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [newCount, setNewCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -49,6 +50,9 @@ export default function MerchantLayout() {
           return;
         }
         setRestaurantProfile(data.restaurant);
+        const ordersResponse = await fetchMerchantOrdersApi({ status: 'placed' });
+        if (!active) return;
+        setNewCount((ordersResponse?.data ?? ordersResponse ?? []).filter((order) => order.status === 'placed').length);
         setRestaurantOpen(Boolean(data.restaurant.is_open_now));
         if (data.restaurant.status !== 'active') {
           nav('/merchant/pending', { replace: true });
@@ -105,7 +109,6 @@ export default function MerchantLayout() {
     avatar: restaurantProfile?.logo_url || currentMerchant.avatar,
   };
 
-  const newCount = merchantOrders.new.length;
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'short',

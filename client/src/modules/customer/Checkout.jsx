@@ -13,7 +13,7 @@ import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet, apiPost } from '../../lib/api.js';
 
 const PAYMENTS = [
-  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán tiền mặt cho tài xế', icon: 'cash' },
+  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán khi nhận món', icon: 'cash' },
   { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card' },
 ];
 
