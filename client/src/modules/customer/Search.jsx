@@ -66,7 +66,7 @@ export default function CustomerSearch() {
     limit: 20,
   };
 
-  const { data: restaurants, pagination, loading, hasMore } = useRestaurants(filters);
+  const { data: restaurants, pagination, loading, error, hasMore } = useRestaurants(filters);
 
   useEffect(() => {
     setParams(
@@ -101,7 +101,7 @@ export default function CustomerSearch() {
     <div className="container-page py-xl">
       <div className="mb-base flex flex-col gap-2">
         <div className="text-caption-uppercase text-body">Khám phá</div>
-        <h1 className="text-display-lg text-ink">Tìm nhà hàng.</h1>
+        <h1 className="text-display-lg text-ink">Tìm nhà hàng</h1>
       </div>
 
       {/* Search */}
@@ -176,7 +176,7 @@ export default function CustomerSearch() {
                   setPage(1);
                 }}
               />
-              Chỉ quán đang mở (is_open_now)
+              Chỉ nhà hàng đang mở
             </label>
 
             <Button
@@ -198,7 +198,11 @@ export default function CustomerSearch() {
 
         {/* Results */}
         <div className="flex flex-col gap-base">
-          {loading && restaurants.length === 0 ? (
+          {error && restaurants.length === 0 ? (
+            <div role="alert" className="rounded-lg border border-error/30 bg-[#fef2f2] p-base text-body-sm text-error">
+              Không thể tải danh sách nhà hàng. Vui lòng tải lại trang và thử lại.
+            </div>
+          ) : loading && restaurants.length === 0 ? (
             view === 'grid' ? (
               <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (

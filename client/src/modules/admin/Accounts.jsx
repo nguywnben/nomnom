@@ -226,7 +226,6 @@ export default function AdminAccounts() {
             items={[
               { value: 'all', label: 'Tất cả' },
               { value: 'merchant', label: 'Quán ăn' },
-              { value: 'driver', label: 'Tài xế' },
               { value: 'customer', label: 'Khách hàng' },
               { value: 'admin', label: 'Admin' },
             ]}

@@ -6,7 +6,6 @@ import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Drawer from '../../components/Drawer.jsx';
 import Icon from '../../components/Icon.jsx';
-import Input from '../../components/Input.jsx';
 import Logo from '../../components/Logo.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 
@@ -14,7 +13,6 @@ const links = [
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
   { to: '/admin/restaurants', label: 'Duyệt quán', icon: 'store' },
-  { to: '/admin/drivers', label: 'Duyệt tài xế', icon: 'bike' },
   { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/admin/payouts', label: 'Rút tiền', icon: 'cash' },
   { to: '/admin/reviews', label: 'Đánh giá', icon: 'starFilled' },
@@ -33,7 +31,6 @@ export default function AdminLayout() {
   const { currentAdmin, logout } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-canvas-soft">
@@ -95,32 +92,11 @@ export default function AdminLayout() {
             className="grid h-11 w-11 place-items-center -ml-2 rounded-md text-ink hover:bg-canvas-soft"
           >
             <Icon name="menu" size={18} />
-          </button>
-          {mobileSearchOpen ? (
-            <Input
-              autoFocus
-              leadingIcon="search"
-              placeholder="Tìm kiếm…"
-              aria-label="Tìm kiếm trong quản trị"
-              fieldClassName="h-10"
-              className="flex-1"
-              onBlur={() => setMobileSearchOpen(false)}
-            />
-          ) : (
-            <>
-              <div className="flex-1 leading-tight">
-                <div className="text-caption-uppercase text-body">Quản trị viên cấp cao</div>
-                <div className="text-body-sm font-semibold text-ink">Tổng quan nền tảng</div>
-              </div>
-              <IconButton
-                icon="search"
-                label="Tìm kiếm"
-                size="sm"
-                onClick={() => setMobileSearchOpen(true)}
-              />
-              <IconButton icon="bell" label="Thông báo" size="sm" />
-            </>
-          )}
+          </button>          <div className="flex-1 leading-tight">
+            <div className="text-caption-uppercase text-body">Quản trị viên</div>
+            <div className="text-body-sm font-semibold text-ink">Tổng quan nền tảng</div>
+          </div>
+          <IconButton icon="bell" label="Thông báo" size="sm" onClick={() => nav('/app/notifications')} />
         </header>
 
         {/* Desktop header */}
@@ -129,20 +105,12 @@ export default function AdminLayout() {
             <div className="text-caption-uppercase text-body">Quản trị viên cấp cao</div>
             <div className="text-title-md text-ink">Tổng quan nền tảng</div>
           </div>
-          <div className="mx-auto w-full max-w-md">
-            <Input
-              leadingIcon="search"
-              placeholder="Tìm tài khoản, đơn hàng, giao dịch…"
-              aria-label="Tìm tài khoản, đơn hàng, giao dịch"
-              className="w-full"
-            />
-          </div>
           <div className="flex shrink-0 items-center gap-xs">
-            <IconButton icon="bell" variant="secondary" label="Thông báo" />
+            <IconButton icon="bell" variant="secondary" label="Thông báo" onClick={() => nav('/app/notifications')} />
             <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ
             </Button>
-            <Button leadingIcon="cog">Cài đặt</Button>
+            <Button leadingIcon="cog" onClick={() => nav('/admin/config')}>Cài đặt</Button>
           </div>
         </header>
 

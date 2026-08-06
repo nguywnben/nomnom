@@ -147,13 +147,12 @@ export default function RegisterPage() {
           Tạo tài khoản khách hàng
         </Button>
       </form>
-
       <p className="mt-md rounded-md border border-hairline bg-canvas-soft p-sm text-caption text-body">
-        Bạn là chủ quán hoặc tài xế?{' '}
-        <Link to="/hop-tac" className="text-text-link hover:underline">
-          Xem hợp tác đối tác
+        Bạn là chủ quán?{' '}
+        <Link to="/merchant/onboarding" className="text-text-link hover:underline">
+          Đăng ký hợp tác nhà hàng
         </Link>{' '}
-        — đăng ký merchant/driver sẽ có luồng riêng, không qua trang này.
+        bằng luồng dành riêng cho đối tác.
       </p>
     </AuthLayout>
   );

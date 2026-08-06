@@ -13,7 +13,7 @@ import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet, apiPost } from '../../lib/api.js';
 
 const PAYMENTS = [
-  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán tiền mặt cho tài xế', icon: 'cash' },
+  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán khi nhận món', icon: 'cash' },
   { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card' },
 ];
 
@@ -397,7 +397,7 @@ export default function CustomerCheckout() {
                         if (phoneError) setPhoneError('');
                       }}
                       error={phoneError}
-                      hint="Tài xế sẽ gọi số này khi giao tới."
+                      hint="Nhà hàng sẽ dùng số này khi cần xác nhận đơn."
                     />
                   </div>
 
