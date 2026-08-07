@@ -491,3 +491,14 @@ export function sendChatMessageApi(conversationId, text) {
 export function markChatReadApi(conversationId) {
   return apiPost('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/read', {});
 }
+
+export function fetchAdminAuditLogs({ action = 'all', targetType = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({
+    action,
+    targetType,
+    q,
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiGet('/api/v1/admin/audit-logs?' + params.toString());
+}

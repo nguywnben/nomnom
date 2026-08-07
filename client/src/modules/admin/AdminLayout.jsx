@@ -13,11 +13,13 @@ const links = [
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
   { to: '/admin/restaurants', label: 'Duyệt quán', icon: 'store' },
+  { to: '/admin/drivers', label: 'Duyệt tài xế', icon: 'bike' },
   { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/admin/payouts', label: 'Rút tiền', icon: 'cash' },
   { to: '/admin/reviews', label: 'Đánh giá', icon: 'starFilled' },
   { to: '/admin/financial', label: 'Tài chính', icon: 'wallet' },
   { to: '/admin/config', label: 'Cấu hình', icon: 'cog' },
+  { to: '/admin/audit-logs', label: 'Lịch sử', icon: 'list' },
 ];
 
 // ---------------------------------------------------------------------------

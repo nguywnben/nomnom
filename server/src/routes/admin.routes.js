@@ -4,6 +4,7 @@ import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
 import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
+import { logAudit } from '../lib/audit.js';
 import {
   ensureWallet,
   insertNotification,
@@ -234,7 +235,7 @@ router.patch('/users/:id/status', async (req, res, next) => {
     }
 
     const [rows] = await pool.query(
-      'SELECT id, email, full_name FROM users WHERE id = ? LIMIT 1',
+      'SELECT id, email, full_name, status FROM users WHERE id = ? LIMIT 1',
       [id],
     );
     const user = rows[0];
@@ -260,6 +261,18 @@ router.patch('/users/:id/status', async (req, res, next) => {
       'UPDATE users SET status = ?, suspension_expires_at = ?, suspension_reason = ? WHERE id = ?',
       [status, expiresAt, reasonValue, id],
     );
+
+    await logAudit(pool, {
+      adminId: req.auth.userId,
+      action: 'doi_trang_thai_tai_khoan',
+      targetType: 'user',
+      targetId: id,
+      metadata: {
+        trangThaiCu: user.status,
+        trangThaiMoi: status,
+        lyDo: reasonValue || suspensionReason || 'Thay đổi trạng thái tài khoản',
+      },
+    });
 
     if (status === 'suspended' && user.email) {
       await sendAccountSuspensionEmail({
@@ -369,7 +382,36 @@ router.post('/restaurants/:id/approve', async (req, res, next) => {
       [adminId, restaurantId],
     );
 
+    await conn.query(
+      `UPDATE users
+       SET status = 'active', primary_role = 'merchant'
+       WHERE id = ?`,
+      [restaurant.owner_user_id],
+    );
+
+    const [existingRole] = await conn.query(
+      'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
+      [restaurant.owner_user_id, 'merchant'],
+    );
+    if (existingRole.length === 0) {
+      await conn.query(
+        'INSERT INTO user_roles (user_id, role) VALUES (?, ?)',
+        [restaurant.owner_user_id, 'merchant'],
+      );
+    }
+
     await ensureWallet(conn, restaurant.owner_user_id, 'merchant');
+
+    await logAudit(conn, {
+      adminId,
+      action: 'duyet_nha_hang',
+      targetType: 'restaurant',
+      targetId: restaurantId,
+      metadata: {
+        tenNhaHang: restaurant.name,
+        chuSoHuuId: restaurant.owner_user_id,
+      },
+    });
 
     const title = 'Hồ sơ quán đã được duyệt';
     const body = `Quán "${restaurant.name}" đã được phê duyệt. Bạn có thể truy cập portal merchant ngay bây giờ.`;
@@ -448,6 +490,18 @@ router.post('/restaurants/:id/reject', async (req, res, next) => {
        WHERE id = ?`,
       [reason, restaurantId],
     );
+
+    await logAudit(conn, {
+      adminId: req.auth.userId,
+      action: 'tu_choi_nha_hang',
+      targetType: 'restaurant',
+      targetId: restaurantId,
+      metadata: {
+        tenNhaHang: restaurant.name,
+        chuSoHuuId: restaurant.owner_user_id,
+        lyDo: reason,
+      },
+    });
 
     const title = 'Hồ sơ quán chưa được chấp nhận';
     const body = `Hồ sơ quán "${restaurant.name}" chưa được chấp nhận. Lý do: ${reason}`;
@@ -537,7 +591,36 @@ router.post('/drivers/:userId/approve', async (req, res, next) => {
       [adminId, userId],
     );
 
+    await conn.query(
+      `UPDATE users
+       SET status = 'active', primary_role = 'driver'
+       WHERE id = ?`,
+      [userId]
+    );
+
+    const [existingRole] = await conn.query(
+      'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
+      [userId, 'driver'],
+    );
+    if (existingRole.length === 0) {
+      await conn.query(
+        'INSERT INTO user_roles (user_id, role) VALUES (?, ?)',
+        [userId, 'driver'],
+      );
+    }
+
     await ensureWallet(conn, userId, 'driver');
+
+    await logAudit(conn, {
+      adminId,
+      action: 'duyet_tai_xe',
+      targetType: 'driver',
+      targetId: userId,
+      metadata: {
+        tenTaiXe: profile.full_name,
+        email: profile.email,
+      },
+    });
 
     const title = 'Hồ sơ tài xế đã được duyệt';
     const body = 'Hồ sơ tài xế của bạn đã được phê duyệt. Bạn có thể bắt đầu nhận đơn trên portal tài xế.';
@@ -615,6 +698,18 @@ router.post('/drivers/:userId/reject', async (req, res, next) => {
        WHERE user_id = ?`,
       [userId],
     );
+
+    await logAudit(conn, {
+      adminId: req.auth.userId,
+      action: 'tu_choi_tai_xe',
+      targetType: 'driver',
+      targetId: userId,
+      metadata: {
+        tenTaiXe: profile.full_name,
+        email: profile.email,
+        lyDo: reason,
+      },
+    });
 
     const title = 'Hồ sơ tài xế chưa được chấp nhận';
     const body = `Hồ sơ tài xế của bạn chưa được chấp nhận. Lý do: ${reason}`;
@@ -937,6 +1032,20 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
       ],
     );
 
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: 'huy_don_hang',
+      targetType: 'order',
+      targetId: order.id,
+      metadata: {
+        maDonHang: order.order_code,
+        lyDo: reason,
+        khachHangId: order.customer_id,
+        nhaHangId: order.restaurant_id,
+        tongTien: Number(order.total_amount),
+      },
+    });
+
     await connection.commit();
     const [updatedOrders] = await pool.query(
       'SELECT * FROM orders WHERE id = ? LIMIT 1',
@@ -1079,6 +1188,73 @@ router.patch('/reviews/:id', async (req, res, next) => {
     next(err);
   } finally {
     connection.release();
+  }
+});
+
+router.get('/audit-logs', async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const offset = (page - 1) * limit;
+
+    const filters = ['1 = 1'];
+    const params = [];
+
+    if (req.query.action && req.query.action !== 'all') {
+      filters.push('al.action = ?');
+      params.push(String(req.query.action));
+    }
+    if (req.query.targetType && req.query.targetType !== 'all') {
+      filters.push('al.target_type = ?');
+      params.push(String(req.query.targetType));
+    }
+    if (req.query.q) {
+      filters.push('(u.full_name LIKE ? OR al.action LIKE ? OR al.target_type LIKE ? OR al.target_id LIKE ?)');
+      const needle = `%${req.query.q}%`;
+      params.push(needle, needle, needle, needle);
+    }
+
+    const where = filters.join(' AND ');
+
+    const [[count]] = await pool.query(
+      `SELECT COUNT(*) AS total
+       FROM audit_logs al
+       LEFT JOIN users u ON u.id = al.admin_id
+       WHERE ${where}`,
+      params
+    );
+
+    const [rows] = await pool.query(
+      `SELECT al.*, u.full_name AS admin_name, u.email AS admin_email
+       FROM audit_logs al
+       LEFT JOIN users u ON u.id = al.admin_id
+       WHERE ${where}
+       ORDER BY al.created_at DESC, al.id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows.map((row) => ({
+        id: Number(row.id),
+        adminId: Number(row.admin_id),
+        adminName: row.admin_name || 'Hệ thống',
+        adminEmail: row.admin_email || '',
+        action: row.action,
+        targetType: row.target_type,
+        targetId: row.target_id,
+        metadata: row.metadata,
+        createdAt: row.created_at,
+      })),
+      pagination: {
+        page,
+        limit,
+        total: Number(count.total),
+        totalPages: Math.ceil(Number(count.total) / limit),
+      }
+    });
+  } catch (err) {
+    next(err);
   }
 });
 
