@@ -254,6 +254,64 @@ async function ensureRestaurantBankColumns() {
   }
 }
 
+async function startOrderExpiryWorker() {
+  console.log('[Expiry Worker] Khởi tạo worker tự động hủy đơn hết hạn thanh toán (30 phút)');
+  setInterval(async () => {
+    try {
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+
+        // Tìm các đơn hàng pending_payment hoặc payment_failed quá 30 phút
+        const [expiredOrders] = await connection.query(
+          `SELECT id, status FROM orders 
+           WHERE status IN ('pending_payment', 'payment_failed') 
+             AND created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+           FOR UPDATE`
+        );
+
+        for (const order of expiredOrders) {
+          console.log(`[Expiry Worker] Đơn hàng ID ${order.id} hết hạn (trạng thái hiện tại: ${order.status})`);
+          
+          // Cập nhật trạng thái đơn sang expired, payment_status sang failed
+          await connection.query(
+            "UPDATE orders SET status = 'expired', payment_status = 'failed' WHERE id = ?",
+            [order.id]
+          );
+
+          // Cập nhật các giao dịch thanh toán pending/initiated sang failed
+          await connection.query(
+            "UPDATE payments SET status = 'failed', failure_reason = 'Order expired after 30 minutes' WHERE order_id = ? AND status IN ('initiated', 'pending')",
+            [order.id]
+          );
+
+          // Nhả voucher nếu có
+          await connection.query(
+            "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status = 'reserved'",
+            [order.id]
+          );
+
+          // Lưu status log
+          await connection.query(
+            `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, note)
+             VALUES (?, ?, 'expired', 'system', 'Tự động hủy do hết hạn thanh toán (quá 30 phút)')`,
+            [order.id, order.status]
+          );
+        }
+
+        await connection.commit();
+      } catch (err) {
+        await connection.rollback();
+        console.error('[Expiry Worker Error]', err);
+      } finally {
+        connection.release();
+      }
+    } catch (err) {
+      console.error('[Expiry Worker Connection Error]', err);
+    }
+  }, 60000); // Chạy mỗi 60 giây
+}
+
 async function start() {
   try {
     await verifyDbConnection();
@@ -273,6 +331,7 @@ async function start() {
 
   app.listen(port, () => {
     console.log(`NomNom API http://localhost:${port}`);
+    startOrderExpiryWorker();
   });
 }
 

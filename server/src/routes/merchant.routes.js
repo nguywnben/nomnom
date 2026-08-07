@@ -595,7 +595,7 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
          o.placed_at AS placedAt
        FROM orders o
        LEFT JOIN users u ON u.id = o.customer_id
-       WHERE o.restaurant_id = ?
+       WHERE o.restaurant_id = ? AND o.status NOT IN ('pending_payment', 'payment_failed', 'expired')
        ORDER BY o.placed_at DESC
        LIMIT 10`,
       [restaurantId]
@@ -699,8 +699,13 @@ router.get('/me/orders', requireAuth, ensureMerchant, async (req, res, next) => 
     const params = [restaurant.id, date];
     let statusSql = '';
     if (status) {
+      if (['pending_payment', 'payment_failed', 'expired'].includes(status)) {
+        return res.json({ orders: [] });
+      }
       statusSql = ' AND o.status = ?';
       params.push(status);
+    } else {
+      statusSql = " AND o.status NOT IN ('pending_payment', 'payment_failed', 'expired')";
     }
 
     const [orders] = await pool.query(
@@ -805,6 +810,10 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
     const order = await loadOrderForRestaurant(orderCode, restaurant.id);
     if (!order) {
       return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
+    }
+
+    if (['pending_payment', 'payment_failed', 'expired'].includes(order.status)) {
+      return res.status(400).json({ error: 'Không thể cập nhật trạng thái của đơn hàng chưa thanh toán hoặc đã hết hạn.' });
     }
 
     const transition = resolveStatusAction(action, order);
