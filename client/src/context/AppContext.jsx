@@ -483,7 +483,14 @@ export function AppProvider({ children }) {
     resetCartState();
     if (!user) {
       clearGuestCart();
-    }      const normalized = code.trim().toLowerCase();
+    }
+  }, [permittedRoles.customer, resetCartState, user]);
+
+  const applyPromo = useCallback(
+    async (code) => {
+      if (user && !permittedRoles.customer) return false;
+
+      const normalized = code.trim().toLowerCase();
       const voucher = restaurantVouchers.find((p) => p.code.toLowerCase() === normalized);
       const c = voucher ?? promoCodes.find((p) => p.code.toLowerCase() === normalized);
 
@@ -535,16 +542,7 @@ export function AppProvider({ children }) {
       pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
       return false;
     },
-    [cartSubtotal, permittedRoles.customer, pushToast, restaurantVouchers, user],��m giá lúc này.' });
-          return false;
-        }
-      }
-
-      pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
-      return false;
-    },
     [cartSubtotal, permittedRoles.customer, pushToast, restaurantVouchers, user],
->>>>>>> origin/dev
   );
 
   // ---- Order placement (customer) ----

@@ -8,7 +8,6 @@ import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import { fetchAdminAuditLogs } from '../../lib/api.js';
-import { useApp } from '../../context/AppContext.jsx';
 
 const ACTION_LABELS = {
   duyet_nha_hang: { label: 'Duyệt nhà hàng', tone: 'success' },
@@ -45,7 +44,6 @@ function formatTimestamp(value) {
 }
 
 export default function AdminAuditLogs() {
-  const { pushToast } = useApp();
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [targetType, setTargetType] = useState('all');

@@ -12,8 +12,6 @@ import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantOrdersApi, fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
 import {
   isMerchantRestaurantApproved,
-  isMerchantRestaurantRejected,
-  isMerchantRestaurantUnderReview,
 } from '../../lib/merchantStatus.js';
 
 const links = [
@@ -95,7 +93,7 @@ export default function MerchantLayout() {
     return () => {
       active = false;
     };
-  }, [nav, pushToast]);
+  }, [logout, nav, pushToast]);
 
   const changeOpenStatus = async (value) => {
     const previous = restaurantOpen;

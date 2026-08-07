@@ -448,6 +448,7 @@ export function searchExploreApi(params = {}) {
 /** Lấy chi tiết món ăn — GET /api/v1/menu-items/:id */
 export function fetchMenuItemDetailApi(id) {
   return apiGet(`/api/v1/menu-items/${encodeURIComponent(id)}`);
+}
 
 // Wave 5: notifications, merchant finance/settings, admin finance/config, and contextual chat.
 export function fetchNotificationsApi({ unread = false, type = 'all', page = 1, limit = 50 } = {}) {

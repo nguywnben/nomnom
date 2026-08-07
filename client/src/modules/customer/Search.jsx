@@ -8,7 +8,6 @@ import Image from '../../components/Image.jsx';
 import Input from '../../components/Input.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Tabs from '../../components/Tabs.jsx';
-import Skeleton from '../../components/Skeleton.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { searchExploreApi, fetchCuisinesApi } from '../../lib/api.js';
 import { useApp } from '../../context/AppContext.jsx';
@@ -74,17 +73,6 @@ export default function CustomerSearch() {
     }, 300);
     return () => clearTimeout(timer);
   }, [q]);
-
-  const filters = {
-    q: debouncedQ,
-    cuisine: cuisineSlugs.join(','),
-    open: openOnly,
-    sort,
-    page,
-    limit: 20,
-  };
-
-  const { data: restaurants, pagination, loading, error, hasMore } = useRestaurants(filters);
 
   useEffect(() => {
     setParams(
@@ -311,11 +299,11 @@ export default function CustomerSearch() {
 
         {/* Results */}
         <div className="flex flex-col gap-base">
-          {error && restaurants.length === 0 ? (
+          {error && totalResults === 0 ? (
             <div role="alert" className="rounded-lg border border-error/30 bg-[#fef2f2] p-base text-body-sm text-error">
               Không thể tải danh sách nhà hàng. Vui lòng tải lại trang và thử lại.
             </div>
-          ) : loading && restaurants.length === 0 ? (
+          ) : loading && totalResults === 0 ? (
             view === 'grid' ? (
               <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -329,12 +317,6 @@ export default function CustomerSearch() {
                 ))}
               </div>
             )
-          ) : restaurants.length === 0 ? (
-            <EmptyState
-              icon="search"
-              title="Có lỗi xảy ra"
-              message={error}
-            />
           ) : totalResults === 0 ? (
             <EmptyState
               icon="search"
@@ -440,6 +422,18 @@ function SkeletonCard() {
           <div className="h-4 w-16 rounded bg-surface-strong" />
           <div className="h-4 w-16 rounded bg-surface-strong" />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-base p-sm animate-pulse">
+      <div className="h-16 w-20 shrink-0 rounded-md bg-surface-strong" />
+      <div className="flex flex-1 flex-col gap-2">
+        <div className="h-4 w-2/3 rounded bg-surface-strong" />
+        <div className="h-3 w-1/2 rounded bg-surface-strong" />
       </div>
     </div>
   );

@@ -41,7 +41,7 @@ export default function CustomerCheckout() {
   // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
   const [newRecipientName, setNewRecipientName] = useState('');
   const [newLine1, setNewLine1] = useState('');
-  const [makeDefault, setMakeDefault] = useState(true);
+  const [makeDefault] = useState(true);
 
   // Location states
   const [provinces, setProvinces] = useState([]);

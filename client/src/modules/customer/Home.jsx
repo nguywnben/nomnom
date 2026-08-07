@@ -8,7 +8,6 @@ import Avatar from '../../components/Avatar.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import { useHomeCategories } from '../../hooks/useHomeCategories.js';
 import { useHomePromos } from '../../hooks/useHomePromos.js';
-import { useRestaurants } from '../../hooks/useRestaurants.js';
 import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';

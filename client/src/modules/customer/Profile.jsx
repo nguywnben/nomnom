@@ -23,7 +23,6 @@ export default function CustomerProfile() {
   const nav = useNavigate();
   const {
     user,
-    currentCustomer,
     permittedRoles,
     shopAsCustomer,
     logout,

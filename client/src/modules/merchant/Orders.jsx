@@ -88,6 +88,8 @@ export default function MerchantOrders() {
     return () => clearInterval(timer);
   }, [backendUnavailable, loadOrders]);
 
+  const grouped = useMemo(() => groupOrders(orders), [orders]);
+
   if (backendUnavailable) {
     return (
       <div className="space-y-base">
@@ -127,8 +129,6 @@ export default function MerchantOrders() {
       </div>
     );
   }
-
-  const grouped = useMemo(() => groupOrders(orders), [orders]);
 
   const handleAction = async (order, action) => {
     setActingCode(order.orderCode);
