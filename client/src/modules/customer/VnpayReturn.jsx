@@ -3,12 +3,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
+import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet } from '../../lib/api.js';
 
 export default function VnpayReturn() {
   const [params] = useSearchParams();
   const nav = useNavigate();
+  const { clearCart } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('failed');
@@ -27,7 +29,6 @@ export default function VnpayReturn() {
       const paidAmount = Number(params.get('vnp_Amount') || 0) / 100;
       const transactionNo = params.get('vnp_TransactionNo') || '-';
 
-      setOrderCode(gatewayReference);
       setAmount(paidAmount);
       setTxn(transactionNo);
 
@@ -73,6 +74,11 @@ export default function VnpayReturn() {
   }, [params]);
 
   useEffect(() => {
+    if (status !== 'succeeded') return;
+    clearCart({ localOnly: true });
+  }, [clearCart, status]);
+
+  useEffect(() => {
     if (status !== 'succeeded') return undefined;
     if (autoTick <= 0) {
       nav(`/app/track/${orderCode}`, { replace: true });
@@ -109,8 +115,10 @@ export default function VnpayReturn() {
         title: 'Thanh toán thất bại',
         message: errorReason || 'Giao dịch không thành công. Vui lòng thử lại hoặc dùng phương thức khác.',
         toneBg: 'bg-[#fbeaea] text-error',
-        primary: { label: 'Thử lại', to: '/app/checkout' },
-        secondary: { label: 'Về giỏ hàng', to: '/app' },
+        primary: orderCode
+          ? { label: 'Thanh toán lại đơn này', to: `/app/track/${orderCode}` }
+          : { label: 'Xem đơn hàng', to: '/app/orders' },
+        secondary: { label: 'Về trang chủ', to: '/app' },
       };
     }
     return {
@@ -118,7 +126,9 @@ export default function VnpayReturn() {
       title: 'Bạn đã hủy thanh toán',
       message: 'Đơn hàng vẫn được lưu — bạn có thể quay lại thanh toán bất cứ lúc nào.',
       toneBg: 'bg-canvas-soft text-ink',
-      primary: { label: 'Tiếp tục thanh toán', to: '/app/checkout' },
+      primary: orderCode
+        ? { label: 'Tiếp tục thanh toán', to: `/app/track/${orderCode}` }
+        : { label: 'Xem đơn hàng', to: '/app/orders' },
       secondary: { label: 'Về trang chủ', to: '/app' },
     };
   }, [status, errorReason, orderCode]);

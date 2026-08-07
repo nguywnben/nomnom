@@ -74,7 +74,7 @@ export default function AdminOverview() {
   const totals = data?.totals;
   const pending = data?.pendingApprovals;
   const chart = data?.chart ?? [];
-  const pendingTotal = (pending?.restaurants ?? 0) + (pending?.drivers ?? 0);
+  const pendingTotal = pending?.restaurants ?? 0;
 
   return (
     <div className="space-y-base">
@@ -142,11 +142,10 @@ export default function AdminOverview() {
             />
           </div>
 
-          <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
             <StatCard label="Tổng tài khoản" value={totals.userCount.toLocaleString('vi-VN')} icon="user" />
             <StatCard label="Khách hàng" value={totals.customerCount.toLocaleString('vi-VN')} icon="user" />
             <StatCard label="Chủ quán" value={totals.merchantCount.toLocaleString('vi-VN')} icon="store" />
-            <StatCard label="Tài xế" value={totals.driverCount.toLocaleString('vi-VN')} icon="bike" />
             <StatCard
               label="Quán đang hoạt động"
               value={totals.restaurantActiveCount.toLocaleString('vi-VN')}
@@ -231,18 +230,6 @@ export default function AdminOverview() {
                   <div className="flex items-center gap-2">
                     <span className="text-title-md nums text-ink">{pending?.restaurants ?? 0}</span>
                     <Link to="/admin/restaurants" className="text-caption text-ink underline">
-                      Xem
-                    </Link>
-                  </div>
-                </li>
-                <li className="flex items-center justify-between rounded-md border border-hairline px-sm py-sm">
-                  <div>
-                    <div className="text-body-sm font-medium text-ink">Tài xế</div>
-                    <div className="text-caption text-body">Hồ sơ chờ duyệt</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-title-md nums text-ink">{pending?.drivers ?? 0}</span>
-                    <Link to="/admin/drivers" className="text-caption text-ink underline">
                       Xem
                     </Link>
                   </div>

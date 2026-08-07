@@ -466,13 +466,13 @@ export function AppProvider({ children }) {
     [normalizeCart, permittedRoles.customer, pushToast, setItemQty, user],
   );
 
-  const clearCart = useCallback(async () => {
+  const clearCart = useCallback(async ({ localOnly = false } = {}) => {
     if (user && !permittedRoles.customer) {
       resetCartState();
       return;
     }
 
-    if (permittedRoles.customer && user) {
+    if (permittedRoles.customer && user && !localOnly) {
       setSyncing(true);
       try {
         await clearCartApi();

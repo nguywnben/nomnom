@@ -79,9 +79,6 @@ router.get('/overview', async (req, res, next) => {
     const [[merchantCountRow]] = await pool.query(
       "SELECT COUNT(DISTINCT user_id) AS n FROM user_roles WHERE role = 'merchant'",
     );
-    const [[driverCountRow]] = await pool.query(
-      "SELECT COUNT(DISTINCT user_id) AS n FROM user_roles WHERE role = 'driver'",
-    );
     const [[restaurantActiveRow]] = await pool.query(
       "SELECT COUNT(*) AS n FROM restaurants WHERE status = 'active'",
     );
@@ -103,9 +100,6 @@ router.get('/overview', async (req, res, next) => {
 
     const [[pendingRestaurantsRow]] = await pool.query(
       "SELECT COUNT(*) AS n FROM restaurants WHERE status = 'pending'",
-    );
-    const [[pendingDriversRow]] = await pool.query(
-      "SELECT COUNT(*) AS n FROM driver_profiles WHERE approval_status = 'pending'",
     );
 
     const [recentSignupRows] = await pool.query(
@@ -132,7 +126,6 @@ router.get('/overview', async (req, res, next) => {
         userCount: Number(userCountRow?.n ?? 0),
         customerCount: Number(customerCountRow?.n ?? 0),
         merchantCount: Number(merchantCountRow?.n ?? 0),
-        driverCount: Number(driverCountRow?.n ?? 0),
         restaurantActiveCount: Number(restaurantActiveRow?.n ?? 0),
         orderCount: Number(orderMetrics?.orderCount ?? 0),
         gmv: Number(orderMetrics?.gmv ?? 0),
@@ -141,7 +134,6 @@ router.get('/overview', async (req, res, next) => {
       },
       pendingApprovals: {
         restaurants: Number(pendingRestaurantsRow?.n ?? 0),
-        drivers: Number(pendingDriversRow?.n ?? 0),
       },
       recentSignups: recentSignupRows.map((row) => ({
         id: row.id,
@@ -234,15 +226,6 @@ router.patch('/users/:id/status', async (req, res, next) => {
       return res.status(400).json({ error: 'Bạn không thể tự đình chỉ hoặc khóa tài khoản của chính mình.' });
     }
 
-    const [rows] = await pool.query(
-      'SELECT id, email, full_name, status FROM users WHERE id = ? LIMIT 1',
-      [id],
-    );
-    const user = rows[0];
-    if (!user) {
-      return res.status(404).json({ error: 'Người dùng không tồn tại.' });
-    }
-
     let expiresAt = null;
     let reasonValue = null;
     if (status === 'suspended') {
@@ -257,22 +240,43 @@ router.patch('/users/:id/status', async (req, res, next) => {
       reasonValue = suspensionReason;
     }
 
-    await pool.query(
-      'UPDATE users SET status = ?, suspension_expires_at = ?, suspension_reason = ? WHERE id = ?',
-      [status, expiresAt, reasonValue, id],
-    );
+    const connection = await pool.getConnection();
+    let user;
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query(
+        'SELECT id, email, full_name, status FROM users WHERE id = ? LIMIT 1',
+        [id],
+      );
+      user = rows[0];
+      if (!user) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Người dùng không tồn tại.' });
+      }
 
-    await logAudit(pool, {
-      adminId: req.auth.userId,
-      action: 'doi_trang_thai_tai_khoan',
-      targetType: 'user',
-      targetId: id,
-      metadata: {
-        trangThaiCu: user.status,
-        trangThaiMoi: status,
-        lyDo: reasonValue || suspensionReason || 'Thay đổi trạng thái tài khoản',
-      },
-    });
+      await connection.query(
+        'UPDATE users SET status = ?, suspension_expires_at = ?, suspension_reason = ? WHERE id = ?',
+        [status, expiresAt, reasonValue, id],
+      );
+
+      await logAudit(connection, {
+        adminId: req.auth.userId,
+        action: 'doi_trang_thai_tai_khoan',
+        targetType: 'user',
+        targetId: id,
+        metadata: {
+          trangThaiCu: user.status,
+          trangThaiMoi: status,
+          lyDo: reasonValue || suspensionReason || 'Thay đổi trạng thái tài khoản',
+        },
+      });
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
 
     if (status === 'suspended' && user.email) {
       await sendAccountSuspensionEmail({

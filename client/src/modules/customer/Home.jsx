@@ -37,7 +37,8 @@ const MOODS = [
 export default function CustomerHome() {
   const nav = useNavigate();
   const { deliveryLocalityLine } = useOutletContext() ?? {};
-  const { auth, addToCart, setCartOpen, shopAsCustomer } = useApp();
+  const { user, addToCart, setCartOpen, shopAsCustomer } = useApp();
+  const canViewOrderAgain = Boolean(user?.id && shopAsCustomer);
   const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories();
   const { promos, loading: promosLoading, error: promosError } = useHomePromos();
   const exploreScroll = useHorizontalDragScroll();
@@ -71,7 +72,7 @@ export default function CustomerHome() {
         if (mounted) setTrendingLoading(false);
       });
 
-    if (auth?.userId) {
+    if (canViewOrderAgain) {
       fetchOrderAgainApi()
         .then((res) => {
           if (mounted) setOrderAgainList(res.data ?? []);
@@ -84,7 +85,7 @@ export default function CustomerHome() {
     return () => {
       mounted = false;
     };
-  }, [auth?.userId]);
+  }, [canViewOrderAgain]);
 
   return (
     <div className="bg-canvas">
@@ -261,7 +262,7 @@ export default function CustomerHome() {
       </section>
 
       {/* ORDER AGAIN (Chỉ hiển thị khi đã đăng nhập và có lịch sử) */}
-      {auth?.userId && orderAgainList.length > 0 && (
+      {canViewOrderAgain && orderAgainList.length > 0 && (
         <section className="container-page pb-xl">
           <SectionHeader
             caption="Chào mừng trở lại"

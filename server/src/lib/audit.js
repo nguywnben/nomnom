@@ -11,16 +11,12 @@ import pool from '../db/pool.js';
  * @param {object} [dữ_liệu_log.metadata] Thông tin chi tiết đi kèm bằng tiếng Việt (ví dụ: lý do từ chối, giá trị cũ/mới).
  */
 export async function logAudit(connOrPool, { adminId, action, targetType, targetId, metadata }) {
-  try {
-    const db = connOrPool || pool;
-    const metaStr = metadata ? JSON.stringify(metadata) : null;
-    await db.query(
-      `INSERT INTO audit_logs (admin_id, action, target_type, target_id, metadata)
-       VALUES (?, ?, ?, ?, ?)`,
-      [adminId, action, targetType, String(targetId), metaStr]
-    );
-    console.log(`[AUDIT] Quản trị viên ${adminId} đã thực hiện '${action}' trên đối tượng '${targetType}' ID '${targetId}'`);
-  } catch (err) {
-    console.error('[AUDIT] Gặp lỗi khi ghi nhật ký hoạt động của Admin:', err.message);
-  }
+  const db = connOrPool || pool;
+  const metaStr = metadata ? JSON.stringify(metadata) : null;
+  await db.query(
+    `INSERT INTO audit_logs (admin_id, action, target_type, target_id, metadata)
+     VALUES (?, ?, ?, ?, ?)`,
+    [adminId, action, targetType, String(targetId), metaStr]
+  );
+  console.log(`[AUDIT] Quản trị viên ${adminId} đã thực hiện '${action}' trên đối tượng '${targetType}' ID '${targetId}'`);
 }
