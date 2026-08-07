@@ -5,7 +5,7 @@ import {
   saveTokens,
 } from './authStorage.js';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3001' : '');
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
 let refreshInFlight = null;
 
@@ -268,13 +268,14 @@ export function deleteMerchantVoucherApi(id) {
   return apiDelete(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`);
 }
 
-export function fetchMerchantReviewsApi({ page = 1, limit = 50 } = {}) {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+export function fetchMerchantReviewsApi({ page = 1, limit = 50, rating, replied = 'all' } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), replied });
+  if (rating) params.set('rating', String(rating));
   return apiGet(`/api/v1/merchant/me/reviews?${params.toString()}`);
 }
 
 export function replyMerchantReviewApi(reviewId, replyText) {
-  return apiPost(`/api/v1/merchant/me/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText });
+  return apiPatch(`/api/v1/merchant/me/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText });
 }
 
 export function fetchRestaurantVouchersApi(restaurantId) {
@@ -308,6 +309,34 @@ export function approveAdminDriver(userId) {
 
 export function rejectAdminDriver(userId, reason) {
   return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
+}
+
+export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', q = '', page = 1 } = {}) {
+  const params = new URLSearchParams({
+    status,
+    paymentMethod,
+    q,
+    page: String(page),
+  });
+  return apiGet(`/api/v1/admin/orders?${params.toString()}`);
+}
+
+export function fetchAdminOrderDetail(orderId) {
+  return apiGet(`/api/v1/admin/orders/${encodeURIComponent(orderId)}`);
+}
+
+export function cancelAdminOrder(orderId, reason) {
+  return apiPost(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/cancel`, { reason });
+}
+
+export function fetchAdminReviews({ hidden = 'all', page = 1, q = '', ratingMax } = {}) {
+  const params = new URLSearchParams({ hidden, page: String(page), q });
+  if (ratingMax) params.set('ratingMax', String(ratingMax));
+  return apiGet(`/api/v1/admin/reviews?${params.toString()}`);
+}
+
+export function updateAdminReviewHidden(reviewId, isHidden) {
+  return apiPatch(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}`, { isHidden });
 }
 
 export function fetchRestaurants(params = {}) {
@@ -382,3 +411,83 @@ export function deleteMerchantMenuItemApi(id) {
   return apiDelete(`/api/v1/merchant/me/items/${encodeURIComponent(id)}`);
 }
 
+export function validateVoucherApi(code, subtotal) {
+  return apiPost('/api/v1/vouchers/validate', { code, subtotal });
+}
+
+export function fetchMyVouchersApi() {
+  return apiGet('/api/v1/me/vouchers');
+}
+
+
+// Wave 5: notifications, merchant finance/settings, admin finance/config, and contextual chat.
+export function fetchNotificationsApi({ unread = false, type = 'all', page = 1, limit = 50 } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), type });
+  if (unread) params.set('unread', 'true');
+  return apiGet('/api/v1/me/notifications?' + params.toString());
+}
+
+export function markNotificationReadApi(id) {
+  return apiPatch('/api/v1/me/notifications/' + encodeURIComponent(id) + '/read', {});
+}
+
+export function markAllNotificationsReadApi() {
+  return apiPost('/api/v1/me/notifications/read-all', {});
+}
+
+export function fetchMerchantWalletApi() {
+  return apiGet('/api/v1/merchant/me/wallet');
+}
+
+export function requestMerchantPayoutApi(amount) {
+  return apiPost('/api/v1/merchant/me/payouts', { amount });
+}
+
+export function fetchMerchantSettingsApi() {
+  return apiGet('/api/v1/merchant/me/settings');
+}
+
+export function updateMerchantSettingsApi(body) {
+  return apiPatch('/api/v1/merchant/me/settings', body);
+}
+
+export function fetchAdminPayoutsApi({ status = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({ status, q, page: String(page), limit: String(limit), ownerType: 'merchant' });
+  return apiGet('/api/v1/admin/payouts?' + params.toString());
+}
+
+export function updateAdminPayoutApi(id, body) {
+  return apiPatch('/api/v1/admin/payouts/' + encodeURIComponent(id), body);
+}
+
+export function fetchAdminFinancialApi(range = 'month') {
+  return apiGet('/api/v1/admin/financial?range=' + encodeURIComponent(range));
+}
+
+export function fetchAdminConfigApi() {
+  return apiGet('/api/v1/admin/config');
+}
+
+export function updateAdminConfigApi(key, value) {
+  return apiPatch('/api/v1/admin/config/' + encodeURIComponent(key), { value });
+}
+
+export function fetchChatConversationsApi() {
+  return apiGet('/api/v1/chat/conversations');
+}
+
+export function createOrderConversationApi(orderId, counterpartRole) {
+  return apiPost('/api/v1/chat/conversations', { orderId, counterpartRole });
+}
+
+export function fetchChatMessagesApi(conversationId, afterId = 0) {
+  return apiGet('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/messages?afterId=' + encodeURIComponent(afterId));
+}
+
+export function sendChatMessageApi(conversationId, text) {
+  return apiPost('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/messages', { text });
+}
+
+export function markChatReadApi(conversationId) {
+  return apiPost('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/read', {});
+}

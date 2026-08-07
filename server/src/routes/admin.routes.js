@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
+import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
 import {
   ensureWallet,
   insertNotification,
@@ -668,5 +669,417 @@ async function sendKycRejectedEmailSafe(payload) {
     console.error('[mail] reject notification failed:', err.message);
   }
 }
+
+// --- QUẢN LÝ ĐƠN HÀNG TOÀN HỆ THỐNG ---
+
+router.get('/orders', async (req, res, next) => {
+  try {
+    const status = req.query.status;
+    const paymentMethod = req.query.paymentMethod;
+    const paymentStatus = req.query.paymentStatus;
+    const q = req.query.q;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = 10;
+    const offset = (page - 1) * limit;
+
+    const filters = ['1 = 1'];
+    const params = [];
+
+    if (status && status !== 'all') {
+      filters.push('o.status = ?');
+      params.push(status);
+    }
+
+    if (paymentMethod && paymentMethod !== 'all') {
+      filters.push('o.payment_method = ?');
+      params.push(paymentMethod);
+    }
+
+    if (paymentStatus && paymentStatus !== 'all') {
+      filters.push('o.payment_status = ?');
+      params.push(paymentStatus);
+    }
+
+    if (q) {
+      filters.push('(o.order_code LIKE ? OR u.email LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`);
+    }
+
+    const whereClause = filters.join(' AND ');
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total 
+       FROM orders o
+       LEFT JOIN users u ON o.customer_id = u.id
+       WHERE ${whereClause}`,
+      params
+    );
+    const total = countRows[0]?.total ?? 0;
+
+    const [rows] = await pool.query(
+      `SELECT o.*, u.full_name AS customer_name, u.email AS customer_email, r.name AS restaurant_name
+       FROM orders o
+       LEFT JOIN users u ON o.customer_id = u.id
+       LEFT JOIN restaurants r ON o.restaurant_id = r.id
+       WHERE ${whereClause}
+       ORDER BY o.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows,
+      pagination: {
+        page,
+        limit,
+        total
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/orders/:id', async (req, res, next) => {
+  try {
+    const orderId = Number(req.params.id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return res.status(400).json({ error: 'Invalid order ID.' });
+    }
+
+    const [orderRows] = await pool.query(
+      'SELECT o.*, u.full_name AS customer_name, u.email AS customer_email, r.name AS restaurant_name FROM orders o LEFT JOIN users u ON u.id = o.customer_id LEFT JOIN restaurants r ON r.id = o.restaurant_id WHERE o.id = ? LIMIT 1',
+      [orderId],
+    );
+    if (!orderRows.length) return res.status(404).json({ error: 'Order not found.' });
+
+    const [itemsResult, logsResult, paymentsResult, refundsResult] = await Promise.all([
+      pool.query('SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC', [orderId]),
+      pool.query('SELECT * FROM order_status_logs WHERE order_id = ? ORDER BY created_at ASC, id ASC', [orderId]),
+      pool.query('SELECT * FROM payments WHERE order_id = ? ORDER BY created_at DESC, id DESC', [orderId]),
+      pool.query('SELECT * FROM payment_refunds WHERE order_id = ? ORDER BY created_at DESC, id DESC', [orderId]),
+    ]);
+
+    return res.json({
+      order: {
+        ...orderRows[0],
+        items: itemsResult[0],
+        statusLogs: logsResult[0],
+        payments: paymentsResult[0],
+        refunds: refundsResult[0],
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/orders/:id/cancel', async (req, res, next) => {
+  const orderId = Number(req.params.id);
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 500)
+    || 'Cancelled by an administrator.';
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({ error: 'Invalid order ID.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [orders] = await connection.query(
+      'SELECT * FROM orders WHERE id = ? FOR UPDATE',
+      [orderId],
+    );
+    const order = orders[0];
+    if (!order) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    if (['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(order.status)) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'This order cannot be cancelled in its current state.' });
+    }
+
+    let paymentStatus = order.payment_status;
+    let refundResponse = null;
+    if (order.payment_status === 'paid') {
+      if (order.payment_method !== 'vnpay') {
+        await connection.rollback();
+        return res.status(409).json({ error: 'Paid non-VNPay orders require a manual refund workflow.' });
+      }
+
+      const refundConfig = {
+        tmnCode: process.env.VNPAY_TMN_CODE,
+        secret: process.env.VNPAY_HASH_SECRET,
+        apiUrl: process.env.VNPAY_API_URL,
+      };
+      const missing = Object.entries(refundConfig)
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
+      if (missing.length) {
+        await connection.rollback();
+        return res.status(503).json({ error: 'VNPay refund is not configured.', missing });
+      }
+
+      const [paymentRows] = await connection.query(
+        "SELECT * FROM payments WHERE order_id = ? AND method = 'vnpay' AND status = 'succeeded' ORDER BY paid_at DESC, id DESC LIMIT 1 FOR UPDATE",
+        [order.id],
+      );
+      const payment = paymentRows[0];
+      if (!payment) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'No successful VNPay payment was found for this order.' });
+      }
+
+      const [activeRefundRows] = await connection.query(
+        "SELECT * FROM payment_refunds WHERE payment_id = ? AND status IN ('initiated', 'succeeded') ORDER BY id DESC LIMIT 1 FOR UPDATE",
+        [payment.id],
+      );
+      if (activeRefundRows.length) {
+        await connection.rollback();
+        return res.status(409).json({
+          error: activeRefundRows[0].status === 'succeeded'
+            ? 'This payment has already been refunded.'
+            : 'A refund is already in progress.',
+        });
+      }
+
+      const requestId = ('RF-' + order.order_code + '-' + Date.now()).slice(0, 120);
+      const [refundResult] = await connection.query(
+        "INSERT INTO payment_refunds (payment_id, order_id, request_id, amount, status) VALUES (?, ?, ?, ?, 'initiated')",
+        [payment.id, order.id, requestId, order.total_amount],
+      );
+      const payload = buildRefundPayload({
+        secret: refundConfig.secret,
+        tmnCode: refundConfig.tmnCode,
+        requestId,
+        txnRef: payment.gateway_reference || order.order_code,
+        amount: order.total_amount,
+        transactionNo: payment.gateway_txn_id,
+        transactionDate: formatVnpayDate(new Date(payment.gateway_created_at || payment.paid_at || payment.created_at)),
+        createBy: req.auth.userId,
+        ipAddress: String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1')
+          .split(',')[0].trim().replace(/^::ffff:/, ''),
+        orderInfo: 'Hoan tien don hang ' + order.order_code,
+      });
+
+      let refundFailure = null;
+      try {
+        const gatewayResult = await fetch(refundConfig.apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
+        });
+        const rawText = await gatewayResult.text();
+        try {
+          refundResponse = JSON.parse(rawText);
+        } catch {
+          refundResponse = { rawText: rawText.slice(0, 2000) };
+        }
+        const signatureValid = verifyRefundResponse(refundResponse, refundConfig.secret);
+        const gatewaySucceeded = gatewayResult.ok
+          && signatureValid
+          && refundResponse.vnp_ResponseCode === '00'
+          && refundResponse.vnp_TransactionStatus === '00';
+        if (!gatewaySucceeded) {
+          refundFailure = signatureValid
+            ? String(refundResponse.vnp_Message || refundResponse.vnp_ResponseCode || 'VNPay rejected the refund.')
+            : 'Invalid VNPay refund response signature.';
+        }
+      } catch (error) {
+        refundFailure = error.name === 'TimeoutError'
+          ? 'VNPay refund request timed out.'
+          : 'VNPay refund request failed: ' + error.message;
+        refundResponse = { error: refundFailure };
+      }
+
+      if (refundFailure) {
+        await connection.query(
+          "UPDATE payment_refunds SET status = 'failed', failure_reason = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
+          [refundFailure.slice(0, 500), JSON.stringify(refundResponse), refundResult.insertId],
+        );
+        await connection.commit();
+        return res.status(502).json({
+          error: 'The gateway did not confirm the refund. The order was not cancelled.',
+          reason: refundFailure,
+        });
+      }
+
+      await connection.query(
+        "UPDATE payment_refunds SET status = 'succeeded', gateway_txn_id = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
+        [refundResponse.vnp_TransactionNo || null, JSON.stringify(refundResponse), refundResult.insertId],
+      );
+      paymentStatus = 'refunded';
+    }
+
+    await connection.query(
+      "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'admin', cancel_reason = ?, cancelled_at = NOW(), payment_status = ? WHERE id = ?",
+      [reason, paymentStatus, order.id],
+    );
+    await connection.query(
+      "UPDATE payments SET status = 'cancelled', failure_reason = 'Order cancelled by admin' WHERE order_id = ? AND status IN ('initiated', 'pending')",
+      [order.id],
+    );
+    await connection.query(
+      "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+      [order.id],
+    );
+    await connection.query(
+      "INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note) VALUES (?, ?, 'cancelled', 'admin', ?, ?)",
+      [order.id, order.status, req.auth.userId, reason],
+    );
+    await connection.query(
+      "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'order_cancelled', ?, ?, '/app/orders')",
+      [
+        order.customer_id,
+        'Don hang ' + order.order_code + ' da bi huy',
+        'Don hang ' + order.order_code + ' da bi quan tri vien huy. Ly do: ' + reason,
+      ],
+    );
+
+    await connection.commit();
+    const [updatedOrders] = await pool.query(
+      'SELECT * FROM orders WHERE id = ? LIMIT 1',
+      [order.id],
+    );
+    return res.json({
+      ok: true,
+      order: updatedOrders[0],
+      refund: refundResponse
+        ? { status: 'succeeded', transactionNo: refundResponse.vnp_TransactionNo || null }
+        : null,
+    });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
+// --- KIEM DUYET DANH GIA ---
+
+router.get('/reviews', async (req, res, next) => {
+  try {
+    const { hidden, page, q } = req.query;
+    const ratingMax = req.query.ratingMax === undefined ? null : Number(req.query.ratingMax);
+    const pageVal = Math.max(1, parseInt(page, 10) || 1);
+    const limit = 10;
+    const offset = (pageVal - 1) * limit;
+
+    let whereSql = '1 = 1';
+    const params = [];
+
+    if (hidden === 'true' || hidden === '1') {
+      whereSql += ' AND rv.is_hidden = 1';
+    } else if (hidden === 'false' || hidden === '0') {
+      whereSql += ' AND rv.is_hidden = 0';
+    }
+
+    if (ratingMax !== null) {
+      if (!Number.isInteger(ratingMax) || ratingMax < 1 || ratingMax > 5) {
+        return res.status(400).json({ error: 'ratingMax must be an integer from 1 to 5.' });
+      }
+      whereSql += ' AND rv.rating <= ?';
+      params.push(ratingMax);
+    }
+    const search = String(q ?? '').trim();
+    if (search) {
+      whereSql += ' AND (rv.comment LIKE ? OR u.full_name LIKE ? OR r.name LIKE ? OR o.order_code LIKE ?)';
+      const needle = '%' + search + '%';
+      params.push(needle, needle, needle, needle);
+    }
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM reviews rv
+       LEFT JOIN users u ON rv.customer_id = u.id
+       LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN orders o ON rv.order_id = o.id
+       WHERE ${whereSql}`,
+      params
+    );
+    const total = countRows[0]?.total ?? 0;
+
+    const [rows] = await pool.query(
+      `SELECT rv.*, u.full_name AS customer_name, u.avatar_url AS customer_avatar, r.name AS restaurant_name, o.order_code
+       FROM reviews rv
+       LEFT JOIN users u ON rv.customer_id = u.id
+       LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN orders o ON rv.order_id = o.id
+       WHERE ${whereSql}
+       ORDER BY rv.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows,
+      pagination: {
+        page: pageVal,
+        limit,
+        total
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/reviews/:id', async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const id = Number(req.params.id);
+    const { isHidden } = req.body;
+
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'ID đánh giá không hợp lệ' });
+    }
+
+    if (isHidden === undefined) {
+      return res.status(400).json({ error: 'Thiếu trường isHidden' });
+    }
+
+    await connection.beginTransaction();
+
+    const [reviews] = await connection.query(
+      'SELECT restaurant_id FROM reviews WHERE id = ? FOR UPDATE',
+      [id]
+    );
+
+    if (reviews.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đánh giá' });
+    }
+
+    const { restaurant_id } = reviews[0];
+
+    await connection.query(
+      'UPDATE reviews SET is_hidden = ? WHERE id = ?',
+      [isHidden ? 1 : 0, id]
+    );
+
+    const [stats] = await connection.query(
+      `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
+      [restaurant_id]
+    );
+    
+    const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
+    const nextCount = stats[0].cnt || 0;
+
+    await connection.query(
+      `UPDATE restaurants SET rating_avg = ?, review_count = ? WHERE id = ?`,
+      [nextAvg, nextCount, restaurant_id]
+    );
+
+    await connection.commit();
+    res.json({ ok: true, isHidden: Boolean(isHidden) });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+});
 
 export default router;

@@ -11,11 +11,10 @@ import { apiGet } from '../../lib/api.js';
 // Customer profile — reached from the mobile bottom nav (and surfaced on
 // desktop via the avatar menu in the top nav).
 const SETTINGS = [
-  { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin', link: '/app/profile/addresses' },
-  { id: 'payments', label: 'Phương thức thanh toán', icon: 'card', link: '/app/profile/payments' },
-  { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap', link: '/app/profile/promotions' },
+  { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin', link: '/app/profile/addresses', customerOnly: true },
+  { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap', link: '/app/profile/promotions', customerOnly: true },
   { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/profile/notifications' },
-  { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/chat-admin' },
+  { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/inbox' },
   { id: 'settings', label: 'Cài đặt ứng dụng', icon: 'cog', link: '/app/profile/settings' },
 ];
 
@@ -26,17 +25,41 @@ export default function CustomerProfile() {
     user,
     currentCustomer,
     permittedRoles,
+    shopAsCustomer,
     logout,
   } = useApp();
   const [orders, setOrders] = useState([]);
+  const [defaultAddress, setDefaultAddress] = useState(null);
 
   useEffect(() => {
-    if (user) {
-      apiGet('/api/v1/orders')
-        .then((data) => setOrders(data || []))
-        .catch((err) => console.error('Failed to load orders', err));
+    if (!user || !shopAsCustomer) {
+      setOrders([]);
+      setDefaultAddress(null);
+      return undefined;
     }
-  }, [user]);
+
+    let cancelled = false;
+    Promise.all([
+      apiGet('/api/v1/me/orders?limit=50'),
+      apiGet('/api/v1/me/addresses'),
+    ])
+      .then(([ordersResponse, addressesResponse]) => {
+        if (cancelled) return;
+        setOrders(ordersResponse?.data ?? ordersResponse ?? []);
+        const addresses = addressesResponse?.data ?? addressesResponse ?? [];
+        setDefaultAddress(addresses.find((address) => address.isDefault ?? address.is_default) ?? addresses[0] ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOrders([]);
+          setDefaultAddress(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shopAsCustomer, user]);
 
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
   const activeCount = orders.filter((o) => !['delivered', 'cancelled', 'failed'].includes(o.status)).length;
@@ -47,9 +70,10 @@ export default function CustomerProfile() {
         email: user.email ?? '',
         phone: user.phone ?? '',
         avatar: user.avatarUrl,
-        address: '',
+        address: defaultAddress?.formattedAddress ?? defaultAddress?.formatted_address ?? defaultAddress?.address ?? '',
       })
     : null;
+  const visibleSettings = SETTINGS.filter((item) => !item.customerOnly || shopAsCustomer);
 
   return (
     <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
@@ -88,13 +112,13 @@ export default function CustomerProfile() {
       </Card>
 
       {/* Order stats */}
-      <div className="grid grid-cols-2 gap-2">
-        <Stat label="Đơn hàng đang hoạt động" value={activeCount} icon="bike" link="/app/orders" />
+      {user && shopAsCustomer && <div className="grid grid-cols-2 gap-2">
+        <Stat label="Đơn hàng đang hoạt động" value={activeCount} icon="package" link="/app/orders" />
         <Stat label="Đã giao" value={deliveredCount} icon="check" link="/app/orders" />
-      </div>
+      </div>}
 
       {/* Address card */}
-      {user && (
+      {user && shopAsCustomer && (
         <Link to="/app/profile/addresses" className="block">
           <Card padded hover>
             <div className="flex items-center gap-sm">
@@ -116,7 +140,7 @@ export default function CustomerProfile() {
       {/* Settings list */}
       <Card padded={false}>
         <ul className="divide-y divide-hairline">
-          {SETTINGS.map((it) => {
+          {visibleSettings.map((it) => {
             const inner = (
               <>
                 <span className="grid h-9 w-9 place-items-center rounded-md bg-surface-strong text-ink">
@@ -145,7 +169,7 @@ export default function CustomerProfile() {
         <div className="text-caption-uppercase text-body mb-sm">Các nền tảng khác</div>
         <div className="grid grid-cols-3 gap-xs">
           {permittedRoles.merchant && <RoleTile to="/merchant" icon="store" label="Quán ăn" />}
-          {permittedRoles.driver && <RoleTile to="/driver" icon="bike" label="Tài xế" />}
+
           {permittedRoles.admin && <RoleTile to="/admin" icon="shield" label="Quản trị" />}
         </div>
       </Card>
@@ -153,7 +177,7 @@ export default function CustomerProfile() {
       {user && (
         <Button
           variant="secondary"
-          className="!text-error !border-error/40 hover:!bg-[#fbeaea]"
+          className="!border-[#dc2626] !bg-white !font-normal !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
           onClick={() => logout()}
         >
           Đăng xuất

@@ -9,7 +9,7 @@ import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { fetchMerchantRestaurantApi } from '../../lib/api.js';
+import { fetchMerchantOrdersApi, fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
 import {
   isMerchantRestaurantApproved,
   isMerchantRestaurantRejected,
@@ -36,9 +36,13 @@ const links = [
 // ---------------------------------------------------------------------------
 export default function MerchantLayout() {
   const nav = useNavigate();
-  const { currentMerchant, merchantOrders, pushToast, logout } = useApp();
+  const { currentMerchant, pushToast, logout } = useApp();
   const [checkingRestaurant, setCheckingRestaurant] = useState(true);
+  const [restaurantOpen, setRestaurantOpen] = useState(true);
+  const [restaurantProfile, setRestaurantProfile] = useState(null);
+  const [changingOpen, setChangingOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [newCount, setNewCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +55,12 @@ export default function MerchantLayout() {
           nav('/merchant/onboarding', { replace: true });
           return;
         }
-        if (isMerchantRestaurantUnderReview(restaurant.status) || isMerchantRestaurantRejected(restaurant.status)) {
+        setRestaurantProfile(data.restaurant);
+        const ordersResponse = await fetchMerchantOrdersApi({ status: 'placed' });
+        if (!active) return;
+        setNewCount((ordersResponse?.data ?? ordersResponse ?? []).filter((order) => order.status === 'placed').length);
+        setRestaurantOpen(Boolean(data.restaurant.is_open_now));
+        if (data.restaurant.status !== 'active') {
           nav('/merchant/pending', { replace: true });
           return;
         }
@@ -81,6 +90,25 @@ export default function MerchantLayout() {
     };
   }, [nav, pushToast]);
 
+  const changeOpenStatus = async (value) => {
+    const previous = restaurantOpen;
+    setRestaurantOpen(value);
+    setChangingOpen(true);
+    try {
+      await updateMerchantSettingsApi({ isOpenNow: value });
+      pushToast({
+        kind: value ? 'success' : 'warning',
+        title: value ? 'Quán đã mở cửa' : 'Quán đã đóng cửa',
+        message: value ? 'Quán đang nhận đơn đặt hàng.' : 'Quán tạm ngừng nhận đơn mới.',
+      });
+    } catch (error) {
+      setRestaurantOpen(previous);
+      pushToast({ kind: 'error', title: 'Không thể cập nhật', message: error.message || 'Vui lòng thử lại.' });
+    } finally {
+      setChangingOpen(false);
+    }
+  };
+
   if (checkingRestaurant) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-canvas-soft">
@@ -90,7 +118,12 @@ export default function MerchantLayout() {
     );
   }
 
-  const newCount = merchantOrders.new.length;
+  const merchantIdentity = {
+    ...currentMerchant,
+    name: restaurantProfile?.name || currentMerchant.name,
+    avatar: restaurantProfile?.logo_url || currentMerchant.avatar,
+  };
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'short',
@@ -101,7 +134,7 @@ export default function MerchantLayout() {
     <div className="flex min-h-screen bg-canvas-soft">
       {/* Desktop sidebar — persistent */}
       <DesktopSidebar
-        currentMerchant={currentMerchant}
+        currentMerchant={merchantIdentity}
         newCount={newCount}
         onSwitchRole={() => nav('/app')}
         onLogout={() => logout()}
@@ -116,7 +149,7 @@ export default function MerchantLayout() {
         width="md"
       >
         <SidebarContent
-          currentMerchant={currentMerchant}
+          currentMerchant={merchantIdentity}
           newCount={newCount}
           onItemClick={() => setDrawerOpen(false)}
           onSwitchRole={() => nav('/app')}
@@ -138,7 +171,7 @@ export default function MerchantLayout() {
           <div className="min-w-0 flex-1">
             <div className="text-caption-uppercase text-body leading-none">{today}</div>
             <div className="text-body-sm font-semibold text-ink truncate">
-              {currentMerchant.name}
+              {merchantIdentity.name}
             </div>
           </div>
           {newCount > 0 && <Badge tone="live" dot>{newCount}</Badge>}
@@ -150,14 +183,15 @@ export default function MerchantLayout() {
           <div className="flex items-center gap-base">
             <div>
               <div className="text-caption-uppercase text-body">{today}</div>
-              <div className="text-title-md text-ink">{currentMerchant.name}</div>
+              <div className="text-title-md text-ink">{merchantIdentity.name}</div>
             </div>
             <div className="h-8 w-px bg-hairline" />
             <Switch
-              checked={Boolean(currentMerchant.restaurantOpen)}
-              disabled
-              label={currentMerchant.restaurantOpen ? 'Mở cửa nhận đơn' : 'Chưa đồng bộ trạng thái'}
-              hint="Chức năng mở/đóng quán chưa có backend thật."
+              checked={restaurantOpen}
+              onChange={changeOpenStatus}
+            disabled={changingOpen}
+              label={restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
+              hint={restaurantOpen ? 'Khách hàng có thể đặt hàng' : 'Chuyển đổi để nhận đơn'}
             />
           </div>
           <div className="flex items-center gap-xs">
@@ -170,7 +204,7 @@ export default function MerchantLayout() {
             <Button
               variant="secondary"
               leadingIcon="chat"
-              onClick={() => nav('/chat/chat-merchant')}
+              onClick={() => nav('/chat/inbox')}
             >
               Trò chuyện với khách hàng
             </Button>
@@ -183,14 +217,14 @@ export default function MerchantLayout() {
         {/* Mobile sub-bar: open/closed toggle (out of the top header to give it room) */}
         <div className="flex items-center justify-between border-b border-hairline bg-canvas-soft px-base py-2 md:hidden">
           <Switch
-            checked={Boolean(currentMerchant.restaurantOpen)}
-            disabled
-            label={currentMerchant.restaurantOpen ? 'Mở cửa' : 'Chưa đồng bộ'}
-            hint="Chưa có backend để thay đổi trạng thái quán."
+            checked={restaurantOpen}
+            onChange={changeOpenStatus}
+              disabled={changingOpen}
+            label={restaurantOpen ? 'Mở cửa' : 'Đóng cửa'}
             size="sm"
           />
           <button
-            onClick={() => nav('/chat/chat-merchant')}
+            onClick={() => nav('/chat/inbox')}
             className="inline-flex items-center gap-1 text-button text-text-link"
           >
             <Icon name="chat" size={14} />

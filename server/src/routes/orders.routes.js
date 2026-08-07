@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import pool from '../db/pool.js';
 import { calculateDistance } from '../lib/geo.js';
+import { evaluateVoucher } from '../lib/voucher.js';
 import crypto from 'crypto';
 
 const router = Router();
@@ -9,7 +10,7 @@ const router = Router();
 // Lấy danh sách cart active
 async function getActiveCart(connection, customerId) {
   const [carts] = await connection.query(
-    `SELECT * FROM carts WHERE customer_id = ? AND status = 'active' LIMIT 1`,
+    `SELECT * FROM carts WHERE customer_id = ? AND status = 'active' LIMIT 1 FOR UPDATE`,
     [customerId]
   );
   return carts[0];
@@ -23,23 +24,6 @@ function generateOrderCode() {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `ORD-${code}`;
-}
-
-function calculateVoucherDiscount(voucher, subtotal) {
-  if (!voucher) return 0;
-
-  let discount = 0;
-  if (voucher.discount_type === 'percent') {
-    discount = Math.floor((subtotal * Number(voucher.discount_value)) / 100);
-  } else {
-    discount = Number(voucher.discount_value);
-  }
-
-  if (voucher.max_discount_amount !== null && voucher.max_discount_amount !== undefined) {
-    discount = Math.min(discount, Number(voucher.max_discount_amount));
-  }
-
-  return Math.max(0, Math.min(subtotal, Math.floor(discount)));
 }
 
 router.post('/', requireAuth, async (req, res, next) => {
@@ -63,7 +47,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // Lấy cart items + menu items info
     const [cartItems] = await connection.query(
-      `SELECT ci.*, m.name as item_name, m.price, m.prep_time_min 
+      `SELECT ci.*, m.name as item_name, m.price, m.prep_time_min
        FROM cart_items ci
        JOIN menu_items m ON ci.menu_item_id = m.id
        WHERE ci.cart_id = ?`,
@@ -109,14 +93,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     const normalizedVoucherCode = String(voucherCode ?? '').trim().toUpperCase();
     if (normalizedVoucherCode) {
       const [voucherRows] = await connection.query(
-        `SELECT *
-           FROM vouchers
-          WHERE code = ?
-            AND status = 'active'
-            AND starts_at <= NOW()
-            AND ends_at >= NOW()
-            AND (restaurant_id IS NULL OR restaurant_id = ?)
-          LIMIT 1`,
+        "SELECT * FROM vouchers WHERE code = ? AND (restaurant_id IS NULL OR restaurant_id = ?) LIMIT 1 FOR UPDATE",
         [normalizedVoucherCode, restaurant.id],
       );
       voucher = voucherRows[0] ?? null;
@@ -130,33 +107,24 @@ router.post('/', requireAuth, async (req, res, next) => {
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const delivery_fee = restaurant.base_delivery_fee;
     if (voucher) {
-      const minOrderAmount = Number(voucher.min_order_amount ?? 0);
-      if (subtotal < minOrderAmount) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Đơn hàng chưa đạt giá trị tối thiểu của voucher.' });
-      }
-
       const [[voucherUsageRow]] = await connection.query(
-        `SELECT
-           COUNT(*) AS totalUsage,
-           COALESCE(SUM(CASE WHEN customer_id = ? THEN 1 ELSE 0 END), 0) AS customerUsage
-         FROM voucher_redemptions
-         WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')`,
+        "SELECT COUNT(*) AS totalUsage, COALESCE(SUM(CASE WHEN customer_id = ? THEN 1 ELSE 0 END), 0) AS customerUsage FROM voucher_redemptions WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')",
         [customerId, voucher.id],
       );
-
-      const totalUsage = Number(voucherUsageRow?.totalUsage ?? 0);
-      const customerUsage = Number(voucherUsageRow?.customerUsage ?? 0);
-      if (voucher.usage_limit !== null && voucher.usage_limit !== undefined && totalUsage >= Number(voucher.usage_limit)) {
+      const evaluation = evaluateVoucher(voucher, {
+        subtotal,
+        restaurantId: restaurant.id,
+        totalUsage: Number(voucherUsageRow?.totalUsage ?? 0),
+        customerUsage: Number(voucherUsageRow?.customerUsage ?? 0),
+      });
+      if (!evaluation.ok) {
         await connection.rollback();
-        return res.status(400).json({ error: 'Voucher đã hết lượt sử dụng.' });
+        return res.status(400).json({
+          error: 'Voucher cannot be applied.',
+          reason: evaluation.reason,
+        });
       }
-      if (customerUsage >= Number(voucher.per_user_limit ?? 1)) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Bạn đã dùng voucher này đủ số lần cho phép.' });
-      }
-
-      voucherDiscount = calculateVoucherDiscount(voucher, subtotal);
+      voucherDiscount = evaluation.discountAmount;
     }
     const discount_amount = voucherDiscount;
     const total_amount = subtotal + delivery_fee - discount_amount;
@@ -174,7 +142,7 @@ router.post('/', requireAuth, async (req, res, next) => {
         Number(restaurant.latitude), Number(restaurant.longitude)
       );
     }
-    
+
     // Tìm thời gian chuẩn bị món lâu nhất
     const max_prep_time = cartItems.reduce((max, i) => Math.max(max, i.prep_time_min), 0);
     // Thời gian chuẩn bị dự kiến + mặc định 15 phút giao hàng
@@ -239,37 +207,27 @@ router.post('/', requireAuth, async (req, res, next) => {
           order_id, menu_item_id, item_name_snapshot, unit_price_snapshot, quantity, line_subtotal, note
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          orderId, item.menu_item_id, item.item_name, item.price, item.quantity, 
+          orderId, item.menu_item_id, item.item_name, item.price, item.quantity,
           item.price * item.quantity, item.note || null
         ]
       );
     }
 
     if (voucher) {
+      const redemptionStatus = paymentMethod === 'vnpay' ? 'reserved' : 'redeemed';
       await connection.query(
-        `INSERT INTO voucher_redemptions (
-          voucher_id, customer_id, order_id, discount_amount, status, redeemed_at
-        ) VALUES (?, ?, ?, ?, 'redeemed', NOW())`,
-        [voucher.id, customerId, orderId, discount_amount],
+        "INSERT INTO voucher_redemptions (voucher_id, customer_id, order_id, discount_amount, status, redeemed_at) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          voucher.id,
+          customerId,
+          orderId,
+          discount_amount,
+          redemptionStatus,
+          redemptionStatus === 'redeemed' ? new Date() : null,
+        ],
       );
-
-      if (voucher.usage_limit !== null && voucher.usage_limit !== undefined) {
-        const [[usageRow]] = await connection.query(
-          `SELECT COUNT(*) AS totalUsage
-             FROM voucher_redemptions
-            WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')`,
-          [voucher.id],
-        );
-
-        if (Number(usageRow?.totalUsage ?? 0) >= Number(voucher.usage_limit)) {
-          await connection.query(
-            'UPDATE vouchers SET status = ? WHERE id = ?',
-            ['paused', voucher.id],
-          );
-        }
-      }
     }
-    
+
     // Lưu bản ghi trạng thái (Status log)
     await connection.query(
       `INSERT INTO order_status_logs (order_id, to_status, changed_by_role, changed_by_user_id, note)
@@ -277,22 +235,24 @@ router.post('/', requireAuth, async (req, res, next) => {
       [orderId, status, customerId]
     );
 
-    const [customerRows] = await connection.query(
-      'SELECT full_name FROM users WHERE id = ? LIMIT 1',
-      [customerId],
-    );
-    const customerName = customerRows[0]?.full_name ?? 'Khách hàng';
-    const itemCount = cartItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+    if (paymentMethod === 'cod') {
+      const [customerRows] = await connection.query(
+        'SELECT full_name FROM users WHERE id = ? LIMIT 1',
+        [customerId],
+      );
+      const customerName = customerRows[0]?.full_name ?? 'Khách hàng';
+      const itemCount = cartItems.reduce((sum, item) => sum + Number(item.quantity), 0);
 
-    await connection.query(
-      `INSERT INTO notifications (user_id, type, title, body, link_url)
-       VALUES (?, 'order_placed', ?, ?, '/merchant/orders')`,
-      [
-        restaurant.owner_user_id,
-        'Đơn hàng mới',
-        `${customerName} đặt đơn ${orderCode} với ${itemCount} món.`,
-      ],
-    );
+      await connection.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url)
+         VALUES (?, 'order_placed', ?, ?, '/merchant/orders')`,
+        [
+          restaurant.owner_user_id,
+          'Đơn hàng mới',
+          `${customerName} đặt đơn ${orderCode} với ${itemCount} món.`,
+        ],
+      );
+    }
 
     // 8. Đổi giỏ hàng sang converted (Xóa cứng)
     await connection.query(
@@ -322,8 +282,8 @@ router.get('/', requireAuth, async (req, res, next) => {
     const { userId } = req.auth;
     const { restaurantId } = req.query;
 
-    let query = `SELECT o.*, (SELECT id FROM reviews WHERE order_id = o.id LIMIT 1) AS review_id 
-                 FROM orders o 
+    let query = `SELECT o.*, (SELECT id FROM reviews WHERE order_id = o.id LIMIT 1) AS review_id
+                 FROM orders o
                  WHERE o.customer_id = ? `;
     const params = [userId];
 
@@ -399,9 +359,9 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
 
     // Lấy thông tin order items
     const [items] = await pool.query(
-      `SELECT oi.*, m.image_url 
-       FROM order_items oi 
-       LEFT JOIN menu_items m ON oi.menu_item_id = m.id 
+      `SELECT oi.*, m.image_url
+       FROM order_items oi
+       LEFT JOIN menu_items m ON oi.menu_item_id = m.id
        WHERE oi.order_id = ?`,
       [order.id]
     );
@@ -485,7 +445,7 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
       `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
       [order.restaurant_id]
     );
-    
+
     const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
     const nextCount = stats[0].cnt || 0;
 
