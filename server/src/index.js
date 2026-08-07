@@ -42,6 +42,10 @@ app.use('/api/v1/uploads', uploadsRoutes);
 app.use('/api/v1/orders', ordersRoutes);
 
 app.use((err, _req, res, _next) => {
+  if (err?.message === 'Request aborted' || err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') {
+    return;
+  }
+
   console.error(err);
   const status =
     err.status ??

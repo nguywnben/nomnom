@@ -6,6 +6,12 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import { fetchMerchantRestaurantApi } from '../../lib/api.js';
+import {
+  isMerchantRestaurantApproved,
+  isMerchantRestaurantRejected,
+  isMerchantRestaurantUnderReview,
+  normalizeMerchantRestaurantStatus,
+} from '../../lib/merchantStatus.js';
 
 function formatAddress(restaurant) {
   return [restaurant.address_line, restaurant.ward, restaurant.district, restaurant.city]
@@ -27,10 +33,10 @@ function formatSubmittedAt(value) {
 }
 
 function resolveView(restaurant) {
-  const status = restaurant.status;
+  const status = normalizeMerchantRestaurantStatus(restaurant.status);
   const rejectionReason = restaurant.rejection_reason?.trim();
 
-  if (status === 'suspended' && rejectionReason) {
+  if (status === 'rejected' && rejectionReason) {
     return {
       key: 'rejected',
       badge: { tone: 'error', label: 'Bị từ chối', dot: true },
@@ -46,7 +52,7 @@ function resolveView(restaurant) {
     };
   }
 
-  if (status === 'pending') {
+  if (status === 'under_review') {
     return {
       key: 'pending',
       badge: { tone: 'warning', label: 'Chờ duyệt', dot: true },
@@ -66,7 +72,7 @@ function resolveView(restaurant) {
     };
   }
 
-  if (status === 'suspended') {
+  if (status === 'rejected') {
     return {
       key: 'suspended',
       badge: { tone: 'error', label: 'Tạm ngưng', dot: true },
@@ -99,7 +105,7 @@ function resolveView(restaurant) {
 
   return {
     key: 'unknown',
-    badge: { tone: 'outline', label: status },
+    badge: { tone: 'outline', label: status || 'unknown' },
     icon: 'clock',
     iconWrap: 'bg-canvas-soft text-ink border-hairline-strong',
     title: 'Đang chuẩn bị',
@@ -129,8 +135,13 @@ export default function MerchantPending() {
           return;
         }
 
-        if (data.restaurant.status === 'active') {
+        if (isMerchantRestaurantApproved(data.restaurant.status)) {
           navigate('/merchant', { replace: true });
+          return;
+        }
+
+        if (isMerchantRestaurantRejected(data.restaurant.status) || isMerchantRestaurantUnderReview(data.restaurant.status)) {
+          setRestaurant(data.restaurant);
           return;
         }
 

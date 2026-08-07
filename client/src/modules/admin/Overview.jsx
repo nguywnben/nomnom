@@ -169,13 +169,13 @@ export default function AdminOverview() {
                   </Badge>
                 )}
               </div>
-              <div className="h-64">
+              <div className="h-64 min-w-0">
                 {chart.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-body-sm text-body">
                     Chưa có đơn trong kỳ này.
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <AreaChart data={chart}>
                       <defs>
                         <linearGradient id="adminGmv" x1="0" y1="0" x2="0" y2="1">
@@ -261,13 +261,13 @@ export default function AdminOverview() {
               <div className="text-caption-uppercase text-body">Khối lượng đơn</div>
               <div className="text-title-md text-ink">Theo ngày trong kỳ</div>
             </div>
-            <div className="h-56">
+            <div className="h-56 min-w-0">
               {chart.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-body-sm text-body">
                   Chưa có đơn trong kỳ này.
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <BarChart data={chart}>
                     <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
                     <XAxis

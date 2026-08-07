@@ -10,6 +10,11 @@ import Logo from '../../components/Logo.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantRestaurantApi } from '../../lib/api.js';
+import {
+  isMerchantRestaurantApproved,
+  isMerchantRestaurantRejected,
+  isMerchantRestaurantUnderReview,
+} from '../../lib/merchantStatus.js';
 
 const links = [
   { to: '/merchant', label: 'Bảng điều khiển', icon: 'grid', end: true },
@@ -33,7 +38,6 @@ export default function MerchantLayout() {
   const nav = useNavigate();
   const { currentMerchant, merchantOrders, pushToast, logout } = useApp();
   const [checkingRestaurant, setCheckingRestaurant] = useState(true);
-  const [restaurantOpen, setRestaurantOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -42,15 +46,25 @@ export default function MerchantLayout() {
       try {
         const data = await fetchMerchantRestaurantApi();
         if (!active) return;
-        if (!data || !data.restaurant) {
+        const restaurant = data?.restaurant;
+        if (!restaurant) {
           nav('/merchant/onboarding', { replace: true });
           return;
         }
-        if (data.restaurant.status !== 'active') {
+        if (isMerchantRestaurantUnderReview(restaurant.status) || isMerchantRestaurantRejected(restaurant.status)) {
           nav('/merchant/pending', { replace: true });
           return;
         }
+        if (!isMerchantRestaurantApproved(restaurant.status)) {
+          nav('/merchant/onboarding', { replace: true });
+          return;
+        }
       } catch (err) {
+        if (err?.status === 401) {
+          await logout();
+          nav('/login', { replace: true });
+          return;
+        }
         console.error('Error fetching restaurant status:', err);
         pushToast({
           kind: 'error',
@@ -140,17 +154,10 @@ export default function MerchantLayout() {
             </div>
             <div className="h-8 w-px bg-hairline" />
             <Switch
-              checked={restaurantOpen}
-              onChange={(v) => {
-                setRestaurantOpen(v);
-                pushToast({
-                  kind: v ? 'success' : 'warning',
-                  title: v ? 'Quán đã mở cửa' : 'Quán đã đóng cửa',
-                  message: v ? 'Hiện đang nhận đơn đặt hàng' : 'Khách hàng sẽ không thấy thực đơn của bạn',
-                });
-              }}
-              label={restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
-              hint={restaurantOpen ? 'Khách hàng có thể đặt hàng' : 'Chuyển đổi để nhận đơn'}
+              checked={Boolean(currentMerchant.restaurantOpen)}
+              disabled
+              label={currentMerchant.restaurantOpen ? 'Mở cửa nhận đơn' : 'Chưa đồng bộ trạng thái'}
+              hint="Chức năng mở/đóng quán chưa có backend thật."
             />
           </div>
           <div className="flex items-center gap-xs">
@@ -176,16 +183,10 @@ export default function MerchantLayout() {
         {/* Mobile sub-bar: open/closed toggle (out of the top header to give it room) */}
         <div className="flex items-center justify-between border-b border-hairline bg-canvas-soft px-base py-2 md:hidden">
           <Switch
-            checked={restaurantOpen}
-            onChange={(v) => {
-              setRestaurantOpen(v);
-              pushToast({
-                kind: v ? 'success' : 'warning',
-                title: v ? 'Quán đã mở cửa' : 'Quán đã đóng cửa',
-                message: v ? 'Hiện đang nhận đơn đặt hàng' : 'Khách hàng sẽ không thấy thực đơn của bạn',
-              });
-            }}
-            label={restaurantOpen ? 'Mở cửa' : 'Đóng cửa'}
+            checked={Boolean(currentMerchant.restaurantOpen)}
+            disabled
+            label={currentMerchant.restaurantOpen ? 'Mở cửa' : 'Chưa đồng bộ'}
+            hint="Chưa có backend để thay đổi trạng thái quán."
             size="sm"
           />
           <button
@@ -225,31 +226,49 @@ function DesktopSidebar({ currentMerchant, newCount, onSwitchRole, onLogout }) {
 }
 
 function SidebarContent({ currentMerchant, newCount, onItemClick, onSwitchRole, onLogout }) {
+  const linksWithFlags = links.map((link) => ({
+    ...link,
+    disabled: link.to === '/merchant/wallet' || link.to === '/merchant/settings',
+  }));
+
   return (
     <>
       <nav className="flex-1 px-sm py-2">
-        {links.map((l) => (
-          <NavLink
-            key={l.to}
-            to={l.to}
-            end={l.end}
-            onClick={onItemClick}
-            className={({ isActive }) =>
-              clsx(
-                'flex h-12 items-center gap-2 rounded-md px-sm text-button transition-colors',
-                isActive ? 'bg-primary text-on-primary' : 'text-ink hover:bg-canvas-soft',
-              )
-            }
-          >
-            <Icon name={l.icon} size={16} />
-            <span className="flex-1">{l.label}</span>
-            {l.label === 'Đơn hàng' && newCount > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-card text-ink px-1 text-caption nums">
-                {newCount}
-              </span>
-            )}
-          </NavLink>
-        ))}
+        {linksWithFlags.map((l) =>
+          l.disabled ? (
+            <div
+              key={l.to}
+              className="flex h-12 items-center gap-2 rounded-md px-sm text-button text-body opacity-60"
+              aria-disabled="true"
+              title="Chưa có backend thật"
+            >
+              <Icon name={l.icon} size={16} />
+              <span className="flex-1">{l.label}</span>
+              <Badge tone="outline">Khóa</Badge>
+            </div>
+          ) : (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.end}
+              onClick={onItemClick}
+              className={({ isActive }) =>
+                clsx(
+                  'flex h-12 items-center gap-2 rounded-md px-sm text-button transition-colors',
+                  isActive ? 'bg-primary text-on-primary' : 'text-ink hover:bg-canvas-soft',
+                )
+              }
+            >
+              <Icon name={l.icon} size={16} />
+              <span className="flex-1">{l.label}</span>
+              {l.label === 'Đơn hàng' && newCount > 0 && (
+                <span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-card text-ink px-1 text-caption nums">
+                  {newCount}
+                </span>
+              )}
+            </NavLink>
+          ),
+        )}
       </nav>
       <div className="border-t border-hairline p-sm">
         <div className="flex items-center gap-sm">

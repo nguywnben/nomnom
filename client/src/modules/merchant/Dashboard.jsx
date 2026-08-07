@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -13,16 +13,20 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import StatCard from '../../components/StatCard.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { fetchMerchantDashboardApi } from '../../lib/api.js';
-import { restaurants } from '../../data/mock.js';
+
+let dashboardApiMissing = false;
 
 export default function MerchantDashboard() {
   const { currentMerchant } = useApp();
   const [range, setRange] = useState('today');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [backendUnavailable, setBackendUnavailable] = useState(dashboardApiMissing);
+  const requestSeq = useRef(0);
   const [dashboardData, setDashboardData] = useState({
     summary: {
       orderCount: 0,
@@ -37,22 +41,34 @@ export default function MerchantDashboard() {
   });
 
   useEffect(() => {
+    if (backendUnavailable) {
+      setLoading(false);
+      setError(null);
+      return undefined;
+    }
+
     let active = true;
+    const currentRequest = ++requestSeq.current;
     async function loadData() {
       setLoading(true);
       setError(null);
       try {
         const data = await fetchMerchantDashboardApi(range);
-        if (active) {
+        if (active && requestSeq.current === currentRequest) {
           setDashboardData(data);
         }
       } catch (err) {
-        if (active) {
+        if (active && requestSeq.current === currentRequest) {
+          if (err?.status === 404) {
+            dashboardApiMissing = true;
+            setBackendUnavailable(true);
+            return;
+          }
           console.error('Error fetching merchant dashboard data:', err);
           setError('Không thể tải thông tin báo cáo. Vui lòng thử lại sau.');
         }
       } finally {
-        if (active) {
+        if (active && requestSeq.current === currentRequest) {
           setLoading(false);
         }
       }
@@ -61,9 +77,10 @@ export default function MerchantDashboard() {
     return () => {
       active = false;
     };
-  }, [range]);
+  }, [backendUnavailable, range]);
 
-  const r = restaurants.find((x) => x.id === currentMerchant?.restaurantId || x.id === `r-${currentMerchant?.restaurantId}`);
+  const restaurantName = currentMerchant?.restaurantName ?? currentMerchant?.name ?? 'Nhà hàng của bạn';
+  const restaurantOpen = currentMerchant?.restaurantOpen;
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -101,6 +118,56 @@ export default function MerchantDashboard() {
     formattedDate: formatDateLabel(item.date),
   }));
 
+  if (backendUnavailable) {
+    return (
+      <div className="space-y-base">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-caption-uppercase text-body">
+              {range === 'today' ? 'Hôm nay' : range === 'week' ? 'Tuần này' : 'Tháng này'}
+            </div>
+            <h1 className="text-display-lg text-ink">Bảng điều khiển</h1>
+            <p className="mt-xs text-body-sm text-body">{restaurantName}</p>
+          </div>
+          <div className="flex items-center gap-sm">
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="rounded-md border border-hairline bg-canvas px-base py-2 text-body-sm text-ink outline-none hover:border-body focus:border-ink font-medium"
+            >
+              <option value="today">Hôm nay</option>
+              <option value="week">Tuần này</option>
+              <option value="month">Tháng này</option>
+            </select>
+            {restaurantOpen !== null && restaurantOpen !== undefined && (
+              <Badge tone={restaurantOpen ? 'success' : 'error'} dot>
+                {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <EmptyState
+          icon="grid"
+          title="Dashboard merchant chưa có backend"
+          message="API thống kê merchant chưa được triển khai nên NomNom không hiển thị số liệu demo hay retry liên tục."
+          action={
+            <button
+              onClick={() => {
+                dashboardApiMissing = false;
+                setBackendUnavailable(false);
+                setRange((cur) => cur);
+              }}
+              className="inline-flex h-12 items-center justify-center rounded-md border border-hairline-strong bg-surface-card px-base text-button text-ink hover:bg-canvas-soft"
+            >
+              Thử tải lại
+            </button>
+          }
+        />
+      </div>
+    );
+  }
+
   // Handle Error View
   if (error) {
     return (
@@ -126,6 +193,7 @@ export default function MerchantDashboard() {
             {range === 'today' ? 'Hôm nay' : range === 'week' ? 'Tuần này' : 'Tháng này'}
           </div>
           <h1 className="text-display-lg text-ink">Bảng điều khiển</h1>
+          <p className="mt-xs text-body-sm text-body">{restaurantName}</p>
         </div>
         <div className="flex items-center gap-sm">
           <select
@@ -137,9 +205,9 @@ export default function MerchantDashboard() {
             <option value="week">Tuần này</option>
             <option value="month">Tháng này</option>
           </select>
-          {r && (
-            <Badge tone={r.open ? 'success' : 'error'} dot>
-              {r.open ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
+          {restaurantOpen !== null && restaurantOpen !== undefined && (
+            <Badge tone={restaurantOpen ? 'success' : 'error'} dot>
+              {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
             </Badge>
           )}
         </div>
@@ -218,8 +286,8 @@ export default function MerchantDashboard() {
               Chưa có dữ liệu thống kê biểu đồ.
             </div>
           ) : (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <div className="h-64 min-w-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={formattedChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
                   <XAxis dataKey="formattedDate" stroke="#999999" tick={{ fontSize: 11 }} />
