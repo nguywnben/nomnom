@@ -247,9 +247,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   if (!addressLine || !addressLine.trim()) {
     return res.status(400).json({ error: 'Vui lòng nhập địa chỉ cụ thể.' });
   }
-  if (!district || !district.trim()) {
-    return res.status(400).json({ error: 'Vui lòng nhập quận/huyện.' });
-  }
+  const districtValue = district ? String(district).trim() : '';
   if (!city || !city.trim()) {
     return res.status(400).json({ error: 'Vui lòng nhập tỉnh/thành phố.' });
   }
@@ -377,7 +375,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           foodSafetyCertUrl,
           addressLine.trim(),
           ward.trim(),
-          district.trim(),
+          districtValue,
           city.trim(),
           latitude ? Number(latitude) : null,
           longitude ? Number(longitude) : null,
@@ -414,7 +412,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           foodSafetyCertUrl,
           addressLine.trim(),
           ward.trim(),
-          district.trim(),
+          districtValue,
           city.trim(),
           latitude ? Number(latitude) : null,
           longitude ? Number(longitude) : null,
