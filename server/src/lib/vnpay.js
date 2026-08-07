@@ -79,8 +79,9 @@ export function buildPaymentUrl({
   ipAddress,
   orderInfo,
   now = new Date(),
+  expireAt,
 }) {
-  const expireAt = new Date(now.getTime() + 15 * 60 * 1000);
+  const calculatedExpireAt = expireAt || new Date(now.getTime() + 15 * 60 * 1000);
   const params = {
     vnp_Version: PAYMENT_VERSION,
     vnp_Command: 'pay',
@@ -94,7 +95,7 @@ export function buildPaymentUrl({
     vnp_ReturnUrl: returnUrl,
     vnp_IpAddr: ipAddress,
     vnp_CreateDate: formatVnpayDate(now),
-    vnp_ExpireDate: formatVnpayDate(expireAt),
+    vnp_ExpireDate: formatVnpayDate(calculatedExpireAt),
   };
   const query = encodedEntries(params)
     .map(([key, value]) => key + '=' + value)

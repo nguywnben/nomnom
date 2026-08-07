@@ -1,11 +1,17 @@
 import clsx from 'clsx';
 
-export default function Switch({ checked, onChange, label, hint, size = 'md', className }) {
+export default function Switch({ checked, onChange, label, hint, size = 'md', className, disabled = false }) {
   const w = size === 'lg' ? 'w-12 h-7' : 'w-10 h-6';
   const dot = size === 'lg' ? 'h-6 w-6' : 'h-5 w-5';
   const offset = size === 'lg' ? 'translate-x-5' : 'translate-x-4';
   return (
-    <label className={clsx('inline-flex items-center gap-3 cursor-pointer select-none', className)}>
+    <label
+      className={clsx(
+        'inline-flex items-center gap-3 select-none',
+        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+        className,
+      )}
+    >
       <span
         className={clsx(
           'relative inline-flex items-center rounded-pill border transition-colors',
@@ -34,6 +40,7 @@ export default function Switch({ checked, onChange, label, hint, size = 'md', cl
         className="sr-only"
         checked={checked}
         onChange={(e) => onChange?.(e.target.checked)}
+        disabled={disabled}
       />
     </label>
   );

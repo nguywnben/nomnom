@@ -12,7 +12,7 @@ import ProfileSubHeader from './ProfileSubHeader.jsx';
 
 export default function Settings() {
   const nav = useNavigate();
-  const { pushToast, logout, user } = useApp();
+  const { pushToast, logout, user, permittedRoles } = useApp();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [logoutAllOpen, setLogoutAllOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -92,7 +92,7 @@ export default function Settings() {
         <div className="text-caption-uppercase text-body">Bảo mật</div>
         <div className="mt-sm flex flex-col divide-y divide-hairline">
           <ActionRow icon="shield" label="Đổi mật khẩu" hint="Cập nhật mật khẩu để bảo vệ tài khoản." onClick={() => setPasswordOpen(true)} />
-          <ActionRow icon="bell" label="Thông báo" hint="Xem các cập nhật đơn hàng và tài khoản." onClick={() => nav('/app/notifications')} />
+          {permittedRoles.customer && <ActionRow icon="bell" label="Thông báo" hint="Xem các cập nhật đơn hàng và tài khoản." onClick={() => nav('/app/notifications')} />}
         </div>
       </Card>
 

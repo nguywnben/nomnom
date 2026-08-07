@@ -13,8 +13,8 @@ import { apiGet } from '../../lib/api.js';
 const SETTINGS = [
   { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin', link: '/app/profile/addresses', customerOnly: true },
   { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap', link: '/app/profile/promotions', customerOnly: true },
-  { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/profile/notifications' },
-  { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/inbox' },
+  { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/profile/notifications', customerOnly: true },
+  { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/inbox', customerOnly: true },
   { id: 'settings', label: 'Cài đặt ứng dụng', icon: 'cog', link: '/app/profile/settings' },
 ];
 
@@ -65,13 +65,15 @@ export default function CustomerProfile() {
   const activeCount = orders.filter((o) => !['delivered', 'cancelled', 'failed'].includes(o.status)).length;
 
   const profile = user
-    ? (currentCustomer ?? {
+    ? {
         name: user.fullName,
         email: user.email ?? '',
         phone: user.phone ?? '',
         avatar: user.avatarUrl,
-        address: defaultAddress?.formattedAddress ?? defaultAddress?.formatted_address ?? defaultAddress?.address ?? '',
-      })
+        address: defaultAddress
+          ? `${defaultAddress.line1}${defaultAddress.ward ? `, ${defaultAddress.ward}` : ''}${defaultAddress.district ? `, ${defaultAddress.district}` : ''}, ${defaultAddress.city}`
+          : '',
+      }
     : null;
   const visibleSettings = SETTINGS.filter((item) => !item.customerOnly || shopAsCustomer);
 

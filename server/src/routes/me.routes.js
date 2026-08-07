@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import db from '../db/pool.js';
 import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
@@ -151,7 +151,7 @@ router.post('/change-password', async (req, res, next) => {
   }
 });
 
-router.get('/addresses', async (req, res, next) => {
+router.get('/addresses', ensureCustomer, async (req, res, next) => {
   try {
     const { userId } = req.auth;
     const [rows] = await db.query(
@@ -175,7 +175,7 @@ router.get('/addresses', async (req, res, next) => {
   }
 });
 
-router.post('/addresses', async (req, res, next) => {
+router.post('/addresses', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -246,7 +246,7 @@ router.post('/addresses', async (req, res, next) => {
   }
 });
 
-router.patch('/addresses/:id', async (req, res, next) => {
+router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
@@ -330,7 +330,7 @@ router.patch('/addresses/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/addresses/:id', async (req, res, next) => {
+router.delete('/addresses/:id', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
@@ -367,7 +367,7 @@ router.delete('/addresses/:id', async (req, res, next) => {
   }
 });
 
-router.post('/addresses/:id/default', async (req, res, next) => {
+router.post('/addresses/:id/default', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
@@ -401,7 +401,7 @@ router.post('/addresses/:id/default', async (req, res, next) => {
   }
 });
 
-router.get('/orders', async (req, res, next) => {
+router.get('/orders', ensureCustomer, async (req, res, next) => {
   try {
     const { userId } = req.auth;
     const status = req.query.status || 'all';
@@ -491,7 +491,7 @@ router.get('/orders', async (req, res, next) => {
   }
 });
 
-router.post('/orders/:id/cancel', async (req, res, next) => {
+router.post('/orders/:id/cancel', ensureCustomer, async (req, res, next) => {
   try {
     const { userId } = req.auth;
     const { id } = req.params;
@@ -527,7 +527,7 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
   }
 });
 
-router.get('/vouchers', async (req, res, next) => {
+router.get('/vouchers', ensureCustomer, async (req, res, next) => {
   try {
     const now = new Date();
     const [rows] = await db.query(

@@ -21,6 +21,7 @@ import CustomerLayout from './modules/customer/CustomerLayout.jsx';
 import CustomerHome from './modules/customer/Home.jsx';
 import CustomerSearch from './modules/customer/Search.jsx';
 import CustomerRestaurant from './modules/customer/Restaurant.jsx';
+import MenuItemDetail from './modules/customer/MenuItemDetail.jsx';
 import CustomerTracking from './modules/customer/Tracking.jsx';
 import CustomerOrders from './modules/customer/Orders.jsx';
 import CustomerReviews from './modules/customer/Reviews.jsx';
@@ -90,6 +91,9 @@ export default function App() {
           <Route index element={<CustomerHome />} />
           <Route path="search" element={<CustomerSearch />} />
           <Route path="restaurant/:id" element={<CustomerRestaurant />} />
+          <Route path="menu-items/:id" element={<MenuItemDetail />} />
+          <Route path="track/:id" element={<CustomerTracking />} />
+
           <Route element={<RequireAuth role="customer" />}>
             <Route path="checkout" element={<CustomerCheckout />} />
             <Route path="checkout/vnpay/return" element={<VnpayReturn />} />
@@ -98,21 +102,21 @@ export default function App() {
             <Route path="track/:id" element={<CustomerTracking />} />
             <Route path="profile/addresses" element={<CustomerProfileAddresses />} />
             <Route path="profile/notifications" element={<CustomerProfileNotifications />} />
+            <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
+            <Route path="reviews/write/:id" element={<CustomerReviews />} />
           </Route>
 
           <Route element={<RequireAuth />}>
-            <Route path="reviews/write/:id" element={<CustomerReviews />} />
             <Route path="reviews/:id" element={<CustomerRestaurantReviews />} />
             <Route path="notifications" element={<CustomerNotifications />} />
             <Route path="profile" element={<CustomerProfile />} />
             <Route path="profile/edit" element={<CustomerProfileEdit />} />
-            <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
             <Route path="profile/settings" element={<CustomerProfileSettings />} />
           </Route>
         </Route>
 
         {/* Merchant onboarding/pending — không dùng layout chính, chỉ yêu cầu đăng nhập */}
-        <Route element={<RequireAuth role="customer" />}>
+        <Route element={<RequireAuth />}>
           <Route path="/merchant/onboarding" element={<MerchantOnboarding />} />
           <Route path="/merchant/pending" element={<MerchantPending />} />
         </Route>

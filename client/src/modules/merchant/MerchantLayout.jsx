@@ -10,6 +10,11 @@ import Logo from '../../components/Logo.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantOrdersApi, fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
+import {
+  isMerchantRestaurantApproved,
+  isMerchantRestaurantRejected,
+  isMerchantRestaurantUnderReview,
+} from '../../lib/merchantStatus.js';
 
 const links = [
   { to: '/merchant', label: 'Bảng điều khiển', icon: 'grid', end: true },
@@ -45,7 +50,8 @@ export default function MerchantLayout() {
       try {
         const data = await fetchMerchantRestaurantApi();
         if (!active) return;
-        if (!data || !data.restaurant) {
+        const restaurant = data?.restaurant;
+        if (!restaurant) {
           nav('/merchant/onboarding', { replace: true });
           return;
         }
@@ -54,16 +60,27 @@ export default function MerchantLayout() {
         if (!active) return;
         const ordersArray = Array.isArray(ordersResponse?.orders)
           ? ordersResponse.orders
-          : Array.isArray(ordersResponse)
-            ? ordersResponse
-            : [];
+          : Array.isArray(ordersResponse?.data)
+            ? ordersResponse.data
+            : Array.isArray(ordersResponse)
+              ? ordersResponse
+              : [];
         setNewCount(ordersArray.filter((order) => order.status === 'placed').length);
         setRestaurantOpen(Boolean(data.restaurant.is_open_now));
         if (data.restaurant.status !== 'active') {
           nav('/merchant/pending', { replace: true });
           return;
         }
+        if (!isMerchantRestaurantApproved(restaurant.status)) {
+          nav('/merchant/onboarding', { replace: true });
+          return;
+        }
       } catch (err) {
+        if (err?.status === 401) {
+          await logout();
+          nav('/login', { replace: true });
+          return;
+        }
         console.error('Error fetching restaurant status:', err);
         pushToast({
           kind: 'error',
@@ -250,31 +267,49 @@ function DesktopSidebar({ currentMerchant, newCount, onSwitchRole, onLogout }) {
 }
 
 function SidebarContent({ currentMerchant, newCount, onItemClick, onSwitchRole, onLogout }) {
+  const linksWithFlags = links.map((link) => ({
+    ...link,
+    disabled: link.to === '/merchant/wallet' || link.to === '/merchant/settings',
+  }));
+
   return (
     <>
       <nav className="flex-1 px-sm py-2">
-        {links.map((l) => (
-          <NavLink
-            key={l.to}
-            to={l.to}
-            end={l.end}
-            onClick={onItemClick}
-            className={({ isActive }) =>
-              clsx(
-                'flex h-12 items-center gap-2 rounded-md px-sm text-button transition-colors',
-                isActive ? 'bg-primary text-on-primary' : 'text-ink hover:bg-canvas-soft',
-              )
-            }
-          >
-            <Icon name={l.icon} size={16} />
-            <span className="flex-1">{l.label}</span>
-            {l.label === 'Đơn hàng' && newCount > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-card text-ink px-1 text-caption nums">
-                {newCount}
-              </span>
-            )}
-          </NavLink>
-        ))}
+        {linksWithFlags.map((l) =>
+          l.disabled ? (
+            <div
+              key={l.to}
+              className="flex h-12 items-center gap-2 rounded-md px-sm text-button text-body opacity-60"
+              aria-disabled="true"
+              title="Chưa có backend thật"
+            >
+              <Icon name={l.icon} size={16} />
+              <span className="flex-1">{l.label}</span>
+              <Badge tone="outline">Khóa</Badge>
+            </div>
+          ) : (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.end}
+              onClick={onItemClick}
+              className={({ isActive }) =>
+                clsx(
+                  'flex h-12 items-center gap-2 rounded-md px-sm text-button transition-colors',
+                  isActive ? 'bg-primary text-on-primary' : 'text-ink hover:bg-canvas-soft',
+                )
+              }
+            >
+              <Icon name={l.icon} size={16} />
+              <span className="flex-1">{l.label}</span>
+              {l.label === 'Đơn hàng' && newCount > 0 && (
+                <span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-card text-ink px-1 text-caption nums">
+                  {newCount}
+                </span>
+              )}
+            </NavLink>
+          ),
+        )}
       </nav>
       <div className="border-t border-hairline p-sm">
         <div className="flex items-center gap-sm">

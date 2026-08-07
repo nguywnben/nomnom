@@ -19,6 +19,7 @@ import {
   deleteCartItemApi,
   fetchCartApi,
   fetchMe,
+  fetchMerchantRestaurantApi,
   loginApi,
   logoutApi,
   registerSendCodeApi,
@@ -41,6 +42,7 @@ export function AppProvider({ children }) {
   const [role, setRole] = useState('customer');
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [merchantRestaurant, setMerchantRestaurant] = useState(null);
 
   const permittedRoles = useMemo(
     () => (user ? buildPermittedRoles(user.roles) : buildPermittedRoles([])),
@@ -89,12 +91,15 @@ export function AppProvider({ children }) {
     if (!user || !permittedRoles.merchant) return null;
     return {
       id: String(user.id),
-      name: user.fullName,
+      name: merchantRestaurant?.name ?? user.fullName,
       email: user.email ?? '',
-      avatar: user.avatarUrl,
-      restaurantId: 'r-1',
+      avatar: user.avatarUrl ?? merchantRestaurant?.logo_url ?? null,
+      restaurantId: merchantRestaurant?.id ?? merchantRestaurant?.restaurant_id ?? null,
+      restaurantName: merchantRestaurant?.name ?? null,
+      restaurantStatus: merchantRestaurant?.status ?? null,
+      restaurantOpen: merchantRestaurant?.is_open_now ?? merchantRestaurant?.open ?? null,
     };
-  }, [user, permittedRoles.merchant]);
+  }, [merchantRestaurant, user, permittedRoles.merchant]);
 
   const currentAdmin = useMemo(() => {
     if (!user || !permittedRoles.admin) return null;
@@ -350,14 +355,14 @@ export function AppProvider({ children }) {
         const existing = cur.items.find((i) => String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id));
         const items = existing
           ? cur.items.map((i) =>
-              String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
-                ? {
-                    ...i,
-                    quantity: Number(i.quantity ?? 0) + quantity,
-                    lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
-                  }
-                : i,
-            )
+            String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
+              ? {
+                ...i,
+                quantity: Number(i.quantity ?? 0) + quantity,
+                lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
+              }
+              : i,
+          )
           : [...cur.items, nextItem];
         return {
           ...cur,
@@ -423,9 +428,9 @@ export function AppProvider({ children }) {
           .filter(Boolean);
         return items.length
           ? {
-              ...cur,
-              items,
-            }
+            ...cur,
+            items,
+          }
           : emptyCart();
       });
       return null;
@@ -478,14 +483,7 @@ export function AppProvider({ children }) {
     resetCartState();
     if (!user) {
       clearGuestCart();
-    }
-  }, [permittedRoles.customer, resetCartState, user]);
-
-  const applyPromo = useCallback(
-    async (code) => {
-      if (user && !permittedRoles.customer) return false;
-
-      const normalized = code.trim().toLowerCase();
+    }      const normalized = code.trim().toLowerCase();
       const voucher = restaurantVouchers.find((p) => p.code.toLowerCase() === normalized);
       const c = voucher ?? promoCodes.find((p) => p.code.toLowerCase() === normalized);
 
@@ -537,7 +535,16 @@ export function AppProvider({ children }) {
       pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
       return false;
     },
+    [cartSubtotal, permittedRoles.customer, pushToast, restaurantVouchers, user],��m giá lúc này.' });
+          return false;
+        }
+      }
+
+      pushToast({ kind: 'error', title: 'Mã không hợp lệ', message: `"${code}" không phải là mã khuyến mãi hợp lệ.` });
+      return false;
+    },
     [cartSubtotal, permittedRoles.customer, pushToast, restaurantVouchers, user],
+>>>>>>> origin/dev
   );
 
   // ---- Order placement (customer) ----
@@ -651,9 +658,9 @@ export function AppProvider({ children }) {
       cur.map((c) =>
         c.id === chatId
           ? {
-              ...c,
-              messages: [...c.messages, { id: newId(), senderId, text, at: Date.now() }],
-            }
+            ...c,
+            messages: [...c.messages, { id: newId(), senderId, text, at: Date.now() }],
+          }
           : c,
       ),
     );
@@ -703,6 +710,31 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!authReady || !user || !permittedRoles.merchant) {
+      setMerchantRestaurant(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchMerchantRestaurantApi();
+        if (!cancelled) {
+          setMerchantRestaurant(data?.restaurant ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setMerchantRestaurant(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, permittedRoles.merchant, user]);
+
+  useEffect(() => {
     if (!authReady) return undefined;
 
     let cancelled = false;
@@ -739,9 +771,9 @@ export function AppProvider({ children }) {
           const guestRestaurantId = guest.restaurantId;
           const itemsToMerge = guestRestaurantId
             ? guest.items.filter(
-                (item) =>
-                  !item.restaurantId || String(item.restaurantId) === String(guestRestaurantId),
-              )
+              (item) =>
+                !item.restaurantId || String(item.restaurantId) === String(guestRestaurantId),
+            )
             : guest.items;
 
           if (itemsToMerge.length < guest.items.length) {
@@ -824,14 +856,31 @@ export function AppProvider({ children }) {
   const logout = useCallback(
     async ({ redirectTo = '/app', silent = false } = {}) => {
       const hadCustomerCart = Boolean(user && permittedRoles.customer);
-      await logoutApi().catch(() => {});
+      await logoutApi().catch(() => { });
       clearTokens();
       cartHydratedKey.current = null;
-      setUser(null);
-      setRole('customer');
-      if (hadCustomerCart) {
-        resetCartState();
-      }
+      
+      // Navigate to the redirect page FIRST before clearing user state
+      navigate(redirectTo, { replace: true });
+      
+      // Perform state updates in the next tick to prevent route guard redirection to /login
+      setTimeout(() => {
+        setUser(null);
+        setRole('customer');
+        if (hadCustomerCart) {
+          resetCartState();
+        }
+        // Clear all session specific data
+        setOrders(initialOrders);
+        setMerchantOrders(initialMerchantOrders);
+        setDriverOnline(true);
+        setDriverJobs(initialDriverJobs);
+        setActiveDriverJob(null);
+        setAdminAccounts(initialAdminAccounts);
+        setPayouts(initialPayouts);
+        setChats(initialChats);
+      }, 0);
+
       if (!silent) {
         pushToast({
           kind: 'info',
@@ -840,9 +889,22 @@ export function AppProvider({ children }) {
           duration: 2800,
         });
       }
-      navigate(redirectTo, { replace: true });
     },
-    [navigate, permittedRoles.customer, pushToast, resetCartState, user],
+    [
+      navigate,
+      permittedRoles.customer,
+      pushToast,
+      resetCartState,
+      user,
+      setOrders,
+      setMerchantOrders,
+      setDriverOnline,
+      setDriverJobs,
+      setActiveDriverJob,
+      setAdminAccounts,
+      setPayouts,
+      setChats,
+    ],
   );
 
   const grantCurrentUserRole = useCallback((nextRole) => {
@@ -958,6 +1020,7 @@ export function AppProvider({ children }) {
     currentDriver,
     currentMerchant,
     currentAdmin,
+    merchantRestaurant,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
