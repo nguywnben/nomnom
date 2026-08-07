@@ -60,6 +60,8 @@ import AdminPayouts from './modules/admin/Payouts.jsx';
 import AdminOrders from './modules/admin/Orders.jsx';
 import AdminReviewsModeration from './modules/admin/ReviewsModeration.jsx';
 import AdminConfig from './modules/admin/Config.jsx';
+import AdminDriverApprovals from './modules/admin/DriverApprovals.jsx';
+import AdminAuditLogs from './modules/admin/AuditLogs.jsx';
 
 // Chat
 import ChatScreen from './modules/chat/ChatScreen.jsx';
@@ -138,10 +140,12 @@ export default function App() {
             <Route path="accounts" element={<AdminAccounts />} />
             <Route path="financial" element={<AdminFinancial />} />
             <Route path="restaurants" element={<AdminRestaurantApprovals />} />
+            <Route path="drivers" element={<AdminDriverApprovals />} />
             <Route path="payouts" element={<AdminPayouts />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="reviews" element={<AdminReviewsModeration />} />
             <Route path="config" element={<AdminConfig />} />
+            <Route path="audit-logs" element={<AdminAuditLogs />} />
           </Route>
         </Route>
 

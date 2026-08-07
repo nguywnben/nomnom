@@ -3,6 +3,7 @@ import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { maskBankAccount, resolvePayoutTransition } from '../lib/payout.js';
 import { PLATFORM_CONFIG_RULES, validatePlatformConfig } from '../lib/platformConfig.js';
+import { logAudit } from '../lib/audit.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -153,6 +154,24 @@ router.patch('/payouts/:id', async (req, res, next) => {
       [payout.user_id, title, body],
     );
     const [updated] = await connection.query(PAYOUT_SELECT + ' WHERE pr.id = ?', [payout.id]);
+
+    let hanhDong = 'duyet_rut_tien';
+    if (action === 'reject') hanhDong = 'tu_choi_rut_tien';
+    if (action === 'complete') hanhDong = 'hoan_tat_rut_tien';
+
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: hanhDong,
+      targetType: 'payout',
+      targetId: payout.id,
+      metadata: {
+        soTien: Number(payout.amount),
+        tenNganHang: payout.bank_name,
+        lyDoTuChoi: action === 'reject' ? reason : undefined,
+        maGiaoDichNgoai: action === 'complete' ? externalRef : undefined,
+      },
+    });
+
     await connection.commit();
     return res.json({ payout: serializePayout(updated[0]), idempotent: false });
   } catch (error) {
@@ -241,6 +260,19 @@ router.patch('/config/:key', async (req, res, next) => {
       affectedRestaurants = Number(result.affectedRows);
     }
     const [updated] = await connection.query('SELECT * FROM platform_config WHERE config_key = ?', [key]);
+
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: 'cap_nhat_cau_hinh',
+      targetType: 'config',
+      targetId: key,
+      metadata: {
+        giaTriCu: previous.config_value,
+        giaTriMoi: validation.value,
+        soNhaHangAnhHuong: affectedRestaurants,
+      },
+    });
+
     await connection.commit();
     const row = updated[0];
     return res.json({ config: { key: row.config_key, value: row.config_value, dataType: row.data_type, description: row.description, updatedAt: row.updated_at, updatedByAdminId: row.updated_by_admin_id }, affectedRestaurants });
