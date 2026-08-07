@@ -110,7 +110,7 @@ export default function App() {
         </Route>
 
         {/* Merchant onboarding/pending — không dùng layout chính, chỉ yêu cầu đăng nhập */}
-        <Route element={<RequireAuth role="customer" />}>
+        <Route element={<RequireAuth />}>
           <Route path="/merchant/onboarding" element={<MerchantOnboarding />} />
           <Route path="/merchant/pending" element={<MerchantPending />} />
         </Route>

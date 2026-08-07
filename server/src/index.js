@@ -55,6 +55,10 @@ app.use('/api/v1/payments', paymentsRoutes);
 app.use('/api/v1/vouchers', vouchersRoutes);
 
 app.use((err, _req, res, _next) => {
+  if (err?.message === 'Request aborted' || err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') {
+    return;
+  }
+
   console.error(err);
   const status =
     err.status ??

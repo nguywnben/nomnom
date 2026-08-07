@@ -10,6 +10,7 @@ import { createOrderConversationApi, fetchMerchantOrdersApi, updateMerchantOrder
 import { formatVnd } from '../../lib/formatVnd.js';
 
 const POLL_MS = 15000;
+let ordersApiMissing = false;
 
 const COLUMNS = [
   { key: 'new', label: 'Mới', tone: 'warning', statuses: ['placed'] },
@@ -49,14 +50,21 @@ export default function MerchantOrders() {
   const [selectedDate, setSelectedDate] = useState(todayIsoDate);
   const [actingCode, setActingCode] = useState(null);
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [backendUnavailable, setBackendUnavailable] = useState(ordersApiMissing);
 
   const loadOrders = useCallback(async ({ silent = false } = {}) => {
+    if (backendUnavailable) return;
     if (!silent) setLoading(true);
     try {
       const { orders: list } = await fetchMerchantOrdersApi({ date: selectedDate });
       setOrders(list ?? []);
       setLastSyncedAt(new Date());
     } catch (err) {
+      if (err?.status === 404) {
+        ordersApiMissing = true;
+        setBackendUnavailable(true);
+        return;
+      }
       if (!silent) {
         pushToast({
           kind: 'error',
@@ -68,16 +76,57 @@ export default function MerchantOrders() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [pushToast, selectedDate]);
+  }, [backendUnavailable, pushToast, selectedDate]);
 
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
 
   useEffect(() => {
+    if (backendUnavailable) return undefined;
     const timer = setInterval(() => loadOrders({ silent: true }), POLL_MS);
     return () => clearInterval(timer);
-  }, [loadOrders]);
+  }, [backendUnavailable, loadOrders]);
+
+  if (backendUnavailable) {
+    return (
+      <div className="space-y-base">
+        <div className="flex flex-wrap items-end justify-between gap-base">
+          <div>
+            <div className="text-caption-uppercase text-body">Hôm nay</div>
+            <h1 className="text-display-lg text-ink">Đơn hàng trực tiếp</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-xs">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="rounded-md border border-hairline bg-surface px-sm py-1.5 text-body-sm text-ink"
+            />
+            <Badge tone="outline">Backend orders chưa sẵn sàng</Badge>
+          </div>
+        </div>
+
+        <EmptyState
+          icon="package"
+          title="Đơn hàng merchant chưa có backend"
+          message="API đơn hàng của merchant chưa được triển khai nên NomNom không polling và không hiển thị dữ liệu demo."
+          action={
+            <button
+              onClick={() => {
+                ordersApiMissing = false;
+                setBackendUnavailable(false);
+                loadOrders();
+              }}
+              className="inline-flex h-12 items-center justify-center rounded-md border border-hairline-strong bg-surface-card px-base text-button text-ink hover:bg-canvas-soft"
+            >
+              Thử tải lại
+            </button>
+          }
+        />
+      </div>
+    );
+  }
 
   const grouped = useMemo(() => groupOrders(orders), [orders]);
 

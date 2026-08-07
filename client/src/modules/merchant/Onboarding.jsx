@@ -19,6 +19,11 @@ import {
 import { useApp } from '../../context/AppContext.jsx';
 import { applyMerchantApi, fetchMe, fetchCuisinesApi, fetchMerchantRestaurantApi } from '../../lib/api.js';
 import { uploadFile } from '../../lib/upload.js';
+import {
+  isMerchantRestaurantApproved,
+  isMerchantRestaurantRejected,
+  isMerchantRestaurantUnderReview,
+} from '../../lib/merchantStatus.js';
 
 // Onboarding cho chủ quán — gom toàn bộ trường KYC khớp với bảng `restaurants`:
 const STEPS = [
@@ -109,16 +114,20 @@ export default function MerchantOnboarding() {
 
         const restaurant = merchantRes?.restaurant;
         if (restaurant) {
-          if (restaurant.status === 'pending') {
+          if (isMerchantRestaurantUnderReview(restaurant.status)) {
             nav('/merchant/pending', { replace: true });
             return;
           }
-          if (restaurant.status === 'active') {
+          if (isMerchantRestaurantApproved(restaurant.status)) {
             nav('/merchant', { replace: true });
             return;
           }
 
-          // suspended / closed — cho phép chỉnh sửa và nộp lại
+          if (isMerchantRestaurantRejected(restaurant.status)) {
+            setIsResubmit(true);
+          }
+
+          // rejected / draft / closed — cho phép chỉnh sửa và nộp lại
           setIsResubmit(true);
           setValue('name', restaurant.name ?? '');
           setValue('phone', restaurant.phone ?? '');

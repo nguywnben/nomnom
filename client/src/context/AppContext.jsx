@@ -19,6 +19,7 @@ import {
   deleteCartItemApi,
   fetchCartApi,
   fetchMe,
+  fetchMerchantRestaurantApi,
   loginApi,
   logoutApi,
   registerSendCodeApi,
@@ -41,6 +42,7 @@ export function AppProvider({ children }) {
   const [role, setRole] = useState('customer');
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
+  const [merchantRestaurant, setMerchantRestaurant] = useState(null);
 
   const permittedRoles = useMemo(
     () => (user ? buildPermittedRoles(user.roles) : buildPermittedRoles([])),
@@ -89,12 +91,15 @@ export function AppProvider({ children }) {
     if (!user || !permittedRoles.merchant) return null;
     return {
       id: String(user.id),
-      name: user.fullName,
+      name: merchantRestaurant?.name ?? user.fullName,
       email: user.email ?? '',
-      avatar: user.avatarUrl,
-      restaurantId: 'r-1',
+      avatar: user.avatarUrl ?? merchantRestaurant?.logo_url ?? null,
+      restaurantId: merchantRestaurant?.id ?? merchantRestaurant?.restaurant_id ?? null,
+      restaurantName: merchantRestaurant?.name ?? null,
+      restaurantStatus: merchantRestaurant?.status ?? null,
+      restaurantOpen: merchantRestaurant?.is_open_now ?? merchantRestaurant?.open ?? null,
     };
-  }, [user, permittedRoles.merchant]);
+  }, [merchantRestaurant, user, permittedRoles.merchant]);
 
   const currentAdmin = useMemo(() => {
     if (!user || !permittedRoles.admin) return null;
@@ -705,6 +710,31 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!authReady || !user || !permittedRoles.merchant) {
+      setMerchantRestaurant(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchMerchantRestaurantApi();
+        if (!cancelled) {
+          setMerchantRestaurant(data?.restaurant ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setMerchantRestaurant(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, permittedRoles.merchant, user]);
+
+  useEffect(() => {
     if (!authReady) return undefined;
 
     let cancelled = false;
@@ -990,6 +1020,7 @@ export function AppProvider({ children }) {
     currentDriver,
     currentMerchant,
     currentAdmin,
+    merchantRestaurant,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

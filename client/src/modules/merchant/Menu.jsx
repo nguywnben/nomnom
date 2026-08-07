@@ -106,10 +106,16 @@ export default function MerchantMenu() {
   // MENU ITEM OPERATIONS
   const handleSaveItem = async (draftItem) => {
     try {
+      const categoryId = draftItem.categoryId ?? '';
+      const name = draftItem.name.trim();
+      if (!categoryId || !name) {
+        throw new Error('Vui lòng chọn danh mục và nhập tên món.');
+      }
+
       if (draftItem.id === 'new') {
         const newItem = await createMerchantMenuItemApi({
-          categoryId: draftItem.categoryId,
-          name: draftItem.name,
+          categoryId,
+          name,
           description: draftItem.description,
           imageUrl: draftItem.imageUrl,
           price: draftItem.price,
@@ -119,17 +125,17 @@ export default function MerchantMenu() {
         });
         setCategories((prev) =>
           prev.map((c) => {
-            if (c.id === draftItem.categoryId) {
+            if (String(c.id) === String(categoryId)) {
               return { ...c, items: [...c.items, newItem] };
             }
             return c;
           })
         );
-        pushToast({ kind: 'success', title: 'Đã thêm món ăn', message: draftItem.name });
+        pushToast({ kind: 'success', title: 'Đã thêm món ăn', message: name });
       } else {
         await updateMerchantMenuItemApi(draftItem.id, {
-          categoryId: draftItem.categoryId,
-          name: draftItem.name,
+          categoryId,
+          name,
           description: draftItem.description,
           imageUrl: draftItem.imageUrl,
           price: draftItem.price,
@@ -140,7 +146,7 @@ export default function MerchantMenu() {
           status: draftItem.status,
         });
         await loadMenu();
-        pushToast({ kind: 'success', title: 'Đã cập nhật món ăn', message: draftItem.name });
+        pushToast({ kind: 'success', title: 'Đã cập nhật món ăn', message: name });
       }
       setEditingItem(null);
     } catch (err) {
@@ -541,7 +547,7 @@ function CategoryEditor({ open, onClose, onSave, category }) {
 function ItemEditor({ open, onClose, onSave, item, categories }) {
   const empty = {
     id: 'new',
-    categoryId: categories[0]?.id ?? '',
+    categoryId: categories[0]?.id ? String(categories[0].id) : '',
     name: '',
     description: '',
     price: 30000,
@@ -621,8 +627,8 @@ function ItemEditor({ open, onClose, onSave, item, categories }) {
               aria-label="Danh mục"
               label="Danh mục"
               value={draft.categoryId}
-              onChange={(e) => setField('categoryId', Number(e.target.value))}
-              options={categories.map((c) => ({ value: c.id, label: c.name }))}
+              onChange={(e) => setField('categoryId', e.target.value)}
+              options={categories.map((c) => ({ value: String(c.id), label: c.name }))}
               required
             />
           </div>

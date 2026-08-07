@@ -47,6 +47,10 @@ export default function DriverShell() {
           nav('/driver/pending', { replace: true, state: { approvalStatus: status } });
         }
       } catch (err) {
+        if (err?.status === 401) {
+          nav('/login', { replace: true });
+          return;
+        }
         console.error('Error fetching driver profile:', err);
         pushToast({
           kind: 'error',
