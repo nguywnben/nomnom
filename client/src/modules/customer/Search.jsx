@@ -75,7 +75,17 @@ export default function CustomerSearch() {
     return () => clearTimeout(timer);
   }, [q]);
 
-  // Sync state to URL params
+  const filters = {
+    q: debouncedQ,
+    cuisine: cuisineSlugs.join(','),
+    open: openOnly,
+    sort,
+    page,
+    limit: 20,
+  };
+
+  const { data: restaurants, pagination, loading, error, hasMore } = useRestaurants(filters);
+
   useEffect(() => {
     setParams(
       (prev) => {
@@ -143,8 +153,8 @@ export default function CustomerSearch() {
   return (
     <div className="container-page py-xl">
       <div className="mb-base flex flex-col gap-2">
-        <div className="text-caption-uppercase text-body">Khám phá món ngon</div>
-        <h1 className="text-display-lg text-ink">Tìm kiếm nhà hàng & món ăn.</h1>
+        <div className="text-caption-uppercase text-body">Khám phá</div>
+        <h1 className="text-display-lg text-ink">Tìm nhà hàng</h1>
       </div>
 
       {/* Search Input Bar & View options */}
@@ -275,7 +285,7 @@ export default function CustomerSearch() {
                   setPage(1);
                 }}
               />
-              Chỉ quán đang mở cửa
+              Chỉ nhà hàng đang mở
             </label>
 
             <Button
@@ -299,15 +309,27 @@ export default function CustomerSearch() {
           </Card>
         </aside>
 
-        {/* Results view */}
-        <div className="flex flex-col gap-xl">
-          {loading ? (
-            <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
+        {/* Results */}
+        <div className="flex flex-col gap-base">
+          {error && restaurants.length === 0 ? (
+            <div role="alert" className="rounded-lg border border-error/30 bg-[#fef2f2] p-base text-body-sm text-error">
+              Không thể tải danh sách nhà hàng. Vui lòng tải lại trang và thử lại.
             </div>
-          ) : error ? (
+          ) : loading && restaurants.length === 0 ? (
+            view === 'grid' ? (
+              <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline-strong bg-surface-card">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonRow key={i} />
+                ))}
+              </div>
+            )
+          ) : restaurants.length === 0 ? (
             <EmptyState
               icon="search"
               title="Có lỗi xảy ra"

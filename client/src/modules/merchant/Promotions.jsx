@@ -1,185 +1,314 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Input, { Select } from '../../components/Input.jsx';
-import { promoCodes as initial } from '../../data/mock.js';
+import Input, { Select, Textarea } from '../../components/Input.jsx';
+import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import {
+  createMerchantVoucherApi,
+  deleteMerchantVoucherApi,
+  fetchMerchantVouchersApi,
+  updateMerchantVoucherApi,
+} from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
+
+function toDatetimeLocal(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function defaultForm() {
+  const now = new Date();
+  const ends = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return {
+    code: '',
+    name: '',
+    description: '',
+    discountType: 'percent',
+    discountValue: '15',
+    maxDiscountAmount: '250000',
+    minOrderAmount: '0',
+    usageLimit: '',
+    perUserLimit: '1',
+    startsAt: toDatetimeLocal(now),
+    endsAt: toDatetimeLocal(ends),
+    status: 'draft',
+  };
+}
 
 export default function MerchantPromotions() {
   const { pushToast } = useApp();
-  // Lazy init so randomness happens once outside render.
-  const [codes, setCodes] = useState(() =>
-    initial.map((c, i) => ({
-      ...c,
-      status: 'active',
-      uses: [42, 18, 67][i] ?? 24,
-    })),
-  );
-  const [draft, setDraft] = useState({ code: '', kind: 'percent', amount: 15, cap: 250000 });
+  const [vouchers, setVouchers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(defaultForm());
 
-  const create = (e) => {
-    e.preventDefault();
-    if (!draft.code) return;
-    const next = {
-      code: draft.code.toUpperCase(),
-      label:
-        draft.kind === 'percent'
-          ? `Giảm ${draft.amount}%, tối đa ${formatVnd(draft.cap)}.`
-          : `Giảm ${formatVnd(draft.amount)}.`,
-      kind: draft.kind,
-      amount: Number(draft.amount),
-      cap: Number(draft.cap),
-      status: 'active',
-      uses: 0,
-    };
-    setCodes((c) => [next, ...c]);
-    pushToast({ kind: 'success', title: 'Đã tạo khuyến mãi', message: next.code });
-    setDraft({ code: '', kind: 'percent', amount: 15, cap: 250000 });
+  const loadData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchMerchantVouchersApi();
+      setVouchers(data?.vouchers ?? []);
+    } catch (err) {
+      setError(err.message ?? 'Không thể tải voucher.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const togglePromo = (code) =>
-    setCodes((c) =>
-      c.map((x) => (x.code === code ? { ...x, status: x.status === 'active' ? 'paused' : 'active' } : x)),
-    );
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const summary = useMemo(() => ({
+    active: vouchers.filter((voucher) => voucher.status === 'active').length,
+    paused: vouchers.filter((voucher) => voucher.status === 'paused').length,
+    draft: vouchers.filter((voucher) => voucher.status === 'draft').length,
+  }), [vouchers]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(defaultForm());
+    setFormOpen(true);
+  };
+
+  const openEdit = (voucher) => {
+    setEditing(voucher);
+    setFormOpen(true);
+    setForm({
+      code: voucher.code,
+      name: voucher.name,
+      description: voucher.description ?? '',
+      discountType: voucher.discountType,
+      discountValue: String(voucher.discountValue),
+      maxDiscountAmount: voucher.maxDiscountAmount === null ? '' : String(voucher.maxDiscountAmount),
+      minOrderAmount: String(voucher.minOrderAmount ?? 0),
+      usageLimit: voucher.usageLimit === null ? '' : String(voucher.usageLimit),
+      perUserLimit: String(voucher.perUserLimit ?? 1),
+      startsAt: toDatetimeLocal(voucher.startsAt),
+      endsAt: toDatetimeLocal(voucher.endsAt),
+      status: voucher.status,
+    });
+  };
+
+  const submitVoucher = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        maxDiscountAmount: form.maxDiscountAmount === '' ? null : Number(form.maxDiscountAmount),
+        minOrderAmount: Number(form.minOrderAmount),
+        usageLimit: form.usageLimit === '' ? null : Number(form.usageLimit),
+        perUserLimit: Number(form.perUserLimit),
+      };
+      if (editing) {
+        await updateMerchantVoucherApi(editing.id, payload);
+        pushToast({ kind: 'success', title: 'Đã cập nhật voucher', message: form.code });
+      } else {
+        await createMerchantVoucherApi(payload);
+        pushToast({ kind: 'success', title: 'Đã tạo voucher', message: form.code });
+      }
+      setEditing(null);
+      setForm(defaultForm());
+      setFormOpen(false);
+      await loadData();
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể lưu voucher', message: err.message ?? 'Vui lòng thử lại.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteMerchantVoucherApi(deleteId);
+      pushToast({ kind: 'success', title: 'Đã xóa voucher', message: 'Voucher đã được xóa khỏi quán.' });
+      setDeleteId(null);
+      await loadData();
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể xóa voucher', message: err.message ?? 'Vui lòng thử lại.' });
+    }
+  };
 
   return (
     <div className="space-y-base">
-      <div>
-        <div className="text-caption-uppercase text-body">Tăng trưởng</div>
-        <h1 className="text-display-lg text-ink">Khuyến mãi</h1>
-      </div>
-
-      <div className="grid gap-base lg:grid-cols-[1fr_360px]">
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          {/* Mobile: cards */}
-          <div className="flex flex-col gap-2 md:hidden">
-            {codes.map((c) => (
-              <Card key={c.code} padded={false} className="p-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-body-sm text-ink">{c.code}</span>
-                      <IconButton
-                        icon="copy"
-                        size="sm"
-                        label="Sao chép"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(c.code);
-                          pushToast({ kind: 'success', title: 'Đã sao chép', message: c.code, duration: 1500 });
-                        }}
-                      />
-                    </div>
-                    <div className="text-caption text-body mt-0.5">{c.label}</div>
-                  </div>
-                  <Badge tone={c.status === 'active' ? 'success' : 'outline'} dot>
-                    {c.status === 'active' ? 'Hoạt động' : 'Tạm dừng'}
-                  </Badge>
-                </div>
-                <div className="mt-sm flex items-center justify-between border-t border-hairline pt-sm">
-                  <span className="text-caption text-body">
-                    <span className="nums text-ink">{c.uses}</span> lượt dùng
-                  </span>
-                  <Button variant="secondary" size="sm" onClick={() => togglePromo(c.code)}>
-                    {c.status === 'active' ? 'Tạm dừng' : 'Tiếp tục'}
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-
-          {/* Desktop: table */}
-          <Card padded={false} className="hidden md:block">
-            <table className="w-full">
-              <thead className="bg-canvas-soft text-caption-uppercase text-body">
-                <tr>
-                  <th className="px-base py-2 text-left">Mã</th>
-                  <th className="px-base py-2 text-left">Ưu đãi</th>
-                  <th className="px-base py-2 text-left">Lượt dùng</th>
-                  <th className="px-base py-2 text-left">Trạng thái</th>
-                  <th className="px-base py-2 text-right pr-base">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline">
-                {codes.map((c) => (
-                  <tr key={c.code} className="hover:bg-canvas-soft">
-                    <td className="px-base py-sm">
-                      <div className="inline-flex items-center gap-2">
-                        <span className="font-mono text-body-sm text-ink">{c.code}</span>
-                        <IconButton
-                          icon="copy"
-                          size="sm"
-                          label="Sao chép"
-                          onClick={() => {
-                            navigator.clipboard?.writeText(c.code);
-                            pushToast({ kind: 'success', title: 'Đã sao chép', message: c.code, duration: 1500 });
-                          }}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-base py-sm text-body-sm text-ink">{c.label}</td>
-                    <td className="px-base py-sm nums text-body-sm text-ink">{c.uses}</td>
-                    <td className="px-base py-sm">
-                      <Badge tone={c.status === 'active' ? 'success' : 'outline'} dot>
-                        {c.status === 'active' ? 'Hoạt động' : 'Tạm dừng'}
-                      </Badge>
-                    </td>
-                    <td className="px-base py-sm text-right pr-base">
-                      <div className="inline-flex items-center gap-1">
-                        <Button variant="secondary" size="sm" onClick={() => togglePromo(c.code)}>
-                          {c.status === 'active' ? 'Tạm dừng' : 'Tiếp tục'}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
+          <div className="text-caption-uppercase text-body">Tăng trưởng</div>
+          <h1 className="text-display-lg text-ink">Khuyến mãi</h1>
         </div>
-
-        {/* Create new */}
-        <Card padded>
-          <div className="text-title-md text-ink mb-base">Tạo mã giảm giá</div>
-          <form onSubmit={create} className="space-y-sm">
-            <Input
-              placeholder="Mã · ví dụ LATE10"
-              aria-label="Mã khuyến mãi"
-              value={draft.code}
-              onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))}
-            />
-            <Select
-              aria-label="Loại khuyến mãi"
-              value={draft.kind}
-              onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value }))}
-              options={[
-                { value: 'percent', label: 'Giảm theo phần trăm' },
-                { value: 'flat', label: 'Giảm một khoản tiền' },
-              ]}
-            />
-            <Input
-              type="number"
-              value={draft.amount}
-              onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))}
-              placeholder={draft.kind === 'percent' ? 'Phần trăm giảm' : 'Số tiền giảm (VNĐ)'}
-              aria-label={draft.kind === 'percent' ? 'Phần trăm giảm' : 'Số tiền giảm'}
-            />
-            {draft.kind === 'percent' && (
-              <Input
-                type="number"
-                value={draft.cap}
-                onChange={(e) => setDraft((d) => ({ ...d, cap: e.target.value }))}
-                placeholder="Giới hạn tối đa (VNĐ)"
-                aria-label="Giới hạn giảm giá tối đa"
-              />
-            )}
-            <Button type="submit" leadingIcon="zap" className="w-full">
-              Tạo khuyến mãi
-            </Button>
-          </form>
-        </Card>
+        <div className="flex flex-wrap items-center gap-xs">
+          <Badge tone="outline">Tổng {vouchers.length}</Badge>
+          <Badge tone="success" dot>{summary.active} hoạt động</Badge>
+          <Badge tone="warning" dot>{summary.paused} tạm dừng</Badge>
+          <Badge tone="outline" dot>{summary.draft} nháp</Badge>
+          <Button leadingIcon="plus" onClick={openCreate}>
+            Tạo voucher
+          </Button>
+        </div>
       </div>
+
+      {loading ? (
+        <Card padded>
+          <div className="py-xl text-center text-body">Đang tải voucher...</div>
+        </Card>
+      ) : error ? (
+        <Card padded>
+          <div className="space-y-sm text-center">
+            <div className="text-title-md text-ink">Không thể tải voucher</div>
+            <p className="text-body text-body-sm">{error}</p>
+            <Button onClick={loadData}>Thử lại</Button>
+          </div>
+        </Card>
+      ) : vouchers.length === 0 ? (
+        <Card padded>
+          <div className="py-xl text-center">
+            <div className="text-title-md text-ink">Chưa có voucher nào</div>
+            <p className="mt-1 text-body text-body-sm">Tạo voucher quán để khách áp dụng khi đặt món.</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-base lg:grid-cols-2 xl:grid-cols-3">
+          {vouchers.map((voucher) => (
+            <Card key={voucher.id} padded className="flex flex-col gap-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-mono text-title-sm text-ink">{voucher.code}</div>
+                  <div className="text-body-sm font-semibold text-ink">{voucher.name}</div>
+                </div>
+                <Badge tone={voucher.status === 'active' ? 'success' : voucher.status === 'paused' ? 'warning' : 'outline'} dot>
+                  {voucher.status}
+                </Badge>
+              </div>
+              <p className="text-body-sm text-body">{voucher.description || 'Không có mô tả.'}</p>
+              <div className="grid grid-cols-2 gap-2 text-body-sm">
+                <div className="rounded-md bg-canvas-soft px-sm py-2">
+                  <div className="text-caption-uppercase text-body">Ưu đãi</div>
+                  <div className="text-ink">
+                    {voucher.discountType === 'percent'
+                      ? `Giảm ${voucher.discountValue}%${voucher.maxDiscountAmount ? ` tối đa ${formatVnd(voucher.maxDiscountAmount)}` : ''}`
+                      : `Giảm ${formatVnd(voucher.discountValue)}`}
+                  </div>
+                </div>
+                <div className="rounded-md bg-canvas-soft px-sm py-2">
+                  <div className="text-caption-uppercase text-body">Đơn tối thiểu</div>
+                  <div className="text-ink">{formatVnd(voucher.minOrderAmount)}</div>
+                </div>
+                <div className="rounded-md bg-canvas-soft px-sm py-2">
+                  <div className="text-caption-uppercase text-body">Hiệu lực</div>
+                  <div className="text-ink">{new Date(voucher.startsAt).toLocaleDateString('vi-VN')}</div>
+                </div>
+                <div className="rounded-md bg-canvas-soft px-sm py-2">
+                  <div className="text-caption-uppercase text-body">Đến</div>
+                  <div className="text-ink">{new Date(voucher.endsAt).toLocaleDateString('vi-VN')}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-sm">
+                <div className="text-caption text-body">
+                  {voucher.usageLimit ? `Giới hạn ${voucher.usageLimit} lượt` : 'Không giới hạn lượt'}
+                  {' · '}
+                  Mỗi khách {voucher.perUserLimit} lần
+                </div>
+                <div className="flex items-center gap-1">
+                  <IconButton icon="edit" label="Sửa voucher" size="sm" onClick={() => openEdit(voucher)} />
+                  <IconButton icon="trash" label="Xóa voucher" size="sm" onClick={() => setDeleteId(voucher.id)} />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        open={formOpen}
+        onClose={() => {
+          setEditing(null);
+          setForm(defaultForm());
+          setFormOpen(false);
+        }}
+        title={editing ? 'Chỉnh sửa voucher' : 'Tạo voucher mới'}
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setEditing(null); setForm(defaultForm()); setFormOpen(false); }}>
+              Hủy
+            </Button>
+            <Button onClick={submitVoucher} loading={saving}>
+              {editing ? 'Lưu thay đổi' : 'Tạo voucher'}
+            </Button>
+          </>
+        }
+      >
+        <form className="grid gap-sm md:grid-cols-2" onSubmit={submitVoucher}>
+          <Input label="Mã voucher" required value={form.code} onChange={(e) => setForm((cur) => ({ ...cur, code: e.target.value }))} />
+          <Input label="Tên voucher" required value={form.name} onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))} />
+          <Select
+            label="Loại giảm giá"
+            required
+            value={form.discountType}
+            onChange={(e) => setForm((cur) => ({ ...cur, discountType: e.target.value }))}
+            options={[
+              { value: 'percent', label: 'Giảm theo %' },
+              { value: 'fixed', label: 'Giảm cố định' },
+            ]}
+          />
+          <Select
+            label="Trạng thái"
+            required
+            value={form.status}
+            onChange={(e) => setForm((cur) => ({ ...cur, status: e.target.value }))}
+            options={[
+              { value: 'draft', label: 'Nháp' },
+              { value: 'active', label: 'Hoạt động' },
+              { value: 'paused', label: 'Tạm dừng' },
+            ]}
+          />
+          <Input label="Giá trị giảm" required type="number" value={form.discountValue} onChange={(e) => setForm((cur) => ({ ...cur, discountValue: e.target.value }))} />
+          <Input label="Giảm tối đa" type="number" value={form.maxDiscountAmount} onChange={(e) => setForm((cur) => ({ ...cur, maxDiscountAmount: e.target.value }))} />
+          <Input label="Đơn tối thiểu" type="number" value={form.minOrderAmount} onChange={(e) => setForm((cur) => ({ ...cur, minOrderAmount: e.target.value }))} />
+          <Input label="Giới hạn lượt dùng" type="number" value={form.usageLimit} onChange={(e) => setForm((cur) => ({ ...cur, usageLimit: e.target.value }))} />
+          <Input label="Mỗi khách dùng" type="number" value={form.perUserLimit} onChange={(e) => setForm((cur) => ({ ...cur, perUserLimit: e.target.value }))} />
+          <Input label="Bắt đầu" type="datetime-local" value={form.startsAt} onChange={(e) => setForm((cur) => ({ ...cur, startsAt: e.target.value }))} />
+          <Input label="Kết thúc" type="datetime-local" value={form.endsAt} onChange={(e) => setForm((cur) => ({ ...cur, endsAt: e.target.value }))} />
+          <div className="md:col-span-2">
+            <Textarea
+              label="Mô tả"
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm((cur) => ({ ...cur, description: e.target.value }))}
+            />
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        title="Xóa voucher"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteId(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={confirmDelete}>
+              Xóa
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body text-body-sm">Voucher sẽ bị xóa khỏi quán và khách sẽ không dùng được nữa.</p>
+      </Modal>
     </div>
   );
 }

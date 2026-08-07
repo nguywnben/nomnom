@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { fetchMerchantOrdersApi, updateMerchantOrderStatusApi } from '../../lib/api.js';
+import { createOrderConversationApi, fetchMerchantOrdersApi, updateMerchantOrderStatusApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 
 const POLL_MS = 15000;
@@ -42,6 +43,7 @@ function groupOrders(orders) {
 
 export default function MerchantOrders() {
   const { pushToast } = useApp();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(todayIsoDate);
@@ -131,6 +133,15 @@ export default function MerchantOrders() {
     }
   };
 
+  const openCustomerChat = async (order) => {
+    try {
+      const response = await createOrderConversationApi(order.id, 'customer');
+      navigate('/chat/' + response.conversation.id);
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể mở trò chuyện', message: err.message || 'Vui lòng thử lại.' });
+    }
+  };
+
   return (
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-base">
@@ -188,6 +199,7 @@ export default function MerchantOrders() {
                         busy={actingCode === order.orderCode}
                         onAction={(action) => handleAction(order, action)}
                         onCancel={() => handleCancel(order)}
+                        onChat={() => openCustomerChat(order)}
                       />
                     ))}
                   </ul>
@@ -201,7 +213,7 @@ export default function MerchantOrders() {
   );
 }
 
-function OrderCard({ order, busy, onAction, onCancel }) {
+function OrderCard({ order, busy, onAction, onCancel, onChat }) {
   const minutesAgo = useMinutesAgo(order.placedAt);
   const next = ACTIONS[order.status];
   const canCancel = ['placed', 'accepted', 'preparing', 'ready_for_pickup'].includes(order.status);
@@ -237,8 +249,9 @@ function OrderCard({ order, busy, onAction, onCancel }) {
           <span className="nums text-title-sm text-ink">{formatVnd(order.totalAmount)}</span>
         </div>
       </div>
-      {(next || canCancel) && (
-        <div className="flex items-center gap-1 border-t border-hairline p-sm">
+      <div className="flex items-center gap-1 border-t border-hairline p-sm">
+          <Button variant="secondary" size="sm" leadingIcon="chat" onClick={onChat}>Nhắn khách</Button>
+
           {canCancel ? (
             <Button variant="secondary" size="sm" disabled={busy} onClick={onCancel}>
               Hủy
@@ -255,7 +268,7 @@ function OrderCard({ order, busy, onAction, onCancel }) {
             </Button>
           ) : null}
         </div>
-      )}
+
     </Card>
   );
 }

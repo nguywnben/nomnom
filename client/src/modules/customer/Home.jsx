@@ -8,6 +8,7 @@ import Avatar from '../../components/Avatar.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import { useHomeCategories } from '../../hooks/useHomeCategories.js';
 import { useHomePromos } from '../../hooks/useHomePromos.js';
+import { useRestaurants } from '../../hooks/useRestaurants.js';
 import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -321,7 +322,7 @@ export default function CustomerHome() {
       <section className="container-page pb-xl">
         <SectionHeader
           caption="Đang hot"
-          title="Các món thịnh hành gần bạn"
+          title="Các món thịnh hành"
         />
         {trendingLoading ? (
           <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
@@ -398,9 +399,6 @@ export default function CustomerHome() {
           <div className="flex items-center gap-xs">
             <Button variant="secondary" size="sm" onClick={() => nav('/merchant')}>
               Dành cho quán ăn
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => nav('/driver')}>
-              Dành cho tài xế
             </Button>
           </div>
         </div>

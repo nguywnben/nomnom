@@ -1,20 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Input, { Select } from '../../components/Input.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Modal from '../../components/Modal.jsx';
+import Pagination from '../../components/Pagination.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
-
-// Giám sát đơn hàng toàn nền tảng — `orders.status` (10 trạng thái) + payment_status.
-const SAMPLE = [
-  { id: 'ORD-A1B2C', customer: 'Mia C.', restaurant: 'Cinque Pizzeria', driver: 'Phạm Văn Hoàng', total: 458_000, status: 'delivering', payment: 'paid', placedAt: Date.now() - 30 * 60 * 1000 },
-  { id: 'ORD-K9X', customer: 'Owen T.', restaurant: 'Hachi Ramen', driver: 'Trần Quốc Bảo', total: 384_000, status: 'preparing', payment: 'paid', placedAt: Date.now() - 18 * 60 * 1000 },
-  { id: 'ORD-Z9Y8X', customer: 'Lia D.', restaurant: 'Junebug Burgers', driver: null, total: 268_000, status: 'cancelled', payment: 'refunded', placedAt: Date.now() - 2 * 60 * 60 * 1000 },
-  { id: 'ORD-J7P', customer: 'Rae P.', restaurant: 'La Carreta', driver: 'Đặng Thị Hồng', total: 612_000, status: 'delivered', payment: 'paid', placedAt: Date.now() - 5 * 60 * 60 * 1000 },
-  { id: 'ORD-Q1R', customer: 'Bao N.', restaurant: 'Daybreak Coffee', driver: 'Phạm Văn Hoàng', total: 122_000, status: 'placed', payment: 'unpaid', placedAt: Date.now() - 4 * 60 * 1000 },
-  { id: 'ORD-T2W', customer: 'Khoa P.', restaurant: 'Verdant Bowls', driver: null, total: 195_000, status: 'failed', payment: 'failed', placedAt: Date.now() - 24 * 60 * 60 * 1000 },
-];
+import { useApp } from '../../context/AppContext.jsx';
+import { fetchAdminOrderDetail, fetchAdminOrders, cancelAdminOrder } from '../../lib/api.js';
 
 const ORDER_STATUS = {
   pending_payment: { label: 'Chờ thanh toán', tone: 'warning' },
@@ -36,54 +30,156 @@ const PAY_STATUS = {
   refunded: { label: 'Đã hoàn tiền', tone: 'default' },
 };
 
-export default function AdminOrders() {
-  const [q, setQ] = useState('');
-  const [status, setStatus] = useState('all');
-  const [payment, setPayment] = useState('all');
+const PAGE_SIZE = 10;
 
-  const list = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return SAMPLE.filter((o) => {
-      if (status !== 'all' && o.status !== status) return false;
-      if (payment !== 'all' && o.payment !== payment) return false;
-      if (!needle) return true;
-      return `${o.id} ${o.customer} ${o.restaurant} ${o.driver || ''}`.toLowerCase().includes(needle);
-    });
-  }, [q, status, payment]);
+export default function AdminOrders() {
+  const { pushToast } = useApp();
+  const [orders, setOrders] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [status, setStatus] = useState('all');
+  const [paymentMethod, setPaymentMethod] = useState('all');
+
+  // Modal State
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
+  // Debounce search text
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchText);
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [searchText]);
+
+  const loadOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminOrders({
+        status,
+        paymentMethod,
+        q: debouncedSearch,
+        page,
+      });
+      setOrders(data.items || []);
+      setTotal(data.pagination?.total ?? 0);
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Lỗi tải đơn hàng',
+        message: err.message || 'Không thể kết nối tới server.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch, page, paymentMethod, pushToast, status]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  const handleOpenDetail = async (order) => {
+    setSelectedOrder(order);
+    try {
+      const data = await fetchAdminOrderDetail(order.id);
+      setSelectedOrder(data.order);
+    } catch (error) {
+      pushToast({
+        kind: 'error',
+        title: 'Không thể tải chi tiết đơn',
+        message: error.message || 'Vui lòng thử lại.',
+      });
+    }
+  };
+
+  const handleCancelClick = (o) => {
+    setCancelTarget({ id: o.id, code: o.order_code, isPaid: o.payment_status === 'paid' });
+    setCancelReason('');
+    setCancelError('');
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelReason.trim()) {
+      setCancelError('Vui lòng nhập lý do hủy đơn.');
+      return;
+    }
+
+    setCancelling(true);
+    try {
+      await cancelAdminOrder(cancelTarget.id, cancelReason.trim());
+      pushToast({
+        kind: 'success',
+        title: 'Hủy đơn hàng thành công',
+        message: `Đơn ${cancelTarget.code} đã được hủy ${cancelTarget.isPaid ? 'và hoàn tiền tự động' : ''}.`,
+      });
+      setCancelTarget(null);
+      loadOrders();
+    } catch (err) {
+      setCancelError(err.message || 'Hủy đơn hàng thất bại.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-sm">
         <div>
           <div className="text-caption-uppercase text-body">Vận hành</div>
-          <h1 className="text-display-lg text-ink">Đơn hàng toàn nền tảng</h1>
-          <p className="mt-xs text-body-sm text-body">Theo dõi đơn theo trạng thái và thanh toán. Hỗ trợ tra cứu, can thiệp khi cần.</p>
+          <h1 className="text-display-lg text-ink">Đơn hàng toàn hệ thống</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Theo dõi đơn theo trạng thái và thanh toán. Hỗ trợ tra cứu, can thiệp khi cần.
+          </p>
         </div>
       </div>
 
       <Card padded className="grid gap-sm md:grid-cols-[1fr_220px_220px]">
-        <Input leadingIcon="search" placeholder="Tìm mã đơn, khách, quán, tài xế…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input
+          leadingIcon="search"
+          placeholder="Tìm mã đơn, email khách..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
         <Select
           aria-label="Trạng thái đơn"
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => {
+            setStatus(e.target.value);
+            setPage(1);
+          }}
           options={[
             { value: 'all', label: 'Tất cả trạng thái' },
             ...Object.entries(ORDER_STATUS).map(([v, m]) => ({ value: v, label: m.label })),
           ]}
         />
         <Select
-          aria-label="Thanh toán"
-          value={payment}
-          onChange={(e) => setPayment(e.target.value)}
+          aria-label="Phương thức thanh toán"
+          value={paymentMethod}
+          onChange={(e) => {
+            setPaymentMethod(e.target.value);
+            setPage(1);
+          }}
           options={[
-            { value: 'all', label: 'Tất cả thanh toán' },
-            ...Object.entries(PAY_STATUS).map(([v, m]) => ({ value: v, label: m.label })),
+            { value: 'all', label: 'Tất cả phương thức' },
+            { value: 'cod', label: 'Tiền mặt (COD)' },
+            { value: 'vnpay', label: 'Ví VNPAY' },
           ]}
         />
       </Card>
 
-      {list.length === 0 ? (
+      {loading ? (
+        <Card padded className="text-center text-body py-xxl">
+          Đang tải thông tin đơn hàng...
+        </Card>
+      ) : orders.length === 0 ? (
         <EmptyState icon="package" title="Không có đơn phù hợp" />
       ) : (
         <Card padded={false} className="overflow-hidden">
@@ -93,62 +189,274 @@ export default function AdminOrders() {
                 <th className="px-base py-2">Mã đơn</th>
                 <th className="px-base py-2">Khách</th>
                 <th className="px-base py-2">Quán</th>
-                <th className="px-base py-2">Tài xế</th>
-                <th className="px-base py-2 text-right">Tổng</th>
-                <th className="px-base py-2">Đơn</th>
+                <th className="px-base py-2 text-right">Tổng cộng</th>
+                <th className="px-base py-2">Trạng thái đơn</th>
                 <th className="px-base py-2">Thanh toán</th>
                 <th className="px-base py-2">Thời gian</th>
-                <th className="px-base py-2"></th>
+                <th className="px-base py-2 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {list.map((o) => (
-                <tr key={o.id} className="border-t border-hairline">
-                  <td className="nums px-base py-2 text-ink">{o.id}</td>
-                  <td className="px-base py-2 text-body">{o.customer}</td>
-                  <td className="px-base py-2 text-body">{o.restaurant}</td>
-                  <td className="px-base py-2 text-body">{o.driver || '—'}</td>
-                  <td className="px-base py-2 nums text-right text-ink">{formatVnd(o.total)}</td>
-                  <td className="px-base py-2"><Badge tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Badge></td>
-                  <td className="px-base py-2"><Badge tone={PAY_STATUS[o.payment].tone}>{PAY_STATUS[o.payment].label}</Badge></td>
-                  <td className="px-base py-2 text-body">{new Date(o.placedAt).toLocaleString('vi-VN')}</td>
-                  <td className="px-base py-2 text-right">
-                    <Button variant="secondary" size="sm">Chi tiết</Button>
+              {orders.map((o) => (
+                <tr key={o.id} className="border-t border-hairline hover:bg-canvas-soft">
+                  <td className="nums px-base py-3 text-ink font-medium">{o.order_code}</td>
+                  <td className="px-base py-3 text-body truncate max-w-[150px]" title={o.customer_email}>
+                    {o.customer_name}
+                  </td>
+                  <td className="px-base py-3 text-body truncate max-w-[150px]">
+                    {o.restaurant_name}
+                  </td>
+                  <td className="px-base py-3 nums text-right text-ink font-semibold">
+                    {formatVnd(Number(o.total_amount))}
+                  </td>
+                  <td className="px-base py-3">
+                    <Badge tone={ORDER_STATUS[o.status]?.tone || 'default'}>
+                      {ORDER_STATUS[o.status]?.label || o.status}
+                    </Badge>
+                  </td>
+                  <td className="px-base py-3">
+                    <Badge tone={PAY_STATUS[o.payment_status]?.tone || 'default'}>
+                      {PAY_STATUS[o.payment_status]?.label || o.payment_status}
+                    </Badge>
+                  </td>
+                  <td className="px-base py-3 text-body text-xs">
+                    {new Date(o.placed_at).toLocaleString('vi-VN')}
+                  </td>
+                  <td className="px-base py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="secondary" size="sm" onClick={() => handleOpenDetail(o)}>
+                        Chi tiết
+                      </Button>
+                      {!['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(o.status) && (
+                        <Button variant="secondary" size="sm" onClick={() => handleCancelClick(o)}>
+                          Hủy đơn
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* Mobile cards */}
+          {/* Mobile view */}
           <ul className="divide-y divide-hairline md:hidden">
-            {list.map((o) => (
-              <li key={o.id} className="p-base">
+            {orders.map((o) => (
+              <li key={o.id} className="p-base hover:bg-canvas-soft">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="nums text-body-sm font-semibold text-ink">{o.id}</div>
+                    <div className="nums text-body-sm font-semibold text-ink">{o.order_code}</div>
                     <div className="text-caption text-body truncate">
-                      {o.customer} → {o.restaurant}
+                      {o.customer_name} · {o.restaurant_name}
                     </div>
-                    <div className="text-caption text-body truncate">
-                      Tài xế: {o.driver || '—'}
+                    <div className="text-caption text-body">
+                      {new Date(o.placed_at).toLocaleString('vi-VN')}
                     </div>
-                    <div className="text-caption text-body">{new Date(o.placedAt).toLocaleString('vi-VN')}</div>
                   </div>
                   <div className="text-right">
-                    <div className="nums text-body-sm font-semibold text-ink">{formatVnd(o.total)}</div>
-                    <Badge tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Badge>
+                    <div className="nums text-body-sm font-semibold text-ink">
+                      {formatVnd(Number(o.total_amount))}
+                    </div>
+                    <Badge tone={ORDER_STATUS[o.status]?.tone || 'default'}>
+                      {ORDER_STATUS[o.status]?.label || o.status}
+                    </Badge>
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge tone={PAY_STATUS[o.payment].tone}>{PAY_STATUS[o.payment].label}</Badge>
-                  <Button variant="secondary" size="sm">Chi tiết</Button>
+                  <Badge tone={PAY_STATUS[o.payment_status]?.tone || 'default'}>
+                    {PAY_STATUS[o.payment_status]?.label || o.payment_status}
+                  </Badge>
+                  <Button variant="secondary" size="sm" onClick={() => handleOpenDetail(o)}>
+                    Chi tiết
+                  </Button>
+                  {!['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(o.status) && (
+                    <Button variant="secondary" size="sm" onClick={() => handleCancelClick(o)}>
+                      Hủy đơn
+                    </Button>
+                  )}
                 </div>
               </li>
             ))}
           </ul>
+
+          <div className="border-t border-hairline px-base py-sm">
+            <Pagination total={total} pageSize={PAGE_SIZE} page={page} onChange={setPage} />
+          </div>
         </Card>
       )}
+
+      {/* Modal Hủy đơn */}
+      <Modal
+        open={!!cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        title={`Hủy đơn hàng ${cancelTarget?.code}`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setCancelTarget(null)} disabled={cancelling}>
+              Bỏ qua
+            </Button>
+            <Button onClick={handleConfirmCancel} disabled={cancelling}>
+              {cancelling ? 'Đang hủy...' : 'Xác nhận hủy'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-base">
+          <p className="text-body-sm text-body">
+            Bạn có chắc chắn muốn hủy đơn hàng <strong>{cancelTarget?.code}</strong>?
+            {cancelTarget?.isPaid && (
+              <span className="block mt-2 text-error font-medium">
+                VNPay must confirm the refund before this paid order is cancelled.
+              </span>
+            )}
+          </p>
+          <Input
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            hint="Lý do hủy đơn"
+            error={cancelError}
+            placeholder="Nhập lý do hủy đơn (bắt buộc)..."
+            required
+          />
+        </div>
+      </Modal>
+
+      {/* Modal Chi tiết đơn hàng */}
+      <Modal
+        open={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        title={`Chi tiết đơn hàng ${selectedOrder?.order_code}`}
+        size="md"
+        footer={
+          <Button variant="secondary" onClick={() => setSelectedOrder(null)}>
+            Đóng
+          </Button>
+        }
+      >
+        {selectedOrder && (
+          <div className="space-y-base text-body-sm">
+            <div className="grid grid-cols-2 gap-sm border-b border-hairline pb-sm">
+              <div>
+                <span className="text-caption text-body block">Khách hàng</span>
+                <span className="font-semibold text-ink block">{selectedOrder.customer_name}</span>
+                <span className="text-caption text-body">{selectedOrder.customer_email}</span>
+              </div>
+              <div>
+                <span className="text-caption text-body block">Cửa hàng</span>
+                <span className="font-semibold text-ink block">{selectedOrder.restaurant_name}</span>
+              </div>
+            </div>
+
+            <div className="border-b border-hairline pb-sm space-y-xs">
+              <span className="text-caption text-body block">Địa chỉ giao hàng</span>
+              <span className="text-ink leading-relaxed block">{selectedOrder.delivery_address_snapshot}</span>
+              {selectedOrder.customer_note && (
+                <div className="mt-xs bg-canvas-soft p-xs rounded border border-hairline text-xs">
+                  <span className="font-medium text-ink">Ghi chú của khách:</span> {selectedOrder.customer_note}
+                </div>
+              )}
+            </div>
+
+            <div className="border-b border-hairline pb-sm space-y-xs">
+              <span className="text-caption text-body block">Thông tin thanh toán & vận chuyển</span>
+              <div className="grid grid-cols-2 gap-xs">
+                <div>
+                  <span className="text-body block">Hình thức: {selectedOrder.payment_method?.toUpperCase()}</span>
+                  <span className="text-body block">Khoảng cách: {selectedOrder.distance_km} km</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-xs">
+                    <span className="text-body">Đơn hàng:</span>
+                    <Badge tone={ORDER_STATUS[selectedOrder.status]?.tone || 'default'}>
+                      {ORDER_STATUS[selectedOrder.status]?.label || selectedOrder.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-xs mt-xs">
+                    <span className="text-body">Thanh toán:</span>
+                    <Badge tone={PAY_STATUS[selectedOrder.payment_status]?.tone || 'default'}>
+                      {PAY_STATUS[selectedOrder.payment_status]?.label || selectedOrder.payment_status}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-xs">
+              <span className="text-caption text-body block">Chi tiết tài chính</span>
+              <div className="bg-canvas-soft p-sm rounded-lg space-y-xs font-mono text-ink">
+                <div className="flex justify-between">
+                  <span>Giá trị món ăn:</span>
+                  <span>{formatVnd(Number(selectedOrder.subtotal))}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Phí giao hàng:</span>
+                  <span>{formatVnd(Number(selectedOrder.delivery_fee))}</span>
+                </div>
+                <div className="flex justify-between text-success">
+                  <span>Khuyến mãi:</span>
+                  <span>-{formatVnd(Number(selectedOrder.discount_amount))}</span>
+                </div>
+                <div className="flex justify-between border-t border-hairline-strong pt-xs font-semibold text-title-sm text-ink">
+                  <span>Tổng tiền thanh toán:</span>
+                  <span>{formatVnd(Number(selectedOrder.total_amount))}</span>
+                </div>
+
+                <div className="border-t border-hairline pt-xs mt-xs text-xs text-body font-sans space-y-1">
+                  <div className="flex justify-between">
+                    <span>Merchant nhận:</span>
+                    <span>{formatVnd(Number(selectedOrder.merchant_earning))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tài xế nhận:</span>
+                    <span>{formatVnd(Number(selectedOrder.driver_earning))}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Nền tảng thu:</span>
+                    <span>{formatVnd(Number(selectedOrder.platform_fee))}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 && (
+              <div className="border-t border-hairline pt-sm">
+                <span className="text-caption text-body block">Món trong đơn</span>
+                <div className="mt-xs space-y-xs">
+                  {selectedOrder.items.map((item) => (
+                    <div key={item.id} className="flex justify-between gap-sm">
+                      <span className="text-ink">{item.quantity} x {item.item_name_snapshot}</span>
+                      <span>{formatVnd(Number(item.line_subtotal))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(selectedOrder.statusLogs) && selectedOrder.statusLogs.length > 0 && (
+              <div className="border-t border-hairline pt-sm">
+                <span className="text-caption text-body block">Lịch sử trạng thái</span>
+                <ol className="mt-xs space-y-xs">
+                  {selectedOrder.statusLogs.map((log) => (
+                    <li key={log.id} className="flex justify-between gap-sm">
+                      <span className="text-ink">{log.from_status ? log.from_status + ' -> ' : ''}{log.to_status}</span>
+                      <span className="text-caption text-body">{new Date(log.created_at).toLocaleString('vi-VN')}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {selectedOrder.status === 'cancelled' && (
+              <div className="bg-error/5 p-sm rounded-lg border border-error/20 text-xs text-error space-y-xs">
+                <div className="font-semibold">Đơn hàng bị hủy:</div>
+                <div>Lý do: {selectedOrder.cancel_reason || 'Không có lý do cụ thể'}</div>
+                <div>Hủy lúc: {selectedOrder.cancelled_at ? new Date(selectedOrder.cancelled_at).toLocaleString() : 'Không rõ'}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

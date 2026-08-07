@@ -8,7 +8,7 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
-import { apiGet, apiPost } from '../../lib/api.js';
+import { apiGet, apiPost, createOrderConversationApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { useApp } from '../../context/AppContext.jsx';
 
@@ -54,6 +54,7 @@ export default function CustomerOrders() {
   const [refetchTrigger, setRefetchTrigger] = useState(0);
   const [cancellingId, setCancellingId] = useState(null);
   const [reorderingId, setReorderingId] = useState(null);
+  const [chattingId, setChattingId] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -142,6 +143,19 @@ export default function CustomerOrders() {
     }
   };
 
+  const openOrderChat = async (order, counterpartRole) => {
+    const key = order.id + '-' + counterpartRole;
+    setChattingId(key);
+    try {
+      const response = await createOrderConversationApi(order.id, counterpartRole);
+      navigate('/chat/' + response.conversation.id);
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể mở trò chuyện', message: err.message || 'Vui lòng thử lại.' });
+    } finally {
+      setChattingId('');
+    }
+  };
+
   return (
     <div className="container-page py-xl">
       <div className="mb-base flex flex-col justify-between gap-base md:flex-row md:items-end">
@@ -216,6 +230,8 @@ export default function CustomerOrders() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-xs md:self-center" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="secondary" leadingIcon="chat" disabled={chattingId === o.id + '-merchant'} onClick={() => openOrderChat(o, 'merchant')}>Nhắn quán</Button>
+                    <Button size="sm" variant="secondary" leadingIcon="chat" disabled={chattingId === o.id + '-admin'} onClick={() => openOrderChat(o, 'admin')}>Hỗ trợ</Button>
                     {isActive && (
                       <Link to={`/app/track/${o.orderCode}`}>
                         <Button size="sm">Theo dõi</Button>

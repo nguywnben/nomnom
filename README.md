@@ -24,18 +24,22 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 
 - Email registration, OTP verification, JWT authentication, and profile management
 - Restaurant discovery, search, menu browsing, addresses, and persistent carts
-- COD checkout, order history, live status polling, reorder, and restaurant reviews
+- COD and VNPay checkout, server-validated vouchers, order history, live status polling, reorder, and restaurant reviews
 
 ### Merchant
 
 - Restaurant onboarding and approval workflow
 - KPI dashboard, order board, and order status transitions
 - Menu category and item management with image uploads
+- Restaurant-scoped promotion management and public review replies
+- Wallet, payout requests, restaurant settings, notification inbox, and order-context chat
 
 ### Admin and Driver
 
 - User administration and merchant/driver application approval
 - Platform overview with operational metrics
+- Global order audit/refund operations and review moderation
+- Merchant payout review, financial reporting, platform configuration, notifications, and support chat
 - Driver onboarding and approval status; delivery operations remain a planned phase
 
 ## Project Status
@@ -43,11 +47,11 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 | Area | Status |
 |---|---|
 | Waves 1-3: discovery, COD ordering, merchant operations | Complete |
-| Wave 4: VNPay, vouchers, merchant promotions, moderation | Planned / foundation prepared |
-| Wave 5: merchant finance, configuration, and chat | Planned |
+| Wave 4: VNPay, vouchers, merchant promotions, moderation | Implementation complete; sandbox acceptance pending credentials |
+| Wave 5: merchant finance, configuration, notifications, and chat | Complete and locally verified |
 | Driver delivery operations | Planned after Waves 4-5 |
 
-Some future-facing screens still contain demonstration data. See [completed-wave documentation](./docs/README.md) and the [Wave 4 plan](./tasks/plan.md) for the exact implementation boundary.
+See [completed-wave documentation](./docs/README.md), the [Wave 4 report](./docs/wave-4-completed.md), and the [Wave 5 report](./docs/wave-5-completed.md) for verified scope and remaining acceptance checks.
 
 ## Repository Structure
 
@@ -72,7 +76,7 @@ nomnom/
 
 - **Frontend**: React 19, Vite, Tailwind CSS, React Router, Context API
 - **Backend**: Node.js, Express, MySQL 8, JWT, Cloudinary
-- **Integrations**: Nodemailer, Cloudinary, Railway, Vercel, and VNPay sandbox (planned)
+- **Integrations**: Nodemailer, Cloudinary, Railway, Vercel, and VNPay sandbox
 - **Product language**: Vietnamese
 
 ## Architecture
@@ -84,7 +88,7 @@ flowchart LR
     A --> D[("MySQL 8")]
     A --> I["Cloudinary"]
     A --> M["SMTP email"]
-    A -. "Wave 4" .-> V["VNPay sandbox"]
+    A --> V["VNPay sandbox"]
 ```
 
 The application is a monorepo with role-oriented frontend modules and a single REST API. MySQL stores identity, catalog, cart, order, review, and financial records. See the [project overview](./docs/analysis/project-overview.md), [ERD](./docs/analysis/erd.md), and [use cases](./docs/analysis/usecase.md).
@@ -115,7 +119,15 @@ mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS nomnom"
 mysql -u root -p nomnom < database/nomnom.sql
 ```
 
-For an existing database, review [database migrations](./database/migrations/) before applying only the migrations it does not already contain. The Wave 4 foundation migration is optional until Wave 4 development begins.
+For a fresh Waves 4-5 environment, import the base file and then apply the migrations in order:
+
+```bash
+mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql
+mysql -u root -p nomnom < database/migrations/20260803_wave4_completion.sql
+mysql -u root -p nomnom < database/migrations/20260804_wave5_completion.sql
+```
+
+The API also performs idempotent startup checks for the Wave 4 and Wave 5 additions. Review [database migrations](./database/migrations/) before applying migrations to an existing shared database.
 
 ### 3. Configure and run the API
 
@@ -126,7 +138,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The API starts at `http://localhost:3001`; `GET /api/health` returns the health status.
+The API starts at `http://localhost:3000`; `GET /api/health` returns the health status.
 
 ### 4. Configure and run the client
 
@@ -146,7 +158,7 @@ Copy the committed example files; never commit real `.env` files.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `PORT` | No | API port; defaults to `3001` |
+| `PORT` | No | API port; defaults to `3000` |
 | `MYSQL_URL` | Alternative | Full MySQL connection URL, recommended on Railway |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Yes locally | Individual MySQL connection settings |
 | `CORS_ORIGIN` | Yes | Allowed frontend origin |
@@ -154,7 +166,7 @@ Copy the committed example files; never commit real `.env` files.
 | `JWT_ACCESS_TTL`, `JWT_REFRESH_DAYS` | No | Token lifetimes |
 | `CLOUDINARY_*` | For uploads | Cloudinary credentials |
 | `SMTP_*` | For real email | SMTP transport; development logs OTP when omitted |
-| `VNPAY_*` | Wave 4 only | VNPay sandbox configuration |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | For VNPay | Sandbox merchant credentials; never commit them |
 
 ### Client
 
@@ -178,6 +190,7 @@ Run commands from the relevant package directory.
 | Client | `npm run preview` | Preview the production build |
 | Server | `npm run dev` | Start the API with Node watch mode |
 | Server | `npm start` | Start the API without watch mode |
+| Server | `npm test` | Run VNPay and voucher regression tests |
 
 ## Demo Accounts
 
@@ -194,7 +207,7 @@ No permanent public demo URL is guaranteed yet. Local setup is the supported dem
 
 ## Testing and Quality Checks
 
-The repository does not yet have a complete automated test suite. Before opening a pull request, run:
+Run the full local quality gate before opening a pull request:
 
 ```bash
 cd client
@@ -203,16 +216,18 @@ npm run lint
 npm run build
 
 cd ../server
-node --check src/index.js
+npm test
+Get-ChildItem src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-Also smoke-test the customer COD flow and any role-specific flow affected by your change. Expanding automated API and browser coverage remains part of the roadmap.
+Waves 4-5 add focused server regression tests for VNPay, voucher, payout transition, and platform configuration rules. Also smoke-test the affected authenticated role flows. Live VNPay payment and refund checks require sandbox credentials.
 
 ## API and Project Documentation
 
 - [Server endpoints](./server/README.md)
 - [Authentication and seed users](./docs/AUTH.md)
 - [Project documentation index](./docs/README.md)
+- [Wave 4 completion report](./docs/wave-4-completed.md)
 - [ERD and database design](./docs/analysis/erd.md)
 - [Use-case analysis](./docs/analysis/usecase.md)
 - [Railway deployment](./docs/RAILWAY.md)
@@ -225,13 +240,10 @@ Also smoke-test the customer COD flow and any role-specific flow affected by you
 
 ## Roadmap
 
-- VNPay sandbox payment flow with verified, idempotent callbacks
-- Restaurant-scoped vouchers and promotion management
-- Merchant review replies and admin review moderation
-- Admin cancellation/refund operations
-- Merchant finance, platform configuration, notifications, and contextual chat
+- Wave 5: merchant finance, platform configuration, notifications, and contextual chat
 - Driver assignment, pickup, delivery, proof, and earnings flow
-- Automated API, browser, and CI quality gates
+- Broader automated API, browser, concurrency, and CI quality gates
+- Production security, reliability, observability, and deployment hardening
 
 Detailed planning lives in [docs/planning](./docs/planning/) and [tasks](./tasks/).
 

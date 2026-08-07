@@ -13,8 +13,8 @@ import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet, apiPost } from '../../lib/api.js';
 
 const PAYMENTS = [
-  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán tiền mặt cho tài xế', icon: 'cash' },
-  { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card', disabled: true },
+  { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán khi nhận món', icon: 'cash' },
+  { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card' },
 ];
 
 export default function CustomerCheckout() {
@@ -200,11 +200,15 @@ export default function CustomerCheckout() {
       const res = await apiPost('/api/v1/orders', {
         addressId: finalAddressId,
         paymentMethod: payment,
-        customerNote: note,
-        voucherCode: appliedPromo?.code || undefined,
+        voucherCode: appliedPromo?.code || null,
       });
       clearCart();
-      nav('/app/order/success/' + res.order.order_code);
+      if (payment === 'vnpay') {
+        const payRes = await apiPost('/api/v1/payments/vnpay', { orderId: res.order.id });
+        window.location.href = payRes.paymentUrl;
+      } else {
+        nav('/app/order/success/' + res.order.order_code);
+      }
     } catch (err) {
       pushToast({
         kind: 'error',
@@ -392,7 +396,7 @@ export default function CustomerCheckout() {
                         if (phoneError) setPhoneError('');
                       }}
                       error={phoneError}
-                      hint="Tài xế sẽ gọi số này khi giao tới."
+                      hint="Nhà hàng sẽ dùng số này khi cần xác nhận đơn."
                     />
                   </div>
 
