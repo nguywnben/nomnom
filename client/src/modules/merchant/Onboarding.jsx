@@ -36,7 +36,7 @@ const STEPS = [
 
 const STEP_FIELDS = {
   info: ['name', 'cuisine', 'phone', 'avgPrepTime', 'tagline', 'description', 'minOrderAmount'],
-  address: ['addressLine', 'ward', 'district', 'city', 'baseDeliveryFee'],
+  address: ['addressLine', 'ward', 'city', 'baseDeliveryFee'],
   docs: ['logoUrl', 'bannerUrl', 'licenseUrl', 'foodSafetyUrl'],
   banking: ['bankName', 'bankAccountNo', 'bankAccountHolder'],
   review: [],
@@ -47,6 +47,9 @@ export default function MerchantOnboarding() {
   const { pushToast, setUser, setRole } = useApp();
   const [stepIdx, setStepIdx] = useState(0);
   const [cuisines, setCuisines] = useState([]);
+  const [provinces, setProvinces] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
   const [checkingRestaurant, setCheckingRestaurant] = useState(true);
   const [applyBlockedReason, setApplyBlockedReason] = useState(null);
   const [isResubmit, setIsResubmit] = useState(false);
@@ -71,7 +74,7 @@ export default function MerchantOnboarding() {
       addressLine: '',
       ward: '',
       district: '',
-      city: 'TP. Hồ Chí Minh',
+      city: '',
       baseDeliveryFee: 25000,
       minOrderAmount: 50000,
       logoUrl: '',
@@ -91,10 +94,13 @@ export default function MerchantOnboarding() {
 
     async function bootstrap() {
       try {
-        const [cuisineRes, merchantRes, meRes] = await Promise.all([
+        const [cuisineRes, merchantRes, meRes, provinceRes] = await Promise.all([
           fetchCuisinesApi().catch(() => null),
           fetchMerchantRestaurantApi().catch(() => null),
           fetchMe().catch(() => null),
+          fetch('https://provinces.open-api.vn/api/v2/p/')
+            .then((res) => res.json())
+            .catch(() => []),
         ]);
 
         if (!active) return;
@@ -111,6 +117,7 @@ export default function MerchantOnboarding() {
 
         const list = cuisineRes?.data?.map((c) => ({ value: String(c.id), label: c.name })) ?? [];
         setCuisines(list);
+        setProvinces(provinceRes || []);
 
         const restaurant = merchantRes?.restaurant;
         if (restaurant) {
@@ -136,7 +143,7 @@ export default function MerchantOnboarding() {
           setValue('addressLine', restaurant.address_line ?? '');
           setValue('ward', restaurant.ward ?? '');
           setValue('district', restaurant.district ?? '');
-          setValue('city', restaurant.city ?? 'TP. Hồ Chí Minh');
+          setValue('city', restaurant.city ?? '');
           setValue('baseDeliveryFee', Number(restaurant.base_delivery_fee ?? 25000));
           setValue('minOrderAmount', Number(restaurant.min_order_amount ?? 50000));
           setValue('avgPrepTime', Number(restaurant.avg_prep_time_min ?? 20));
@@ -147,6 +154,14 @@ export default function MerchantOnboarding() {
           setValue('bankName', restaurant.bank_name ?? 'Vietcombank');
           setValue('bankAccountNo', restaurant.bank_account_no ?? '');
           setValue('bankAccountHolder', restaurant.bank_account_holder ?? '');
+          
+          if (restaurant.city && provinceRes?.length) {
+            const matchedProv = provinceRes.find((p) => p.name === restaurant.city);
+            if (matchedProv) {
+              setSelectedProvinceCode(matchedProv.code);
+            }
+          }
+
           if (restaurant.cuisine_id && list.some((c) => c.value === String(restaurant.cuisine_id))) {
             setValue('cuisine', String(restaurant.cuisine_id));
           } else if (list.length > 0) {
@@ -167,6 +182,17 @@ export default function MerchantOnboarding() {
       active = false;
     };
   }, [nav, setRole, setUser, setValue]);
+
+  useEffect(() => {
+    if (!selectedProvinceCode) {
+      setWards([]);
+      return;
+    }
+    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
+      .then((res) => res.json())
+      .then((data) => setWards(data.wards || []))
+      .catch((err) => console.error('Failed to load wards:', err));
+  }, [selectedProvinceCode]);
 
   const [files, setFiles] = useState({
     logoFile: null,
@@ -271,7 +297,7 @@ export default function MerchantOnboarding() {
         phone: data.phone,
         addressLine: data.addressLine,
         ward: data.ward,
-        district: data.district,
+        district: '',
         city: data.city,
         baseDeliveryFee: data.baseDeliveryFee,
         minOrderAmount: data.minOrderAmount,
@@ -334,6 +360,16 @@ export default function MerchantOnboarding() {
       setSubmitting(false);
     }
   });
+
+  const provinceOptions = [
+    { value: '', label: 'Chọn Tỉnh / Thành phố' },
+    ...provinces.map((p) => ({ value: p.name, label: p.name })),
+  ];
+
+  const wardOptions = [
+    { value: '', label: 'Chọn Phường / Xã' },
+    ...wards.map((w) => ({ value: w.name, label: w.name })),
+  ];
 
   return (
     <OnboardingShell
@@ -455,31 +491,32 @@ export default function MerchantOnboarding() {
                 error={errors.addressLine?.message}
                 {...register('addressLine', { required: 'Vui lòng nhập số nhà, tên đường.' })}
               />
-              <Input
-                id="ward"
-                label="Phường / Xã"
-                placeholder="Phường/Xã"
-                aria-label="Phường/Xã"
-                error={errors.ward?.message}
-                {...register('ward')}
-              />
-              <Input
-                id="district"
-                label="Quận / Huyện"
-                required
-                placeholder="Quận/Huyện"
-                aria-label="Quận/Huyện"
-                error={errors.district?.message}
-                {...register('district', { required: 'Vui lòng nhập quận/huyện.' })}
-              />
-              <Input
+              <Select
                 id="city"
                 label="Tỉnh / Thành phố"
                 required
-                placeholder="Tỉnh/Thành phố"
-                aria-label="Tỉnh/Thành phố"
+                options={provinceOptions}
                 error={errors.city?.message}
-                {...register('city', { required: 'Vui lòng nhập tỉnh/thành phố.' })}
+                {...register('city', {
+                  required: 'Vui lòng chọn tỉnh/thành phố.',
+                  onChange: (e) => {
+                    const cityName = e.target.value;
+                    const matchedProv = provinces.find((p) => p.name === cityName);
+                    setSelectedProvinceCode(matchedProv ? matchedProv.code : '');
+                    setValue('ward', '');
+                  }
+                })}
+              />
+              <Select
+                id="ward"
+                label="Phường / Xã"
+                required
+                disabled={!selectedProvinceCode}
+                options={wardOptions}
+                error={errors.ward?.message}
+                {...register('ward', {
+                  required: 'Vui lòng chọn phường/xã.',
+                })}
               />
               <Input
                 id="baseDeliveryFee"
@@ -599,7 +636,7 @@ export default function MerchantOnboarding() {
             <div className="space-y-sm">
               <OnboardingReviewRow label="Tên quán" value={formValues.name || '—'} />
               <OnboardingReviewRow label="Loại ẩm thực" value={cuisines.find((c) => c.value === formValues.cuisine)?.label || '—'} />
-              <OnboardingReviewRow label="Địa chỉ" value={[formValues.addressLine, formValues.ward, formValues.district, formValues.city].filter(Boolean).join(', ') || '—'} />
+              <OnboardingReviewRow label="Địa chỉ" value={[formValues.addressLine, formValues.ward, formValues.city].filter(Boolean).join(', ') || '—'} />
               <OnboardingReviewRow label="Logo" value={formValues.logoUrl ? 'Đã tải lên' : '— (chưa tải)'} />
               <OnboardingReviewRow label="Ảnh bìa" value={formValues.bannerUrl ? 'Đã tải lên' : '— (chưa tải)'} />
               <OnboardingReviewRow label="Giấy phép kinh doanh" value={formValues.licenseUrl ? 'Đã tải lên' : '— (chưa tải)'} />

@@ -204,11 +204,11 @@ export default function CustomerCheckout() {
         customerNote: note,
         voucherCode: appliedPromo?.code || null,
       });
-      clearCart();
       if (payment === 'vnpay') {
         const payRes = await apiPost('/api/v1/payments/vnpay', { orderId: res.order.id });
         window.location.href = payRes.paymentUrl;
       } else {
+        clearCart();
         nav('/app/order/success/' + res.order.order_code);
       }
     } catch (err) {

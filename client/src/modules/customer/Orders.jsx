@@ -23,6 +23,7 @@ const STATUS_TONE = {
   delivered: 'default',
   cancelled: 'critical',
   failed: 'critical',
+  expired: 'critical',
 };
 
 const STATUS_LABEL = {
@@ -36,6 +37,7 @@ const STATUS_LABEL = {
   delivered: 'Đã giao',
   cancelled: 'Đã hủy',
   failed: 'Thất bại',
+  expired: 'Hết hạn',
 };
 
 export default function CustomerOrders() {
@@ -75,10 +77,10 @@ export default function CustomerOrders() {
   }, [filterStatus, page, pageSize, refetchTrigger]);
 
   const handleCardClick = (o) => {
-    const isActive = o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'failed';
+    const isActive = o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'failed' && o.status !== 'expired';
     if (isActive) {
       navigate(`/app/track/${o.orderCode}`);
-    } else if (o.status === 'delivered') {
+    } else if (o.status === 'delivered' || o.status === 'expired' || o.status === 'cancelled') {
       setSelectedOrder(o);
     }
   };
@@ -199,19 +201,20 @@ export default function CustomerOrders() {
             {orders.map((o) => {
               const statusLabel = STATUS_LABEL[o.status] || o.status;
               const toneColor = STATUS_TONE[o.status] || 'default';
-              const isActive = o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'failed';
+              const isActive = o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'failed' && o.status !== 'expired';
               const canCancel = o.status === 'pending_payment' || o.status === 'placed';
               const isDelivered = o.status === 'delivered';
+              const isClickable = isDelivered || isActive || o.status === 'expired' || o.status === 'cancelled';
 
               return (
                 <Card
                   key={o.id}
                   padded
-                  hover={isDelivered || isActive}
+                  hover={isClickable}
                   onClick={() => handleCardClick(o)}
                   className={
                     'flex flex-col gap-sm md:flex-row md:items-center md:gap-base transition-all duration-200 ' +
-                    (isDelivered || isActive ? 'cursor-pointer hover:border-ink/20' : 'cursor-default')
+                    (isClickable ? 'cursor-pointer hover:border-ink/20' : 'cursor-default')
                   }
                 >
                   <Image src={o.restaurantBanner} alt={o.restaurantName} className="h-24 w-32 rounded-md object-cover animate-fade-in" ratio="4/3" />
@@ -246,11 +249,13 @@ export default function CustomerOrders() {
                         Hủy đơn
                       </Button>
                     )}
+                    {isClickable && !isActive && (
+                      <Button size="sm" onClick={() => setSelectedOrder(o)}>
+                        Chi tiết
+                      </Button>
+                    )}
                     {isDelivered && (
                       <>
-                        <Button size="sm" onClick={() => setSelectedOrder(o)}>
-                          Chi tiết
-                        </Button>
                         <Button
                           size="sm"
                           variant="primary"
@@ -331,8 +336,8 @@ export default function CustomerOrders() {
               </div>
               <div className="flex justify-between text-body-sm text-body">
                 <span>Trạng thái thanh toán</span>
-                <Badge tone={selectedOrder.paymentStatus === 'paid' ? 'success' : 'warning'}>
-                  {selectedOrder.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                <Badge tone={selectedOrder.paymentStatus === 'paid' ? 'success' : selectedOrder.paymentStatus === 'failed' ? 'critical' : 'warning'}>
+                  {selectedOrder.paymentStatus === 'paid' ? 'Đã thanh toán' : selectedOrder.paymentStatus === 'failed' ? 'Thanh toán thất bại' : 'Chưa thanh toán'}
                 </Badge>
               </div>
               <div className="flex justify-between text-body-sm text-body">

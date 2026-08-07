@@ -130,7 +130,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       voucherDiscount = evaluation.discountAmount;
     }
     const discount_amount = voucherDiscount;
-    const total_amount = subtotal + delivery_fee - discount_amount;
+    const total_amount = Math.max(0, subtotal + delivery_fee - discount_amount);
 
     const driver_earning = Math.floor(delivery_fee * 0.8);
     const platform_commission = Math.floor(subtotal * Number(restaurant.commission_rate) / 100);
@@ -258,11 +258,13 @@ router.post('/', requireAuth, async (req, res, next) => {
       );
     }
 
-    // 8. Đổi giỏ hàng sang converted (Xóa cứng)
-    await connection.query(
-      `DELETE FROM carts WHERE id = ?`,
-      [cart.id]
-    );
+    // 8. Đổi giỏ hàng sang converted (Xóa cứng) - chỉ xóa cho COD. Với VNPay sẽ xóa khi thanh toán thành công
+    if (paymentMethod === 'cod') {
+      await connection.query(
+        `DELETE FROM carts WHERE id = ?`,
+        [cart.id]
+      );
+    }
 
     // Truy vấn lại thông tin đơn hàng vừa lưu
     const [orders] = await connection.query(
