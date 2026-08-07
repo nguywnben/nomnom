@@ -14,6 +14,7 @@ import uploadsRoutes from './routes/uploads.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import paymentsRoutes from './routes/payments.routes.js';
 import vouchersRoutes from './routes/vouchers.routes.js';
+import menuItemsRoutes from './routes/menuItems.routes.js';
 import notificationsRoutes from './routes/notifications.routes.js';
 import merchantFinanceRoutes from './routes/merchant-finance.routes.js';
 import adminFinanceRoutes from './routes/admin-finance.routes.js';
@@ -53,6 +54,7 @@ app.use('/api/v1/uploads', uploadsRoutes);
 app.use('/api/v1/orders', ordersRoutes);
 app.use('/api/v1/payments', paymentsRoutes);
 app.use('/api/v1/vouchers', vouchersRoutes);
+app.use('/api/v1/menu-items', menuItemsRoutes);
 
 app.use((err, _req, res, _next) => {
   if (err?.message === 'Request aborted' || err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') {

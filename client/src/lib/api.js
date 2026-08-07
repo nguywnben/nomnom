@@ -419,6 +419,35 @@ export function fetchMyVouchersApi() {
   return apiGet('/api/v1/me/vouchers');
 }
 
+/** Top quán nổi bật — GET /api/v1/home/featured-restaurants */
+export function fetchFeaturedRestaurantsApi() {
+  return apiGet('/api/v1/home/featured-restaurants');
+}
+
+/** Các món thịnh hành — GET /api/v1/home/trending-dishes */
+export function fetchTrendingDishesApi() {
+  return apiGet('/api/v1/home/trending-dishes');
+}
+
+/** Đặt lại món từ lịch sử — GET /api/v1/home/order-again */
+export function fetchOrderAgainApi() {
+  return apiGet('/api/v1/home/order-again');
+}
+
+/** Tìm kiếm kết hợp nhà hàng & món ăn — GET /api/v1/menu-items/search */
+export function searchExploreApi(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      query.set(key, String(val));
+    }
+  });
+  return apiGet(`/api/v1/menu-items/search?${query.toString()}`);
+}
+
+/** Lấy chi tiết món ăn — GET /api/v1/menu-items/:id */
+export function fetchMenuItemDetailApi(id) {
+  return apiGet(`/api/v1/menu-items/${encodeURIComponent(id)}`);
 
 // Wave 5: notifications, merchant finance/settings, admin finance/config, and contextual chat.
 export function fetchNotificationsApi({ unread = false, type = 'all', page = 1, limit = 50 } = {}) {
