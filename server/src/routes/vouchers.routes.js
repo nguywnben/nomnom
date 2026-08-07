@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import { evaluateVoucher } from '../lib/voucher.js';
 
 const router = Router();
@@ -53,7 +53,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/validate', requireAuth, async (req, res, next) => {
+router.post('/validate', requireAuth, ensureCustomer, async (req, res, next) => {
   try {
     const code = String(req.body?.code ?? '').trim().toUpperCase();
     if (!code) {

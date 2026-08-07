@@ -96,15 +96,15 @@ export default function App() {
             <Route path="track/:id" element={<CustomerTracking />} />
             <Route path="profile/addresses" element={<CustomerProfileAddresses />} />
             <Route path="profile/notifications" element={<CustomerProfileNotifications />} />
+            <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
+            <Route path="reviews/write/:id" element={<CustomerReviews />} />
           </Route>
 
           <Route element={<RequireAuth />}>
-            <Route path="reviews/write/:id" element={<CustomerReviews />} />
             <Route path="reviews/:id" element={<CustomerRestaurantReviews />} />
             <Route path="notifications" element={<CustomerNotifications />} />
             <Route path="profile" element={<CustomerProfile />} />
             <Route path="profile/edit" element={<CustomerProfileEdit />} />
-            <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
             <Route path="profile/settings" element={<CustomerProfileSettings />} />
           </Route>
         </Route>

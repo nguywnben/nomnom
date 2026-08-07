@@ -1,11 +1,14 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import pool from '../db/pool.js';
 import { calculateDistance } from '../lib/geo.js';
 import { evaluateVoucher } from '../lib/voucher.js';
 import crypto from 'crypto';
 
 const router = Router();
+router.use(requireAuth);
+router.use(ensureCustomer);
+
 
 // Lấy danh sách cart active
 async function getActiveCart(connection, customerId) {
@@ -228,6 +231,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       );
     }
 
+
     // Lưu bản ghi trạng thái (Status log)
     await connection.query(
       `INSERT INTO order_status_logs (order_id, to_status, changed_by_role, changed_by_user_id, note)
@@ -445,6 +449,7 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
       `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
       [order.restaurant_id]
     );
+
 
     const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
     const nextCount = stats[0].cnt || 0;

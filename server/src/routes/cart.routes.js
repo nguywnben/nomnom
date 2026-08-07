@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(ensureCustomer);
+
 
 function toNumber(value, fallback = 0) {
   const n = Number(value);
