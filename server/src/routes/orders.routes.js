@@ -1,11 +1,14 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import pool from '../db/pool.js';
 import { calculateDistance } from '../lib/geo.js';
 import { evaluateVoucher } from '../lib/voucher.js';
 import crypto from 'crypto';
 
 const router = Router();
+router.use(requireAuth);
+router.use(ensureCustomer);
+
 
 // Lấy danh sách cart active
 async function getActiveCart(connection, customerId) {

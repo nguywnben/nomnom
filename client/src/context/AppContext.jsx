@@ -814,11 +814,28 @@ export function AppProvider({ children }) {
       await logoutApi().catch(() => { });
       clearTokens();
       cartHydratedKey.current = null;
-      setUser(null);
-      setRole('customer');
-      if (hadCustomerCart) {
-        resetCartState();
-      }
+      
+      // Navigate to the redirect page FIRST before clearing user state
+      navigate(redirectTo, { replace: true });
+      
+      // Perform state updates in the next tick to prevent route guard redirection to /login
+      setTimeout(() => {
+        setUser(null);
+        setRole('customer');
+        if (hadCustomerCart) {
+          resetCartState();
+        }
+        // Clear all session specific data
+        setOrders(initialOrders);
+        setMerchantOrders(initialMerchantOrders);
+        setDriverOnline(true);
+        setDriverJobs(initialDriverJobs);
+        setActiveDriverJob(null);
+        setAdminAccounts(initialAdminAccounts);
+        setPayouts(initialPayouts);
+        setChats(initialChats);
+      }, 0);
+
       if (!silent) {
         pushToast({
           kind: 'info',
@@ -827,9 +844,22 @@ export function AppProvider({ children }) {
           duration: 2800,
         });
       }
-      navigate(redirectTo, { replace: true });
     },
-    [navigate, permittedRoles.customer, pushToast, resetCartState, user],
+    [
+      navigate,
+      permittedRoles.customer,
+      pushToast,
+      resetCartState,
+      user,
+      setOrders,
+      setMerchantOrders,
+      setDriverOnline,
+      setDriverJobs,
+      setActiveDriverJob,
+      setAdminAccounts,
+      setPayouts,
+      setChats,
+    ],
   );
 
   const grantCurrentUserRole = useCallback((nextRole) => {

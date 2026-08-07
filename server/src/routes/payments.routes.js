@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import {
   buildPaymentUrl,
   verifyQuerySignature,
@@ -178,8 +178,8 @@ async function findVerifiedPayment(params, config) {
   return { payment };
 }
 
-router.post('/vnpay', requireAuth, createVnpayPayment);
-router.post('/vnpay/create', requireAuth, createVnpayPayment);
+router.post('/vnpay', requireAuth, ensureCustomer, createVnpayPayment);
+router.post('/vnpay/create', requireAuth, ensureCustomer, createVnpayPayment);
 
 async function returnHandler(req, res, next) {
   const { config, missing } = paymentConfig();

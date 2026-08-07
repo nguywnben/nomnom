@@ -42,6 +42,7 @@ export default function CustomerCheckout() {
   // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
   const [newRecipientName, setNewRecipientName] = useState('');
   const [newLine1, setNewLine1] = useState('');
+  const [makeDefault, setMakeDefault] = useState(true);
 
   // Location states
   const [provinces, setProvinces] = useState([]);
@@ -187,7 +188,8 @@ export default function CustomerCheckout() {
           line1: newLine1.trim(),
           ward: selectedWardName,
           city: selectedProvinceName,
-          deliveryNote: note
+          deliveryNote: note,
+          isDefault: makeDefault
         });
         finalAddressId = newAddr.id;
       } else if (!finalAddressId) {
