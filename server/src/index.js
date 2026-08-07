@@ -88,25 +88,65 @@ async function ensureSuspensionReasonColumn() {
   }
 }
 
-async function ensureVouchersTable() {
-  await pool.query(
-    "CREATE TABLE IF NOT EXISTS `vouchers` (" +
-    "  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT," +
-    "  `code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL," +
-    "  `kind` enum('percent','flat') COLLATE utf8mb4_unicode_ci NOT NULL," +
-    "  `amount` bigint UNSIGNED NOT NULL," +
-    "  `min_order` bigint UNSIGNED NOT NULL DEFAULT '0'," +
-    "  `max_discount` bigint UNSIGNED DEFAULT NULL," +
-    "  `valid_from` datetime NOT NULL," +
-    "  `valid_to` datetime NOT NULL," +
-    "  `usage_limit` int DEFAULT NULL," +
-    "  `usage_count` int NOT NULL DEFAULT '0'," +
-    "  `is_active` tinyint(1) NOT NULL DEFAULT '1'," +
-    "  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP," +
-    "  PRIMARY KEY (`id`)," +
-    "  UNIQUE KEY `uq_vouchers_code` (`code`)" +
-    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
-  );
+async function ensureVoucherSchema() {
+  const [voucherTables] = await pool.query("SHOW TABLES LIKE 'vouchers'");
+  if (!voucherTables.length) {
+    console.log('[DB] Tạo bảng vouchers');
+    await pool.query(`
+      CREATE TABLE vouchers (
+        id bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+        restaurant_id bigint UNSIGNED DEFAULT NULL,
+        created_by_user_id bigint UNSIGNED NOT NULL,
+        code varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL,
+        name varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
+        description varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+        discount_type enum('percent','fixed') COLLATE utf8mb4_unicode_ci NOT NULL,
+        discount_value bigint UNSIGNED NOT NULL,
+        max_discount_amount bigint UNSIGNED DEFAULT NULL,
+        min_order_amount bigint UNSIGNED NOT NULL DEFAULT '0',
+        usage_limit int UNSIGNED DEFAULT NULL,
+        per_user_limit int UNSIGNED NOT NULL DEFAULT '1',
+        starts_at datetime NOT NULL,
+        ends_at datetime NOT NULL,
+        status enum('draft','active','paused') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_vouchers_code (code),
+        KEY idx_vouchers_restaurant_status_window (restaurant_id, status, starts_at, ends_at),
+        KEY idx_vouchers_created_by (created_by_user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  } else {
+    const [restaurantIdRows] = await pool.query("SHOW COLUMNS FROM vouchers LIKE 'restaurant_id'");
+    if (!restaurantIdRows.length) {
+      console.log('[DB] Thêm cột restaurant_id vào bảng vouchers');
+      await pool.query("ALTER TABLE vouchers ADD COLUMN restaurant_id bigint UNSIGNED DEFAULT NULL AFTER id");
+    }
+  }
+
+  const [redemptionTables] = await pool.query("SHOW TABLES LIKE 'voucher_redemptions'");
+  if (!redemptionTables.length) {
+    console.log('[DB] Tạo bảng voucher_redemptions');
+    await pool.query(`
+      CREATE TABLE voucher_redemptions (
+        id bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+        voucher_id bigint UNSIGNED NOT NULL,
+        customer_id bigint UNSIGNED NOT NULL,
+        order_id bigint UNSIGNED NOT NULL,
+        discount_amount bigint UNSIGNED NOT NULL,
+        status enum('reserved','redeemed','released') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'reserved',
+        redeemed_at datetime DEFAULT NULL,
+        released_at datetime DEFAULT NULL,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_voucher_redemptions_order (order_id),
+        KEY idx_voucher_redemptions_usage (voucher_id, status),
+        KEY idx_voucher_redemptions_customer (voucher_id, customer_id, status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  }
 
   const [voucherIdRows] = await pool.query("SHOW COLUMNS FROM orders LIKE 'voucher_id'");
   if (!voucherIdRows.length) {

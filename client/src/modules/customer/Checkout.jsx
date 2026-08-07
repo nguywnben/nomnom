@@ -38,7 +38,6 @@ export default function CustomerCheckout() {
   const [addressId, setAddressId] = useState(null);
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
   const [promoCode, setPromoCode] = useState('');
-
   // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
   const [newRecipientName, setNewRecipientName] = useState('');
   const [newLine1, setNewLine1] = useState('');
@@ -203,7 +202,7 @@ export default function CustomerCheckout() {
         addressId: finalAddressId,
         paymentMethod: payment,
         customerNote: note,
-        voucherCode: appliedPromo?.code || undefined,
+        voucherCode: appliedPromo?.code || null,
       });
       clearCart();
       if (payment === 'vnpay') {
