@@ -13,6 +13,7 @@ import driverRoutes from './routes/driver.routes.js';
 import uploadsRoutes from './routes/uploads.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import vouchersRoutes from './routes/vouchers.routes.js';
+import menuItemsRoutes from './routes/menuItems.routes.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/v1/cuisines', cuisinesRoutes);
 app.use('/api/v1/uploads', uploadsRoutes);
 app.use('/api/v1/orders', ordersRoutes);
 app.use('/api/v1/vouchers', vouchersRoutes);
+app.use('/api/v1/menu-items', menuItemsRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);

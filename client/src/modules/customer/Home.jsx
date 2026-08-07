@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -5,30 +6,19 @@ import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
-import { helpers, restaurants } from '../../data/mock.js';
 import { useHomeCategories } from '../../hooks/useHomeCategories.js';
 import { useHomePromos } from '../../hooks/useHomePromos.js';
 import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
-import { formatViInteger, formatVnd } from '../../lib/formatVnd.js';
-import { buildTrendingDishes } from '../../lib/homeDishes.js';
+import { formatVnd } from '../../lib/formatVnd.js';
+import {
+  fetchFeaturedRestaurantsApi,
+  fetchTrendingDishesApi,
+  fetchOrderAgainApi,
+} from '../../lib/api.js';
 
-// ---------------------------------------------------------------------------
-// Customer Home — native food-app composition.
-//   • Full-bleed food hero with embedded search bar
-//   • Circular categories carousel
-//   • Image-background promo strip
-//   • Restaurant cards: large food image, name + ⭐, ETA, $ fee
-//   • Trending dishes horizontal scroll
-//   • Order-again row (recent restaurants)
-//   • Mood-based cuisine tiles
-// Design tokens remain pure: rounded-md CTAs (8px), rounded-lg cards (12px),
-// Inter type, hairline borders, pure black primary.
-// ---------------------------------------------------------------------------
+const HERO_BG = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1800&q=80';
 
-const HERO_BG = helpers.unsplash('photo-1504674900247-0877df9cc836', 1800);
-
-/** Điểm nhấn tĩnh trên hero — câu ngắn kiểu review về trải nghiệm NomNom (không phải bộ lọc tìm kiếm). */
 const HERO_TRUST_TAGS = [
   { label: 'Gọn gàng, tìm món nhanh', icon: 'check' },
   { label: 'Đơn theo dõi rõ từng bước', icon: 'package' },
@@ -38,34 +28,67 @@ const HERO_TRUST_TAGS = [
 ];
 
 const MOODS = [
-  { id: 'comfort', label: 'Món ăn quen thuộc', sub: 'Burger, mì Ý, mì ramen', image: helpers.unsplash('photo-1568901346375-23c9450c58cd', 800), cuisineSlug: 'american' },
-  { id: 'healthy', label: 'Món ăn tốt cho sức khỏe', sub: 'Rau xanh, ngũ cốc, protein', image: helpers.unsplash('photo-1512621776951-a57141f2eefd', 800), cuisineSlug: 'healthy' },
-  { id: 'sweet', label: 'Món ngọt', sub: 'Bánh ngọt, bánh donut, kem', image: helpers.unsplash('photo-1551024601-bec78aea704b', 800), cuisineSlug: 'bakery' },
-  { id: 'fast', label: 'Ăn nhẹ', sub: 'Sẵn sàng dưới 25 phút', image: helpers.unsplash('photo-1565299585323-38d6b0865b47', 800), cuisineSlug: 'mexican' },
+  { id: 'comfort', label: 'Món ăn quen thuộc', sub: 'Burger, mì Ý, mì ramen', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'american' },
+  { id: 'healthy', label: 'Món ăn tốt cho sức khỏe', sub: 'Rau xanh, ngũ cốc, protein', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'healthy' },
+  { id: 'sweet', label: 'Món ngọt', sub: 'Bánh ngọt, bánh donut, kem', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'bakery' },
+  { id: 'fast', label: 'Ăn nhẹ', sub: 'Sẵn sàng dưới 25 phút', image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'mexican' },
 ];
 
 export default function CustomerHome() {
   const nav = useNavigate();
   const { deliveryLocalityLine } = useOutletContext() ?? {};
-  const { orders, addToCart, setCartOpen, shopAsCustomer } = useApp();
+  const { auth, addToCart, setCartOpen, shopAsCustomer } = useApp();
   const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories();
   const { promos, loading: promosLoading, error: promosError } = useHomePromos();
   const exploreScroll = useHorizontalDragScroll();
-  const featuredRestaurantsLoading = false;
 
-  const trending = buildTrendingDishes(categories);
+  const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
 
-  // Order-again — distinct restaurants you've ordered from recently.
-  const recentRestaurantIds = Array.from(new Set(orders.map((o) => o.restaurantId)));
-  const recentRestaurants = recentRestaurantIds
-    .map((id) => restaurants.find((r) => r.id === id))
-    .filter(Boolean);
+  const [trendingDishes, setTrendingDishes] = useState([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+
+  const [orderAgainList, setOrderAgainList] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetchFeaturedRestaurantsApi()
+      .then((res) => {
+        if (mounted) setFeaturedRestaurants(res.data ?? []);
+      })
+      .catch((err) => console.error('Failed fetching featured restaurants:', err))
+      .finally(() => {
+        if (mounted) setFeaturedLoading(false);
+      });
+
+    fetchTrendingDishesApi()
+      .then((res) => {
+        if (mounted) setTrendingDishes(res.data ?? []);
+      })
+      .catch((err) => console.error('Failed fetching trending dishes:', err))
+      .finally(() => {
+        if (mounted) setTrendingLoading(false);
+      });
+
+    if (auth?.userId) {
+      fetchOrderAgainApi()
+        .then((res) => {
+          if (mounted) setOrderAgainList(res.data ?? []);
+        })
+        .catch(() => {});
+    } else {
+      setOrderAgainList([]);
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [auth?.userId]);
 
   return (
     <div className="bg-canvas">
-      {/* ----------------------------------------------------------------- */}
-      {/* HERO — full-bleed food background, search bar embedded.            */}
-      {/* ----------------------------------------------------------------- */}
+      {/* HERO */}
       <section className="relative isolate">
         <div
           className="absolute inset-0 -z-10"
@@ -91,12 +114,10 @@ export default function CustomerHome() {
               Đói bụng? Đặt món ngay.
             </h1>
             <p className="mt-xs text-body-md text-on-dark-soft">
-              Tìm bữa ăn tiếp theo từ{' '}
-              <span className="nums">{formatViInteger(restaurants.length * 268)}</span>{' '}
-              quán ăn gần đây.
+              Khám phá món ngon giao siêu tốc từ các nhà hàng hàng đầu quanh bạn.
             </p>
 
-            {/* Hero search bar — prominent, white card on dark hero */}
+            {/* Hero search bar */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -121,11 +142,11 @@ export default function CustomerHome() {
                 className="shrink-0 !h-9 !px-3 !text-caption sm:!h-10 sm:!px-sm sm:!text-button md:!h-12 md:!px-md"
               >
                 <span className="md:hidden">Tìm</span>
-                <span className="hidden md:inline">Tìm quán ăn</span>
+                <span className="hidden md:inline">Tìm món & quán</span>
               </Button>
             </form>
 
-            {/* Trust tags — mobile: cuộn ngang một hàng; desktop: gói & căn giữa */}
+            {/* Trust tags */}
             <div className="mt-base -mx-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:overflow-visible md:px-0 md:pb-0">
               <div
                 className="flex w-max max-md:snap-x max-md:snap-mandatory flex-nowrap gap-1.5 max-md:pr-base md:w-full md:flex-wrap md:justify-center"
@@ -147,15 +168,12 @@ export default function CustomerHome() {
           </div>
         </div>
 
-        {/* Gợi ý cuộn — giống trang chủ "/" */}
         <div className="pointer-events-none absolute inset-x-0 bottom-base flex justify-center text-on-dark-soft">
           <Icon name="chevronDown" size={20} className="opacity-70" />
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* CATEGORIES — circular images, horizontal scroll.                  */}
-      {/* ----------------------------------------------------------------- */}
+      {/* CATEGORIES */}
       <section className="container-page pt-xl">
         <SectionHeader
           caption="Bạn đang nghĩ gì?"
@@ -196,7 +214,7 @@ export default function CustomerHome() {
                       : `/app/search?q=${encodeURIComponent(c.name)}`
                   }
                   className="group flex w-[88px] shrink-0 flex-col items-center gap-1.5 md:w-[104px]"
-                  title={c.restaurantName ? `${c.name} · ${c.restaurantName}` : c.name}
+                  title={c.name}
                   draggable={false}
                 >
                   <span className="relative overflow-hidden rounded-pill border border-hairline-strong bg-surface-card transition-shadow group-hover:shadow-soft">
@@ -216,9 +234,7 @@ export default function CustomerHome() {
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* PROMO STRIP — image-bg banners with overlay text.                  */}
-      {/* ----------------------------------------------------------------- */}
+      {/* PROMO STRIP */}
       <section className="container-page py-xl">
         <div className="grid gap-base md:grid-cols-3">
           {promosLoading &&
@@ -244,10 +260,8 @@ export default function CustomerHome() {
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* ORDER AGAIN — appears only when there's history.                   */}
-      {/* ----------------------------------------------------------------- */}
-      {recentRestaurants.length > 0 && (
+      {/* ORDER AGAIN (Chỉ hiển thị khi đã đăng nhập và có lịch sử) */}
+      {auth?.userId && orderAgainList.length > 0 && (
         <section className="container-page pb-xl">
           <SectionHeader
             caption="Chào mừng trở lại"
@@ -259,7 +273,7 @@ export default function CustomerHome() {
             }
           />
           <div className="-mx-base flex gap-sm overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
-            {recentRestaurants.map((r) => (
+            {orderAgainList.map((r) => (
               <Link
                 key={r.id}
                 to={`/app/restaurant/${r.id}`}
@@ -279,57 +293,71 @@ export default function CustomerHome() {
         </section>
       )}
 
-      {/* ----------------------------------------------------------------- */}
-      {/* FEATURED RESTAURANTS — native food cards.                          */}
-      {/* ----------------------------------------------------------------- */}
+      {/* FEATURED RESTAURANTS */}
       <section className="container-page pb-xl">
         <SectionHeader
           caption="Nổi bật"
-          title="Lựa chọn hàng đầu cho bạn"
+          title="Quán ăn nổi bật"
           right={
             <Link to="/app/search" className="text-button text-text-link hover:underline">
               Xem tất cả
             </Link>
           }
         />
-        {featuredRestaurantsLoading ? (
+        {featuredLoading ? (
           <FeaturedRestaurantGridSkeleton />
+        ) : featuredRestaurants.length === 0 ? (
+          <p className="text-body-sm text-body">Chưa có quán ăn nổi bật nào.</p>
         ) : (
           <div className="grid grid-cols-2 gap-base lg:grid-cols-3">
-            {restaurants.slice(0, 6).map((r) => (
+            {featuredRestaurants.map((r) => (
               <RestaurantCard key={r.id} restaurant={r} />
             ))}
           </div>
         )}
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* TRENDING DISHES — horizontal scroll, dish-level cards.             */}
-      {/* ----------------------------------------------------------------- */}
+      {/* TRENDING DISHES */}
       <section className="container-page pb-xl">
         <SectionHeader
           caption="Đang hot"
           title="Các món thịnh hành gần bạn"
         />
-        <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
-          {trending.map((d) => (
-            <DishCard
-              key={d.id}
-              dish={d}
-              onAdd={() => {
-                if (!shopAsCustomer) return;
-                addToCart(d.restaurantId, d, 1, { baseDeliveryFee: d.fee, restaurantName: d.restaurantName, restaurantLogo: d.restaurantLogo });
-                setCartOpen(true);
-              }}
-              addDisabled={!shopAsCustomer}
-            />
-          ))}
-        </div>
+        {trendingLoading ? (
+          <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="w-[240px] shrink-0 flex flex-col gap-2">
+                <Skeleton className="aspect-square w-full rounded-lg" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : trendingDishes.length === 0 ? (
+          <p className="text-body-sm text-body">Chưa có món thịnh hành.</p>
+        ) : (
+          <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
+            {trendingDishes.map((d) => (
+              <DishCard
+                key={d.id}
+                dish={d}
+                onAdd={() => {
+                  if (!shopAsCustomer) return;
+                  addToCart(d.restaurantId, d, 1, {
+                    baseDeliveryFee: d.fee,
+                    restaurantName: d.restaurantName,
+                    restaurantLogo: d.restaurantLogo,
+                  });
+                  setCartOpen(true);
+                }}
+                addDisabled={!shopAsCustomer || !d.isOpenNow}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* MOOD TILES — image-overlay collections.                            */}
-      {/* ----------------------------------------------------------------- */}
+      {/* MOOD TILES */}
       <section className="container-page pb-xxl">
         <SectionHeader caption="Khám phá" title="Theo tâm trạng" />
         <div className="grid grid-cols-2 gap-base lg:grid-cols-4">
@@ -353,10 +381,7 @@ export default function CustomerHome() {
         </div>
       </section>
 
-      {/* ----------------------------------------------------------------- */}
-      {/* QUIET PARTNER CTA — small, food-app footer band                    */}
-      {/* (replaces the SaaS "Run a restaurant" hero band).                  */}
-      {/* ----------------------------------------------------------------- */}
+      {/* QUIET PARTNER CTA */}
       <section className="border-t border-hairline bg-canvas-soft">
         <div className="container-page flex flex-col items-center gap-sm py-xl text-center md:flex-row md:items-center md:justify-between md:text-left">
           <div className="flex items-center gap-sm">
@@ -383,6 +408,7 @@ export default function CustomerHome() {
     </div>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // Pieces
@@ -472,23 +498,30 @@ function PromoBanner({ image, tag, title, sub, cta, linkUrl }) {
 }
 
 function RestaurantCard({ restaurant: r }) {
-  const promoBadge =
-    r.fee < 50000 ? 'Phí giao thấp' : r.rating >= 4.8 ? 'Đánh giá cao' : r.priceLevel === 1 ? 'Giá tốt' : null;
+  const banner = r.bannerUrl || r.banner;
+  const logo = r.logoUrl || r.logo;
+  const rating = Number(r.ratingAvg ?? r.rating ?? 0);
+  const reviewCount = Number(r.reviewCount ?? 0);
+  const cuisine = r.cuisineName || r.cuisine || 'Ẩm thực';
+  const eta = r.avgPrepTimeMin ? `${r.avgPrepTimeMin}p` : r.eta || '20p';
+  const fee = Number(r.baseDeliveryFee ?? r.fee ?? 0);
+  const isOpen = r.isOpenNow ?? r.open ?? true;
+
+  const promoBadge = fee < 20000 ? 'Phí giao thấp' : rating >= 4.8 ? 'Đánh giá cao' : null;
+
   return (
     <Link
       to={`/app/restaurant/${r.id}`}
       className="group flex flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
     >
       <div className="relative">
-        <Image src={r.banner} alt={r.name} ratio="16/10" className="w-full transition-transform group-hover:scale-[1.02]" />
-        {/* Promo / status overlay */}
+        <Image src={banner} alt={r.name} ratio="16/10" className="w-full transition-transform group-hover:scale-[1.02]" />
         <div className="absolute left-sm top-sm flex gap-1">
           {promoBadge && <Badge tone="default" className="bg-surface-card/95 backdrop-blur">{promoBadge}</Badge>}
-          {!r.open && <Badge tone="error">Đóng cửa</Badge>}
+          {!isOpen && <Badge tone="error">Đóng cửa</Badge>}
         </div>
-        {/* Logo overlay — anchors brand without competing with the photo */}
         <div className="absolute -bottom-3 right-base">
-          <Avatar src={r.logo} name={r.name} square size="md" className="ring-2 ring-canvas" />
+          <Avatar src={logo} name={r.name} square size="md" className="ring-2 ring-canvas" />
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-1 p-base pt-md">
@@ -496,42 +529,20 @@ function RestaurantCard({ restaurant: r }) {
           <div className="text-title-md text-ink leading-tight">{r.name}</div>
           <span className="inline-flex shrink-0 items-center gap-0.5 text-body-sm text-ink">
             <Icon name="starFilled" size={12} />
-            <span className="nums">{r.rating.toFixed(1)}</span>
-            <span className="text-body">({Math.round(r.reviewCount / 100) / 10}k)</span>
+            <span className="nums">{rating.toFixed(1)}</span>
+            {reviewCount > 0 && <span className="text-body">({reviewCount})</span>}
           </span>
         </div>
-        <div className="text-caption text-body">
-          {r.cuisine} · {r.tags.slice(0, 2).join(' · ')}
+        <div className="text-caption text-body truncate">
+          {cuisine} {r.district ? `· ${r.district}` : ''}
         </div>
         <div className="mt-2 text-caption text-body">
-          <div className="flex flex-col gap-1.5 md:hidden">
-            <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex min-w-0 items-center gap-1">
-                <Icon name="clock" size={12} className="shrink-0" />
-                <span className="nums truncate">{r.eta}</span>
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-1 nums">
-                <Icon name="pin" size={12} />
-                {r.distanceKm} km
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-md border border-hairline-soft bg-canvas-soft px-2 py-1.5">
-              <Icon name="cash" size={12} className="shrink-0 text-body" />
-              <span className="min-w-0 truncate">
-                Phí giao <span className="nums font-medium text-ink">{formatVnd(r.fee)}</span>
-              </span>
-            </div>
-          </div>
-          <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1">
-              <Icon name="clock" size={12} /> <span className="nums">{r.eta}</span>
+              <Icon name="clock" size={12} /> <span className="nums">{eta}</span>
             </span>
-            <span className="text-muted-soft">·</span>
-            <span className="inline-flex items-center gap-1 nums">phí giao {formatVnd(r.fee)}</span>
-            <span className="text-muted-soft">·</span>
             <span className="inline-flex items-center gap-1 nums">
-              <Icon name="pin" size={12} />
-              {r.distanceKm} km
+              Phí: {formatVnd(fee)}
             </span>
           </div>
         </div>
@@ -541,28 +552,32 @@ function RestaurantCard({ restaurant: r }) {
 }
 
 function DishCard({ dish, onAdd, addDisabled = false }) {
+  const image = dish.image || dish.imageUrl;
+
   return (
     <div className="w-[240px] shrink-0">
       <div className="group relative overflow-hidden rounded-lg border border-hairline-strong bg-surface-card">
-        <Link to={`/app/restaurant/${dish.restaurantId}`} aria-label={`Open ${dish.restaurantName}`}>
-          <Image src={dish.image} alt={dish.name} ratio="1" className="w-full transition-transform group-hover:scale-105" />
+        <Link to={`/app/menu-items/${dish.id}`} aria-label={`Xem chi tiết ${dish.name}`}>
+          <Image src={image} alt={dish.name} ratio="1" className="w-full transition-transform group-hover:scale-105" />
         </Link>
         {!addDisabled && (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            onAdd?.();
-          }}
-          className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-pill bg-primary text-on-primary shadow-soft-md hover:bg-primary-active"
-          aria-label={`Add ${dish.name} to cart`}
-        >
-          <Icon name="plus" size={16} />
-        </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              onAdd?.();
+            }}
+            className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-pill bg-primary text-on-primary shadow-soft-md hover:bg-primary-active"
+            aria-label={`Thêm ${dish.name} vào giỏ hàng`}
+          >
+            <Icon name="plus" size={16} />
+          </button>
         )}
       </div>
       <div className="mt-2">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-body-sm font-semibold text-ink line-clamp-1">{dish.name}</span>
+          <Link to={`/app/menu-items/${dish.id}`} className="text-body-sm font-semibold text-ink line-clamp-1 hover:underline">
+            {dish.name}
+          </Link>
           <span className="nums text-body-sm font-semibold text-ink">{formatVnd(dish.price)}</span>
         </div>
         <Link
@@ -575,3 +590,4 @@ function DishCard({ dish, onAdd, addDisabled = false }) {
     </div>
   );
 }
+

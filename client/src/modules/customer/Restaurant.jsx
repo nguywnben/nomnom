@@ -369,18 +369,22 @@ function MenuCard({ item, onAdd, disabled }) {
   const isDisabled = disabled || isOutOfStock;
 
   return (
-    <Card padded={false} className={`flex overflow-hidden ${isOutOfStock ? 'opacity-50 select-none' : ''}`}>
-      <div className="flex-1 p-base">
-        <div className="flex items-start justify-between gap-2">
-          <div className="text-title-md text-ink">{item.name}</div>
-          <span className="nums text-title-sm text-ink">{formatVnd(item.price)}</span>
-        </div>
-        <p className="mt-1 text-body-sm text-body line-clamp-2">{item.description}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          {item.isFeatured && <Badge tone="outline">Nổi bật</Badge>}
-          <Badge tone="outline">{item.prepTimeMin} phút</Badge>
-          <Badge tone="outline">⭐ {item.ratingAvg.toFixed(1)}</Badge>
-          {isOutOfStock && <Badge tone="error">Hết hàng</Badge>}
+    <Card padded={false} className={`flex overflow-hidden ${isOutOfStock ? 'opacity-60 select-none' : ''}`}>
+      <div className="flex-1 p-base flex flex-col justify-between">
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <Link to={`/app/menu-items/${item.id}`} className="text-title-md text-ink font-semibold hover:underline line-clamp-1">
+              {item.name}
+            </Link>
+            <span className="nums text-title-sm text-ink font-semibold shrink-0">{formatVnd(item.price)}</span>
+          </div>
+          <p className="mt-1 text-body-sm text-body line-clamp-2">{item.description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1">
+            {item.isFeatured && <Badge tone="outline">Nổi bật</Badge>}
+            {item.prepTimeMin > 0 && <Badge tone="outline">{item.prepTimeMin} phút</Badge>}
+            {item.ratingAvg > 0 && <Badge tone="outline">⭐ {item.ratingAvg.toFixed(1)}</Badge>}
+            {isOutOfStock && <Badge tone="error">Hết hàng</Badge>}
+          </div>
         </div>
         <div className="mt-sm">
           <Button
@@ -394,7 +398,9 @@ function MenuCard({ item, onAdd, disabled }) {
           </Button>
         </div>
       </div>
-      <Image src={item.imageUrl} alt={item.name} className="w-32 shrink-0" ratio="1" />
+      <Link to={`/app/menu-items/${item.id}`} className="w-32 shrink-0">
+        <Image src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" ratio="1" />
+      </Link>
     </Card>
   );
 }
