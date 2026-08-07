@@ -201,7 +201,7 @@ export default function CustomerCheckout() {
         addressId: finalAddressId,
         paymentMethod: payment,
         customerNote: note,
-        voucherCode: appliedPromo?.code || undefined,
+        voucherCode: appliedPromo?.code || null,
       });
       if (payment === 'vnpay') {
         const payRes = await apiPost('/api/v1/payments/vnpay', { orderId: res.order.id });

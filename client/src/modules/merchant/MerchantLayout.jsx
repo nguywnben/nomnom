@@ -52,7 +52,7 @@ export default function MerchantLayout() {
         setRestaurantProfile(data.restaurant);
         const ordersResponse = await fetchMerchantOrdersApi({ status: 'placed' });
         if (!active) return;
-        setNewCount((ordersResponse?.orders ?? []).filter((order) => order.status === 'placed').length);
+        setNewCount(((ordersResponse?.orders ?? ordersResponse?.data ?? ordersResponse) ?? []).filter((order) => order.status === 'placed').length);
         setRestaurantOpen(Boolean(data.restaurant.is_open_now));
         if (data.restaurant.status !== 'active') {
           nav('/merchant/pending', { replace: true });
