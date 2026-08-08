@@ -14,10 +14,9 @@ const ACTION_LABELS = {
   cap_nhat_loai_am_thuc: { label: 'Cập nhật loại ẩm thực', tone: 'outline' },
   an_loai_am_thuc: { label: 'Ẩn loại ẩm thực', tone: 'warning' },
   xoa_loai_am_thuc: { label: 'Xóa loại ẩm thực', tone: 'error' },
+  sap_xep_loai_am_thuc: { label: 'Sắp xếp loại ẩm thực', tone: 'outline' },
   duyet_nha_hang: { label: 'Duyệt nhà hàng', tone: 'success' },
   tu_choi_nha_hang: { label: 'Từ chối nhà hàng', tone: 'error' },
-  duyet_tai_xe: { label: 'Duyệt tài xế', tone: 'success' },
-  tu_choi_tai_xe: { label: 'Từ chối tài xế', tone: 'error' },
   doi_trang_thai_tai_khoan: { label: 'Đổi trạng thái tài khoản', tone: 'warning' },
   huy_don_hang: { label: 'Hủy đơn hàng', tone: 'error' },
   duyet_rut_tien: { label: 'Duyệt rút tiền', tone: 'live' },
@@ -26,10 +25,65 @@ const ACTION_LABELS = {
   cap_nhat_cau_hinh: { label: 'Cập nhật cấu hình', tone: 'outline' },
 };
 
+const METADATA_LABELS = {
+  tenLoai: 'Tên loại ẩm thực',
+  slug: 'Định danh URL',
+  iconUrl: 'Ảnh đại diện',
+  sortOrder: 'Thứ tự hiển thị',
+  isActive: 'Hiển thị',
+  thayDoi: 'Nội dung thay đổi',
+  thuTuIds: 'Thứ tự mới',
+  tenNhaHang: 'Tên quán ăn',
+  chuSoHuuId: 'ID chủ sở hữu',
+  lyDo: 'Lý do',
+  trangThaiCu: 'Trạng thái trước',
+  trangThaiMoi: 'Trạng thái mới',
+  maDonHang: 'Mã đơn hàng',
+  soTien: 'Số tiền',
+  tenNganHang: 'Ngân hàng',
+  lyDoTuChoi: 'Lý do từ chối',
+  maGiaoDichNgoai: 'Mã giao dịch ngân hàng',
+  giaTriCu: 'Giá trị trước',
+  giaTriMoi: 'Giá trị mới',
+  soNhaHangAnhHuong: 'Số quán bị ảnh hưởng',
+};
+
+const VALUE_LABELS = {
+  active: 'Hoạt động',
+  suspended: 'Đình chỉ',
+  banned: 'Đã khóa',
+  pending: 'Chờ duyệt',
+  true: 'Có',
+  false: 'Không',
+};
+
+function parseMetadata(metadata) {
+  if (!metadata) return {};
+  if (typeof metadata === 'object') return metadata;
+  try {
+    return JSON.parse(metadata);
+  } catch {
+    return { thongTin: String(metadata) };
+  }
+}
+
+function formatMetadataValue(key, value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (key === 'soTien') return Number(value).toLocaleString('vi-VN') + ' đ';
+  if (typeof value === 'boolean') return value ? 'Có' : 'Không';
+  if (typeof value === 'string' && VALUE_LABELS[value]) return VALUE_LABELS[value];
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') {
+    return Object.entries(value)
+      .map(([childKey, childValue]) => `${METADATA_LABELS[childKey] || 'Thông tin'}: ${formatMetadataValue(childKey, childValue)}`)
+      .join(' · ');
+  }
+  return String(value);
+}
+
 const TARGET_LABELS = {
   cuisine: 'Loại ẩm thực',
   restaurant: 'Nhà hàng',
-  driver: 'Tài xế',
   user: 'Tài khoản',
   order: 'Đơn hàng',
   payout: 'Yêu cầu rút tiền',
@@ -112,7 +166,6 @@ export default function AdminAuditLogs() {
           items={[
             { value: 'all', label: 'Tất cả' },
             { value: 'restaurant', label: 'Nhà hàng' },
-            { value: 'driver', label: 'Tài xế' },
             { value: 'user', label: 'Tài khoản' },
             { value: 'order', label: 'Đơn hàng' },
             { value: 'payout', label: 'Rút tiền' },
@@ -165,7 +218,7 @@ export default function AdminAuditLogs() {
             </thead>
             <tbody className="divide-y divide-hairline">
               {items.map((log) => {
-                const actionMeta = ACTION_LABELS[log.action] || { label: log.action, tone: 'outline' };
+                const actionMeta = ACTION_LABELS[log.action] || { label: 'Thao tác hệ thống', tone: 'outline' };
                 return (
                   <tr key={log.id} className="hover:bg-canvas-soft/30 transition-colors">
                     <td className="px-base py-sm text-ink">{formatTimestamp(log.createdAt)}</td>
@@ -177,7 +230,7 @@ export default function AdminAuditLogs() {
                       <Badge tone={actionMeta.tone}>{actionMeta.label}</Badge>
                     </td>
                     <td className="px-base py-sm text-body">
-                      {TARGET_LABELS[log.targetType] || log.targetType}
+                      {TARGET_LABELS[log.targetType] || 'Đối tượng hệ thống'}
                     </td>
                     <td className="px-base py-sm nums font-medium text-ink">{log.targetId}</td>
                     <td className="px-base py-sm text-right">
@@ -229,27 +282,26 @@ export default function AdminAuditLogs() {
               </div>
               <div>
                 <span className="block font-medium text-body">Hành động:</span>
-                <span className="text-ink">{ACTION_LABELS[selectedLog.action]?.label || selectedLog.action}</span>
+                <span className="text-ink">{ACTION_LABELS[selectedLog.action]?.label || 'Thao tác hệ thống'}</span>
               </div>
               <div>
                 <span className="block font-medium text-body">Đối tượng tác động:</span>
                 <span className="text-ink">
-                  {TARGET_LABELS[selectedLog.targetType] || selectedLog.targetType} (ID: {selectedLog.targetId})
+                  {TARGET_LABELS[selectedLog.targetType] || 'Đối tượng hệ thống'} (ID: {selectedLog.targetId})
                 </span>
               </div>
             </div>
 
             <div className="border-t border-hairline pt-base">
-              <div className="text-body-sm font-semibold text-ink mb-2">Dữ liệu đi kèm (Metadata)</div>
-              <pre className="p-base bg-canvas-soft rounded-md text-caption text-ink font-mono overflow-auto max-h-64 whitespace-pre-wrap">
-                {JSON.stringify(
-                  typeof selectedLog.metadata === 'string'
-                    ? JSON.parse(selectedLog.metadata)
-                    : selectedLog.metadata,
-                  null,
-                  2
-                )}
-              </pre>
+              <div className="text-body-sm font-semibold text-ink mb-2">Thông tin đi kèm</div>
+              <dl className="divide-y divide-hairline rounded-md border border-hairline bg-canvas-soft px-sm">
+                {Object.entries(parseMetadata(selectedLog.metadata)).map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-sm py-sm text-body-sm">
+                    <dt className="text-body">{METADATA_LABELS[key] || 'Thông tin'}</dt>
+                    <dd className="break-words text-ink">{formatMetadataValue(key, value)}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
 
             <div className="flex justify-end pt-sm">

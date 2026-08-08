@@ -21,9 +21,14 @@ export async function insertNotification(conn, { userId, title, body, linkUrl })
   );
 }
 
-export function serializeRestaurantRow(row) {
+function maskBankAccount(value) {
+  const digits = String(value ?? '').trim();
+  return digits.length > 4 ? `*** ${digits.slice(-4)}` : digits || null;
+}
+
+export function serializeRestaurantRow(row, { includeBankAccountNo = false } = {}) {
   return {
-    id: row.id,
+    id: Number(row.id),
     name: row.name,
     slug: row.slug,
     phone: row.phone,
@@ -37,6 +42,15 @@ export function serializeRestaurantRow(row) {
     bannerUrl: row.banner_url,
     businessLicenseUrl: row.business_license_url,
     foodSafetyCertUrl: row.food_safety_cert_url,
+    baseDeliveryFee: Number(row.base_delivery_fee ?? 0),
+    minOrderAmount: Number(row.min_order_amount ?? 0),
+    avgPrepTimeMin: Number(row.avg_prep_time_min ?? 0),
+    latitude: row.latitude === null ? null : Number(row.latitude),
+    longitude: row.longitude === null ? null : Number(row.longitude),
+    bankName: row.bank_name || null,
+    bankAccountMasked: maskBankAccount(row.bank_account_no),
+    bankAccountHolder: row.bank_account_holder || null,
+    ...(includeBankAccountNo ? { bankAccountNo: row.bank_account_no || null } : {}),
     status: row.status,
     rejectionReason: row.rejection_reason,
     ownerUserId: row.owner_user_id,

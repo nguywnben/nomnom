@@ -216,6 +216,15 @@ export default function CustomerRestaurant() {
 
       <div className="container-page grid gap-xl py-xl md:grid-cols-[1fr_320px]">
         <div>
+          {!isOpen && (
+            <div className="mb-base flex items-start gap-sm rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body" role="status">
+              <Icon name="clock" size={18} className="mt-0.5 shrink-0 text-ink" />
+              <div>
+                <div className="font-semibold text-ink">Quán đang đóng cửa</div>
+                <p className="mt-1">Bạn vẫn có thể xem thực đơn, nhưng chưa thể thêm món vào giỏ hàng.</p>
+              </div>
+            </div>
+          )}
           <div className="mb-base flex items-center gap-xs overflow-x-auto no-scrollbar">
             {activeCategories.map((c) => (
               <button
@@ -260,6 +269,7 @@ export default function CustomerRestaurant() {
                   key={item.id}
                   item={item}
                   disabled={!isOpen || !shopAsCustomer}
+                  restaurantClosed={!isOpen}
                   onAdd={() => {
                     if (!shopAsCustomer) {
                       pushToast({
@@ -382,7 +392,7 @@ export default function CustomerRestaurant() {
   );
 }
 
-function MenuCard({ item, onAdd, disabled }) {
+function MenuCard({ item, onAdd, disabled, restaurantClosed }) {
   const isOutOfStock = !item.inStock;
   const isDisabled = disabled || isOutOfStock;
 
@@ -405,10 +415,11 @@ function MenuCard({ item, onAdd, disabled }) {
         <div className="mt-sm">
           <IconButton
             icon={isOutOfStock ? 'close' : 'plus'}
-            label={isOutOfStock ? `${item.name} đã hết hàng` : `Thêm ${item.name} vào giỏ`}
+            label={isOutOfStock ? `${item.name} đã hết hàng` : restaurantClosed ? `Quán đang đóng cửa, chưa thể thêm ${item.name}` : `Thêm ${item.name} vào giỏ`}
             variant={isDisabled ? 'secondary' : 'primary'}
             size="sm"
             disabled={isDisabled}
+            className={isDisabled ? 'cursor-not-allowed opacity-40' : ''}
             onClick={onAdd}
           />
         </div>

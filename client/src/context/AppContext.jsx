@@ -914,40 +914,6 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  // Simulate live "new order" pings to merchant every ~25s if window stays open
-  useEffect(() => {
-    if (role !== 'merchant') return undefined;
-    const t = setInterval(() => {
-      const ghostId = 'live-' + Math.random().toString(36).slice(2, 6).toUpperCase();
-      setMerchantOrders((cur) => ({
-        ...cur,
-        new: [
-          {
-            id: ghostId,
-            customerName: ['Mia C.', 'Owen T.', 'Lia D.', 'Rae P.'][Math.floor(Math.random() * 4)],
-            items: [
-              { id: 'm1', name: 'Margherita', price: 338000, quantity: 1 },
-              { id: 'm2', name: 'Flat White', price: 120000, quantity: 1 },
-            ],
-            total: 458000,
-            placedAt: Date.now(),
-            note: 'Làm ơn cho thêm khăn giấy',
-            isNew: true,
-          },
-          ...cur.new,
-        ],
-      }));
-      pushToast({
-        kind: 'info',
-        title: 'Nhận được đơn hàng mới',
-        message: ghostId,
-        duration: 5000,
-        sound: true,
-      });
-    }, 28000);
-    return () => clearInterval(t);
-  }, [role, pushToast]);
-
   const value = {
     role,
     setRole,

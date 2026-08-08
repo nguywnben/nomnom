@@ -36,7 +36,7 @@ const STEPS = [
 
 const STEP_FIELDS = {
   info: ['name', 'cuisine', 'phone', 'avgPrepTime', 'tagline', 'description', 'minOrderAmount'],
-  address: ['addressLine', 'ward', 'city', 'baseDeliveryFee'],
+  address: ['addressLine', 'ward', 'district', 'city', 'baseDeliveryFee'],
   docs: ['logoUrl', 'bannerUrl', 'licenseUrl', 'foodSafetyUrl'],
   banking: ['bankName', 'bankAccountNo', 'bankAccountHolder'],
   review: [],
@@ -297,7 +297,7 @@ export default function MerchantOnboarding() {
         phone: data.phone,
         addressLine: data.addressLine,
         ward: data.ward,
-        district: '',
+        district: data.district,
         city: data.city,
         baseDeliveryFee: data.baseDeliveryFee,
         minOrderAmount: data.minOrderAmount,
@@ -517,6 +517,15 @@ export default function MerchantOnboarding() {
                 {...register('ward', {
                   required: 'Vui lòng chọn phường/xã.',
                 })}
+              />
+              <Input
+                id="district"
+                label="Quận / Huyện"
+                required
+                placeholder="Ví dụ: Quận 1"
+                aria-label="Quận hoặc huyện"
+                error={errors.district?.message}
+                {...register('district', { required: 'Vui lòng nhập quận/huyện.' })}
               />
               <Input
                 id="baseDeliveryFee"

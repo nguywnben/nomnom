@@ -12,7 +12,7 @@ router.use((req, res, next) => {
   return res.status(403).json({ error: 'Administrator access is required.' });
 });
 
-function serializePayout(row) {
+function serializePayout(row, { includeBankAccountNo = false } = {}) {
   return {
     id: Number(row.id),
     code: 'PYT-' + String(row.id).padStart(4, '0'),
@@ -22,6 +22,7 @@ function serializePayout(row) {
     amount: Number(row.amount),
     bankName: row.bank_name,
     bankAccountMasked: maskBankAccount(row.bank_account_no),
+    ...(includeBankAccountNo ? { bankAccountNo: row.bank_account_no } : {}),
     bankAccountHolder: row.bank_account_holder,
     status: row.status,
     requestedAt: row.requested_at,
@@ -63,6 +64,19 @@ router.get('/payouts', async (req, res, next) => {
       data: rows.map(serializePayout),
       pagination: { page, limit, total: Number(count.total), totalPages: Math.ceil(Number(count.total) / limit) },
     });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/payouts/:id', async (req, res, next) => {
+  try {
+    const [rows] = await pool.query(
+      PAYOUT_SELECT + " WHERE pr.id = ? AND w.owner_type = 'merchant' LIMIT 1",
+      [req.params.id],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Payout request not found.' });
+    return res.json({ payout: serializePayout(rows[0], { includeBankAccountNo: true }) });
   } catch (error) {
     return next(error);
   }

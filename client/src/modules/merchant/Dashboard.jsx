@@ -149,8 +149,8 @@ export default function MerchantDashboard() {
 
         <EmptyState
           icon="grid"
-          title="Dashboard merchant chưa có backend"
-          message="API thống kê merchant chưa được triển khai nên NomNom không hiển thị số liệu demo hay retry liên tục."
+          title="Không thể tải số liệu"
+          message="Hệ thống chưa thể kết nối với dữ liệu vận hành của quán. Vui lòng thử lại sau."
           action={
             <button
               onClick={() => {

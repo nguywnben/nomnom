@@ -122,7 +122,7 @@ export default function AdminLayout() {
             <div className="text-caption-uppercase text-body">Quản trị viên cấp cao</div>
             <div className="text-title-md text-ink">Tổng quan nền tảng</div>
           </div>
-          <div className="flex shrink-0 items-center gap-xs">
+          <div className="ml-auto flex shrink-0 items-center gap-xs">
             <IconButton icon="bell" variant="secondary" label="Thông báo" onClick={() => nav('/app/notifications')} />
             <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ

@@ -26,7 +26,6 @@ const RANGE_OPTIONS = [
 const ROLE_LABELS = {
   customer: 'Khách hàng',
   merchant: 'Chủ quán',
-  driver: 'Tài xế',
   admin: 'Quản trị',
 };
 
@@ -99,7 +98,6 @@ export default function AdminOverview() {
               {opt.label}
             </button>
           ))}
-          {!loading && data && <Badge tone="live" dot>Dữ liệu từ DB</Badge>}
         </div>
       </div>
 
@@ -138,18 +136,19 @@ export default function AdminOverview() {
               value={totals.refundCount.toLocaleString('vi-VN')}
               icon="alert"
               deltaTone={totals.refundCount > 0 ? 'error' : 'success'}
-              sub="đơn refunded trong kỳ"
+              sub="đơn được hoàn tiền trong kỳ"
             />
           </div>
 
           <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Tổng tài khoản" value={totals.userCount.toLocaleString('vi-VN')} icon="user" />
-            <StatCard label="Khách hàng" value={totals.customerCount.toLocaleString('vi-VN')} icon="user" />
-            <StatCard label="Chủ quán" value={totals.merchantCount.toLocaleString('vi-VN')} icon="store" />
+            <StatCard label="Tổng tài khoản" value={totals.userCount.toLocaleString('vi-VN')} icon="user" sub="trên hệ thống" />
+            <StatCard label="Khách hàng" value={totals.customerCount.toLocaleString('vi-VN')} icon="user" sub="có vai trò khách hàng" />
+            <StatCard label="Chủ quán" value={totals.merchantCount.toLocaleString('vi-VN')} icon="store" sub="có vai trò chủ quán" />
             <StatCard
               label="Quán đang hoạt động"
               value={totals.restaurantActiveCount.toLocaleString('vi-VN')}
               icon="store"
+              sub="đã được duyệt hoạt động"
             />
           </div>
 

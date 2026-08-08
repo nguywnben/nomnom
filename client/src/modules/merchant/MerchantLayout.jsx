@@ -40,6 +40,7 @@ export default function MerchantLayout() {
   const [restaurantProfile, setRestaurantProfile] = useState(null);
   const [changingOpen, setChangingOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [newCount, setNewCount] = useState(0);
 
   useEffect(() => {
@@ -141,6 +142,8 @@ export default function MerchantLayout() {
       <DesktopSidebar
         currentMerchant={merchantIdentity}
         newCount={newCount}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed((value) => !value)}
         onSwitchRole={() => nav('/app')}
         onLogout={() => logout()}
       />
@@ -213,8 +216,11 @@ export default function MerchantLayout() {
             >
               Trò chuyện với khách hàng
             </Button>
-            <Button leadingIcon="plus" onClick={() => nav('/merchant/menu')}>
-              Thêm món
+            <Button
+              leadingIcon="arrowRight"
+              onClick={() => nav('/app/restaurant/' + encodeURIComponent(restaurantProfile?.slug || restaurantProfile?.id))}
+            >
+              Xem quán ăn
             </Button>
           </div>
         </header>
@@ -245,18 +251,34 @@ export default function MerchantLayout() {
   );
 }
 
-function DesktopSidebar({ currentMerchant, newCount, onSwitchRole, onLogout }) {
+function DesktopSidebar({ currentMerchant, newCount, collapsed, onToggleCollapse, onSwitchRole, onLogout }) {
   return (
-    <aside className="sticky top-0 hidden h-screen w-[244px] flex-col border-r border-hairline bg-surface-card md:flex">
-      <div className="flex h-16 items-center px-base">
-        <Logo size="sm" />
+    <aside
+      className={clsx(
+        'sticky top-0 hidden h-screen flex-col border-r border-hairline bg-surface-card transition-[width] duration-200 md:flex',
+        collapsed ? 'w-[68px]' : 'w-[244px]',
+      )}
+    >
+      <div className="flex h-16 items-center justify-between px-base">
+        {!collapsed && <Logo size="sm" />}
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
+          aria-label="Bật/tắt thanh bên"
+        >
+          <Icon name={collapsed ? 'chevronRight' : 'chevronLeft'} size={14} />
+        </button>
       </div>
-      <div className="px-sm py-2">
-        <Badge tone="outline">Quán ăn</Badge>
-      </div>
+      {!collapsed && (
+        <div className="px-sm py-2">
+          <Badge tone="outline">Quán ăn</Badge>
+        </div>
+      )}
       <SidebarContent
         currentMerchant={currentMerchant}
         newCount={newCount}
+        collapsed={collapsed}
         onSwitchRole={onSwitchRole}
         onLogout={onLogout}
       />
@@ -264,52 +286,34 @@ function DesktopSidebar({ currentMerchant, newCount, onSwitchRole, onLogout }) {
   );
 }
 
-function SidebarContent({ currentMerchant, newCount, onItemClick, onSwitchRole, onLogout }) {
-  const linksWithFlags = links.map((link) => ({
-    ...link,
-    disabled: link.to === '/merchant/wallet' || link.to === '/merchant/settings',
-  }));
-
+function SidebarContent({ currentMerchant, newCount, collapsed = false, onItemClick, onSwitchRole, onLogout }) {
   return (
     <>
       <nav className="flex-1 px-sm py-2">
-        {linksWithFlags.map((l) =>
-          l.disabled ? (
-            <div
-              key={l.to}
-              className="flex h-12 items-center gap-2 rounded-md px-sm text-button text-body opacity-60"
-              aria-disabled="true"
-              title="Chưa có backend thật"
-            >
-              <Icon name={l.icon} size={16} />
-              <span className="flex-1">{l.label}</span>
-              <Badge tone="outline">Khóa</Badge>
-            </div>
-          ) : (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.end}
-              onClick={onItemClick}
-              className={({ isActive }) =>
-                clsx(
-                  'flex h-12 items-center gap-2 rounded-md px-sm text-button transition-colors',
-                  isActive ? 'bg-primary text-on-primary' : 'text-ink hover:bg-canvas-soft',
-                )
-              }
-            >
-              <Icon name={l.icon} size={16} />
-              <span className="flex-1">{l.label}</span>
-              {l.label === 'Đơn hàng' && newCount > 0 && (
-                <span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-card text-ink px-1 text-caption nums">
-                  {newCount}
-                </span>
-              )}
-            </NavLink>
-          ),
-        )}
+        {links.map((link) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            end={link.end}
+            onClick={onItemClick}
+            className={({ isActive }) =>
+              clsx(
+                'flex h-12 items-center gap-2 rounded-md px-sm text-button transition-colors',
+                isActive ? 'bg-primary text-on-primary' : 'text-ink hover:bg-canvas-soft',
+              )
+            }
+          >
+            <Icon name={link.icon} size={16} />
+            {!collapsed && <span className="flex-1">{link.label}</span>}
+            {link.label === 'Đơn hàng' && newCount > 0 && (
+              <span className="grid h-5 min-w-5 place-items-center rounded-pill bg-surface-card text-ink px-1 text-caption nums">
+                {newCount}
+              </span>
+            )}
+          </NavLink>
+        ))}
       </nav>
-      <div className="border-t border-hairline p-sm">
+      {!collapsed && <div className="border-t border-hairline p-sm">
         <div className="flex items-center gap-sm">
           <Avatar src={currentMerchant.avatar} name={currentMerchant.name} />
           <div className="min-w-0 flex-1">
@@ -339,7 +343,7 @@ function SidebarContent({ currentMerchant, newCount, onItemClick, onSwitchRole, 
             )}
           </div>
         </div>
-      </div>
+      </div>}
     </>
   );
 }

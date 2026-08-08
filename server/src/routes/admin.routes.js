@@ -323,14 +323,15 @@ router.get('/usersQuery', async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const filters = ['1 = 1'];
+    const filters = [
+      "u.status <> 'pending'",
+      "NOT EXISTS (SELECT 1 FROM user_roles hidden_driver_role WHERE hidden_driver_role.user_id = u.id AND hidden_driver_role.role = 'driver')",
+    ];
     const params = [];
 
     if (role && role !== 'all') {
-      filters.push(
-        `(u.primary_role = ? OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = ?))`,
-      );
-      params.push(role, role);
+      filters.push('EXISTS (SELECT 1 FROM user_roles role_filter WHERE role_filter.user_id = u.id AND role_filter.role = ?)');
+      params.push(role);
     }
 
     if (status && status !== 'all') {
@@ -369,6 +370,35 @@ router.get('/usersQuery', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+router.get('/users/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID người dùng không hợp lệ.' });
+  try {
+    const [user, roleRows, customerSummary, addressRows, restaurantRows, wallet] = await Promise.all([
+      pool.query(`SELECT id, email, phone, full_name, avatar_url, primary_role, status, suspension_expires_at, suspension_reason, email_verified_at, phone_verified_at, last_login_at, created_at, updated_at FROM users WHERE id = ?`, [id]).then(([rows]) => rows[0]),
+      pool.query('SELECT role FROM user_roles WHERE user_id = ? ORDER BY role', [id]).then(([rows]) => rows),
+      pool.query(`SELECT COUNT(*) AS order_count, COALESCE(SUM(total_amount), 0) AS total_spent FROM orders WHERE customer_id = ? AND status NOT IN ('cancelled', 'failed', 'expired')`, [id]).then(([rows]) => rows[0]),
+      pool.query(`SELECT label, line1, ward, district, city FROM customer_addresses WHERE customer_id = ? AND is_default = 1 LIMIT 1`, [id]).then(([rows]) => rows),
+      pool.query(`SELECT r.id, r.name, r.status, r.rating_avg, r.review_count, r.is_open_now, c.name AS cuisine_name FROM restaurants r LEFT JOIN cuisines c ON c.id = r.cuisine_id WHERE r.owner_user_id = ? ORDER BY r.created_at DESC`, [id]).then(([rows]) => rows),
+      pool.query(`SELECT balance, pending_balance, total_earned, total_withdrawn, is_locked FROM wallets WHERE user_id = ? AND owner_type = 'merchant' LIMIT 1`, [id]).then(([rows]) => rows[0]),
+    ]);
+    if (!user || roleRows.some((row) => row.role === 'driver') || user.status === 'pending') return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+    return res.json({
+      account: {
+        ...serializeUser(user, roleRows.map((row) => row.role)),
+        phone: user.phone,
+        emailVerifiedAt: user.email_verified_at,
+        phoneVerifiedAt: user.phone_verified_at,
+        lastLoginAt: user.last_login_at,
+        updatedAt: user.updated_at,
+        customerSummary: { orderCount: Number(customerSummary.order_count), totalSpent: Number(customerSummary.total_spent), defaultAddress: addressRows[0] || null },
+        restaurants: restaurantRows.map((row) => ({ id: row.id, name: row.name, status: row.status, cuisineName: row.cuisine_name, ratingAvg: Number(row.rating_avg), reviewCount: Number(row.review_count), isOpenNow: Boolean(row.is_open_now) })),
+        wallet: wallet ? { balance: Number(wallet.balance), pendingBalance: Number(wallet.pending_balance), totalEarned: Number(wallet.total_earned), totalWithdrawn: Number(wallet.total_withdrawn), isLocked: Boolean(wallet.is_locked) } : null,
+      },
+    });
+  } catch (err) { return next(err); }
 });
 
 router.patch('/users/:id/status', async (req, res, next) => {
@@ -412,6 +442,12 @@ router.patch('/users/:id/status', async (req, res, next) => {
       if (!user) {
         await connection.rollback();
         return res.status(404).json({ error: 'Người dùng không tồn tại.' });
+      }
+
+      const [targetRoles] = await connection.query('SELECT role FROM user_roles WHERE user_id = ?', [id]);
+      if (['suspended', 'banned'].includes(status) && targetRoles.some((row) => row.role === 'admin')) {
+        await connection.rollback();
+        return res.status(403).json({ error: 'Không thể đình chỉ hoặc khóa tài khoản quản trị viên.' });
       }
 
       await connection.query(
@@ -507,6 +543,28 @@ router.get('/restaurants/pending', async (_req, res, next) => {
     res.json({ items: rows.map(serializeRestaurantRow) });
   } catch (err) {
     next(err);
+  }
+});
+
+router.get('/restaurants/:id', async (req, res, next) => {
+  const restaurantId = Number(req.params.id);
+  if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+    return res.status(400).json({ error: 'ID nhà hàng không hợp lệ.' });
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT r.*, u.full_name AS owner_name, u.email AS owner_email, c.name AS cuisine_name
+       FROM restaurants r
+       JOIN users u ON u.id = r.owner_user_id
+       LEFT JOIN cuisines c ON c.id = r.cuisine_id
+       WHERE r.id = ? AND r.status = 'pending'
+       LIMIT 1`,
+      [restaurantId],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy hồ sơ quán đang chờ duyệt.' });
+    return res.json({ restaurant: serializeRestaurantRow(rows[0], { includeBankAccountNo: true }) });
+  } catch (error) {
+    return next(error);
   }
 });
 
@@ -1053,9 +1111,9 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
       await connection.rollback();
       return res.status(404).json({ error: 'Order not found.' });
     }
-    if (['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(order.status)) {
+    if (!['placed', 'accepted', 'preparing', 'ready_for_pickup'].includes(order.status)) {
       await connection.rollback();
-      return res.status(409).json({ error: 'This order cannot be cancelled in its current state.' });
+      return res.status(409).json({ error: 'Chỉ có thể hủy đơn đang chờ quán xử lý hoặc đang chuẩn bị.' });
     }
 
     let paymentStatus = order.payment_status;

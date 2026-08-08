@@ -292,6 +292,10 @@ export function fetchAdminPendingRestaurants() {
   return apiGet('/api/v1/admin/restaurants/pending');
 }
 
+export function fetchAdminRestaurantDetail(restaurantId) {
+  return apiGet(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}`);
+}
+
 export function approveAdminRestaurant(restaurantId) {
   return apiPost(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/approve`);
 }
@@ -312,10 +316,11 @@ export function rejectAdminDriver(userId, reason) {
   return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
 }
 
-export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', q = '', page = 1 } = {}) {
+export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', page = 1 } = {}) {
   const params = new URLSearchParams({
     status,
     paymentMethod,
+    paymentStatus,
     q,
     page: String(page),
   });
@@ -483,6 +488,10 @@ export function fetchAdminPayoutsApi({ status = 'all', q = '', page = 1, limit =
   return apiGet('/api/v1/admin/payouts?' + params.toString());
 }
 
+export function fetchAdminPayoutDetailApi(id) {
+  return apiGet('/api/v1/admin/payouts/' + encodeURIComponent(id));
+}
+
 export function updateAdminPayoutApi(id, body) {
   return apiPatch('/api/v1/admin/payouts/' + encodeURIComponent(id), body);
 }
@@ -498,6 +507,8 @@ export function fetchAdminConfigApi() {
 export function updateAdminConfigApi(key, value) {
   return apiPatch('/api/v1/admin/config/' + encodeURIComponent(key), { value });
 }
+
+export function fetchAdminUserDetailApi(id) { return apiGet('/api/v1/admin/users/' + encodeURIComponent(id)); }
 
 export function fetchAdminCuisinesApi() { return apiGet('/api/v1/admin/cuisines'); }
 export function createAdminCuisineApi(body) { return apiPost('/api/v1/admin/cuisines', body); }

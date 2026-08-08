@@ -5,6 +5,8 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Modal from '../../components/Modal.jsx';
+import { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { createOrderConversationApi, fetchMerchantOrdersApi, updateMerchantOrderStatusApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -49,6 +51,9 @@ export default function MerchantOrders() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(todayIsoDate);
   const [actingCode, setActingCode] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
   const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [backendUnavailable, setBackendUnavailable] = useState(ordersApiMissing);
 
@@ -105,14 +110,14 @@ export default function MerchantOrders() {
               onChange={(e) => setSelectedDate(e.target.value)}
               className="rounded-md border border-hairline bg-surface px-sm py-1.5 text-body-sm text-ink"
             />
-            <Badge tone="outline">Backend orders chưa sẵn sàng</Badge>
+            <Badge tone="outline">Chưa thể tải đơn hàng</Badge>
           </div>
         </div>
 
         <EmptyState
           icon="package"
-          title="Đơn hàng merchant chưa có backend"
-          message="API đơn hàng của merchant chưa được triển khai nên NomNom không polling và không hiển thị dữ liệu demo."
+          title="Không thể tải đơn hàng"
+          message="Hệ thống chưa thể kết nối với dữ liệu đơn hàng. Vui lòng thử lại sau."
           action={
             <button
               onClick={() => {
@@ -153,9 +158,14 @@ export default function MerchantOrders() {
     }
   };
 
-  const handleCancel = async (order) => {
-    const reason = window.prompt('Lý do hủy đơn (tuỳ chọn):', 'Quán không thể xử lý đơn này.');
-    if (reason === null) return;
+  const handleCancel = async () => {
+    const reason = cancelReason.trim();
+    if (!reason) {
+      setCancelError('Vui lòng nhập lý do hủy đơn.');
+      return;
+    }
+    const order = cancelTarget;
+    if (!order) return;
     setActingCode(order.orderCode);
     try {
       const { order: updated } = await updateMerchantOrderStatusApi(
@@ -164,6 +174,9 @@ export default function MerchantOrders() {
         reason.trim() || undefined,
       );
       setOrders((prev) => prev.filter((o) => o.orderCode !== updated.orderCode));
+      setCancelTarget(null);
+      setCancelReason('');
+      setCancelError('');
       pushToast({
         kind: 'error',
         title: 'Đã hủy đơn',
@@ -247,7 +260,11 @@ export default function MerchantOrders() {
                         order={order}
                         busy={actingCode === order.orderCode}
                         onAction={(action) => handleAction(order, action)}
-                        onCancel={() => handleCancel(order)}
+                        onCancel={() => {
+                          setCancelTarget(order);
+                          setCancelReason('');
+                          setCancelError('');
+                        }}
                         onChat={() => openCustomerChat(order)}
                       />
                     ))}
@@ -258,6 +275,36 @@ export default function MerchantOrders() {
           })}
         </div>
       )}
+
+      <Modal
+        open={Boolean(cancelTarget)}
+        onClose={() => {
+          if (actingCode !== cancelTarget?.orderCode) setCancelTarget(null);
+        }}
+        title={`Hủy đơn hàng ${cancelTarget?.orderCode || ''}`}
+        size="sm"
+        footer={<>
+          <Button variant="secondary" onClick={() => setCancelTarget(null)} disabled={actingCode === cancelTarget?.orderCode}>Quay lại</Button>
+          <Button onClick={handleCancel} loading={actingCode === cancelTarget?.orderCode}>Xác nhận hủy đơn</Button>
+        </>}
+      >
+        <div className="space-y-sm">
+          <p className="text-body-sm text-body">Lý do sẽ được gửi đến khách hàng cùng thông báo hủy đơn.</p>
+          <Textarea
+            id="merchant-cancel-reason"
+            label="Lý do hủy đơn"
+            rows={4}
+            value={cancelReason}
+            onChange={(event) => {
+              setCancelReason(event.target.value);
+              if (cancelError) setCancelError('');
+            }}
+            error={cancelError}
+            placeholder="Ví dụ: Quán đang quá tải và chưa thể chuẩn bị đơn đúng thời gian."
+            required
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import Input, { Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Tabs from '../../components/Tabs.jsx';
-import { fetchAdminPayoutsApi, updateAdminPayoutApi } from '../../lib/api.js';
+import { fetchAdminPayoutDetailApi, fetchAdminPayoutsApi, updateAdminPayoutApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { useApp } from '../../context/AppContext.jsx';
 
@@ -26,6 +26,8 @@ export default function AdminPayouts() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [dialog, setDialog] = useState(null);
+  const [payoutDetail, setPayoutDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [value, setValue] = useState('');
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -47,6 +49,29 @@ export default function AdminPayouts() {
 
   useEffect(() => { load(); }, [load]);
 
+  const closeDialog = () => {
+    setDialog(null);
+    setPayoutDetail(null);
+    setDetailLoading(false);
+    setValue('');
+  };
+
+  const openCompletionDialog = async (payout) => {
+    setDialog({ type: 'complete', payout });
+    setPayoutDetail(null);
+    setValue('');
+    setDetailLoading(true);
+    try {
+      const response = await fetchAdminPayoutDetailApi(payout.id);
+      setPayoutDetail(response.payout);
+    } catch (err) {
+      closeDialog();
+      pushToast({ kind: 'error', title: 'Không thể tải thông tin nhận tiền', message: err.message || 'Vui lòng thử lại.' });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   const changeStatus = async (payout, action) => {
     setActing(true);
     try {
@@ -55,8 +80,7 @@ export default function AdminPayouts() {
         reason: action === 'reject' ? value.trim() : undefined,
         externalRef: action === 'complete' ? value.trim() : undefined,
       });
-      setDialog(null);
-      setValue('');
+      closeDialog();
       pushToast({ kind: 'success', title: 'Đã cập nhật payout', message: payout.code + ' đã chuyển trạng thái.' });
       await load();
     } catch (err) {
@@ -123,7 +147,7 @@ export default function AdminPayouts() {
                       <Button size="sm" leadingIcon="check" onClick={() => changeStatus(payout, 'approve')}>Duyệt</Button>
                       <Button size="sm" variant="secondary" leadingIcon="x" onClick={() => { setDialog({ type: 'reject', payout }); setValue(''); }}>Từ chối</Button>
                     </>}
-                    {payout.status === 'approved' && <Button size="sm" leadingIcon="check" onClick={() => { setDialog({ type: 'complete', payout }); setValue(''); }}>Xác nhận đã chuyển</Button>}
+                    {payout.status === 'approved' && <Button size="sm" leadingIcon="cash" onClick={() => openCompletionDialog(payout)}>Thực hiện chuyển khoản</Button>}
                   </div>
                 </li>
               );
@@ -134,15 +158,25 @@ export default function AdminPayouts() {
 
       {pagination.total > pagination.limit && <Pagination total={pagination.total} pageSize={pagination.limit} page={pagination.page} onChange={setPage} />}
 
-      <Modal open={Boolean(dialog)} onClose={() => setDialog(null)} title={dialog?.type === 'reject' ? 'Từ chối yêu cầu' : 'Xác nhận đã chuyển khoản'} size="sm">
+      <Modal open={Boolean(dialog)} onClose={closeDialog} title={dialog?.type === 'reject' ? 'Từ chối yêu cầu' : 'Thực hiện chuyển khoản'} size="sm">
         <div className="space-y-sm">
           {dialog?.type === 'reject'
             ? <Textarea label="Lý do" rows={4} value={value} onChange={(event) => setValue(event.target.value)} />
-            : <Input label="Mã giao dịch ngân hàng" value={value} onChange={(event) => setValue(event.target.value)} hint="Mã dùng để đối soát và không thể bỏ trống." />}
+            : <>
+              {detailLoading ? <div className="py-base text-center text-body-sm text-body">Đang tải thông tin nhận tiền...</div> : <>
+                <div className="rounded-md border border-hairline-strong bg-canvas-soft p-sm text-body-sm text-body">
+                  <div className="text-caption-uppercase">Chuyển đến</div>
+                  <div className="mt-1 font-semibold text-ink">{payoutDetail?.bankName} · <span className="nums">{payoutDetail?.bankAccountNo}</span></div>
+                  <div className="mt-1">Chủ tài khoản: {payoutDetail?.bankAccountHolder}</div>
+                  <div className="mt-1 nums text-ink">Số tiền: {formatVnd(payoutDetail?.amount || 0)}</div>
+                </div>
+                <Input label="Mã giao dịch ngân hàng" value={value} onChange={(event) => setValue(event.target.value)} hint="Mã dùng để đối soát và không thể bỏ trống." />
+              </>}
+            </>}
           <div className="flex justify-end gap-xs">
-            <Button variant="secondary" onClick={() => setDialog(null)}>Hủy</Button>
-            <Button loading={acting} disabled={value.trim().length < 3} onClick={() => changeStatus(dialog.payout, dialog.type)}>
-              {dialog?.type === 'reject' ? 'Xác nhận từ chối' : 'Hoàn tất payout'}
+            <Button variant="secondary" onClick={closeDialog}>Hủy</Button>
+            <Button loading={acting} disabled={detailLoading || (dialog?.type === 'complete' && !payoutDetail) || value.trim().length < 3} onClick={() => changeStatus(dialog.payout, dialog.type)}>
+              {dialog?.type === 'reject' ? 'Xác nhận từ chối' : 'Xác nhận đã chuyển tiền'}
             </Button>
           </div>
         </div>

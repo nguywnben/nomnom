@@ -6,10 +6,38 @@ import { fetchAdminConfigApi, updateAdminConfigApi } from '../../lib/api.js';
 import { useApp } from '../../context/AppContext.jsx';
 
 const LABELS = {
-  default_commission_rate: { label: 'Hoa hồng mặc định', suffix: '%', min: 0, max: 50, step: 0.1 },
-  max_search_radius_km: { label: 'Bán kính tìm kiếm', suffix: 'km', min: 1, max: 100, step: 0.1 },
-  min_payout_amount: { label: 'Số tiền rút tối thiểu', suffix: 'VND', min: 10000, max: 1000000000, step: 1000 },
-  order_auto_cancel_minutes: { label: 'Tự hủy đơn sau', suffix: 'phút', min: 1, max: 120, step: 1 },
+  default_commission_rate: {
+    label: 'Hoa hồng mặc định',
+    description: 'Tỷ lệ hoa hồng áp dụng cho quán sử dụng mức mặc định của nền tảng.',
+    suffix: '%',
+    min: 0,
+    max: 50,
+    step: 0.1,
+  },
+  max_search_radius_km: {
+    label: 'Bán kính tìm kiếm tối đa',
+    description: 'Khoảng cách tối đa để khách tìm và xem các quán ăn lân cận.',
+    suffix: 'km',
+    min: 1,
+    max: 100,
+    step: 0.1,
+  },
+  min_payout_amount: {
+    label: 'Số tiền rút tối thiểu',
+    description: 'Số dư khả dụng tối thiểu để quán có thể gửi yêu cầu rút tiền.',
+    suffix: 'đ',
+    min: 10000,
+    max: 1000000000,
+    step: 1000,
+  },
+  order_auto_cancel_minutes: {
+    label: 'Thời gian tự hủy đơn',
+    description: 'Đơn sẽ tự hủy nếu quán không xác nhận trong khoảng thời gian này.',
+    suffix: 'phút',
+    min: 1,
+    max: 120,
+    step: 1,
+  },
 };
 
 export default function AdminConfig() {
@@ -57,7 +85,7 @@ export default function AdminConfig() {
         <div>
           <div className="text-caption-uppercase text-body">Hệ thống</div>
           <h1 className="text-display-lg text-ink">Cấu hình nền tảng</h1>
-          <p className="mt-xs text-body-sm text-body">Các tham số được backend kiểm tra giới hạn trước khi áp dụng.</p>
+          <p className="mt-xs text-body-sm text-body">Các tham số được hệ thống kiểm tra giới hạn trước khi áp dụng.</p>
         </div>
         <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button>
       </div>
@@ -67,12 +95,12 @@ export default function AdminConfig() {
 
       <div className="grid gap-base lg:grid-cols-2">
         {items.map((item) => {
-          const meta = LABELS[item.key] || { label: item.key, suffix: '', step: 1 };
+          const meta = LABELS[item.key] || { label: 'Cấu hình hệ thống', description: 'Tham số vận hành của nền tảng.', suffix: '', step: 1 };
           const changed = String(draft[item.key]) !== String(item.value);
           return (
             <Card key={item.key} padded>
               <div className="text-title-md text-ink">{meta.label}</div>
-              <div className="mt-1 text-caption text-body">{item.description || item.key}</div>
+              <div className="mt-1 text-caption text-body">{meta.description}</div>
               <div className="mt-sm flex flex-col gap-sm sm:flex-row sm:items-end">
                 <Input
                   id={'config-' + item.key}
@@ -87,7 +115,6 @@ export default function AdminConfig() {
                 />
                 <Button leadingIcon="check" loading={saving === item.key} disabled={!changed} onClick={() => save(item)}>Lưu</Button>
               </div>
-              <div className="mt-sm text-caption text-body">Khóa: <code className="text-ink">{item.key}</code></div>
             </Card>
           );
         })}

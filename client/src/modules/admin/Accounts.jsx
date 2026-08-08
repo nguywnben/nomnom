@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
-import Button from '../../components/Button.jsx';
+import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
@@ -11,15 +11,33 @@ import Tabs from '../../components/Tabs.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import {
   queryAdminUsers,
+  fetchAdminUserDetailApi,
   updateAdminUserStatus,
   resetAdminUserPassword,
 } from '../../lib/api.js';
 
 const STATUS_TONE = {
   active: 'success',
-  pending: 'warning',
-  suspended: 'error',
-  banned: 'danger',
+  suspended: 'warning',
+  banned: 'error',
+};
+
+const STATUS_LABEL = {
+  active: 'Hoạt động',
+  suspended: 'Đình chỉ',
+  banned: 'Đã khóa',
+};
+
+const ROLE_LABEL = {
+  customer: 'Khách hàng',
+  merchant: 'Nhà hàng',
+  admin: 'Quản trị viên',
+};
+
+const ROLE_TONE = {
+  customer: 'outline',
+  merchant: 'preview',
+  admin: 'dark',
 };
 
 const PAGE_SIZE = 12;
@@ -41,6 +59,8 @@ export default function AdminAccounts() {
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPasswordValue, setResetPasswordValue] = useState('');
   const [resetError, setResetError] = useState('');
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,10 +114,17 @@ export default function AdminAccounts() {
     setSuspensionError('');
   };
 
-  const openResetPasswordModal = (userId, name) => {
-    setResetTarget({ id: userId, name });
-    setResetPasswordValue('');
-    setResetError('');
+  const openResetPasswordModal = async (account) => {
+    setSelectedAccount(account);
+    setDetailLoading(true);
+    try {
+      const response = await fetchAdminUserDetailApi(account.id);
+      setSelectedAccount(response.account);
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể tải chi tiết', message: err.message || 'Vui lòng thử lại.' });
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const closeResetPasswordModal = () => {
@@ -119,7 +146,7 @@ export default function AdminAccounts() {
 
       await updateAdminUserStatus(userId, nextStatus);
       setUsers((cur) => cur.map((u) => (u.id === userId ? { ...u, status: nextStatus, suspensionExpiresAt: null, suspensionReason: null } : u)));
-      pushToast({ kind: nextStatus === 'active' ? 'success' : 'error', title: 'Cập nhật trạng thái', message: `${name} → ${nextStatus}` });
+      pushToast({ kind: nextStatus === 'active' ? 'success' : 'error', title: 'Cập nhật trạng thái', message: `${name} → ${STATUS_LABEL[nextStatus]}` });
     } catch (err) {
       pushToast({ kind: 'error', title: 'Cập nhật thất bại', message: err.message ?? 'Vui lòng thử lại.' });
     }
@@ -158,15 +185,15 @@ export default function AdminAccounts() {
             : u,
         ),
       );
-      pushToast({ kind: 'error', title: 'Cập nhật trạng thái', message: `${suspensionTarget.name} → suspended` });
+      pushToast({ kind: 'error', title: 'Cập nhật trạng thái', message: `${suspensionTarget.name} → ${STATUS_LABEL.suspended}` });
       closeSuspensionModal();
     } catch (err) {
       setSuspensionError(err.message ?? 'Vui lòng thử lại.');
     }
   };
 
-  const handleResetPassword = async (userId, name) => {
-    openResetPasswordModal(userId, name);
+  const handleResetPassword = (account) => {
+    openResetPasswordModal(account);
   };
 
   const handleConfirmResetPassword = async () => {
@@ -193,10 +220,8 @@ export default function AdminAccounts() {
   };
 
   const counts = useMemo(() => {
-    const c = { customer: 0, merchant: 0, driver: 0, admin: 0, pending: 0, suspended: 0, banned: 0 };
+    const c = { customer: 0, merchant: 0, admin: 0, suspended: 0, banned: 0 };
     for (const user of users) {
-      c[user.primaryRole] = (c[user.primaryRole] || 0) + 1;
-      if (user.status === 'pending') c.pending += 1;
       if (user.status === 'suspended') c.suspended += 1;
       if (user.status === 'banned') c.banned += 1;
     }
@@ -214,9 +239,8 @@ export default function AdminAccounts() {
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Badge tone="outline">Tổng {total} người dùng</Badge>
-          {counts.pending > 0 && <Badge tone="warning" dot>{counts.pending} đang chờ</Badge>}
-          {counts.suspended > 0 && <Badge tone="error" dot>{counts.suspended} bị đình chỉ</Badge>}
-          {counts.banned > 0 && <Badge tone="danger" dot>{counts.banned} bị khóa</Badge>}
+          {counts.suspended > 0 && <Badge tone="warning" dot>{counts.suspended} bị đình chỉ</Badge>}
+          {counts.banned > 0 && <Badge tone="error" dot>{counts.banned} đã khóa</Badge>}
         </div>
       </div>
 
@@ -236,7 +260,6 @@ export default function AdminAccounts() {
             items={[
               { value: 'all', label: 'Mọi trạng thái' },
               { value: 'active', label: 'Hoạt động' },
-              { value: 'pending', label: 'Đang chờ' },
               { value: 'suspended', label: 'Đình chỉ' },
               { value: 'banned', label: 'Khóa' },
             ]}
@@ -268,13 +291,13 @@ export default function AdminAccounts() {
                           <div className="text-body-sm font-semibold text-ink truncate">{a.fullName}</div>
                           <div className="text-caption text-body truncate">{a.email}</div>
                         </div>
-                        <Badge tone={STATUS_TONE[a.status]} dot>{a.status}</Badge>
+                        <Badge tone={STATUS_TONE[a.status]} dot upper={false}>{STATUS_LABEL[a.status] || a.status}</Badge>
                       </div>
                       {a.status === 'suspended' && a.suspensionExpiresAt && (
                         <div className="mt-1 text-caption text-body">Mở lại: {new Date(a.suspensionExpiresAt).toLocaleDateString()}</div>
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-caption text-body">
-                        <Badge tone={a.primaryRole === 'merchant' ? 'default' : 'outline'}>{a.primaryRole}</Badge>
+                        <RoleBadges account={a} />
                         <span className="nums">Tham gia {new Date(a.joinedAt).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -314,12 +337,12 @@ export default function AdminAccounts() {
                       </div>
                     </Td>
                     <Td>
-                      <Badge tone={a.primaryRole === 'merchant' ? 'default' : 'outline'}>{a.primaryRole}</Badge>
+                      <RoleBadges account={a} />
                     </Td>
                     <Td className="text-body-sm text-body nums">{new Date(a.joinedAt).toLocaleDateString()}</Td>
                     <Td>
-                      <div className="flex flex-col gap-1">
-                        <Badge tone={STATUS_TONE[a.status]} dot>{a.status}</Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge tone={STATUS_TONE[a.status]} dot upper={false}>{STATUS_LABEL[a.status] || a.status}</Badge>
                         {a.status === 'suspended' && a.suspensionExpiresAt && (
                           <div className="text-caption text-body">Mở lại: {new Date(a.suspensionExpiresAt).toLocaleDateString()}</div>
                         )}
@@ -355,6 +378,34 @@ export default function AdminAccounts() {
           </>
         )}
       </Card>
+
+      <Modal
+        open={Boolean(selectedAccount)}
+        onClose={() => setSelectedAccount(null)}
+        title="Chi tiết tài khoản"
+        size="sm"
+        footer={<Button onClick={() => setSelectedAccount(null)}>Đóng</Button>}
+      >
+        <div className="space-y-base">
+          <div className="flex items-center gap-sm">
+            <Avatar src={selectedAccount?.avatarUrl} name={selectedAccount?.fullName} size="lg" />
+            <div className="min-w-0"><div className="text-title-md text-ink">{selectedAccount?.fullName}</div><div className="truncate text-body-sm text-body">{selectedAccount?.email}</div></div>
+          </div>
+          {detailLoading && <div className="text-body-sm text-body" role="status">Đang tải thông tin chi tiết...</div>}
+          <div className="grid grid-cols-2 gap-sm border-y border-hairline py-sm text-body-sm">
+            <div><div className="text-caption text-body">Vai trò</div><div className="mt-1"><RoleBadges account={selectedAccount || {}} /></div></div>
+            <div><div className="text-caption text-body">Trạng thái</div><div className="mt-1"><Badge tone={STATUS_TONE[selectedAccount?.status]} dot upper={false}>{STATUS_LABEL[selectedAccount?.status] || selectedAccount?.status}</Badge></div></div>
+            <div><div className="text-caption text-body">Ngày tham gia</div><div className="mt-1 text-ink">{selectedAccount?.joinedAt ? new Date(selectedAccount.joinedAt).toLocaleDateString() : '—'}</div></div>
+            {selectedAccount?.suspensionExpiresAt && <div><div className="text-caption text-body">Mở lại</div><div className="mt-1 text-ink">{new Date(selectedAccount.suspensionExpiresAt).toLocaleDateString()}</div></div>}
+            <div><div className="text-caption text-body">Số điện thoại</div><div className="mt-1 text-ink">{selectedAccount?.phone || 'Chưa cập nhật'}</div></div>
+            <div><div className="text-caption text-body">Đăng nhập gần nhất</div><div className="mt-1 text-ink">{selectedAccount?.lastLoginAt ? new Date(selectedAccount.lastLoginAt).toLocaleString() : 'Chưa có'}</div></div>
+          </div>
+          {selectedAccount?.customerSummary && <div><div className="text-title-sm text-ink">Hoạt động khách hàng</div><div className="mt-xs grid grid-cols-2 gap-sm text-body-sm"><div><div className="text-caption text-body">Đơn hợp lệ</div><div className="mt-1 text-ink">{selectedAccount.customerSummary.orderCount}</div></div><div><div className="text-caption text-body">Tổng chi tiêu</div><div className="mt-1 text-ink">{selectedAccount.customerSummary.totalSpent.toLocaleString('vi-VN')} đ</div></div></div>{selectedAccount.customerSummary.defaultAddress && <div className="mt-sm text-body-sm text-body">Địa chỉ mặc định: {selectedAccount.customerSummary.defaultAddress.line1}, {selectedAccount.customerSummary.defaultAddress.district}, {selectedAccount.customerSummary.defaultAddress.city}</div>}</div>}
+          {selectedAccount?.restaurants?.length > 0 && <div><div className="text-title-sm text-ink">Nhà hàng sở hữu</div><div className="mt-xs space-y-xs">{selectedAccount.restaurants.map((restaurant) => <div key={restaurant.id} className="flex items-center justify-between gap-sm text-body-sm"><div><div className="font-medium text-ink">{restaurant.name}</div><div className="text-caption text-body">{restaurant.cuisineName || 'Chưa phân loại'} · {restaurant.reviewCount} đánh giá</div></div><Badge tone={restaurant.status === 'active' ? 'success' : 'warning'} upper={false}>{restaurant.status === 'active' ? 'Hoạt động' : restaurant.status}</Badge></div>)}</div></div>}
+          {selectedAccount?.wallet && <div><div className="text-title-sm text-ink">Ví nhà hàng</div><div className="mt-xs grid grid-cols-2 gap-sm text-body-sm"><div><div className="text-caption text-body">Số dư khả dụng</div><div className="mt-1 text-ink">{selectedAccount.wallet.balance.toLocaleString('vi-VN')} đ</div></div><div><div className="text-caption text-body">Tổng đã nhận</div><div className="mt-1 text-ink">{selectedAccount.wallet.totalEarned.toLocaleString('vi-VN')} đ</div></div></div></div>}
+          {selectedAccount?.suspensionReason && <div><div className="text-caption text-body">Lý do đình chỉ</div><p className="mt-1 text-body-sm text-ink">{selectedAccount.suspensionReason}</p></div>}
+        </div>
+      </Modal>
 
       <Modal
         open={!!suspensionTarget}
@@ -432,16 +483,28 @@ function Td({ className = '', children }) {
   return <td className={`px-base py-sm ${className}`}>{children}</td>;
 }
 
+function RoleBadges({ account }) {
+  const roles = [...new Set(account.roles ?? [])];
+  if (!roles.length) {
+    return <Badge tone="warning" upper={false}>Chưa gán vai trò</Badge>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {roles.map((role) => (
+        <Badge key={role} tone={ROLE_TONE[role] || 'outline'} upper={false}>
+          {ROLE_LABEL[role] || role}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 function RowActions({ account, currentAdminId, onChangeStatus, onResetPassword }) {
   const isSelf = currentAdminId !== undefined && account.id === currentAdminId;
+  const isProtectedAdmin = account.roles?.includes('admin');
   return (
     <div className="flex flex-wrap justify-end gap-1">
-      {account.status === 'pending' && (
-        <Button size="sm" onClick={() => onChangeStatus(account.id, 'active', account.fullName)}>
-          Phê duyệt
-        </Button>
-      )}
-      {account.status === 'active' && (
+      {account.status === 'active' && !isProtectedAdmin && (
         <>
           <Button
             variant="secondary"
@@ -466,9 +529,7 @@ function RowActions({ account, currentAdminId, onChangeStatus, onResetPassword }
           Kích hoạt
         </Button>
       )}
-      <Button variant="ghost" size="sm" onClick={() => onResetPassword(account.id, account.fullName)}>
-        Reset MK
-      </Button>
+      <IconButton icon="eye" label={'Xem chi tiết ' + account.fullName} size="sm" onClick={() => onResetPassword(account)} />
     </div>
   );
 }

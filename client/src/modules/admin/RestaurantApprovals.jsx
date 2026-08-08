@@ -9,8 +9,10 @@ import Modal from '../../components/Modal.jsx';
 import { Textarea } from '../../components/Input.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { formatVnd } from '../../lib/formatVnd.js';
 import {
   approveAdminRestaurant,
+  fetchAdminRestaurantDetail,
   fetchAdminPendingRestaurants,
   rejectAdminRestaurant,
 } from '../../lib/api.js';
@@ -21,6 +23,7 @@ export default function AdminRestaurantApprovals() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [active, setActive] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actingId, setActingId] = useState(null);
@@ -73,6 +76,24 @@ export default function AdminRestaurantApprovals() {
       });
     } finally {
       setActingId(null);
+    }
+  };
+
+  const openProfile = async (restaurant) => {
+    setActive(restaurant);
+    setProfileLoading(true);
+    try {
+      const response = await fetchAdminRestaurantDetail(restaurant.id);
+      setActive(response.restaurant);
+    } catch (err) {
+      setActive(null);
+      pushToast({
+        kind: 'error',
+        title: 'Không tải được hồ sơ quán',
+        message: err.message || 'Vui lòng thử lại sau.',
+      });
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -158,7 +179,7 @@ export default function AdminRestaurantApprovals() {
                     {missingFoodSafety && <Badge tone="warning">Thiếu VSATTP</Badge>}
                   </div>
                   <div className="flex items-center gap-2 md:justify-end">
-                    <Button variant="secondary" size="sm" onClick={() => setActive(r)} disabled={busy}>
+                    <Button variant="secondary" size="sm" onClick={() => openProfile(r)} disabled={busy}>
                       Xem hồ sơ
                     </Button>
                     <Button size="sm" leadingIcon="check" onClick={() => approve(r.id)} disabled={busy}>
@@ -173,13 +194,16 @@ export default function AdminRestaurantApprovals() {
       )}
 
       <Modal open={!!active} onClose={() => setActive(null)} title={active?.name || ''} size="lg">
-        {active && (
+        {profileLoading ? (
+          <div className="py-section text-center text-body-sm text-body">Đang tải hồ sơ quán...</div>
+        ) : active && (
           <div className="flex flex-col gap-base">
             <div className="grid grid-cols-1 gap-base md:grid-cols-2">
               <Row label="Chủ quán" value={active.ownerName} />
               <Row label="Email" value={active.ownerEmail} />
               <Row label="Loại ẩm thực" value={active.cuisine || '—'} />
               <Row label="Số điện thoại" value={active.phone || '—'} />
+              <Row label="Slogan" value={active.tagline || '—'} />
               <Row
                 label="Địa chỉ"
                 value={[active.addressLine, active.ward, active.district, active.city].filter(Boolean).join(', ')}
@@ -187,9 +211,32 @@ export default function AdminRestaurantApprovals() {
               <Row label="Thời điểm nộp" value={new Date(active.submittedAt).toLocaleString('vi-VN')} />
             </div>
 
+            <InfoBlock title="Giới thiệu quán" value={active.description || 'Chủ quán chưa cung cấp giới thiệu.'} />
+
+            <div className="grid grid-cols-1 gap-base md:grid-cols-3">
+              <Row label="Đơn tối thiểu" value={formatVnd(active.minOrderAmount)} />
+              <Row label="Phí giao cơ bản" value={formatVnd(active.baseDeliveryFee)} />
+              <Row label="Chuẩn bị trung bình" value={active.avgPrepTimeMin ? `${active.avgPrepTimeMin} phút` : '—'} />
+            </div>
+
+            {(active.latitude !== null && active.longitude !== null) && (
+              <Row label="Tọa độ quán" value={`${active.latitude}, ${active.longitude}`} />
+            )}
+
             <div className="grid grid-cols-1 gap-base md:grid-cols-2">
+              <DocPreview title="Ảnh bìa quán" url={active.bannerUrl} />
               <DocPreview title="Giấy phép kinh doanh" url={active.businessLicenseUrl} />
               <DocPreview title="Chứng nhận VSATTP" url={active.foodSafetyCertUrl} optional />
+            </div>
+
+            <div className="border-t border-hairline pt-base">
+              <div className="text-title-sm text-ink">Thông tin nhận tiền</div>
+              <p className="mt-1 text-caption text-body">Chỉ hiển thị trong hồ sơ chi tiết để phục vụ việc duyệt và đối soát.</p>
+              <div className="mt-sm grid grid-cols-1 gap-base md:grid-cols-3">
+                <Row label="Ngân hàng" value={active.bankName || '—'} />
+                <Row label="Số tài khoản" value={active.bankAccountNo || active.bankAccountMasked || '—'} />
+                <Row label="Chủ tài khoản" value={active.bankAccountHolder || '—'} />
+              </div>
             </div>
 
             <div className="flex flex-col gap-2 border-t border-hairline pt-base md:flex-row md:justify-end">
@@ -243,6 +290,15 @@ function Row({ label, value }) {
     <div>
       <div className="text-caption-uppercase text-body">{label}</div>
       <div className="text-body-sm text-ink">{value}</div>
+    </div>
+  );
+}
+
+function InfoBlock({ title, value }) {
+  return (
+    <div className="border-t border-hairline pt-base">
+      <div className="text-caption-uppercase text-body">{title}</div>
+      <p className="mt-1 whitespace-pre-wrap text-body-sm leading-relaxed text-ink">{value}</p>
     </div>
   );
 }

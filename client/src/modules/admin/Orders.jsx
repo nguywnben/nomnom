@@ -21,6 +21,7 @@ const ORDER_STATUS = {
   delivered: { label: 'Đã giao', tone: 'success' },
   cancelled: { label: 'Đã hủy', tone: 'error' },
   failed: { label: 'Thất bại', tone: 'error' },
+  expired: { label: 'Đã hết hạn', tone: 'error' },
 };
 
 const PAY_STATUS = {
@@ -28,7 +29,30 @@ const PAY_STATUS = {
   paid: { label: 'Đã thanh toán', tone: 'success' },
   failed: { label: 'Thanh toán lỗi', tone: 'error' },
   refunded: { label: 'Đã hoàn tiền', tone: 'default' },
+  pending: { label: 'Đang xử lý', tone: 'warning' },
+  expired: { label: 'Đã hết hạn', tone: 'error' },
 };
+
+const PAYMENT_METHODS = {
+  cod: 'Tiền mặt (COD)',
+  vnpay: 'VNPAY',
+};
+
+const PAYMENT_TRANSACTION_STATUS = {
+  initiated: 'Đang khởi tạo',
+  pending: 'Chờ thanh toán',
+  succeeded: 'Thành công',
+  failed: 'Thất bại',
+  cancelled: 'Đã hủy',
+};
+
+const REFUND_STATUS = {
+  initiated: 'Đang xử lý',
+  succeeded: 'Hoàn tiền thành công',
+  failed: 'Hoàn tiền thất bại',
+};
+
+const CANCELLABLE_ORDER_STATUSES = new Set(['placed', 'accepted', 'preparing', 'ready_for_pickup']);
 
 const PAGE_SIZE = 10;
 
@@ -43,6 +67,7 @@ export default function AdminOrders() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [paymentMethod, setPaymentMethod] = useState('all');
+  const [paymentStatus, setPaymentStatus] = useState('all');
 
   // Modal State
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -66,6 +91,7 @@ export default function AdminOrders() {
       const data = await fetchAdminOrders({
         status,
         paymentMethod,
+        paymentStatus,
         q: debouncedSearch,
         page,
       });
@@ -80,7 +106,7 @@ export default function AdminOrders() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, page, paymentMethod, pushToast, status]);
+  }, [debouncedSearch, page, paymentMethod, paymentStatus, pushToast, status]);
 
   useEffect(() => {
     loadOrders();
@@ -141,39 +167,57 @@ export default function AdminOrders() {
         </div>
       </div>
 
-      <Card padded className="grid gap-sm md:grid-cols-[1fr_220px_220px]">
-        <Input
-          leadingIcon="search"
-          placeholder="Tìm mã đơn, email khách..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-        />
-        <Select
-          aria-label="Trạng thái đơn"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-          options={[
-            { value: 'all', label: 'Tất cả trạng thái' },
-            ...Object.entries(ORDER_STATUS).map(([v, m]) => ({ value: v, label: m.label })),
-          ]}
-        />
-        <Select
-          aria-label="Phương thức thanh toán"
-          value={paymentMethod}
-          onChange={(e) => {
-            setPaymentMethod(e.target.value);
-            setPage(1);
-          }}
-          options={[
-            { value: 'all', label: 'Tất cả phương thức' },
-            { value: 'cod', label: 'Tiền mặt (COD)' },
-            { value: 'vnpay', label: 'Ví VNPAY' },
-          ]}
-        />
-      </Card>
+      <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
+          <Input
+            className="w-full md:w-80"
+            leadingIcon="search"
+            placeholder="Tìm mã đơn, khách hoặc quán..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-sm md:flex md:w-auto">
+            <Select
+              aria-label="Trạng thái đơn hàng"
+              className="min-w-0 md:w-48"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(1);
+              }}
+              options={[
+                { value: 'all', label: 'Mọi trạng thái đơn' },
+                ...Object.entries(ORDER_STATUS).map(([value, meta]) => ({ value, label: meta.label })),
+              ]}
+            />
+            <Select
+              aria-label="Phương thức thanh toán"
+              className="min-w-0 md:w-48"
+              value={paymentMethod}
+              onChange={(e) => {
+                setPaymentMethod(e.target.value);
+                setPage(1);
+              }}
+              options={[
+                { value: 'all', label: 'Mọi phương thức' },
+                { value: 'cod', label: 'Tiền mặt (COD)' },
+                { value: 'vnpay', label: 'Ví VNPAY' },
+              ]}
+            />
+            <Select
+              aria-label="Trạng thái thanh toán"
+              className="col-span-2 min-w-0 md:col-auto md:w-48"
+              value={paymentStatus}
+              onChange={(e) => {
+                setPaymentStatus(e.target.value);
+                setPage(1);
+              }}
+              options={[
+                { value: 'all', label: 'Mọi thanh toán' },
+                ...Object.entries(PAY_STATUS).map(([value, meta]) => ({ value, label: meta.label })),
+              ]}
+            />
+          </div>
+      </div>
 
       {loading ? (
         <Card padded className="text-center text-body py-xxl">
@@ -227,7 +271,7 @@ export default function AdminOrders() {
                       <Button variant="secondary" size="sm" onClick={() => handleOpenDetail(o)}>
                         Chi tiết
                       </Button>
-                      {!['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(o.status) && (
+                      {CANCELLABLE_ORDER_STATUSES.has(o.status) && (
                         <Button variant="secondary" size="sm" onClick={() => handleCancelClick(o)}>
                           Hủy đơn
                         </Button>
@@ -269,7 +313,7 @@ export default function AdminOrders() {
                   <Button variant="secondary" size="sm" onClick={() => handleOpenDetail(o)}>
                     Chi tiết
                   </Button>
-                  {!['cancelled', 'delivered', 'failed', 'picked_up', 'delivering'].includes(o.status) && (
+                  {CANCELLABLE_ORDER_STATUSES.has(o.status) && (
                     <Button variant="secondary" size="sm" onClick={() => handleCancelClick(o)}>
                       Hủy đơn
                     </Button>
@@ -307,7 +351,7 @@ export default function AdminOrders() {
             Bạn có chắc chắn muốn hủy đơn hàng <strong>{cancelTarget?.code}</strong>?
             {cancelTarget?.isPaid && (
               <span className="block mt-2 text-error font-medium">
-                VNPay must confirm the refund before this paid order is cancelled.
+                Đơn đã thanh toán chỉ được hủy sau khi VNPAY xác nhận hoàn tiền.
               </span>
             )}
           </p>
@@ -362,7 +406,7 @@ export default function AdminOrders() {
               <span className="text-caption text-body block">Thông tin thanh toán & vận chuyển</span>
               <div className="grid grid-cols-2 gap-xs">
                 <div>
-                  <span className="text-body block">Hình thức: {selectedOrder.payment_method?.toUpperCase()}</span>
+                  <span className="text-body block">Hình thức: {PAYMENT_METHODS[selectedOrder.payment_method] || 'Chưa xác định'}</span>
                   <span className="text-body block">Khoảng cách: {selectedOrder.distance_km} km</span>
                 </div>
                 <div>
@@ -404,12 +448,8 @@ export default function AdminOrders() {
 
                 <div className="border-t border-hairline pt-xs mt-xs text-xs text-body font-sans space-y-1">
                   <div className="flex justify-between">
-                    <span>Merchant nhận:</span>
+                    <span>Quán nhận được:</span>
                     <span>{formatVnd(Number(selectedOrder.merchant_earning))}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tài xế nhận:</span>
-                    <span>{formatVnd(Number(selectedOrder.driver_earning))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Nền tảng thu:</span>
@@ -418,6 +458,40 @@ export default function AdminOrders() {
                 </div>
               </div>
             </div>
+
+            {Array.isArray(selectedOrder.payments) && selectedOrder.payments.length > 0 && (
+              <div className="border-t border-hairline pt-sm">
+                <span className="text-caption text-body block">Lịch sử thanh toán</span>
+                <div className="mt-xs space-y-xs">
+                  {selectedOrder.payments.map((payment) => (
+                    <div key={payment.id} className="flex flex-wrap items-center justify-between gap-sm rounded-md bg-canvas-soft p-sm">
+                      <div>
+                        <div className="text-ink">{PAYMENT_METHODS[payment.method] || 'Phương thức khác'} · {PAYMENT_TRANSACTION_STATUS[payment.status] || 'Không xác định'}</div>
+                        <div className="mt-1 text-caption text-body">{payment.gateway_txn_id ? `Mã giao dịch: ${payment.gateway_txn_id}` : 'Chưa có mã giao dịch'}</div>
+                      </div>
+                      <div className="nums text-ink">{formatVnd(Number(payment.amount))}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Array.isArray(selectedOrder.refunds) && selectedOrder.refunds.length > 0 && (
+              <div className="border-t border-hairline pt-sm">
+                <span className="text-caption text-body block">Lịch sử hoàn tiền</span>
+                <div className="mt-xs space-y-xs">
+                  {selectedOrder.refunds.map((refund) => (
+                    <div key={refund.id} className="flex flex-wrap items-center justify-between gap-sm rounded-md bg-canvas-soft p-sm">
+                      <div>
+                        <div className="text-ink">{REFUND_STATUS[refund.status] || 'Không xác định'}</div>
+                        <div className="mt-1 text-caption text-body">{refund.gateway_txn_id ? `Mã giao dịch: ${refund.gateway_txn_id}` : refund.failure_reason || 'Đang chờ cổng thanh toán phản hồi'}</div>
+                      </div>
+                      <div className="nums text-ink">{formatVnd(Number(refund.amount))}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 && (
               <div className="border-t border-hairline pt-sm">
@@ -439,7 +513,7 @@ export default function AdminOrders() {
                 <ol className="mt-xs space-y-xs">
                   {selectedOrder.statusLogs.map((log) => (
                     <li key={log.id} className="flex justify-between gap-sm">
-                      <span className="text-ink">{log.from_status ? log.from_status + ' -> ' : ''}{log.to_status}</span>
+                      <span className="text-ink">{log.from_status ? (ORDER_STATUS[log.from_status]?.label || 'Chưa xác định') + ' → ' : ''}{ORDER_STATUS[log.to_status]?.label || 'Chưa xác định'}</span>
                       <span className="text-caption text-body">{new Date(log.created_at).toLocaleString('vi-VN')}</span>
                     </li>
                   ))}
