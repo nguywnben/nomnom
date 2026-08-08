@@ -71,9 +71,9 @@ app.use((err, _req, res, _next) => {
       ? 'File vượt quá dung lượng tối đa 5MB.'
       : err.code === 'LIMIT_UNEXPECTED_FILE'
         ? 'Chỉ được upload một file với field "file".'
-        : 'Internal Server Error');
+        : 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.');
   res.status(status).json({
-    error: status === 500 ? 'Internal Server Error' : message,
+    error: status === 500 ? 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.' : message,
     ...(process.env.NODE_ENV !== 'production' && err.code ? { code: err.code } : {}),
   });
 });
@@ -318,6 +318,31 @@ async function startOrderExpiryWorker() {
   }, 60000); // Chạy mỗi 60 giây
 }
 
+async function ensureOrderPaymentStates() {
+  const [statusRows] = await pool.query("SHOW COLUMNS FROM orders LIKE 'status'");
+  const statusType = String(statusRows[0]?.Type ?? '');
+
+  if (statusType.includes("'payment_failed'") && statusType.includes("'expired'")) {
+    return;
+  }
+
+  console.log('[DB] Bổ sung trạng thái payment_failed và expired cho orders');
+  await pool.query(`ALTER TABLE orders MODIFY COLUMN status enum(
+    'pending_payment',
+    'payment_failed',
+    'placed',
+    'accepted',
+    'preparing',
+    'ready_for_pickup',
+    'picked_up',
+    'delivering',
+    'delivered',
+    'cancelled',
+    'failed',
+    'expired'
+  ) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending_payment'`);
+}
+
 async function start() {
   try {
     await verifyDbConnection();
@@ -325,6 +350,7 @@ async function start() {
     await ensureSuspensionReasonColumn();
     await ensureVoucherSchema();
     await ensurePaymentSchema();
+    await ensureOrderPaymentStates();
     await ensureRestaurantBankColumns();
     await ensureWave5Schema(pool);
   } catch (err) {

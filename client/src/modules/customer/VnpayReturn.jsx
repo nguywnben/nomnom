@@ -93,7 +93,7 @@ export default function VnpayReturn() {
       return {
         icon: 'check',
         title: 'Thanh toán thành công',
-        message: 'Cảm ơn bạn! Chúng tôi đã nhận thanh toán và đang chuyển đơn đến nhà hàng.',
+        message: 'Cảm ơn bạn! Chúng tôi đã nhận thanh toán và đang chuyển đơn đến quán ăn.',
         toneBg: 'bg-[#e6f4ea] text-success',
         primary: { label: 'Theo dõi đơn hàng', to: `/app/track/${orderCode}` },
         secondary: { label: 'Về trang chủ', to: '/app' },

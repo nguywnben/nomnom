@@ -437,7 +437,7 @@ CREATE TABLE `orders` (
   `driver_earning` bigint UNSIGNED NOT NULL DEFAULT '0',
   `merchant_earning` bigint UNSIGNED NOT NULL DEFAULT '0',
   `platform_fee` bigint UNSIGNED NOT NULL DEFAULT '0',
-  `status` enum('pending_payment','placed','accepted','preparing','ready_for_pickup','picked_up','delivering','delivered','cancelled','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending_payment',
+  `status` enum('pending_payment','payment_failed','placed','accepted','preparing','ready_for_pickup','picked_up','delivering','delivered','cancelled','failed','expired') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending_payment',
   `payment_status` enum('unpaid','paid','failed','refunded') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'unpaid',
   `payment_method` enum('cod','vnpay') COLLATE utf8mb4_unicode_ci NOT NULL,
   `customer_note` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,

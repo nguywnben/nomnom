@@ -36,7 +36,7 @@ const HOW_IT_WORKS = [
   {
     icon: 'search',
     title: 'Chọn món',
-    desc: 'Khám phá nhà hàng và món ăn phù hợp với nhu cầu của bạn.',
+    desc: 'Khám phá quán ăn và món ăn phù hợp với nhu cầu của bạn.',
   },
   {
     icon: 'cart',
@@ -282,7 +282,7 @@ export default function Landing() {
                   src={r.bannerUrl}
                   alt={r.name}
                   ratio="16/10"
-                  className="transition-transform group-hover:scale-[1.02]"
+                  className="w-full"
                 />
                 <div className="absolute -bottom-3 right-base">
                   <Avatar src={r.logoUrl} name={r.name} square size="md" className="ring-2 ring-canvas" />
@@ -297,7 +297,7 @@ export default function Landing() {
                   </span>
                 </div>
                 <div className="mt-1 text-caption text-body">
-                  {r.tagline || 'Nhà hàng đối tác'} · <span className="nums">{r.avgPrepTimeMin ? `${r.avgPrepTimeMin} phút` : 'Đang cập nhật'}</span>
+                  {r.tagline || 'Quán ăn đối tác'} · <span className="nums">{r.avgPrepTimeMin ? `${r.avgPrepTimeMin} phút` : 'Đang cập nhật'}</span>
                 </div>
               </div>
             </Link>
@@ -306,7 +306,7 @@ export default function Landing() {
       </section>
 
       {/* ---- Partner with us --------------------------------------------- */}
-      <section id="doi-tac" className="container-page pb-xxl md:pb-section">
+      <section id="doi-tac" className="container-page">
         <div className="grid overflow-hidden rounded-lg border border-hairline-strong md:grid-cols-2">
           <div className="relative isolate aspect-video w-full overflow-hidden md:aspect-auto md:min-h-[360px]">
             <Image src={MERCHANT_BG} alt="Restaurant kitchen" ratio="16/9" className="absolute inset-0 h-full w-full" />
@@ -328,7 +328,7 @@ export default function Landing() {
             </ul>
             <div className="mt-lg flex flex-wrap items-center gap-xs">
               <Button as={Link} to="/merchant/onboarding" trailingIcon="arrowRight">
-                Đăng ký nhà hàng
+                Đăng ký quán ăn
               </Button>
               <Button as={Link} to="/faq#faq-quan-an" variant="secondary">
                 Tìm hiểu thêm
@@ -374,7 +374,7 @@ export default function Landing() {
             <FooterGroup
               title="Đối tác"
               links={[
-                { label: 'Đăng ký nhà hàng', to: '/merchant/onboarding' },
+                { label: 'Đăng ký quán ăn', to: '/merchant/onboarding' },
                 { label: 'FAQ đối tác', to: '/faq' },
               ]}
             />

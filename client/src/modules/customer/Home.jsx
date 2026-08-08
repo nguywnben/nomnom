@@ -115,7 +115,7 @@ export default function CustomerHome() {
               Đói bụng? Đặt món ngay.
             </h1>
             <p className="mt-xs text-body-md text-on-dark-soft">
-              Khám phá món ngon giao siêu tốc từ các nhà hàng hàng đầu quanh bạn.
+              Khám phá món ngon giao siêu tốc từ các quán ăn hàng đầu quanh bạn.
             </p>
 
             {/* Hero search bar */}
@@ -554,16 +554,11 @@ function DishCard({ dish, onAdd, addDisabled = false }) {
 
   return (
     <div className="w-[240px] shrink-0">
-      <div className="group relative overflow-hidden rounded-lg border border-hairline-strong bg-surface-card">
-        <Link to={`/app/menu-items/${dish.id}`} aria-label={`Xem chi tiết ${dish.name}`}>
-          <Image src={image} alt={dish.name} ratio="1" className="w-full transition-transform group-hover:scale-105" />
-        </Link>
+      <div className="relative overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft">
+        <Image src={image} alt={dish.name} ratio="1" className="w-full" />
         {!addDisabled && (
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              onAdd?.();
-            }}
+            onClick={() => onAdd?.()}
             className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-pill bg-primary text-on-primary shadow-soft-md hover:bg-primary-active"
             aria-label={`Thêm ${dish.name} vào giỏ hàng`}
           >
@@ -573,9 +568,7 @@ function DishCard({ dish, onAdd, addDisabled = false }) {
       </div>
       <div className="mt-2">
         <div className="flex items-start justify-between gap-2">
-          <Link to={`/app/menu-items/${dish.id}`} className="text-body-sm font-semibold text-ink line-clamp-1 hover:underline">
-            {dish.name}
-          </Link>
+          <span className="text-body-sm font-semibold text-ink line-clamp-1">{dish.name}</span>
           <span className="nums text-body-sm font-semibold text-ink">{formatVnd(dish.price)}</span>
         </div>
         <Link

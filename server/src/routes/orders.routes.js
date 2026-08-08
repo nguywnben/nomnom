@@ -365,7 +365,15 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
 
     // Lấy thông tin order items
     const [items] = await pool.query(
-      `SELECT oi.*, m.image_url
+      `SELECT
+         oi.id,
+         oi.menu_item_id AS menuItemId,
+         oi.item_name_snapshot AS name,
+         oi.unit_price_snapshot AS unitPrice,
+         oi.quantity,
+         oi.line_subtotal AS lineSubtotal,
+         oi.note,
+         m.image_url AS imageUrl
        FROM order_items oi
        LEFT JOIN menu_items m ON oi.menu_item_id = m.id
        WHERE oi.order_id = ?`,

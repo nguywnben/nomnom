@@ -413,11 +413,11 @@ router.get('/orders', ensureCustomer, async (req, res, next) => {
     let queryParams = [userId];
 
     if (status === 'active') {
-      queryConds.push("o.status IN ('pending_payment', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
+      queryConds.push("o.status IN ('pending_payment', 'payment_failed', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
     } else if (status === 'delivered') {
       queryConds.push("o.status = 'delivered'");
     } else if (status === 'cancelled') {
-      queryConds.push("o.status IN ('cancelled', 'failed')");
+      queryConds.push("o.status IN ('cancelled', 'failed', 'expired')");
     }
 
     const whereClause = 'WHERE ' + queryConds.join(' AND ');

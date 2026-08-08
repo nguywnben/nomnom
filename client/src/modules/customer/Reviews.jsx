@@ -91,7 +91,7 @@ export default function Reviews() {
       pushToast({
         kind: 'success',
         title: 'Cảm ơn bạn đã đánh giá',
-        message: `${order.restaurant?.name || 'Nhà hàng'} rất trân trọng ý kiến đóng góp của bạn.`,
+        message: `${order.restaurant?.name || 'Quán ăn'} rất trân trọng ý kiến đóng góp của bạn.`,
       });
 
       // Điều hướng quay lại trang danh sách đơn hàng cần đánh giá của nhà hàng
@@ -177,7 +177,7 @@ export default function Reviews() {
               className="mt-base"
               rows={4}
               id="review-text"
-              placeholder="Chia sẻ thêm về chất lượng dịch vụ và đồ ăn của nhà hàng (không bắt buộc)..."
+              placeholder="Chia sẻ thêm về chất lượng dịch vụ và đồ ăn của quán ăn (không bắt buộc)..."
               aria-label="Nội dung đánh giá"
               value={text}
               onChange={(e) => setText(e.target.value)}

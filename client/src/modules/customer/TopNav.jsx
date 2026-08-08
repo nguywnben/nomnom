@@ -11,7 +11,7 @@ import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCou
 
 const PORTAL_LINKS = [
   { role: 'admin', label: 'Quản trị hệ thống', icon: 'shield', to: ROLE_HOME.admin },
-  { role: 'merchant', label: 'Cổng nhà hàng', icon: 'store', to: ROLE_HOME.merchant },
+  { role: 'merchant', label: 'Cổng quán ăn', icon: 'store', to: ROLE_HOME.merchant },
 ];
 
 const links = [

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
+import { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
@@ -93,6 +94,17 @@ export default function CustomerRestaurant() {
           className="w-full max-h-[420px]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent" />
+        <div className="absolute inset-x-0 top-0">
+          <div className="container-page pt-base">
+            <button
+              type="button"
+              onClick={() => nav(-1)}
+              className="inline-flex h-10 items-center gap-1 rounded-md bg-surface-card/95 px-3 text-button text-ink shadow-soft transition-colors hover:bg-surface-card"
+            >
+              <Icon name="arrowLeft" size={16} /> Quay lại
+            </button>
+          </div>
+        </div>
         <div className="absolute inset-x-0 bottom-0">
           <div className="container-page pb-lg">
             <div className="flex items-end gap-base">
@@ -303,6 +315,12 @@ export default function CustomerRestaurant() {
                 title="Không tải được đánh giá"
                 message={reviewsError.message ?? 'Vui lòng thử lại sau.'}
               />
+            ) : reviews.length === 0 ? (
+              <EmptyState
+                icon="star"
+                title="Chưa có đánh giá"
+                message="Hãy là người đầu tiên chia sẻ trải nghiệm về quán ăn này."
+              />
             ) : (
               <div className="grid gap-base md:grid-cols-2">
                 {reviews.map((rev) => (
@@ -373,9 +391,7 @@ function MenuCard({ item, onAdd, disabled }) {
       <div className="flex-1 p-base flex flex-col justify-between">
         <div>
           <div className="flex items-start justify-between gap-2">
-            <Link to={`/app/menu-items/${item.id}`} className="text-title-md text-ink font-semibold hover:underline line-clamp-1">
-              {item.name}
-            </Link>
+            <span className="text-title-md text-ink font-semibold line-clamp-1">{item.name}</span>
             <span className="nums text-title-sm text-ink font-semibold shrink-0">{formatVnd(item.price)}</span>
           </div>
           <p className="mt-1 text-body-sm text-body line-clamp-2">{item.description}</p>
@@ -387,20 +403,19 @@ function MenuCard({ item, onAdd, disabled }) {
           </div>
         </div>
         <div className="mt-sm">
-          <Button
+          <IconButton
+            icon={isOutOfStock ? 'close' : 'plus'}
+            label={isOutOfStock ? `${item.name} đã hết hàng` : `Thêm ${item.name} vào giỏ`}
             variant={isDisabled ? 'secondary' : 'primary'}
             size="sm"
-            leadingIcon={isOutOfStock ? 'close' : 'plus'}
             disabled={isDisabled}
             onClick={onAdd}
-          >
-            {isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
-          </Button>
+          />
         </div>
       </div>
-      <Link to={`/app/menu-items/${item.id}`} className="w-32 shrink-0">
+      <div className="w-32 shrink-0">
         <Image src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" ratio="1" />
-      </Link>
+      </div>
     </Card>
   );
 }

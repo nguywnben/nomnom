@@ -4,7 +4,7 @@ import clsx from 'clsx';
 // Image with deterministic placeholder fallback if remote fails.
 export default function Image({ src, alt, className, fallbackSeed, ratio = '4/3' }) {
   const [errored, setErrored] = useState(false);
-  const seed = (fallbackSeed || alt || 'food').replace(/\s+/g, '').toLowerCase();
+  const seed = String(fallbackSeed || alt || 'food').replace(/\s+/g, '').toLowerCase();
   const hash = [...seed].reduce((a, c) => a + c.charCodeAt(0), 0);
   const hue = (hash * 37) % 360;
   return (

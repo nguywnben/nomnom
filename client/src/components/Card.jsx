@@ -7,7 +7,7 @@ export default function Card({
   as: Component = 'div',
   variant = 'default',
   padded = true,
-  hover = false,
+  hover = true,
   className,
   children,
   ...props
@@ -21,7 +21,7 @@ export default function Card({
         variant === 'dark' && 'bg-surface-dark text-on-dark',
         variant === 'flat' && 'bg-surface-card text-ink',
         padded && 'p-lg',
-        hover && 'hover:shadow-soft transition-shadow',
+        hover && 'transition-shadow hover:shadow-soft',
         className,
       )}
       {...props}

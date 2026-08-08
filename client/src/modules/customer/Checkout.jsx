@@ -64,7 +64,7 @@ export default function CustomerCheckout() {
 
   // Dữ liệu nhà hàng tạm cho giao diện nếu giỏ hàng có `restaurantId`
   // Ứng dụng thực tế nên lấy từ API /cart hoặc /orders
-  const [restaurant] = useState({ name: 'Nhà hàng' });
+  const [restaurant] = useState({ name: 'Quán ăn' });
 
   useEffect(() => {
     setLoadingAddresses(true);
@@ -212,10 +212,13 @@ export default function CustomerCheckout() {
         nav('/app/order/success/' + res.order.order_code);
       }
     } catch (err) {
+      const paymentMessage = err.status >= 500
+        ? 'Không thể kết nối cổng thanh toán lúc này. Vui lòng thử lại sau ít phút hoặc chọn COD.'
+        : err.message || 'Không thể tạo đơn hàng';
       pushToast({
         kind: 'error',
-        title: 'Lỗi đặt hàng',
-        message: err.message || 'Không thể tạo đơn hàng',
+        title: payment === 'vnpay' ? 'Thanh toán chưa thể thực hiện' : 'Lỗi đặt hàng',
+        message: paymentMessage,
       });
     } finally {
       setPlacing(false);

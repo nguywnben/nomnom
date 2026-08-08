@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import Badge from '../../components/Badge.jsx';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/Button.jsx';
+import { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import Input from '../../components/Input.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Pagination from '../../components/Pagination.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { searchExploreApi, fetchCuisinesApi } from '../../lib/api.js';
@@ -22,6 +23,8 @@ const LEGACY_CAT_TO_CUISINE_SLUG = {
   drinks: 'coffee',
   desserts: 'bakery',
 };
+
+const SEARCH_PAGE_SIZE = 6;
 
 function parseCuisineSlugsFromParams(searchParams) {
   const raw = searchParams.get('cuisine');
@@ -49,9 +52,9 @@ export default function CustomerSearch() {
   const [maxPrice, setMaxPrice] = useState(params.get('maxPrice') || '');
   const [rating, setRating] = useState(params.get('rating') || '');
   const [sort, setSort] = useState(params.get('sort') || 'rating');
-  const [page, setPage] = useState(parseInt(params.get('page') || '1', 10));
+  const [page, setPage] = useState(() => Math.max(1, parseInt(params.get('page') || '1', 10) || 1));
   const [view, setView] = useState('grid');
-  const [searchTab, setSearchTab] = useState(params.get('tab') || 'all'); // 'all', 'restaurants', 'dishes'
+  const [searchTab, setSearchTab] = useState(() => (params.get('tab') === 'restaurants' ? 'restaurants' : 'dishes'));
 
   const [cuisines, setCuisines] = useState([]);
   const [data, setData] = useState({ restaurants: [], menuItems: [], pagination: { totalRestaurants: 0, totalMenuItems: 0 } });
@@ -86,7 +89,7 @@ export default function CustomerSearch() {
         if (maxPrice) np.set('maxPrice', maxPrice); else np.delete('maxPrice');
         if (rating) np.set('rating', rating); else np.delete('rating');
         if (sort && sort !== 'rating') np.set('sort', sort); else np.delete('sort');
-        if (searchTab && searchTab !== 'all') np.set('tab', searchTab); else np.delete('tab');
+        if (searchTab === 'restaurants') np.set('tab', searchTab); else np.delete('tab');
         if (page > 1) np.set('page', page.toString()); else np.delete('page');
         return np;
       },
@@ -109,7 +112,7 @@ export default function CustomerSearch() {
       rating,
       sort,
       page,
-      limit: 20,
+      limit: SEARCH_PAGE_SIZE,
     })
       .then((res) => {
         if (mounted) {
@@ -136,21 +139,37 @@ export default function CustomerSearch() {
     });
   };
 
-  const totalResults = (data.restaurants?.length ?? 0) + (data.menuItems?.length ?? 0);
+  const visibleRestaurantCount = searchTab === 'restaurants' ? (data.restaurants?.length ?? 0) : 0;
+  const visibleDishCount = searchTab === 'dishes' ? (data.menuItems?.length ?? 0) : 0;
+  const visibleResults = visibleRestaurantCount + visibleDishCount;
+  const showRestaurantFilters = searchTab === 'restaurants';
+  const showDishFilters = searchTab === 'dishes';
+  const totalRestaurants = Number(data.pagination?.totalRestaurants ?? 0);
+  const totalMenuItems = Number(data.pagination?.totalMenuItems ?? 0);
+  const paginationTotal = searchTab === 'restaurants' ? totalRestaurants : totalMenuItems;
+  const paginationPageCount = Math.ceil(paginationTotal / SEARCH_PAGE_SIZE);
+
+  const changePage = (nextPage) => setPage(nextPage);
+
+  useEffect(() => {
+    if (!loading && paginationPageCount > 0 && page > paginationPageCount) {
+      setPage(paginationPageCount);
+    }
+  }, [loading, page, paginationPageCount]);
 
   return (
     <div className="container-page py-xl">
       <div className="mb-base flex flex-col gap-2">
         <div className="text-caption-uppercase text-body">Khám phá</div>
-        <h1 className="text-display-lg text-ink">Tìm nhà hàng</h1>
+        <h1 className="text-display-lg text-ink">Khám phá quán và món</h1>
       </div>
 
       {/* Search Input Bar & View options */}
       <div className="mb-base flex flex-col gap-xs md:flex-row md:items-center">
         <Input
           leadingIcon="search"
-          placeholder="Nhập tên món ăn, tên nhà hàng, mô tả..."
-          aria-label="Tìm kiếm nhà hàng và món ăn"
+          placeholder="Tìm quán ăn hoặc món ăn"
+          aria-label="Tìm kiếm quán ăn và món ăn"
           className="flex-1"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -158,13 +177,15 @@ export default function CustomerSearch() {
         <div className="flex flex-wrap items-center gap-xs">
           <Tabs
             items={[
-              { value: 'all', label: 'Tất cả' },
-              { value: 'restaurants', label: `Quán ăn (${data.pagination?.totalRestaurants ?? 0})` },
               { value: 'dishes', label: `Món ăn (${data.pagination?.totalMenuItems ?? 0})` },
+              { value: 'restaurants', label: `Quán ăn (${data.pagination?.totalRestaurants ?? 0})` },
             ]}
             value={searchTab}
             onChange={(val) => {
               setSearchTab(val);
+              setMinPrice('');
+              setMaxPrice('');
+              setSort(val === 'dishes' ? 'popular' : 'rating');
               setPage(1);
             }}
           />
@@ -176,7 +197,6 @@ export default function CustomerSearch() {
             value={view}
             onChange={setView}
           />
-          <Badge tone="outline">{totalResults} hiển thị</Badge>
         </div>
       </div>
 
@@ -193,15 +213,16 @@ export default function CustomerSearch() {
                   setPage(1);
                 }}
               >
-                <option value="rating">Đánh giá: Cao đến thấp</option>
-                <option value="fee">Phí giao hàng: Thấp đến cao</option>
-                <option value="new">Mới nhất</option>
-                <option value="price_asc">Giá món: Thấp đến cao</option>
-                <option value="price_desc">Giá món: Cao đến thấp</option>
+                <option value="rating">Đánh giá cao nhất</option>
+                {showRestaurantFilters && <option value="fee">Phí giao thấp nhất</option>}
+                {showRestaurantFilters && <option value="new">Quán mới nhất</option>}
+                {showDishFilters && <option value="popular">Món phổ biến</option>}
+                {showDishFilters && <option value="price_asc">Giá thấp đến cao</option>}
+                {showDishFilters && <option value="price_desc">Giá cao đến thấp</option>}
               </select>
             </FilterGroup>
 
-            <FilterGroup title="Khoảng giá món ăn (VNĐ)">
+            {showDishFilters && <FilterGroup title="Khoảng giá (VNĐ)">
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -225,7 +246,7 @@ export default function CustomerSearch() {
                   }}
                 />
               </div>
-            </FilterGroup>
+            </FilterGroup>}
 
             <FilterGroup title="Đánh giá tối thiểu">
               <select
@@ -273,7 +294,7 @@ export default function CustomerSearch() {
                   setPage(1);
                 }}
               />
-              Chỉ nhà hàng đang mở
+              Chỉ quán ăn đang mở
             </label>
 
             <Button
@@ -287,7 +308,7 @@ export default function CustomerSearch() {
                 setMaxPrice('');
                 setRating('');
                 setSort('rating');
-                setSearchTab('all');
+                setSearchTab('dishes');
                 setPage(1);
                 setParams({}, { replace: true });
               }}
@@ -299,11 +320,11 @@ export default function CustomerSearch() {
 
         {/* Results */}
         <div className="flex flex-col gap-base">
-          {error && totalResults === 0 ? (
+          {error && visibleResults === 0 ? (
             <div role="alert" className="rounded-lg border border-error/30 bg-[#fef2f2] p-base text-body-sm text-error">
-              Không thể tải danh sách nhà hàng. Vui lòng tải lại trang và thử lại.
+              Không thể tải kết quả tìm kiếm. Vui lòng tải lại trang và thử lại.
             </div>
-          ) : loading && totalResults === 0 ? (
+          ) : loading && visibleResults === 0 ? (
             view === 'grid' ? (
               <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -317,7 +338,7 @@ export default function CustomerSearch() {
                 ))}
               </div>
             )
-          ) : totalResults === 0 ? (
+          ) : visibleResults === 0 ? (
             <EmptyState
               icon="search"
               title="Không tìm thấy kết quả phù hợp"
@@ -326,10 +347,10 @@ export default function CustomerSearch() {
           ) : (
             <>
               {/* RESTAURANTS SECTION */}
-              {(searchTab === 'all' || searchTab === 'restaurants') && data.restaurants?.length > 0 && (
+              {searchTab === 'restaurants' && data.restaurants?.length > 0 && (
                 <section>
                   <div className="mb-sm flex items-center justify-between">
-                    <h2 className="text-title-lg text-ink font-semibold">Nhà hàng ({data.restaurants.length})</h2>
+                    <h2 className="text-title-lg text-ink font-semibold">Quán ăn ({data.restaurants.length})</h2>
                   </div>
                   {view === 'grid' ? (
                     <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
@@ -348,7 +369,7 @@ export default function CustomerSearch() {
               )}
 
               {/* DISHES SECTION */}
-              {(searchTab === 'all' || searchTab === 'dishes') && data.menuItems?.length > 0 && (
+              {searchTab === 'dishes' && data.menuItems?.length > 0 && (
                 <section>
                   <div className="mb-sm flex items-center justify-between">
                     <h2 className="text-title-lg text-ink font-semibold">Món ăn ({data.menuItems.length})</h2>
@@ -393,6 +414,15 @@ export default function CustomerSearch() {
                     </div>
                   )}
                 </section>
+              )}
+              {paginationPageCount > 1 && (
+                <Pagination
+                  total={paginationTotal}
+                  pageSize={SEARCH_PAGE_SIZE}
+                  page={page}
+                  onChange={changePage}
+                  className="mt-lg border-t border-hairline pt-base"
+                />
               )}
             </>
           )}
@@ -506,12 +536,24 @@ function RestaurantResultRow({ r }) {
 }
 
 function MenuItemResultCard({ item, onAdd, addDisabled }) {
+  const navigate = useNavigate();
+  const openRestaurant = () => navigate(`/app/restaurant/${item.restaurantId}`);
+
   return (
-    <div className="group flex flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={openRestaurant}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openRestaurant();
+        }
+      }}
+      className="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
+    >
       <div className="relative">
-        <Link to={`/app/menu-items/${item.id}`}>
-          <Image src={item.imageUrl} alt={item.name} ratio="16/10" className="w-full transition-transform group-hover:scale-105" />
-        </Link>
+        <Image src={item.imageUrl} alt={item.name} ratio="16/10" className="w-full" />
         {!item.isAvailable && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
             <span className="rounded bg-black/80 px-2.5 py-1 text-caption font-semibold text-white">
@@ -522,20 +564,25 @@ function MenuItemResultCard({ item, onAdd, addDisabled }) {
       </div>
       <div className="flex flex-1 flex-col gap-1 p-base">
         <div className="flex items-start justify-between gap-2">
-          <Link to={`/app/menu-items/${item.id}`} className="text-title-md text-ink line-clamp-1 font-semibold hover:underline">
-            {item.name}
-          </Link>
+          <span className="text-title-md text-ink line-clamp-1 font-semibold">{item.name}</span>
           <span className="nums text-title-md font-semibold text-ink shrink-0">{formatVnd(item.price)}</span>
         </div>
         <span className="text-caption text-body line-clamp-2">{item.description}</span>
         <div className="mt-auto flex items-center justify-between pt-2 border-t border-hairline-soft">
-          <Link to={`/app/restaurant/${item.restaurantId}`} className="text-caption text-body hover:text-ink line-clamp-1">
+          <Link to={`/app/restaurant/${item.restaurantId}`} onClick={(event) => event.stopPropagation()} className="text-caption text-body hover:text-ink line-clamp-1">
             {item.restaurantName}
           </Link>
           {!addDisabled && (
-            <Button size="xs" onClick={onAdd}>
-              + Thêm
-            </Button>
+            <IconButton
+              icon="plus"
+              label={`Thêm ${item.name} vào giỏ`}
+              size="sm"
+              variant="secondary"
+              onClick={(event) => {
+                event.stopPropagation();
+                onAdd();
+              }}
+            />
           )}
         </div>
       </div>
@@ -544,12 +591,24 @@ function MenuItemResultCard({ item, onAdd, addDisabled }) {
 }
 
 function MenuItemResultRow({ item, onAdd, addDisabled }) {
+  const navigate = useNavigate();
+  const openRestaurant = () => navigate(`/app/restaurant/${item.restaurantId}`);
+
   return (
-    <div className="flex items-center gap-base p-sm hover:bg-canvas-soft">
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={openRestaurant}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openRestaurant();
+        }
+      }}
+      className="flex cursor-pointer items-center gap-base p-sm hover:bg-canvas-soft"
+    >
       <div className="relative h-16 w-20 shrink-0 rounded-md overflow-hidden">
-        <Link to={`/app/menu-items/${item.id}`}>
-          <Image src={item.imageUrl} alt={item.name} className="h-full w-full" ratio="1" />
-        </Link>
+        <Image src={item.imageUrl} alt={item.name} className="h-full w-full" ratio="1" />
         {!item.isAvailable && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
             <span className="text-[10px] font-semibold text-white">HẾT</span>
@@ -558,20 +617,26 @@ function MenuItemResultRow({ item, onAdd, addDisabled }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <Link to={`/app/menu-items/${item.id}`} className="text-title-md text-ink line-clamp-1 font-semibold hover:underline">
-            {item.name}
-          </Link>
+          <span className="text-title-md text-ink line-clamp-1 font-semibold">{item.name}</span>
           <span className="nums text-body-sm font-semibold text-ink shrink-0">{formatVnd(item.price)}</span>
         </div>
         <span className="text-caption text-body line-clamp-1">{item.description}</span>
-        <Link to={`/app/restaurant/${item.restaurantId}`} className="text-caption text-muted hover:text-ink">
+        <Link to={`/app/restaurant/${item.restaurantId}`} onClick={(event) => event.stopPropagation()} className="text-caption text-muted hover:text-ink">
           {item.restaurantName}
         </Link>
       </div>
       {!addDisabled && (
-        <Button size="xs" variant="secondary" onClick={onAdd} className="shrink-0">
-          + Thêm
-        </Button>
+        <IconButton
+          icon="plus"
+          label={`Thêm ${item.name} vào giỏ`}
+          size="sm"
+          variant="secondary"
+          className="shrink-0"
+          onClick={(event) => {
+            event.stopPropagation();
+            onAdd();
+          }}
+        />
       )}
     </div>
   );
