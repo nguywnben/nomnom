@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import clsx from 'clsx';
 import Icon from './Icon.jsx';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
 
 // Responsive drawer with three sides:
 //   • side="right" — bottom-sheet on mobile, right-anchored slide-in on desktop
@@ -17,14 +18,14 @@ export default function Drawer({
   children,
   footer,
 }) {
+  useBodyScrollLock(open);
+
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => e.key === 'Escape' && onClose?.();
     document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
     };
   }, [open, onClose]);
 

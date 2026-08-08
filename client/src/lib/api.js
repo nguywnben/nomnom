@@ -4,6 +4,7 @@ import {
   getRefreshToken,
   saveTokens,
 } from './authStorage.js';
+import { getHomeViewerId } from './homeViewer.js';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
@@ -213,7 +214,7 @@ export function changePasswordApi({ currentPassword, newPassword }) {
 
 /** Carousel "Khám phá theo món ăn" — GET /api/v1/home/categories */
 export function fetchHomeCategories() {
-  return apiGet('/api/v1/home/categories');
+  return apiGet(`/api/v1/home/categories?viewer=${encodeURIComponent(getHomeViewerId())}`);
 }
 
 /** Banner khuyến mãi 3 cột — GET /api/v1/home/promos */
@@ -497,6 +498,12 @@ export function fetchAdminConfigApi() {
 export function updateAdminConfigApi(key, value) {
   return apiPatch('/api/v1/admin/config/' + encodeURIComponent(key), { value });
 }
+
+export function fetchAdminCuisinesApi() { return apiGet('/api/v1/admin/cuisines'); }
+export function createAdminCuisineApi(body) { return apiPost('/api/v1/admin/cuisines', body); }
+export function updateAdminCuisineApi(id, body) { return apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body); }
+export function deleteAdminCuisineApi(id) { return apiDelete('/api/v1/admin/cuisines/' + encodeURIComponent(id)); }
+export function reorderAdminCuisinesApi(ids) { return apiPatch('/api/v1/admin/cuisines/reorder', { ids }); }
 
 export function fetchChatConversationsApi() {
   return apiGet('/api/v1/chat/conversations');

@@ -59,6 +59,7 @@ import AdminPayouts from './modules/admin/Payouts.jsx';
 import AdminOrders from './modules/admin/Orders.jsx';
 import AdminReviewsModeration from './modules/admin/ReviewsModeration.jsx';
 import AdminConfig from './modules/admin/Config.jsx';
+import AdminCuisines from './modules/admin/Cuisines.jsx';
 import AdminAuditLogs from './modules/admin/AuditLogs.jsx';
 
 // Chat
@@ -139,6 +140,7 @@ export default function App() {
             <Route path="payouts" element={<AdminPayouts />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="reviews" element={<AdminReviewsModeration />} />
+            <Route path="cuisines" element={<AdminCuisines />} />
             <Route path="config" element={<AdminConfig />} />
             <Route path="audit-logs" element={<AdminAuditLogs />} />
           </Route>

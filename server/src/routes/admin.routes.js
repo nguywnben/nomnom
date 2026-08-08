@@ -43,8 +43,168 @@ function generateRandomPassword() {
   }).join('');
 }
 
+function cuisineSlug(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'd')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeCuisineInput(body, { partial = false } = {}) {
+  const has = (key) => Object.prototype.hasOwnProperty.call(body ?? {}, key);
+  const input = body ?? {};
+  const result = {};
+
+  if (!partial || has('name')) {
+    const name = String(input.name ?? '').trim();
+    if (!name || name.length > 80) return { error: 'Tên loại ẩm thực phải có từ 1 đến 80 ký tự.' };
+    result.name = name;
+  }
+  if (!partial || has('slug')) {
+    const slug = cuisineSlug(input.slug ?? result.name);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) return { error: 'Slug chỉ gồm chữ cái không dấu, số và dấu gạch nối.' };
+    result.slug = slug;
+  }
+  if (has('iconUrl')) {
+    const iconUrl = String(input.iconUrl ?? '').trim();
+    if (iconUrl.length > 500) return { error: 'Đường dẫn biểu tượng không được vượt quá 500 ký tự.' };
+    if (iconUrl) {
+      try {
+        const url = new URL(iconUrl);
+        if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid protocol');
+      } catch {
+        return { error: 'Đường dẫn biểu tượng phải là URL http hoặc https hợp lệ.' };
+      }
+    }
+    result.iconUrl = iconUrl || null;
+  } else if (!partial) result.iconUrl = null;
+  if (has('sortOrder')) {
+    const sortOrder = Number(input.sortOrder);
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 32767) return { error: 'Thứ tự hiển thị phải là số nguyên từ 0 đến 32767.' };
+    result.sortOrder = sortOrder;
+  } else if (!partial) result.sortOrder = 0;
+  if (has('isActive')) {
+    if (typeof input.isActive !== 'boolean') return { error: 'Trạng thái hoạt động không hợp lệ.' };
+    result.isActive = input.isActive;
+  } else if (!partial) result.isActive = true;
+  return { value: result };
+}
+
+function serializeCuisine(row) {
+  return {
+    id: row.id, name: row.name, slug: row.slug, iconUrl: row.icon_url,
+    sortOrder: row.sort_order, isActive: Boolean(row.is_active),
+    restaurantCount: Number(row.restaurant_count ?? 0), createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
 router.use(requireAuth);
 router.use(ensureAdmin);
+
+router.get('/cuisines', async (_req, res, next) => {
+  try {
+    const [rows] = await pool.query(`SELECT c.*, COUNT(r.id) AS restaurant_count FROM cuisines c LEFT JOIN restaurants r ON r.cuisine_id = c.id GROUP BY c.id ORDER BY c.sort_order ASC, c.id ASC`);
+    return res.json({ data: rows.map(serializeCuisine) });
+  } catch (err) { return next(err); }
+});
+
+router.post('/cuisines', async (req, res, next) => {
+  const parsed = normalizeCuisineInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { name, slug, iconUrl, sortOrder, isActive } = parsed.value;
+    const [result] = await connection.query('INSERT INTO cuisines (name, slug, icon_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?)', [name, slug, iconUrl, sortOrder, isActive ? 1 : 0]);
+    const [[row]] = await connection.query('SELECT * FROM cuisines WHERE id = ?', [result.insertId]);
+    await logAudit(connection, { adminId: req.auth.userId, action: 'tao_loai_am_thuc', targetType: 'cuisine', targetId: result.insertId, metadata: { tenLoai: name, slug } });
+    await connection.commit();
+    return res.status(201).json({ cuisine: serializeCuisine(row) });
+  } catch (err) {
+    await connection.rollback();
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Tên hoặc slug loại ẩm thực đã tồn tại.' });
+    return next(err);
+  } finally { connection.release(); }
+});
+
+router.patch('/cuisines/reorder', async (req, res, next) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number) : [];
+  if (!ids.length || ids.some((id) => !Number.isInteger(id) || id <= 0) || new Set(ids).size !== ids.length) {
+    return res.status(400).json({ error: 'Danh sách thứ tự loại ẩm thực không hợp lệ.' });
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [existing] = await connection.query('SELECT id FROM cuisines WHERE id IN (?) FOR UPDATE', [ids]);
+    if (existing.length !== ids.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Có loại ẩm thực không còn tồn tại.' });
+    }
+    for (const [index, id] of ids.entries()) {
+      await connection.query('UPDATE cuisines SET sort_order = ? WHERE id = ?', [index + 1, id]);
+    }
+    await logAudit(connection, { adminId: req.auth.userId, action: 'sap_xep_loai_am_thuc', targetType: 'cuisine', targetId: 'all', metadata: { thuTuIds: ids } });
+    await connection.commit();
+    return res.json({ ok: true });
+  } catch (err) {
+    await connection.rollback();
+    return next(err);
+  } finally { connection.release(); }
+});
+
+router.patch('/cuisines/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  const parsed = normalizeCuisineInput(req.body, { partial: true });
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID loại ẩm thực không hợp lệ.' });
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  if (!Object.keys(parsed.value).length) return res.status(400).json({ error: 'Không có thông tin cần cập nhật.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[previous]] = await connection.query('SELECT * FROM cuisines WHERE id = ? FOR UPDATE', [id]);
+    if (!previous) { await connection.rollback(); return res.status(404).json({ error: 'Loại ẩm thực không tồn tại.' }); }
+    const updates = [];
+    const values = [];
+    const columnMap = { name: 'name', slug: 'slug', iconUrl: 'icon_url', sortOrder: 'sort_order', isActive: 'is_active' };
+    for (const [key, column] of Object.entries(columnMap)) {
+      if (Object.prototype.hasOwnProperty.call(parsed.value, key)) {
+        updates.push(`${column} = ?`);
+        values.push(key === 'isActive' ? (parsed.value[key] ? 1 : 0) : parsed.value[key]);
+      }
+    }
+    await connection.query(`UPDATE cuisines SET ${updates.join(', ')} WHERE id = ?`, [...values, id]);
+    const [[row]] = await connection.query(`SELECT c.*, COUNT(r.id) AS restaurant_count FROM cuisines c LEFT JOIN restaurants r ON r.cuisine_id = c.id WHERE c.id = ? GROUP BY c.id`, [id]);
+    await logAudit(connection, { adminId: req.auth.userId, action: parsed.value.isActive === false ? 'an_loai_am_thuc' : 'cap_nhat_loai_am_thuc', targetType: 'cuisine', targetId: id, metadata: { tenLoai: row.name, thayDoi: parsed.value } });
+    await connection.commit();
+    return res.json({ cuisine: serializeCuisine(row) });
+  } catch (err) {
+    await connection.rollback();
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Tên hoặc slug loại ẩm thực đã tồn tại.' });
+    return next(err);
+  } finally { connection.release(); }
+});
+
+router.delete('/cuisines/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID loại ẩm thực không hợp lệ.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[cuisine]] = await connection.query('SELECT id, name FROM cuisines WHERE id = ? FOR UPDATE', [id]);
+    if (!cuisine) { await connection.rollback(); return res.status(404).json({ error: 'Loại ẩm thực không tồn tại.' }); }
+    const [[usage]] = await connection.query('SELECT COUNT(*) AS total FROM restaurants WHERE cuisine_id = ?', [id]);
+    if (Number(usage.total) > 0) { await connection.rollback(); return res.status(409).json({ error: 'Loại ẩm thực này đang được sử dụng. Hãy ẩn thay vì xóa.' }); }
+    await connection.query('DELETE FROM cuisines WHERE id = ?', [id]);
+    await logAudit(connection, { adminId: req.auth.userId, action: 'xoa_loai_am_thuc', targetType: 'cuisine', targetId: id, metadata: { tenLoai: cuisine.name } });
+    await connection.commit();
+    return res.status(204).send();
+  } catch (err) { await connection.rollback(); return next(err); } finally { connection.release(); }
+});
 
 const ORDER_METRICS_WHERE = "status NOT IN ('cancelled', 'failed', 'pending_payment')";
 

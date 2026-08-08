@@ -13,6 +13,7 @@ export default function Image({ src, alt, className, fallbackSeed, ratio = '4/3'
         <img
           src={src}
           alt={alt}
+          draggable={false}
           className="h-full w-full object-cover"
           loading="lazy"
           onError={() => setErrored(true)}

@@ -8,8 +8,6 @@ import Image from '../components/Image.jsx';
 import Logo from '../components/Logo.jsx';
 import Avatar from '../components/Avatar.jsx';
 import { useGeolocationLocalityLabel } from '../hooks/useGeolocationLocalityLabel.js';
-import { useHomeCategories } from '../hooks/useHomeCategories.js';
-import { useRestaurants } from '../hooks/useRestaurants.js';
 import { helpers } from '../data/mock.js';
 
 // ---------------------------------------------------------------------------
@@ -50,6 +48,47 @@ const HOW_IT_WORKS = [
   },
 ];
 
+const MOMENTS = [
+  {
+    label: 'Buổi trưa',
+    title: 'Một lựa chọn gọn gàng giữa ngày bận rộn.',
+    imageUrl: helpers.unsplash('photo-1547592180-85f173990554', 1000),
+  },
+  {
+    label: 'Buổi chiều',
+    title: 'Một khoảng nghỉ nhỏ cho điều bạn đang thèm.',
+    imageUrl: helpers.unsplash('photo-1551024601-bec78aea704b', 1000),
+  },
+  {
+    label: 'Buổi tối',
+    title: 'Một bữa ăn để quay về và quây quần.',
+    imageUrl: helpers.unsplash('photo-1515003197210-e0cd71810b5f', 1000),
+  },
+];
+
+const EXPERIENCE_PRINCIPLES = [
+  {
+    icon: 'search',
+    title: 'Dễ tìm',
+    description: 'Tìm theo món hoặc quán ăn, với thông tin được trình bày rõ ràng.',
+  },
+  {
+    icon: 'cart',
+    title: 'Dễ quyết định',
+    description: 'Từ món ăn đến thanh toán, mỗi bước đều có một mục đích cụ thể.',
+  },
+  {
+    icon: 'eye',
+    title: 'Dễ theo dõi',
+    description: 'Trạng thái đơn hàng luôn sẵn sàng khi bạn cần kiểm tra.',
+  },
+  {
+    icon: 'refresh',
+    title: 'Dễ quay lại',
+    description: 'Những lựa chọn phù hợp sẽ luôn sẵn để bạn tiếp tục lần sau.',
+  },
+];
+
 /** Cuộn mượt. Các khối CTA (đối tác / tài xế) căn giữa khung nhìn; "Cách hoạt động" cuộn tự nhiên từ đầu section. */
 function scrollToSection(id) {
   const block = id === 'cach-hoat-dong' ? 'start' : 'center';
@@ -61,8 +100,8 @@ const LANDING_HEADER_ELEVATE_AFTER_PX = 16;
 export default function Landing() {
   const [headerElevated, setHeaderElevated] = useState(false);
   const heroLocalityLine = useGeolocationLocalityLabel();
-  const { categories } = useHomeCategories();
-  const { data: featuredRestaurants } = useRestaurants({ sort: 'rating', limit: 4 });
+  const categories = [];
+  const featuredRestaurants = [];
 
   useEffect(() => {
     const onScroll = () => {
@@ -149,7 +188,7 @@ export default function Landing() {
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-ink/70 via-ink/40 to-ink/75" />
 
-        <div className="container-page flex min-h-[560px] flex-col justify-center pt-28 pb-xxl text-center text-on-dark md:min-h-[680px] md:pt-32 lg:min-h-[720px]">
+        <div className="hidden" aria-hidden="true">
           <Badge tone="dark" className="mx-auto mb-base !bg-canvas/15 !text-on-dark backdrop-blur">
             Giao nhanh, đặt món thuận tiện · {heroLocalityLine}
           </Badge>
@@ -161,7 +200,7 @@ export default function Landing() {
           </p>
 
           {/* CTA vào ứng dụng — đặt món, nhập địa chỉ trong /app */}
-          <div id="dat-hang" className="mx-auto mt-lg flex justify-center">
+          <div id="dat-hang-legacy" className="mx-auto mt-lg flex justify-center">
             <Button
               as={Link}
               to="/app"
@@ -178,6 +217,30 @@ export default function Landing() {
             >
               Vào ứng dụng đặt món
             </Button>
+          </div>
+        </div>
+
+        <div id="dat-hang" className="container-page flex min-h-[560px] flex-col items-center justify-end pb-xxl pt-28 text-center text-on-dark md:min-h-[680px] md:justify-center md:pb-12 md:pt-32 lg:min-h-[720px]">
+          <div className="max-w-2xl">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.88px] leading-[1.4] text-on-dark-soft">NomNom cho những bữa ăn thường ngày</div>
+            <h1 className="mt-sm text-display-lg text-on-dark md:text-display-xl lg:text-display-mega">
+              Ăn ngon theo cách nhẹ nhàng hơn.
+            </h1>
+            <p className="mx-auto mt-md w-full max-w-xl text-title-md text-on-dark-soft">
+              Khám phá món ăn, đặt đơn và theo dõi hành trình của bữa ăn trong một không gian rõ ràng, thân thuộc.
+            </p>
+            <div className="mt-lg flex justify-center">
+              <Button
+                as={Link}
+                to="/app"
+                size="lg"
+                variant="secondary"
+                trailingIcon="arrowRight"
+                className="!border-canvas/35 !bg-canvas/15 !text-on-dark backdrop-blur-md shadow-lg shadow-ink/25 transition-[background-color,border-color,box-shadow] hover:!border-canvas/45 hover:!bg-canvas/25 hover:shadow-xl active:!bg-canvas/30"
+              >
+                Khám phá NomNom
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -216,7 +279,7 @@ export default function Landing() {
       </section>
 
       {/* ---- Cuisines carousel ------------------------------------------- */}
-      <section className="container-page pb-xxl">
+      <section className="hidden" aria-hidden="true">
         <div className="mb-base flex items-end justify-between">
           <div>
             <div className="text-caption-uppercase text-body">Từ mọi nơi</div>
@@ -253,7 +316,7 @@ export default function Landing() {
       </section>
 
       {/* ---- Featured restaurants ---------------------------------------- */}
-      <section className="container-page pb-xxl md:pb-section">
+      <section className="hidden" aria-hidden="true">
         <div className="mb-base flex items-end justify-between">
           <div>
             <div className="text-caption-uppercase text-body">Lựa chọn hàng đầu</div>
@@ -302,6 +365,56 @@ export default function Landing() {
               </div>
             </Link>
           ))}
+        </div>
+      </section>
+
+      <section className="container-page pb-xxl md:pb-section">
+        <div className="mb-lg max-w-xl md:mb-xl">
+          <div className="text-caption-uppercase text-body">Theo nhịp của bạn</div>
+          <h2 className="mt-1 text-display-md text-ink">Có những bữa ăn chỉ cần đến đúng lúc.</h2>
+          <p className="mt-xs text-body-md text-body">
+            NomNom ở đây cho những khoảnh khắc thường ngày, khi bạn muốn dành ít thời gian hơn cho thao tác và nhiều thời gian hơn cho bữa ăn.
+          </p>
+        </div>
+        <div className="grid gap-base md:grid-cols-3">
+          {MOMENTS.map((moment) => (
+            <div key={moment.label} className="overflow-hidden rounded-lg border border-hairline-strong bg-surface-card">
+              <Image src={moment.imageUrl} alt={moment.title} ratio="4/3" className="w-full" />
+              <div className="p-base">
+                <div className="text-caption-uppercase text-body">{moment.label}</div>
+                <div className="mt-1 text-title-md text-ink">{moment.title}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="container-page pb-xxl md:pb-section">
+          <div className="max-w-xl">
+            <div className="text-caption-uppercase text-body">Trải nghiệm NomNom</div>
+            <h2 className="mt-1 text-display-md text-ink">Những điều quan trọng được đặt đúng chỗ.</h2>
+          </div>
+          <div className="mt-xl grid md:grid-cols-2">
+            {EXPERIENCE_PRINCIPLES.map((principle, index) => (
+              <div
+                key={principle.title}
+                className={clsx(
+                  'flex gap-sm border-b border-hairline-strong p-base last:border-b-0',
+                  index >= 2 && 'md:border-b-0',
+                  index % 2 === 1 && 'md:border-l md:border-hairline-strong',
+                )}
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-surface-card text-ink">
+                  <Icon name={principle.icon} size={17} />
+                </span>
+                <div>
+                  <div className="text-title-sm text-ink">{principle.title}</div>
+                  <p className="mt-1 text-body-sm text-body">{principle.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -6,8 +6,10 @@ import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
+import DishQuickViewModal from './DishQuickViewModal.jsx';
 import { useHomeCategories } from '../../hooks/useHomeCategories.js';
 import { useHomePromos } from '../../hooks/useHomePromos.js';
+import { useCuisines } from '../../hooks/useCuisines.js';
 import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -37,11 +39,14 @@ const MOODS = [
 export default function CustomerHome() {
   const nav = useNavigate();
   const { deliveryLocalityLine } = useOutletContext() ?? {};
-  const { user, addToCart, setCartOpen, shopAsCustomer } = useApp();
+  const { user, shopAsCustomer } = useApp();
   const canViewOrderAgain = Boolean(user?.id && shopAsCustomer);
   const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories();
   const { promos, loading: promosLoading, error: promosError } = useHomePromos();
+  const { cuisines, loading: cuisinesLoading } = useCuisines();
+  const cuisineScroll = useHorizontalDragScroll();
   const exploreScroll = useHorizontalDragScroll();
+  const trendingScroll = useHorizontalDragScroll();
 
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
@@ -50,6 +55,7 @@ export default function CustomerHome() {
   const [trendingLoading, setTrendingLoading] = useState(true);
 
   const [orderAgainList, setOrderAgainList] = useState([]);
+  const [quickViewDish, setQuickViewDish] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -174,13 +180,47 @@ export default function CustomerHome() {
         </div>
       </section>
 
-      {/* CATEGORIES */}
+      {/* CUISINES */}
       <section className="container-page pt-xl">
         <SectionHeader
-          caption="Bạn đang nghĩ gì?"
-          title="Khám phá theo món ăn"
+          caption="Khám phá nhanh"
+          title="Loại hình ẩm thực"
+        />
+        <div
+          ref={cuisineScroll.ref}
+          onMouseDown={cuisineScroll.onMouseDown}
+          onClickCapture={cuisineScroll.onClickCapture}
+          className="-mx-base min-w-0 cursor-grab overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          role="region"
+          aria-label="Loại hình ẩm thực — cuộn ngang"
+        >
+          <div className="flex w-max gap-sm">
+            {cuisinesLoading && Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="w-28 shrink-0"><Skeleton className="aspect-square w-full rounded-lg" /><Skeleton className="mt-2 h-3 w-3/4" rounded="sm" /></div>
+            ))}
+            {!cuisinesLoading && cuisines.map((cuisine) => (
+              <Link
+                key={cuisine.id}
+                to={`/app/search?cuisine=${encodeURIComponent(cuisine.slug)}`}
+                className="group w-28 shrink-0"
+              >
+                <div className="relative aspect-square overflow-hidden rounded-lg border border-hairline-strong bg-canvas-soft transition-shadow duration-200 ease-out group-hover:shadow-soft">
+                  {cuisine.iconUrl ? <img src={cuisine.iconUrl} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-body"><Icon name="grid" size={22} /></div>}
+                </div>
+                <div className="mt-xs truncate text-center text-body-sm font-medium text-ink">{cuisine.name}</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURED DISHES */}
+      <section className="container-page pt-xl">
+        <SectionHeader
+          caption="Khám phá hôm nay"
+          title="Món nổi bật từ nhiều quán"
           right={
-            <Link to="/app/search" className="text-button text-text-link hover:underline">
+            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
               Xem tất cả
             </Link>
           }
@@ -191,14 +231,17 @@ export default function CustomerHome() {
           onClickCapture={exploreScroll.onClickCapture}
           className="-mx-base min-w-0 cursor-grab overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           role="region"
-          aria-label="Khám phá theo món ăn — cuộn ngang"
+          aria-label="Món nổi bật từ nhiều quán — cuộn ngang"
         >
           <div className="flex w-max flex-nowrap gap-base">
             {categoriesLoading &&
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex w-[88px] shrink-0 flex-col items-center gap-1.5 md:w-[104px]">
-                  <Skeleton className="h-20 w-20 rounded-pill md:h-24 md:w-24" />
-                  <Skeleton className="h-3 w-14 rounded-sm" />
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="w-[232px] shrink-0 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card md:w-[248px]">
+                  <Skeleton className="aspect-[4/3] w-full rounded-none" rounded="none" />
+                  <div className="space-y-2 p-sm">
+                    <Skeleton className="h-4 w-3/4" rounded="sm" />
+                    <Skeleton className="h-3 w-1/2" rounded="sm" />
+                  </div>
                 </div>
               ))}
             {!categoriesLoading && categoriesError && (
@@ -207,29 +250,7 @@ export default function CustomerHome() {
             {!categoriesLoading &&
               !categoriesError &&
               categories.map((c) => (
-                <Link
-                  key={c.id}
-                  to={
-                    c.cuisineSlug
-                      ? `/app/search?cuisine=${c.cuisineSlug}`
-                      : `/app/search?q=${encodeURIComponent(c.name)}`
-                  }
-                  className="group flex w-[88px] shrink-0 flex-col items-center gap-1.5 md:w-[104px]"
-                  title={c.name}
-                  draggable={false}
-                >
-                  <span className="relative overflow-hidden rounded-pill border border-hairline-strong bg-surface-card transition-shadow group-hover:shadow-soft">
-                    <Image
-                      src={c.imageUrl}
-                      alt={c.name}
-                      ratio="1"
-                      className="h-20 w-20 md:h-24 md:w-24 pointer-events-none"
-                    />
-                  </span>
-                  <span className="line-clamp-2 text-center text-caption font-medium text-ink pointer-events-none">
-                    {c.name}
-                  </span>
-                </Link>
+                <HomeDishCard key={c.id} dish={c} onPreview={() => setQuickViewDish(c)} />
               ))}
           </div>
         </div>
@@ -261,6 +282,49 @@ export default function CustomerHome() {
         </div>
       </section>
 
+      {/* TRENDING DISHES */}
+      <section className="container-page pb-xl">
+        <SectionHeader
+          caption="Đang hot"
+          title="Các món thịnh hành"
+          right={
+            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+              Xem tất cả
+            </Link>
+          }
+        />
+        {trendingLoading ? (
+          <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="w-[232px] shrink-0 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card md:w-[248px]">
+                <Skeleton className="aspect-[4/3] w-full rounded-none" rounded="none" />
+                <div className="space-y-2 p-sm">
+                  <Skeleton className="h-4 w-3/4" rounded="sm" />
+                  <Skeleton className="h-3 w-1/2" rounded="sm" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : trendingDishes.length === 0 ? (
+          <p className="text-body-sm text-body">Chưa có món thịnh hành.</p>
+        ) : (
+          <div
+            ref={trendingScroll.ref}
+            onMouseDown={trendingScroll.onMouseDown}
+            onClickCapture={trendingScroll.onClickCapture}
+            className="-mx-base flex cursor-grab gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          >
+            {trendingDishes.map((d) => (
+              <DishCard
+                key={d.id}
+                dish={d}
+                onPreview={() => setQuickViewDish(d)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* ORDER AGAIN (Chỉ hiển thị khi đã đăng nhập và có lịch sử) */}
       {canViewOrderAgain && orderAgainList.length > 0 && (
         <section className="container-page pb-xl">
@@ -278,7 +342,7 @@ export default function CustomerHome() {
               <Link
                 key={r.id}
                 to={`/app/restaurant/${r.id}`}
-                className="group flex w-[260px] shrink-0 items-center gap-sm rounded-lg border border-hairline-strong bg-surface-card p-sm hover:shadow-soft transition-shadow"
+                className="group flex w-[260px] shrink-0 items-center gap-sm rounded-lg border border-hairline-strong bg-surface-card p-sm transition-shadow hover:shadow-soft"
               >
                 <Image src={r.logo} alt={r.name} className="h-12 w-12 rounded-md" ratio="1" />
                 <div className="min-w-0 flex-1">
@@ -318,46 +382,6 @@ export default function CustomerHome() {
         )}
       </section>
 
-      {/* TRENDING DISHES */}
-      <section className="container-page pb-xl">
-        <SectionHeader
-          caption="Đang hot"
-          title="Các món thịnh hành"
-        />
-        {trendingLoading ? (
-          <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="w-[240px] shrink-0 flex flex-col gap-2">
-                <Skeleton className="aspect-square w-full rounded-lg" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-              </div>
-            ))}
-          </div>
-        ) : trendingDishes.length === 0 ? (
-          <p className="text-body-sm text-body">Chưa có món thịnh hành.</p>
-        ) : (
-          <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
-            {trendingDishes.map((d) => (
-              <DishCard
-                key={d.id}
-                dish={d}
-                onAdd={() => {
-                  if (!shopAsCustomer) return;
-                  addToCart(d.restaurantId, d, 1, {
-                    baseDeliveryFee: d.fee,
-                    restaurantName: d.restaurantName,
-                    restaurantLogo: d.restaurantLogo,
-                  });
-                  setCartOpen(true);
-                }}
-                addDisabled={!shopAsCustomer || !d.isOpenNow}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* MOOD TILES */}
       <section className="container-page pb-xxl">
         <SectionHeader caption="Khám phá" title="Theo tâm trạng" />
@@ -366,9 +390,9 @@ export default function CustomerHome() {
             <Link
               key={m.id}
               to={`/app/search?cuisine=${m.cuisineSlug}`}
-              className="group relative aspect-[4/5] overflow-hidden rounded-lg border border-hairline-strong"
+              className="group relative aspect-[4/5] overflow-hidden rounded-lg border border-hairline-strong transition-shadow hover:shadow-soft"
             >
-              <Image src={m.image} alt={m.label} ratio="4/5" className="h-full w-full transition-transform group-hover:scale-105" />
+              <Image src={m.image} alt={m.label} ratio="4/5" className="h-full w-full" />
               <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-transparent" />
               <div className="absolute inset-0 flex flex-col justify-end p-base text-on-dark">
                 <span className="text-caption-uppercase text-on-dark-soft">{m.sub}</span>
@@ -403,6 +427,8 @@ export default function CustomerHome() {
           </div>
         </div>
       </section>
+
+      <DishQuickViewModal dish={quickViewDish} onClose={() => setQuickViewDish(null)} />
     </div>
   );
 }
@@ -457,10 +483,41 @@ function SectionHeader({ caption, title, right }) {
   );
 }
 
+function HomeDishCard({ dish, onPreview }) {
+  const prepTime = Number(dish.prepTimeMin ?? 0);
+  const isOpen = dish.isOpenNow ?? true;
+
+  return (
+    <button
+      type="button"
+      onClick={onPreview}
+      className="group flex w-[232px] shrink-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card text-left transition-shadow hover:shadow-soft md:w-[248px]"
+      aria-label={`Xem nhanh ${dish.name} từ ${dish.restaurantName}`}
+    >
+      <div className="relative">
+        <Image src={dish.imageUrl} alt={dish.name} ratio="4/3" className="w-full" />
+        {!isOpen && <Badge tone="error" className="absolute left-sm top-sm">Đóng cửa</Badge>}
+      </div>
+      <div className="flex min-h-[88px] flex-1 flex-col gap-1 p-sm">
+        <div className="flex items-start justify-between gap-2">
+          <span className="line-clamp-1 min-w-0 text-body-sm font-semibold text-ink">{dish.name}</span>
+          <span className="shrink-0 nums text-body-sm font-semibold text-ink">{formatVnd(dish.price)}</span>
+        </div>
+        <span className="line-clamp-1 text-caption text-body">{dish.restaurantName}</span>
+        {prepTime > 0 && (
+          <span className="mt-auto inline-flex items-center gap-1 text-caption text-body">
+            <Icon name="clock" size={12} /> Chuẩn bị khoảng {prepTime} phút
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
 function PromoBanner({ image, tag, title, sub, cta, linkUrl }) {
   const inner = (
     <>
-      <Image src={image} alt={title} ratio="16/9" className="absolute inset-0 h-full w-full transition-transform group-hover:scale-105" />
+      <Image src={image} alt={title} ratio="16/9" className="absolute inset-0 h-full w-full" />
       <div className="absolute inset-0 bg-gradient-to-r from-ink/85 via-ink/45 to-transparent" />
       <div className="relative flex h-full flex-col justify-between p-base text-on-dark">
         <Badge tone="dark" className="self-start !bg-canvas/15 !text-on-dark backdrop-blur">
@@ -513,7 +570,7 @@ function RestaurantCard({ restaurant: r }) {
       className="group flex flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
     >
       <div className="relative">
-        <Image src={banner} alt={r.name} ratio="16/10" className="w-full transition-transform group-hover:scale-[1.02]" />
+        <Image src={banner} alt={r.name} ratio="16/10" className="w-full" />
         <div className="absolute left-sm top-sm flex gap-1">
           {promoBadge && <Badge tone="default" className="bg-surface-card/95 backdrop-blur">{promoBadge}</Badge>}
           {!isOpen && <Badge tone="error">Đóng cửa</Badge>}
@@ -549,34 +606,42 @@ function RestaurantCard({ restaurant: r }) {
   );
 }
 
-function DishCard({ dish, onAdd, addDisabled = false }) {
+function DishCard({ dish, onPreview }) {
   const image = dish.image || dish.imageUrl;
+  const prepTime = Number(dish.prepTimeMin ?? dish.avgPrepTimeMin ?? 0);
+  const prepLabel = prepTime > 0 ? `Chuẩn bị khoảng ${prepTime} phút` : dish.eta;
+  const isOpen = dish.isOpenNow ?? true;
 
   return (
-    <div className="w-[240px] shrink-0">
-      <div className="relative overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft">
-        <Image src={image} alt={dish.name} ratio="1" className="w-full" />
-        {!addDisabled && (
-          <button
-            onClick={() => onAdd?.()}
-            className="absolute bottom-2 right-2 grid h-9 w-9 place-items-center rounded-pill bg-primary text-on-primary shadow-soft-md hover:bg-primary-active"
-            aria-label={`Thêm ${dish.name} vào giỏ hàng`}
-          >
-            <Icon name="plus" size={16} />
-          </button>
-        )}
+    <div className="group flex w-[232px] shrink-0 flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card text-left transition-shadow hover:shadow-soft md:w-[248px]">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={onPreview}
+          className="block w-full cursor-pointer text-left"
+          aria-label={`Xem nhanh ${dish.name}`}
+        >
+          <Image src={image} alt={dish.name} ratio="4/3" className="w-full" />
+        </button>
+        {!isOpen && <Badge tone="error" className="absolute left-sm top-sm">Đóng cửa</Badge>}
       </div>
-      <div className="mt-2">
+      <div className="flex min-h-[88px] flex-1 flex-col gap-1 p-sm">
         <div className="flex items-start justify-between gap-2">
-          <span className="text-body-sm font-semibold text-ink line-clamp-1">{dish.name}</span>
+          <button
+            type="button"
+            onClick={onPreview}
+            className="min-w-0 cursor-pointer text-left text-body-sm font-semibold text-ink line-clamp-1"
+          >
+            {dish.name}
+          </button>
           <span className="nums text-body-sm font-semibold text-ink">{formatVnd(dish.price)}</span>
         </div>
-        <Link
-          to={`/app/restaurant/${dish.restaurantId}`}
-          className="text-caption text-body hover:text-ink line-clamp-1"
-        >
-          {dish.restaurantName} · {dish.eta}
-        </Link>
+        <span className="line-clamp-1 text-caption text-body">{dish.restaurantName}</span>
+        {prepLabel && (
+          <span className="mt-auto inline-flex items-center gap-1 text-caption text-body">
+            <Icon name="clock" size={12} /> {prepLabel}
+          </span>
+        )}
       </div>
     </div>
   );

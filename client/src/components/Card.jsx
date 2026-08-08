@@ -12,6 +12,15 @@ export default function Card({
   children,
   ...props
 }) {
+  const isInteractive =
+    hover &&
+    (typeof props.onClick === 'function' ||
+      props.role === 'button' ||
+      props.role === 'link' ||
+      Component === 'a' ||
+      Component === 'button' ||
+      typeof Component !== 'string');
+
   return (
     <Component
       className={clsx(
@@ -21,7 +30,8 @@ export default function Card({
         variant === 'dark' && 'bg-surface-dark text-on-dark',
         variant === 'flat' && 'bg-surface-card text-ink',
         padded && 'p-lg',
-        hover && 'transition-shadow hover:shadow-soft',
+        isInteractive &&
+          'cursor-pointer transition-shadow duration-200 ease-out hover:shadow-soft',
         className,
       )}
       {...props}

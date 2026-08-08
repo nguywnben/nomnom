@@ -550,7 +550,7 @@ function MenuItemResultCard({ item, onAdd, addDisabled }) {
           openRestaurant();
         }
       }}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
     >
       <div className="relative">
         <Image src={item.imageUrl} alt={item.name} ratio="16/10" className="w-full" />

@@ -10,6 +10,10 @@ import Tabs from '../../components/Tabs.jsx';
 import { fetchAdminAuditLogs } from '../../lib/api.js';
 
 const ACTION_LABELS = {
+  tao_loai_am_thuc: { label: 'Tạo loại ẩm thực', tone: 'success' },
+  cap_nhat_loai_am_thuc: { label: 'Cập nhật loại ẩm thực', tone: 'outline' },
+  an_loai_am_thuc: { label: 'Ẩn loại ẩm thực', tone: 'warning' },
+  xoa_loai_am_thuc: { label: 'Xóa loại ẩm thực', tone: 'error' },
   duyet_nha_hang: { label: 'Duyệt nhà hàng', tone: 'success' },
   tu_choi_nha_hang: { label: 'Từ chối nhà hàng', tone: 'error' },
   duyet_tai_xe: { label: 'Duyệt tài xế', tone: 'success' },
@@ -23,6 +27,7 @@ const ACTION_LABELS = {
 };
 
 const TARGET_LABELS = {
+  cuisine: 'Loại ẩm thực',
   restaurant: 'Nhà hàng',
   driver: 'Tài xế',
   user: 'Tài khoản',

@@ -1,36 +1,75 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
+import { verifyAccessToken } from '../lib/auth.js';
 
 const router = Router(); 
 
 /**
  * GET /api/v1/home/categories
- * Carousel "Khám phá theo món ăn" — món nổi bật từ menu_items (quán đang active/mở).
+ * Carousel "Món nổi bật từ nhiều quán" — luân phiên quán theo ngày, rồi phân phối món cân bằng.
  */
-router.get('/categories', async (_req, res, next) => {
+router.get('/categories', async (req, res, next) => {
   try {
+    const viewerSeed = resolveHomeViewerSeed(req);
     const [rows] = await pool.query(
-      `SELECT
-         mi.id,
-         mi.name,
-         mi.image_url AS imageUrl,
-         mi.price,
-         mi.prep_time_min AS prepTimeMin,
-         c.slug AS cuisineSlug,
-         mi.restaurant_id AS restaurantId,
-         r.name AS restaurantName,
-         r.logo_url AS restaurantLogo,
-         r.base_delivery_fee AS baseDeliveryFee,
-         r.avg_prep_time_min AS avgPrepTimeMin
-       FROM menu_items mi
-       INNER JOIN restaurants r
-         ON r.id = mi.restaurant_id
-        AND r.status = 'active'
-       LEFT JOIN cuisines c ON c.id = r.cuisine_id
-       WHERE mi.status = 'active'
-         AND mi.in_stock = 1
-       ORDER BY mi.is_featured DESC, mi.total_sold DESC, mi.sort_order ASC, mi.id ASC
+      `WITH ranked_menu_items AS (
+         SELECT
+           mi.id,
+           mi.name,
+           mi.description,
+           mi.image_url AS imageUrl,
+           mi.price,
+           mi.prep_time_min AS prepTimeMin,
+           mi.is_featured AS isFeatured,
+           mi.total_sold AS totalSold,
+           mi.sort_order AS sortOrder,
+           c.slug AS cuisineSlug,
+           mi.restaurant_id AS restaurantId,
+           r.name AS restaurantName,
+           r.logo_url AS restaurantLogo,
+           r.base_delivery_fee AS baseDeliveryFee,
+           r.avg_prep_time_min AS avgPrepTimeMin,
+           r.is_open_now AS isOpenNow,
+           ROW_NUMBER() OVER (
+             PARTITION BY mi.restaurant_id
+             ORDER BY mi.is_featured DESC, mi.total_sold DESC, mi.sort_order ASC, mi.id ASC
+           ) AS restaurantRank
+         FROM menu_items mi
+         INNER JOIN restaurants r
+           ON r.id = mi.restaurant_id
+          AND r.status = 'active'
+         LEFT JOIN cuisines c ON c.id = r.cuisine_id
+         WHERE mi.status = 'active'
+           AND mi.in_stock = 1
+       ),
+       restaurant_rotation AS (
+         SELECT
+           restaurantId,
+           ROW_NUMBER() OVER (
+             ORDER BY SHA2(CONCAT(?, ':', restaurantId), 256), restaurantId
+           ) AS rotationPosition,
+           COUNT(*) OVER () AS restaurantCount
+         FROM (
+           SELECT DISTINCT restaurantId
+           FROM ranked_menu_items
+         ) AS eligible_restaurants
+       )
+       SELECT
+         mi.id, mi.name, mi.description, mi.imageUrl, mi.price, mi.prepTimeMin, mi.cuisineSlug,
+         mi.restaurantId, mi.restaurantName, mi.restaurantLogo, mi.baseDeliveryFee, mi.avgPrepTimeMin, mi.isOpenNow
+       FROM ranked_menu_items mi
+       INNER JOIN restaurant_rotation rr ON rr.restaurantId = mi.restaurantId
+       ORDER BY
+         mi.restaurantRank ASC,
+         MOD(
+           CAST(rr.rotationPosition AS SIGNED) - 1
+             - CAST(MOD(TO_DAYS(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+07:00')) * 12, rr.restaurantCount) AS SIGNED)
+             + CAST(rr.restaurantCount AS SIGNED),
+           CAST(rr.restaurantCount AS SIGNED)
+         ) ASC,
+         mi.isFeatured DESC, mi.totalSold DESC, mi.sortOrder ASC, mi.id ASC
        LIMIT 12`,
+      [viewerSeed],
     );
 
     res.json({ data: rows });
@@ -38,6 +77,21 @@ router.get('/categories', async (_req, res, next) => {
     next(err);
   }
 });
+
+function resolveHomeViewerSeed(req) {
+  const authorization = req.headers.authorization;
+  if (authorization?.startsWith('Bearer ')) {
+    try {
+      const payload = verifyAccessToken(authorization.slice(7));
+      if (payload?.sub) return `user:${payload.sub}`;
+    } catch {
+      // Guests and expired sessions use the browser-specific viewer identifier below.
+    }
+  }
+
+  const viewer = String(req.query.viewer ?? '');
+  return /^[a-zA-Z0-9_-]{8,80}$/.test(viewer) ? `guest:${viewer}` : 'guest:anonymous';
+}
 
 /**
  * GET /api/v1/home/promos
@@ -73,8 +127,9 @@ router.get('/promos', async (_req, res, next) => {
 router.get('/cuisines', async (_req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, name, slug, icon_url AS iconUrl, sort_order AS sortOrder
+       `SELECT id, name, slug, icon_url AS iconUrl, sort_order AS sortOrder
        FROM cuisines
+       WHERE is_active = 1
        ORDER BY sort_order ASC, id ASC`,
     );
     res.json({ data: rows });
