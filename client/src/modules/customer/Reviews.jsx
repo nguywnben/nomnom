@@ -22,9 +22,8 @@ export default function Reviews() {
   const [error, setError] = useState(null);
   const [restaurantReviews, setRestaurantReviews] = useState([]);
 
-  const [foodRating, setFoodRating] = useState(0);
-  const [tags, setTags] = useState([]);
-  const [text, setText] = useState('');
+  const [ratings, setRatings] = useState({});
+  const [comments, setComments] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -37,6 +36,18 @@ export default function Reviews() {
         if (!active) return;
         setOrder(orderData);
         
+        // Khởi tạo state rating và comment cho từng món ăn
+        if (orderData?.items) {
+          const initRatings = {};
+          const initComments = {};
+          orderData.items.forEach((item) => {
+            initRatings[item.menuItemId] = 0;
+            initComments[item.menuItemId] = '';
+          });
+          setRatings(initRatings);
+          setComments(initComments);
+        }
+
         // Tải đánh giá nhà hàng cho thanh bên
         if (orderData?.restaurant_id) {
           try {
@@ -69,23 +80,27 @@ export default function Reviews() {
     };
   }, [id]);
 
-  const toggle = (t) => setTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
-
   const submit = async () => {
-    if (!foodRating) {
-      pushToast({ kind: 'error', title: 'Thêm đánh giá', message: 'Vui lòng chọn số sao đánh giá.' });
+    const unrated = order.items.filter((item) => !ratings[item.menuItemId]);
+    if (unrated.length > 0) {
+      pushToast({
+        kind: 'error',
+        title: 'Thêm đánh giá',
+        message: 'Vui lòng chọn số sao đánh giá cho tất cả các món ăn.',
+      });
       return;
     }
 
     setSubmitting(true);
     try {
-      const commentText = [text.trim(), tags.length > 0 ? `(${tags.join(', ')})` : '']
-        .filter(Boolean)
-        .join('\n');
+      const reviewsPayload = order.items.map((item) => ({
+        menuItemId: item.menuItemId,
+        rating: ratings[item.menuItemId],
+        comment: comments[item.menuItemId]?.trim() || null,
+      }));
 
       await apiPost(`/api/v1/orders/${order.id}/review`, {
-        rating: foodRating,
-        comment: commentText || null,
+        reviews: reviewsPayload,
       });
 
       pushToast({
@@ -164,44 +179,37 @@ export default function Reviews() {
 
       <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
         <div className="space-y-base">
-          <Card padded>
-            <div className="flex items-center gap-sm">
-              <img src={r?.banner_url} alt="" className="h-12 w-12 rounded-md object-cover" />
-              <div className="flex-1">
-                <div className="text-title-md text-ink">{r?.name}</div>
-                <div className="text-caption text-body">Trải nghiệm của bạn thế nào?</div>
+          {order.items?.map((item) => (
+            <Card padded key={item.id}>
+              <div className="flex items-center gap-sm">
+                <img
+                  src={item.imageUrl || '/placeholder.png'}
+                  alt={item.name}
+                  className="h-12 w-12 rounded-md object-cover"
+                  onError={(e) => {
+                    e.target.src = '/placeholder.png';
+                  }}
+                />
+                <div className="flex-1">
+                  <div className="text-title-md text-ink">{item.name}</div>
+                  <div className="text-caption text-body">Số lượng: {item.quantity}</div>
+                </div>
+                <StarRating
+                  value={ratings[item.menuItemId] || 0}
+                  onChange={(val) => setRatings((prev) => ({ ...prev, [item.menuItemId]: val }))}
+                  size={22}
+                />
               </div>
-              <StarRating value={foodRating} onChange={setFoodRating} size={22} />
-            </div>
-            <Textarea
-              className="mt-base"
-              rows={4}
-              id="review-text"
-              placeholder="Chia sẻ thêm về chất lượng dịch vụ và đồ ăn của quán ăn (không bắt buộc)..."
-              aria-label="Nội dung đánh giá"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <div className="mt-sm flex flex-wrap gap-1">
-              {QUICK_TAGS.map((t) => {
-                const sel = tags.includes(t);
-                return (
-                  <button
-                    key={t}
-                    onClick={() => toggle(t)}
-                    className={
-                      'rounded-pill border px-2.5 py-1 text-caption transition-colors ' +
-                      (sel
-                        ? 'border-ink bg-primary text-on-primary'
-                        : 'border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft')
-                    }
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
+              <Textarea
+                className="mt-base"
+                rows={3}
+                placeholder={`Chia sẻ nhận xét của bạn về món ${item.name}...`}
+                aria-label={`Đánh giá món ${item.name}`}
+                value={comments[item.menuItemId] || ''}
+                onChange={(e) => setComments((prev) => ({ ...prev, [item.menuItemId]: e.target.value }))}
+              />
+            </Card>
+          ))}
 
           <div className="flex items-center justify-end gap-xs">
             <Button variant="secondary" onClick={() => nav(`/app/reviews/${order.restaurant_id}`)}>
@@ -212,7 +220,6 @@ export default function Reviews() {
             </Button>
           </div>
         </div>
-
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <Card padded>
             <div className="text-title-md text-ink mb-base">Nhận xét của khách hàng khác</div>

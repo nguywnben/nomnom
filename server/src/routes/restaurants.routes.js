@@ -254,7 +254,6 @@ router.get('/:id/reviews', async (req, res, next) => {
       `SELECT COUNT(*) as total FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
       [restaurant.id]
     );
-
     const [rows] = await pool.query(
       `SELECT
          rv.id,
@@ -264,9 +263,15 @@ router.get('/:id/reviews', async (req, res, next) => {
          u.full_name AS customerName,
          u.avatar_url AS customerAvatar,
          rv.reply_text AS replyText,
-         rv.reply_at AS replyAt
+         rv.reply_at AS replyAt,
+         rv.is_edited AS isEdited,
+         rv.customer_id AS customerId,
+         rv.menu_item_id AS menuItemId,
+         mi.name AS itemName,
+         IF(rv.is_edited = 0 AND rv.created_at >= NOW() - INTERVAL 7 DAY, 1, 0) AS canEdit
        FROM reviews rv
        INNER JOIN users u ON u.id = rv.customer_id
+       LEFT JOIN menu_items mi ON mi.id = rv.menu_item_id
        WHERE rv.restaurant_id = ?
          AND rv.is_hidden = 0
        ORDER BY rv.created_at DESC, rv.id DESC
@@ -284,6 +289,11 @@ router.get('/:id/reviews', async (req, res, next) => {
         customerAvatar: row.customerAvatar,
         replyText: row.replyText ?? null,
         replyAt: row.replyAt ?? null,
+        isEdited: Boolean(row.isEdited),
+        customerId: Number(row.customerId),
+        menuItemId: row.menuItemId ? Number(row.menuItemId) : null,
+        itemName: row.itemName ?? null,
+        canEdit: Boolean(row.canEdit),
       })),
       pagination: {
         page: pageVal,

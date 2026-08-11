@@ -1374,7 +1374,7 @@ router.patch('/reviews/:id', async (req, res, next) => {
     await connection.beginTransaction();
 
     const [reviews] = await connection.query(
-      'SELECT restaurant_id FROM reviews WHERE id = ? FOR UPDATE',
+      'SELECT restaurant_id, menu_item_id FROM reviews WHERE id = ? FOR UPDATE',
       [id]
     );
 
@@ -1383,24 +1383,33 @@ router.patch('/reviews/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Không tìm thấy đánh giá' });
     }
 
-    const { restaurant_id } = reviews[0];
+    const { restaurant_id, menu_item_id } = reviews[0];
 
     await connection.query(
       'UPDATE reviews SET is_hidden = ? WHERE id = ?',
       [isHidden ? 1 : 0, id]
     );
 
-    const [stats] = await connection.query(
-      `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
-      [restaurant_id]
-    );
-    
-    const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
-    const nextCount = stats[0].cnt || 0;
+    // 1. Tính toán lại điểm trung bình cho món ăn liên quan (nếu có)
+    if (menu_item_id) {
+      const [itemStats] = await connection.query(
+        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
+        [menu_item_id]
+      );
+      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
+      await connection.query(
+        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
+        [nextItemAvg, menu_item_id]
+      );
+    }
 
+    // 2. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
     await connection.query(
-      `UPDATE restaurants SET rating_avg = ?, review_count = ? WHERE id = ?`,
-      [nextAvg, nextCount, restaurant_id]
+      `UPDATE restaurants 
+       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
+           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
+       WHERE id = ?`,
+      [restaurant_id, restaurant_id, restaurant_id]
     );
 
     await connection.commit();

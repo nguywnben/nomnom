@@ -399,12 +399,6 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
   try {
     const { userId } = req.auth;
     const { idOrCode } = req.params;
-    const rating = parseInt(req.body?.rating, 10);
-    const comment = req.body?.comment ? String(req.body.comment).trim() : null;
-
-    if (isNaN(rating) || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
-    }
 
     await connection.beginTransaction();
 
@@ -429,55 +423,203 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
 
     const order = orders[0];
 
-    // 2. Cho phép đánh giá sau khi đơn đã được tạo, nhưng vẫn chặn đơn bị hủy/thất bại
-    if (['cancelled', 'failed'].includes(order.status)) {
+    // 2. Ràng buộc: Chỉ cho phép đánh giá khi đơn hàng đã được giao thành công
+    if (order.status !== 'delivered') {
       await connection.rollback();
-      return res.status(403).json({ error: 'Chưa thể đánh giá đơn hàng này.' });
+      return res.status(403).json({ error: 'Chỉ đơn hàng đã giao thành công mới được đánh giá.' });
     }
 
-    // 3. Kiểm tra xem đơn hàng đã được đánh giá trước đó chưa
-    const [existingReviews] = await connection.query(
-      `SELECT id FROM reviews WHERE order_id = ? LIMIT 1`,
-      [order.id]
-    );
+    // 3. Phân tách danh sách đánh giá món ăn từ request body
+    let reviewsList = req.body?.reviews;
+    if (!Array.isArray(reviewsList)) {
+      // Fallback cho client cũ gửi đơn lẻ rating & comment
+      const ratingVal = parseInt(req.body?.rating, 10);
+      const commentVal = req.body?.comment ? String(req.body.comment).trim() : null;
 
-    if (existingReviews.length > 0) {
-      await connection.rollback();
-      return res.status(409).json({ error: 'Đơn hàng này đã được đánh giá rồi.' });
+      if (isNaN(ratingVal) || ratingVal < 1 || ratingVal > 5) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
+      }
+
+      const [orderItems] = await connection.query(
+        `SELECT menu_item_id FROM order_items WHERE order_id = ? LIMIT 1`,
+        [order.id]
+      );
+
+      if (orderItems.length > 0) {
+        reviewsList = [{
+          menuItemId: orderItems[0].menu_item_id,
+          rating: ratingVal,
+          comment: commentVal,
+        }];
+      } else {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Không thể xác định món ăn trong đơn hàng để đánh giá.' });
+      }
     }
 
-    // 4. Thêm đánh giá mới vào cơ sở dữ liệu
-    const [reviewResult] = await connection.query(
-      `INSERT INTO reviews (order_id, customer_id, restaurant_id, rating, comment) VALUES (?, ?, ?, ?, ?)`,
-      [order.id, userId, order.restaurant_id, rating, comment]
-    );
+    // 4. Kiểm tra hợp lệ các đánh giá trong danh sách và kiểm tra trùng lặp (chống spam)
+    for (const r of reviewsList) {
+      const ratingVal = parseInt(r.rating, 10);
+      if (isNaN(ratingVal) || ratingVal < 1 || ratingVal > 5) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
+      }
 
-    const reviewId = reviewResult.insertId;
+      if (!r.menuItemId) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Thiếu thông tin món ăn (menuItemId) cần đánh giá.' });
+      }
 
-    // 5. Tính toán lại điểm trung bình (AVG) và số lượng đánh giá (COUNT) của nhà hàng
-    const [stats] = await connection.query(
-      `SELECT AVG(rating) AS avg_rating, COUNT(id) AS cnt FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
-      [order.restaurant_id]
-    );
+      const [dup] = await connection.query(
+        `SELECT id FROM reviews WHERE order_id = ? AND menu_item_id = ? LIMIT 1`,
+        [order.id, r.menuItemId]
+      );
+      if (dup.length > 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Sản phẩm này trong đơn hàng đã được đánh giá rồi.' });
+      }
+    }
 
+    // 5. Thêm các đánh giá mới vào cơ sở dữ liệu
+    const insertedIds = [];
+    for (const r of reviewsList) {
+      const commentVal = r.comment ? String(r.comment).trim() : null;
+      const [insertRes] = await connection.query(
+        `INSERT INTO reviews (order_id, customer_id, restaurant_id, menu_item_id, rating, comment, is_edited) VALUES (?, ?, ?, ?, ?, ?, 0)`,
+        [order.id, userId, order.restaurant_id, r.menuItemId, r.rating, commentVal]
+      );
+      insertedIds.push(insertRes.insertId);
+    }
 
-    const nextAvg = Number(stats[0].avg_rating || 0).toFixed(2);
-    const nextCount = stats[0].cnt || 0;
+    // 6. Tính toán lại điểm trung bình cho từng món ăn (menu_items) có đánh giá
+    for (const r of reviewsList) {
+      const [itemStats] = await connection.query(
+        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
+        [r.menuItemId]
+      );
+      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
+      await connection.query(
+        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
+        [nextItemAvg, r.menuItemId]
+      );
+    }
 
+    // 7. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
     await connection.query(
-      `UPDATE restaurants SET rating_avg = ?, review_count = ? WHERE id = ?`,
-      [nextAvg, nextCount, order.restaurant_id]
+      `UPDATE restaurants 
+       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
+           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
+       WHERE id = ?`,
+      [order.restaurant_id, order.restaurant_id, order.restaurant_id]
     );
 
     await connection.commit();
 
-    // Lấy thông tin review vừa tạo để phản hồi
+    // 8. Lấy thông tin các reviews vừa tạo để phản hồi
     const [inserted] = await pool.query(
-      `SELECT id, order_id as orderId, customer_id as customerId, restaurant_id as restaurantId, rating, comment, is_hidden as isHidden, reply_text as replyText, reply_at as replyAt, created_at as createdAt FROM reviews WHERE id = ?`,
+      `SELECT id, order_id as orderId, customer_id as customerId, restaurant_id as restaurantId, menu_item_id as menuItemId, rating, comment, is_hidden as isHidden, reply_text as replyText, reply_at as replyAt, created_at as createdAt FROM reviews WHERE id IN (?)`,
+      [insertedIds]
+    );
+
+    res.status(201).json({ reviews: inserted });
+
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+});
+
+router.patch('/reviews/:id', requireAuth, async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const { userId } = req.auth;
+    const reviewId = Number(req.params.id);
+    const rating = parseInt(req.body?.rating, 10);
+    const comment = req.body?.comment ? String(req.body.comment).trim() : null;
+
+    if (isNaN(reviewId)) {
+      return res.status(400).json({ error: 'ID đánh giá không hợp lệ.' });
+    }
+
+    if (isNaN(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
+    }
+
+    await connection.beginTransaction();
+
+    // 1. Lấy thông tin đánh giá
+    const [reviews] = await connection.query(
+      `SELECT * FROM reviews WHERE id = ? FOR UPDATE`,
       [reviewId]
     );
 
-    res.status(201).json({ review: inserted[0] });
+    if (reviews.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đánh giá.' });
+    }
+
+    const review = reviews[0];
+
+    // 2. Kiểm tra quyền sở hữu
+    if (review.customer_id !== userId) {
+      await connection.rollback();
+      return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa đánh giá này.' });
+    }
+
+    // 3. Ràng buộc sửa 1 lần
+    if (review.is_edited) {
+      await connection.rollback();
+      return res.status(403).json({ error: 'Đánh giá này đã được chỉnh sửa trước đó và chỉ có thể sửa tối đa 1 lần.' });
+    }
+
+    // 4. Ràng buộc thời gian (7 ngày)
+    const reviewAgeInMs = Date.now() - new Date(review.created_at).getTime();
+    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+    if (reviewAgeInMs > sevenDaysInMs) {
+      await connection.rollback();
+      return res.status(403).json({ error: 'Đã quá hạn 7 ngày để chỉnh sửa đánh giá này.' });
+    }
+
+    // 5. Tiến hành cập nhật đánh giá
+    await connection.query(
+      `UPDATE reviews SET rating = ?, comment = ?, is_edited = 1 WHERE id = ?`,
+      [rating, comment, reviewId]
+    );
+
+    // 6. Tính toán lại điểm trung bình cho món ăn liên quan (nếu có)
+    if (review.menu_item_id) {
+      const [itemStats] = await connection.query(
+        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
+        [review.menu_item_id]
+      );
+      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
+      await connection.query(
+        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
+        [nextItemAvg, review.menu_item_id]
+      );
+    }
+
+    // 7. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
+    await connection.query(
+      `UPDATE restaurants 
+       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
+           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
+       WHERE id = ?`,
+      [review.restaurant_id, review.restaurant_id, review.restaurant_id]
+    );
+
+    await connection.commit();
+
+    // Lấy thông tin review sau cập nhật
+    const [updated] = await pool.query(
+      `SELECT id, order_id as orderId, customer_id as customerId, restaurant_id as restaurantId, menu_item_id as menuItemId, rating, comment, is_hidden as isHidden, reply_text as replyText, reply_at as replyAt, created_at as createdAt, is_edited as isEdited FROM reviews WHERE id = ?`,
+      [reviewId]
+    );
+
+    res.json({ ok: true, review: updated[0] });
 
   } catch (err) {
     await connection.rollback();
