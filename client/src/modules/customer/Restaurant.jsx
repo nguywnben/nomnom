@@ -270,6 +270,7 @@ export default function CustomerRestaurant() {
                   item={item}
                   disabled={!isOpen || !shopAsCustomer}
                   restaurantClosed={!isOpen}
+                  onClick={() => nav('/app/dish/' + item.id)}
                   onAdd={() => {
                     if (!shopAsCustomer) {
                       pushToast({
@@ -392,12 +393,16 @@ export default function CustomerRestaurant() {
   );
 }
 
-function MenuCard({ item, onAdd, disabled, restaurantClosed }) {
+function MenuCard({ item, onAdd, onClick, disabled, restaurantClosed }) {
   const isOutOfStock = !item.inStock;
   const isDisabled = disabled || isOutOfStock;
 
   return (
-    <Card padded={false} className={`flex overflow-hidden ${isOutOfStock ? 'opacity-60 select-none' : ''}`}>
+    <Card
+      padded={false}
+      className={`flex overflow-hidden cursor-pointer hover:shadow-soft transition-shadow ${isOutOfStock ? 'opacity-60 select-none' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex-1 p-base flex flex-col justify-between">
         <div>
           <div className="flex items-start justify-between gap-2">
@@ -420,7 +425,10 @@ function MenuCard({ item, onAdd, disabled, restaurantClosed }) {
             size="sm"
             disabled={isDisabled}
             className={isDisabled ? 'cursor-not-allowed opacity-40' : ''}
-            onClick={onAdd}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }}
           />
         </div>
       </div>

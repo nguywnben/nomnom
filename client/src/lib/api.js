@@ -546,3 +546,7 @@ export function fetchAdminAuditLogs({ action = 'all', targetType = 'all', q = ''
   });
   return apiGet('/api/v1/admin/audit-logs?' + params.toString());
 }
+
+export function fetchMenuItemDetailApi(id) {
+  return apiGet('/api/v1/menu-items/' + encodeURIComponent(id));
+}
