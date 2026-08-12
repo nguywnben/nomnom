@@ -52,8 +52,9 @@ export function createGhnClient({ token, shopId, baseUrl, fetchImpl = fetch }) {
       body: { shop_id: normalizedShopId, from_district: fromDistrictId, to_district: toDistrictId },
     }),
     async getShop() {
-      const shops = await request('/v2/shop/all', { method: 'POST', body: { offset: 0, limit: 50 } });
-      const shop = shops?.find((item) => Number(item._id) === normalizedShopId);
+      const result = await request('/v2/shop/all', { method: 'POST', body: { offset: 0, limit: 50 } });
+      const shops = Array.isArray(result?.shops) ? result.shops : [];
+      const shop = shops.find((item) => Number(item._id) === normalizedShopId);
       if (!shop) throw new GhnProviderError('Không tìm thấy Shop GHN đã cấu hình.');
       return shop;
     },

@@ -50,3 +50,15 @@ test('lỗi GHN không làm lộ Token', async () => {
     (error) => error.code === 'GHN_PROVIDER_ERROR' && !error.message.includes('test-token'),
   );
 });
+
+test('lấy đúng shop đã cấu hình từ data.shops của GHN', async () => {
+  const client = createGhnClient({
+    token: 'test-token', shopId: 42, baseUrl: 'https://ghn.test',
+    fetchImpl: async () => ({
+      ok: true,
+      json: async () => ({ code: 200, data: { shops: [{ _id: 42, district_id: 1455 }] } }),
+    }),
+  });
+
+  assert.deepEqual(await client.getShop(), { _id: 42, district_id: 1455 });
+});
