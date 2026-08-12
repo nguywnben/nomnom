@@ -42,6 +42,24 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [merchantRestaurant, setMerchantRestaurant] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('loading');
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus('unavailable');
+      return undefined;
+    }
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        setCurrentLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setLocationStatus('available');
+      },
+      () => setLocationStatus('unavailable'),
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   const permittedRoles = useMemo(
     () => (user ? buildPermittedRoles(user.roles) : buildPermittedRoles([])),
@@ -103,7 +121,6 @@ export function AppProvider({ children }) {
       restaurantId: null,
       restaurantName: null,
       restaurantLogo: null,
-      baseDeliveryFee: 0,
       items: [],
     }),
     [],
@@ -129,7 +146,6 @@ export function AppProvider({ children }) {
         restaurantId: nextCart.restaurantId ?? null,
         restaurantName: nextCart.restaurantName ?? null,
         restaurantLogo: nextCart.restaurantLogo ?? null,
-        baseDeliveryFee: Number(nextCart.baseDeliveryFee ?? 0),
         items: (nextCart.items ?? []).map(normalizeCartItem),
       };
     },
@@ -192,7 +208,7 @@ export function AppProvider({ children }) {
     () => cart.items.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart.items],
   );
-  const deliveryFee = cart.items.length ? Number(cart.baseDeliveryFee ?? 0) : 0;
+  const deliveryFee = 0;
   const discount = useMemo(() => {
     if (!appliedPromo) return 0;
     if (appliedPromo.kind === 'percent') return Math.min(cartSubtotal * (appliedPromo.amount / 100), appliedPromo.cap ?? 9e9);
@@ -242,12 +258,18 @@ export function AppProvider({ children }) {
         });
         return null;
       }
+      if (!currentLocation) {
+        pushToast({
+          kind: 'warning',
+          title: 'Cần vị trí hiện tại',
+          message: 'Hãy cho phép trình duyệt truy cập vị trí để kiểm tra quán có giao đến khu vực của bạn hay không.',
+          duration: 4200,
+        });
+        return null;
+      }
 
       const nextRestaurantName = item.restaurantName ?? restaurantMeta.restaurantName ?? restaurantMeta.name ?? null;
       const nextRestaurantLogo = item.restaurantLogo ?? restaurantMeta.restaurantLogo ?? restaurantMeta.logo ?? null;
-      const nextBaseDeliveryFee = Number(
-        restaurantMeta.baseDeliveryFee ?? restaurantMeta.fee ?? item.baseDeliveryFee ?? cart.baseDeliveryFee ?? 0,
-      );
       const nextRestaurantId = Number.isNaN(Number(restaurantId)) ? restaurantId : Number(restaurantId);
       const rawMenuItemId = item.menuItemId ?? item.menu_item_id;
       const parsedMenuItemId = Number(rawMenuItemId);
@@ -286,6 +308,7 @@ export function AppProvider({ children }) {
             menuItemId: resolvedMenuItemId,
             quantity,
             note: item.note ?? undefined,
+            currentLocation,
           });
           setCart(normalizeCart(data.cart));
           setAppliedPromo(null);
@@ -327,7 +350,6 @@ export function AppProvider({ children }) {
             restaurantId: nextRestaurantId,
             restaurantName: nextRestaurantName,
             restaurantLogo: nextRestaurantLogo,
-            baseDeliveryFee: nextBaseDeliveryFee,
             items: [nextItem],
           };
         }
@@ -349,7 +371,6 @@ export function AppProvider({ children }) {
           restaurantId: nextRestaurantId,
           restaurantName: nextRestaurantName,
           restaurantLogo: nextRestaurantLogo,
-          baseDeliveryFee: nextBaseDeliveryFee,
           items,
         };
       });
@@ -365,7 +386,7 @@ export function AppProvider({ children }) {
       }
       return null;
     },
-    [cart.baseDeliveryFee, cart.items.length, cart.restaurantId, normalizeCart, permittedRoles, pushToast, user],
+    [cart.items.length, cart.restaurantId, currentLocation, normalizeCart, permittedRoles, pushToast, user],
   );
 
   const setItemQty = useCallback(
@@ -692,6 +713,23 @@ export function AppProvider({ children }) {
         return;
       }
 
+      // Keep a guest cart until its items can be rechecked against the current location.
+      if (!currentLocation) {
+        setSyncing(true);
+        try {
+          const data = await fetchCartApi();
+          if (!cancelled) {
+            setCart(normalizeCart(data.cart));
+            setAppliedPromo(null);
+          }
+        } catch {
+          if (!cancelled) resetCartState();
+        } finally {
+          if (!cancelled) setSyncing(false);
+        }
+        return;
+      }
+
       const hydrationKey = `customer:${user.id}`;
       if (cartHydratedKey.current === hydrationKey) return;
       cartHydratedKey.current = hydrationKey;
@@ -724,6 +762,7 @@ export function AppProvider({ children }) {
               menuItemId,
               quantity: Math.max(1, Number(item.quantity ?? 1)),
               note: item.note ?? undefined,
+              currentLocation,
             });
           }
           clearGuestCart();
@@ -746,7 +785,7 @@ export function AppProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [authReady, emptyCart, normalizeCart, permittedRoles.customer, pushToast, resetCartState, user]);
+  }, [authReady, currentLocation, emptyCart, normalizeCart, permittedRoles.customer, pushToast, resetCartState, user]);
 
   useEffect(() => {
     if (!authReady || user) return undefined;
@@ -902,6 +941,8 @@ export function AppProvider({ children }) {
 
     currentCustomer,
     currentMerchant,
+    currentLocation,
+    locationStatus,
     currentAdmin,
     merchantRestaurant,
   };

@@ -11,6 +11,7 @@ import { useApp } from '../../context/AppContext.jsx';
 
 const links = [
   { to: '/admin/cuisines', label: 'Loại ẩm thực', icon: 'grid' },
+  { to: '/admin/home-banners', label: 'Banner trang chủ', icon: 'image' },
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
   { to: '/admin/restaurants', label: 'Duyệt quán', icon: 'store' },
@@ -27,6 +28,7 @@ const sidebarOrder = [
   '/admin/accounts',
   '/admin/restaurants',
   '/admin/cuisines',
+  '/admin/home-banners',
   '/admin/orders',
   '/admin/reviews',
   '/admin/financial',

@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import pool from '../db/pool.js';
-import { calculateDistance } from '../lib/geo.js';
 import { evaluateVoucher } from '../lib/voucher.js';
-import { createGhnClient, GhnProviderError } from '../lib/ghn.js';
 import { buildShippingQuote } from '../lib/shippingQuote.js';
 import crypto from 'crypto';
 
@@ -29,14 +27,6 @@ function generateOrderCode() {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `ORD-${code}`;
-}
-
-function getGhnClient() {
-  return createGhnClient({
-    token: process.env.GHN_TOKEN,
-    shopId: process.env.GHN_SHOP_ID,
-    baseUrl: process.env.GHN_API_BASE_URL ?? 'https://online-gateway.ghn.vn/shiip/public-api',
-  });
 }
 
 router.post('/', requireAuth, async (req, res, next) => {
@@ -104,22 +94,12 @@ router.post('/', requireAuth, async (req, res, next) => {
     let shippingQuote;
     try {
       shippingQuote = await buildShippingQuote({
-        ghnClient: getGhnClient(),
-        cart,
         restaurant,
         address: deliveryAddress,
       });
     } catch (error) {
       await connection.rollback();
-      if (error?.code === 'GHN_ADDRESS_NOT_READY' || error?.code === 'GHN_CART_NOT_READY') {
-        return res.status(400).json({ error: error.message, code: error.code });
-      }
-      if (error instanceof GhnProviderError || String(error?.code ?? '').startsWith('GHN_')) {
-        return res.status(502).json({
-          error: error.message,
-          code: error.code ?? 'GHN_PROVIDER_ERROR',
-        });
-      }
+      if (String(error?.code ?? '').startsWith('SHIPPING_')) return res.status(400).json({ error: error.message, code: error.code });
       throw error;
     }
 
@@ -166,23 +146,16 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     const platform_commission = Math.floor(subtotal * Number(restaurant.commission_rate) / 100);
     const merchant_earning = subtotal - platform_commission;
-    // NomNom currently uses GHN only to quote delivery. Until a delivery-partner
-    // settlement flow exists, the full quoted delivery fee stays with the platform.
+    // NomNom chưa có luồng đối soát đối tác giao vận; toàn bộ phí giao hàng thuộc nền tảng.
     const platform_fee = platform_commission + delivery_fee;
 
     // 5. Tính toán khoảng cách và thời gian giao hàng dự kiến
-    let distance_km = 0;
-    if (deliveryAddress.latitude && deliveryAddress.longitude && restaurant.latitude && restaurant.longitude) {
-      distance_km = calculateDistance(
-        Number(deliveryAddress.latitude), Number(deliveryAddress.longitude),
-        Number(restaurant.latitude), Number(restaurant.longitude)
-      );
-    }
+    let distance_km = shippingQuote.distanceKm;
 
     // Tìm thời gian chuẩn bị món lâu nhất
     const max_prep_time = cartItems.reduce((max, i) => Math.max(max, i.prep_time_min), 0);
     // Thời gian chuẩn bị dự kiến + mặc định 15 phút giao hàng
-    const est_time_add = (restaurant.avg_prep_time_min || max_prep_time) + 15;
+    const est_time_add = (restaurant.avg_prep_time_min || max_prep_time) + shippingQuote.durationMin;
 
     const placed_at = new Date();
     const estimated_delivery_at = new Date(placed_at.getTime() + est_time_add * 60000);
@@ -213,10 +186,10 @@ router.post('/', requireAuth, async (req, res, next) => {
         voucher ? voucher.id : null,
         deliveryAddress.id,
         snapshotAddress,
-        deliveryAddress.latitude || 0,
-        deliveryAddress.longitude || 0,
-        restaurant.latitude || 0,
-        restaurant.longitude || 0,
+        Number(deliveryAddress.latitude),
+        Number(deliveryAddress.longitude),
+        Number(restaurant.latitude),
+        Number(restaurant.longitude),
         distance_km,
         subtotal,
         delivery_fee,

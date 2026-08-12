@@ -2,6 +2,7 @@ import { Router } from 'express';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { loadPartnerAccess, assertCanApplyMerchant } from '../lib/partnerAccess.js';
+import { geocodeVietnamAddress } from '../lib/addressGeocoding.js';
 import {
   parseOrderDate,
   resolveStatusAction,
@@ -220,9 +221,6 @@ router.post('/apply', requireAuth, async (req, res, next) => {
     ward = '',
     district,
     city,
-    latitude = null,
-    longitude = null,
-    baseDeliveryFee,
     minOrderAmount,
     avgPrepTimeMin = 20,
     bannerUrl,
@@ -255,9 +253,6 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   if (!Number.isInteger(cuisineIdValue) || cuisineIdValue < 1) {
     return res.status(400).json({ error: 'Loại hình ẩm thực không hợp lệ.' });
   }
-  if (baseDeliveryFee === undefined || isNaN(Number(baseDeliveryFee)) || Number(baseDeliveryFee) < 0) {
-    return res.status(400).json({ error: 'Phí giao hàng cơ bản phải lớn hơn hoặc bằng 0.' });
-  }
   if (minOrderAmount === undefined || isNaN(Number(minOrderAmount)) || Number(minOrderAmount) < 0) {
     return res.status(400).json({ error: 'Đơn hàng tối thiểu phải lớn hơn hoặc bằng 0.' });
   }
@@ -286,6 +281,12 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   const bankNameValue = String(bankName).trim();
   const bankAccountNoValue = String(bankAccountNo).trim();
   const bankAccountHolderValue = String(bankAccountHolder).trim().toUpperCase();
+  const coordinates = await geocodeVietnamAddress({
+    line1: addressLine.trim(),
+    ward: ward.trim(),
+    district: districtValue,
+    city: city.trim(),
+  });
 
   const conn = await pool.getConnection();
   try {
@@ -358,7 +359,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           cuisine_id = ?, name = ?, slug = ?, tagline = ?, description = ?, phone = ?,
           banner_url = ?, logo_url = ?, business_license_url = ?, food_safety_cert_url = ?,
           address_line = ?, ward = ?, district = ?, city = ?, latitude = ?, longitude = ?,
-          base_delivery_fee = ?, min_order_amount = ?, avg_prep_time_min = ?,
+          min_order_amount = ?, avg_prep_time_min = ?,
           bank_name = ?, bank_account_no = ?, bank_account_holder = ?,
           status = 'pending', rejection_reason = NULL, approved_at = NULL, approved_by_admin_id = NULL
          WHERE id = ?`,
@@ -377,9 +378,8 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           ward.trim(),
           districtValue,
           city.trim(),
-          latitude ? Number(latitude) : null,
-          longitude ? Number(longitude) : null,
-          Number(baseDeliveryFee),
+          coordinates.latitude,
+          coordinates.longitude,
           Number(minOrderAmount),
           Number(avgPrepTimeMin),
           bankNameValue,
@@ -395,7 +395,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           owner_user_id, cuisine_id, name, slug, tagline, description, phone,
           banner_url, logo_url, business_license_url, food_safety_cert_url,
           address_line, ward, district, city, latitude, longitude,
-          base_delivery_fee, min_order_amount, avg_prep_time_min,
+          min_order_amount, avg_prep_time_min,
           bank_name, bank_account_no, bank_account_holder, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [
@@ -414,9 +414,8 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           ward.trim(),
           districtValue,
           city.trim(),
-          latitude ? Number(latitude) : null,
-          longitude ? Number(longitude) : null,
-          Number(baseDeliveryFee),
+          coordinates.latitude,
+          coordinates.longitude,
           Number(minOrderAmount),
           Number(avgPrepTimeMin),
           bankNameValue,

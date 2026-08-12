@@ -39,7 +39,7 @@ function parseCuisineSlugsFromParams(searchParams) {
 }
 
 export default function CustomerSearch() {
-  const { addToCart, setCartOpen, shopAsCustomer } = useApp();
+  const { addToCart, setCartOpen, shopAsCustomer, currentLocation } = useApp();
   const [params, setParams] = useSearchParams();
 
   const initialQuery = params.get('q') || '';
@@ -113,6 +113,8 @@ export default function CustomerSearch() {
       sort,
       page,
       limit: SEARCH_PAGE_SIZE,
+      latitude: currentLocation?.latitude,
+      longitude: currentLocation?.longitude,
     })
       .then((res) => {
         if (mounted) {
@@ -129,7 +131,7 @@ export default function CustomerSearch() {
     return () => {
       mounted = false;
     };
-  }, [debouncedQ, cuisineSlugs, openOnly, minPrice, maxPrice, rating, sort, page]);
+  }, [debouncedQ, cuisineSlugs, openOnly, minPrice, maxPrice, rating, sort, page, currentLocation?.latitude, currentLocation?.longitude]);
 
   const toggleCuisine = (slug) => {
     setCuisineSlugs((prev) => {
@@ -214,7 +216,6 @@ export default function CustomerSearch() {
                 }}
               >
                 <option value="rating">Đánh giá cao nhất</option>
-                {showRestaurantFilters && <option value="fee">Phí giao thấp nhất</option>}
                 {showRestaurantFilters && <option value="new">Quán mới nhất</option>}
                 {showDishFilters && <option value="popular">Món phổ biến</option>}
                 {showDishFilters && <option value="price_asc">Giá thấp đến cao</option>}
@@ -380,16 +381,15 @@ export default function CustomerSearch() {
                         <MenuItemResultCard
                           key={item.id}
                           item={item}
-                          onAdd={() => {
+                          onAdd={async () => {
                             if (!shopAsCustomer) return;
-                            addToCart(item.restaurantId, item, 1, {
-                              baseDeliveryFee: item.baseDeliveryFee,
+                            const cart = await addToCart(item.restaurantId, item, 1, {
                               restaurantName: item.restaurantName,
                               restaurantLogo: item.restaurantLogo,
                             });
-                            setCartOpen(true);
+                            if (cart) setCartOpen(true);
                           }}
-                          addDisabled={!shopAsCustomer || !item.isAvailable}
+                          addDisabled={!shopAsCustomer || !item.isAvailable || item.isWithinDeliveryRange !== true}
                         />
                       ))}
                     </div>
@@ -399,16 +399,15 @@ export default function CustomerSearch() {
                         <MenuItemResultRow
                           key={item.id}
                           item={item}
-                          onAdd={() => {
+                          onAdd={async () => {
                             if (!shopAsCustomer) return;
-                            addToCart(item.restaurantId, item, 1, {
-                              baseDeliveryFee: item.baseDeliveryFee,
+                            const cart = await addToCart(item.restaurantId, item, 1, {
                               restaurantName: item.restaurantName,
                               restaurantLogo: item.restaurantLogo,
                             });
-                            setCartOpen(true);
+                            if (cart) setCartOpen(true);
                           }}
-                          addDisabled={!shopAsCustomer || !item.isAvailable}
+                          addDisabled={!shopAsCustomer || !item.isAvailable || item.isWithinDeliveryRange !== true}
                         />
                       ))}
                     </div>
@@ -496,9 +495,6 @@ function RestaurantResultCard({ r }) {
           <span className="inline-flex items-center gap-1">
             <Icon name="clock" size={12} /> {r.avgPrepTimeMin}p
           </span>
-          <span className="inline-flex items-center gap-1 nums">
-            Phí: {formatVnd(r.baseDeliveryFee)}
-          </span>
         </div>
       </div>
     </Link>
@@ -527,7 +523,6 @@ function RestaurantResultRow({ r }) {
         <span className="text-body-sm text-body line-clamp-2">{r.tagline}</span>
         <div className="mt-1 flex items-center gap-x-3 text-caption text-body">
           <span>{r.avgPrepTimeMin}p</span>
-          <span className="nums">Phí: {formatVnd(r.baseDeliveryFee)}</span>
         </div>
       </div>
       <Icon name="arrowRight" size={16} className="shrink-0 text-body" />
@@ -554,10 +549,10 @@ function MenuItemResultCard({ item, onAdd, addDisabled }) {
     >
       <div className="relative">
         <Image src={item.imageUrl} alt={item.name} ratio="16/10" className="w-full" />
-        {!item.isAvailable && (
+        {(!item.isAvailable || item.isWithinDeliveryRange !== true) && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
             <span className="rounded bg-black/80 px-2.5 py-1 text-caption font-semibold text-white">
-              {!item.inStock ? 'Hết hàng' : 'Quán đóng cửa'}
+              {item.isWithinDeliveryRange === false ? 'Ngoài phạm vi' : item.isWithinDeliveryRange === null ? 'Cần vị trí' : !item.inStock ? 'Hết hàng' : 'Quán đóng cửa'}
             </span>
           </div>
         )}
@@ -609,9 +604,9 @@ function MenuItemResultRow({ item, onAdd, addDisabled }) {
     >
       <div className="relative h-16 w-20 shrink-0 rounded-md overflow-hidden">
         <Image src={item.imageUrl} alt={item.name} className="h-full w-full" ratio="1" />
-        {!item.isAvailable && (
+        {(!item.isAvailable || item.isWithinDeliveryRange !== true) && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <span className="text-[10px] font-semibold text-white">HẾT</span>
+            <span className="text-[10px] font-semibold text-white">{item.isWithinDeliveryRange === false ? 'XA' : 'KHÔNG KHẢ DỤNG'}</span>
           </div>
         )}
       </div>

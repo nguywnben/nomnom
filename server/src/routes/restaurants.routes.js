@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
+import { getDeliveryAvailability, parseCurrentLocation } from '../lib/deliveryAvailability.js';
 
 const router = Router();
 
 router.get('/', async (req, res, next) => {
   try {
     const { q, cuisine, open, sort, page, limit } = req.query;
+    const currentLocation = parseCurrentLocation(req.query);
 
     const limitVal = Math.min(parseInt(limit, 10) || 20, 50);
     const pageVal = Math.max(parseInt(page, 10) || 1, 1);
@@ -36,8 +38,7 @@ router.get('/', async (req, res, next) => {
     }
 
     let orderSql = `r.rating_avg DESC`;
-    if (sort === 'fee') orderSql = `r.base_delivery_fee ASC`;
-    else if (sort === 'new') orderSql = `r.created_at DESC`;
+    if (sort === 'new') orderSql = `r.created_at DESC`;
 
     const countSql = `
       SELECT COUNT(*) as total
@@ -53,8 +54,8 @@ router.get('/', async (req, res, next) => {
         r.id, r.name, r.slug, r.tagline, r.banner_url as bannerUrl, r.logo_url as logoUrl,
         c.slug as cuisineSlug, c.name as cuisineName,
         r.rating_avg as ratingAvg, r.review_count as reviewCount,
-        r.base_delivery_fee as baseDeliveryFee, r.avg_prep_time_min as avgPrepTimeMin,
-        r.is_open_now as isOpenNow,
+        r.avg_prep_time_min as avgPrepTimeMin,
+        r.is_open_now as isOpenNow, r.latitude, r.longitude,
         r.address_line as addressLine, r.district, r.city
       FROM restaurants r
       LEFT JOIN cuisines c ON r.cuisine_id = c.id
@@ -68,6 +69,7 @@ router.get('/', async (req, res, next) => {
     const data = rows.map((row) => ({
       ...row,
       isOpenNow: Boolean(row.isOpenNow),
+      ...getDeliveryAvailability(row, currentLocation),
     }));
 
     res.json({
@@ -91,7 +93,7 @@ function buildRestaurantWhereClause(idOrSlug) {
   return { clause: 'r.slug = ?', value: idOrSlug };
 }
 
-function serializeRestaurantRow(row) {
+function serializeRestaurantRow(row, currentLocation = null) {
   return {
     id: Number(row.id),
     name: row.name,
@@ -108,17 +110,17 @@ function serializeRestaurantRow(row) {
     city: row.city,
     latitude: row.latitude === null ? null : Number(row.latitude),
     longitude: row.longitude === null ? null : Number(row.longitude),
-    baseDeliveryFee: Number(row.baseDeliveryFee ?? 0),
     minOrderAmount: Number(row.minOrderAmount ?? 0),
     avgPrepTimeMin: Number(row.avgPrepTimeMin ?? 0),
     ratingAvg: Number(row.ratingAvg ?? 0),
     reviewCount: Number(row.reviewCount ?? 0),
     isOpenNow: Boolean(row.isOpenNow),
     phone: row.phone,
+    ...getDeliveryAvailability(row, currentLocation),
   };
 }
 
-async function findActiveRestaurant(idOrSlug) {
+async function findActiveRestaurant(idOrSlug, currentLocation = null) {
   const { clause, value } = buildRestaurantWhereClause(idOrSlug);
   const [rows] = await pool.query(
     `SELECT
@@ -137,7 +139,6 @@ async function findActiveRestaurant(idOrSlug) {
        r.city,
        r.latitude,
        r.longitude,
-       r.base_delivery_fee AS baseDeliveryFee,
        r.min_order_amount AS minOrderAmount,
        r.avg_prep_time_min AS avgPrepTimeMin,
        r.rating_avg AS ratingAvg,
@@ -153,12 +154,12 @@ async function findActiveRestaurant(idOrSlug) {
   );
 
   const row = rows[0];
-  return row ? serializeRestaurantRow(row) : null;
+  return row ? serializeRestaurantRow(row, currentLocation) : null;
 }
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const restaurant = await findActiveRestaurant(req.params.id);
+    const restaurant = await findActiveRestaurant(req.params.id, parseCurrentLocation(req.query));
     if (!restaurant) {
       return res.status(404).json({ error: 'Không tìm thấy quán ăn' });
     }

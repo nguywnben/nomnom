@@ -15,7 +15,7 @@ import { fetchMenuItemDetailApi } from '../../lib/api.js';
 export default function CustomerDishDetail() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { addToCart, setCartOpen, pushToast, shopAsCustomer } = useApp();
+  const { addToCart, setCartOpen, shopAsCustomer, currentLocation } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,7 +32,7 @@ export default function CustomerDishDetail() {
 
     setLoading(true);
     setError(null);
-    fetchMenuItemDetailApi(dishId)
+    fetchMenuItemDetailApi(dishId, currentLocation)
       .then((res) => {
         if (!res || !res.item) {
           throw { status: 404, message: 'Không tìm thấy món ăn.' };
@@ -46,7 +46,7 @@ export default function CustomerDishDetail() {
       .finally(() => {
         setLoading(false);
       });
-  }, [id]);
+  }, [currentLocation, id]);
 
   if (loading) {
     return <DishDetailSkeleton />;
@@ -57,6 +57,9 @@ export default function CustomerDishDetail() {
   }
 
   const { item, restaurant } = data;
+  const outsideDeliveryRange = restaurant.isWithinDeliveryRange === false;
+  const needsCurrentLocation = restaurant.isWithinDeliveryRange === null;
+  const cannotOrderHere = outsideDeliveryRange || needsCurrentLocation;
 
   return (
     <div className="bg-canvas min-h-screen">
@@ -106,7 +109,7 @@ export default function CustomerDishDetail() {
             </div>
 
             {/* Quantity control & Add to cart */}
-            {item.inStock && shopAsCustomer && restaurant.isOpenNow && (
+            {item.inStock && shopAsCustomer && restaurant.isOpenNow && !cannotOrderHere && (
               <div className="border-t border-hairline pt-base flex flex-col gap-base">
                 <div className="flex items-center justify-between">
                   <span className="text-body-sm font-medium text-body">Số lượng</span>
@@ -133,8 +136,8 @@ export default function CustomerDishDetail() {
                 </div>
 
                 <Button
-                  onClick={() => {
-                    addToCart(
+                  onClick={async () => {
+                    const updatedCart = await addToCart(
                       restaurant.id,
                       {
                         id: item.id,
@@ -149,14 +152,9 @@ export default function CustomerDishDetail() {
                         restaurantLogo: restaurant.logoUrl,
                       },
                       quantity,
-                      { baseDeliveryFee: restaurant.baseDeliveryFee },
+                      {},
                     );
-                    setCartOpen(true);
-                    pushToast({
-                      kind: 'success',
-                      title: 'Đã thêm vào giỏ hàng',
-                      message: `Đã thêm ${quantity} phần ${item.name} vào giỏ hàng.`,
-                    });
+                    if (updatedCart) setCartOpen(true);
                   }}
                   className="w-full mt-xs"
                 >
@@ -165,9 +163,13 @@ export default function CustomerDishDetail() {
               </div>
             )}
 
-            {(!item.inStock || !shopAsCustomer || !restaurant.isOpenNow) && (
+            {(!item.inStock || !shopAsCustomer || !restaurant.isOpenNow || cannotOrderHere) && (
               <div className="border-t border-hairline pt-base text-center text-body-sm text-body font-medium">
-                {!restaurant.isOpenNow
+                {outsideDeliveryRange
+                  ? 'Quán chưa giao đến vị trí hiện tại của bạn'
+                  : needsCurrentLocation
+                  ? 'Hãy cho phép truy cập vị trí để kiểm tra khu vực giao hàng'
+                  : !restaurant.isOpenNow
                   ? 'Quán hiện đang đóng cửa'
                   : !item.inStock
                   ? 'Món ăn hiện đã hết hàng'
@@ -203,10 +205,6 @@ export default function CustomerDishDetail() {
                     .filter(Boolean)
                     .join(', ')}
                 </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Icon name="bike" size={14} className="shrink-0" />
-                <span>Phí giao hàng: <span className="text-ink font-semibold">{formatVnd(restaurant.baseDeliveryFee)}</span></span>
               </div>
             </div>
 

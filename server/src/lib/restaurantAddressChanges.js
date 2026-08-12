@@ -13,17 +13,16 @@ export function validateAddressChangePayload(body) {
     throw error;
   }
 
-  const ghnProvinceId = Number(body?.ghnProvinceId);
-  const ghnDistrictId = Number(body?.ghnDistrictId);
-  const ghnWardCode = String(body?.ghnWardCode ?? '').trim();
-  if (!Number.isInteger(ghnProvinceId) || ghnProvinceId <= 0
-    || !Number.isInteger(ghnDistrictId) || ghnDistrictId <= 0 || !ghnWardCode) {
-    const error = new Error('Vui lòng chọn đầy đủ Tỉnh/Thành, Quận/Huyện và Phường/Xã theo GHN.');
+  const city = String(body?.city ?? '').trim();
+  const district = String(body?.district ?? '').trim();
+  const ward = String(body?.ward ?? '').trim();
+  if (!city || !district || !ward) {
+    const error = new Error('Vui lòng nhập đầy đủ Tỉnh/Thành, Quận/Huyện và Phường/Xã.');
     error.status = 400;
     throw error;
   }
 
-  return { addressLine, ghnProvinceId, ghnDistrictId, ghnWardCode };
+  return { addressLine, city, district, ward };
 }
 
 export function serializeAddressChangeRequest(row) {
@@ -40,18 +39,16 @@ export function serializeAddressChangeRequest(row) {
       ward: row.current_ward,
       district: row.current_district,
       city: row.current_city,
-      ghnProvinceId: row.current_ghn_province_id === null ? null : Number(row.current_ghn_province_id),
-      ghnDistrictId: row.current_ghn_district_id === null ? null : Number(row.current_ghn_district_id),
-      ghnWardCode: row.current_ghn_ward_code ?? null,
+      latitude: row.current_latitude === null ? null : Number(row.current_latitude),
+      longitude: row.current_longitude === null ? null : Number(row.current_longitude),
     },
     proposedAddress: {
       addressLine: row.proposed_address_line,
       ward: row.proposed_ward,
       district: row.proposed_district,
       city: row.proposed_city,
-      ghnProvinceId: Number(row.proposed_ghn_province_id),
-      ghnDistrictId: Number(row.proposed_ghn_district_id),
-      ghnWardCode: row.proposed_ghn_ward_code,
+      latitude: row.proposed_latitude === null ? null : Number(row.proposed_latitude),
+      longitude: row.proposed_longitude === null ? null : Number(row.proposed_longitude),
     },
     rejectionReason: row.rejection_reason ?? null,
     createdAt: row.created_at,

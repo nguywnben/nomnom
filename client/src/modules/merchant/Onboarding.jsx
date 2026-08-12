@@ -36,7 +36,7 @@ const STEPS = [
 
 const STEP_FIELDS = {
   info: ['name', 'cuisine', 'phone', 'avgPrepTime', 'tagline', 'description', 'minOrderAmount'],
-  address: ['addressLine', 'ward', 'district', 'city', 'baseDeliveryFee'],
+  address: ['addressLine', 'ward', 'district', 'city'],
   docs: ['logoUrl', 'bannerUrl', 'licenseUrl', 'foodSafetyUrl'],
   banking: ['bankName', 'bankAccountNo', 'bankAccountHolder'],
   review: [],
@@ -75,7 +75,6 @@ export default function MerchantOnboarding() {
       ward: '',
       district: '',
       city: '',
-      baseDeliveryFee: 25000,
       minOrderAmount: 50000,
       logoUrl: '',
       bannerUrl: '',
@@ -144,7 +143,6 @@ export default function MerchantOnboarding() {
           setValue('ward', restaurant.ward ?? '');
           setValue('district', restaurant.district ?? '');
           setValue('city', restaurant.city ?? '');
-          setValue('baseDeliveryFee', Number(restaurant.base_delivery_fee ?? 25000));
           setValue('minOrderAmount', Number(restaurant.min_order_amount ?? 50000));
           setValue('avgPrepTime', Number(restaurant.avg_prep_time_min ?? 20));
           setValue('logoUrl', restaurant.logo_url ?? '');
@@ -299,7 +297,6 @@ export default function MerchantOnboarding() {
         ward: data.ward,
         district: data.district,
         city: data.city,
-        baseDeliveryFee: data.baseDeliveryFee,
         minOrderAmount: data.minOrderAmount,
         avgPrepTimeMin: data.avgPrepTime,
         bannerUrl: data.bannerUrl,
@@ -526,21 +523,6 @@ export default function MerchantOnboarding() {
                 aria-label="Quận hoặc huyện"
                 error={errors.district?.message}
                 {...register('district', { required: 'Vui lòng nhập quận/huyện.' })}
-              />
-              <Input
-                id="baseDeliveryFee"
-                label="Phí giao hàng cơ bản (VND)"
-                required
-                className="md:col-span-2"
-                type="number"
-                placeholder="Phí giao hàng cơ bản (VND)"
-                aria-label="Phí giao hàng cơ bản"
-                error={errors.baseDeliveryFee?.message}
-                {...register('baseDeliveryFee', {
-                  valueAsNumber: true,
-                  required: 'Vui lòng nhập phí giao hàng cơ bản.',
-                  min: { value: 0, message: 'Phí giao hàng cơ bản phải lớn hơn hoặc bằng 0.' }
-                })}
               />
               <div className="md:col-span-2">
                 <OnboardingInfoBanner>

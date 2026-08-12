@@ -5,12 +5,14 @@ import Button from '../../../components/Button.jsx';
 import Card from '../../../components/Card.jsx';
 import EmptyState from '../../../components/EmptyState.jsx';
 import Icon from '../../../components/Icon.jsx';
-import Input from '../../../components/Input.jsx';
+import Input, { Select } from '../../../components/Input.jsx';
 import Modal from '../../../components/Modal.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../../lib/api.js';
-import { createGhnLocationsApi } from '../../../lib/ghnLocations.js';
+import { createAdministrativeLocationsApi } from '../../../lib/administrativeLocations.js';
+
+const locationsApi = createAdministrativeLocationsApi(apiGet);
 
 const EMPTY_FORM = {
   label: '',
@@ -23,7 +25,6 @@ const EMPTY_FORM = {
   deliveryNote: '',
 };
 
-const ghnLocationsApi = createGhnLocationsApi(apiGet, apiPost);
 
 export default function Addresses() {
   const { pushToast, permittedRoles } = useApp();
@@ -31,41 +32,17 @@ export default function Addresses() {
   const [loading, setLoading] = useState(false);
   const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   const [confirmDelete, setConfirmDelete] = useState(null);
-
   const [provinces, setProvinces] = useState([]);
   const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
-  
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
   const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
   const [selectedWardCode, setSelectedWardCode] = useState('');
 
-  useEffect(() => {
-    ghnLocationsApi.getProvinces()
-      .then(setProvinces)
-      .catch(err => console.error('Failed to load provinces:', err));
-  }, []);
+  useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch(() => setProvinces([])); }, []);
+  useEffect(() => { if (!selectedProvinceCode) { setDistricts([]); return; } locationsApi.getDistricts(selectedProvinceCode).then(setDistricts).catch(() => setDistricts([])); }, [selectedProvinceCode]);
+  useEffect(() => { if (!selectedDistrictCode) { setWards([]); return; } locationsApi.getWards(selectedDistrictCode).then(setWards).catch(() => setWards([])); }, [selectedDistrictCode]);
 
-  useEffect(() => {
-    if (!selectedProvinceCode) {
-      setDistricts([]);
-      setWards([]);
-      return;
-    }
-    ghnLocationsApi.getDistricts(selectedProvinceCode)
-      .then(setDistricts)
-      .catch(err => console.error('Failed to load districts:', err));
-  }, [selectedProvinceCode]);
-
-  useEffect(() => {
-    if (!selectedDistrictCode) {
-      setWards([]);
-      return;
-    }
-    ghnLocationsApi.getWards(selectedDistrictCode)
-      .then(setWards)
-      .catch(err => console.error('Failed to load wards:', err));
-  }, [selectedDistrictCode]);
 
   const loadAddresses = useCallback(async () => {
     setLoading(true);
@@ -93,9 +70,9 @@ export default function Addresses() {
   };
 
   const openEdit = (addr) => {
-    setSelectedProvinceCode(String(addr.ghnProvinceId ?? ''));
-    setSelectedDistrictCode(String(addr.ghnDistrictId ?? ''));
-    setSelectedWardCode(String(addr.ghnWardCode ?? ''));
+    setSelectedProvinceCode('');
+    setSelectedDistrictCode('');
+    setSelectedWardCode('');
 
     setEditor({
       open: true,
@@ -156,17 +133,12 @@ export default function Addresses() {
 
     setEditor((c) => ({ ...c, submitting: true, fieldErrors: {} }));
     try {
-      const locationCodes = {
-        ghnProvinceId: Number(selectedProvinceCode),
-        ghnDistrictId: Number(selectedDistrictCode),
-        ghnWardCode: selectedWardCode,
-      };
       if (editor.mode === 'create') {
-        const newAddr = await apiPost('/api/v1/me/addresses', { ...v, ...locationCodes });
+        const newAddr = await apiPost('/api/v1/me/addresses', v);
         setList((cur) => [newAddr, ...cur].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)));
         pushToast({ kind: 'success', title: 'Đã thêm địa chỉ', message: v.label });
       } else {
-        const updatedAddr = await apiPatch(`/api/v1/me/addresses/${editor.id}`, { ...v, ...locationCodes });
+        const updatedAddr = await apiPatch(`/api/v1/me/addresses/${editor.id}`, v);
         setList((cur) =>
           cur.map((a) => (a.id === editor.id ? updatedAddr : a)).sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
         );
@@ -359,63 +331,19 @@ export default function Addresses() {
           <div className="grid grid-cols-2 gap-sm">
             <div className="flex flex-col gap-1">
               <label className="text-body-sm font-medium text-ink">Tỉnh/Thành phố</label>
-              <select
-                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.city ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none`}
-                value={selectedProvinceCode}
-                onChange={(e) => {
-                  const code = e.target.value;
-                  const name = e.target.options[e.target.selectedIndex].text;
-                  setSelectedProvinceCode(code);
-                  setSelectedDistrictCode('');
-                  setEditor((c) => ({ ...c, values: { ...c.values, city: code ? name : '' }, fieldErrors: { ...c.fieldErrors, city: undefined } }));
-                }}
-              >
-                <option value="">Chọn Tỉnh/Thành phố</option>
-                {provinces.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <Select value={selectedProvinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = provinces.find((value) => value.code === e.target.value); setSelectedProvinceCode(e.target.value); setSelectedDistrictCode(''); setSelectedWardCode(''); setEditor((c) => ({ ...c, values: { ...c.values, city: item?.name ?? '', district: '', ward: '' }, fieldErrors: { ...c.fieldErrors, city: undefined } })); }} error={editor.fieldErrors?.city} />
               {editor.fieldErrors?.city && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.city}</div>}
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-body-sm font-medium text-ink">Quận/Huyện</label>
-              <select
-                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.district ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
-                value={selectedDistrictCode}
-                onChange={(e) => {
-                  const code = e.target.value;
-                  const name = e.target.options[e.target.selectedIndex].text;
-                  setSelectedDistrictCode(code);
-                  setSelectedWardCode('');
-                  setEditor((c) => ({ ...c, values: { ...c.values, district: code ? name : '' }, fieldErrors: { ...c.fieldErrors, district: undefined } }));
-                }}
-                disabled={!selectedProvinceCode}
-              >
-                <option value="">Chọn Quận/Huyện</option>
-                {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <Select value={selectedDistrictCode} disabled={!selectedProvinceCode} options={[{ value: '', label: selectedProvinceCode ? 'Chọn Quận/Huyện' : 'Chọn Tỉnh/Thành phố trước' }, ...districts.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = districts.find((value) => value.code === e.target.value); setSelectedDistrictCode(e.target.value); setSelectedWardCode(''); setEditor((c) => ({ ...c, values: { ...c.values, district: item?.name ?? '', ward: '' }, fieldErrors: { ...c.fieldErrors, district: undefined } })); }} error={editor.fieldErrors?.district} />
               {editor.fieldErrors?.district && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.district}</div>}
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-body-sm font-medium text-ink">Phường/Xã</label>
-              <select
-                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.ward ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
-                value={selectedWardCode}
-                onChange={(e) => {
-                  const code = e.target.value;
-                  const name = e.target.options[e.target.selectedIndex].text;
-                  setSelectedWardCode(code);
-                  setEditor((c) => ({ ...c, values: { ...c.values, ward: code ? name : '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } }));
-                }}
-                disabled={!selectedDistrictCode}
-              >
-                <option value="">Chọn Phường/Xã</option>
-                {wards.map((w) => (
-                  <option key={w.code} value={w.code}>{w.name}</option>
-                ))}
-              </select>
+              <Select value={selectedWardCode} disabled={!selectedDistrictCode} options={[{ value: '', label: selectedDistrictCode ? 'Chọn Phường/Xã' : 'Chọn Quận/Huyện trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = wards.find((value) => value.code === e.target.value); setSelectedWardCode(e.target.value); setEditor((c) => ({ ...c, values: { ...c.values, ward: item?.name ?? '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } })); }} error={editor.fieldErrors?.ward} />
               {editor.fieldErrors?.ward && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.ward}</div>}
             </div>
           </div>

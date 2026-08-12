@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
+import { getDeliveryAvailability, parseCurrentLocation } from '../lib/deliveryAvailability.js';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.get('/search', async (req, res, next) => {
       page,
       limit,
     } = req.query;
+    const currentLocation = parseCurrentLocation(req.query);
 
     const limitVal = Math.min(parseInt(limit, 10) || 20, 50);
     const pageVal = Math.max(parseInt(page, 10) || 1, 1);
@@ -58,8 +60,7 @@ router.get('/search', async (req, res, next) => {
     }
 
     let restOrder = 'r.rating_avg DESC';
-    if (sort === 'fee') restOrder = 'r.base_delivery_fee ASC';
-    else if (sort === 'new') restOrder = 'r.created_at DESC';
+    if (sort === 'new') restOrder = 'r.created_at DESC';
 
     const restCountSql = `
       SELECT COUNT(DISTINCT r.id) as total
@@ -75,8 +76,8 @@ router.get('/search', async (req, res, next) => {
         r.id, r.name, r.slug, r.tagline, r.banner_url as bannerUrl, r.logo_url as logoUrl,
         c.slug as cuisineSlug, c.name as cuisineName,
         r.rating_avg as ratingAvg, r.review_count as reviewCount,
-        r.base_delivery_fee as baseDeliveryFee, r.avg_prep_time_min as avgPrepTimeMin,
-        r.is_open_now as isOpenNow,
+        r.avg_prep_time_min as avgPrepTimeMin,
+        r.is_open_now as isOpenNow, r.latitude, r.longitude,
         r.address_line as addressLine, r.district, r.city
       FROM restaurants r
       LEFT JOIN cuisines c ON r.cuisine_id = c.id
@@ -91,9 +92,9 @@ router.get('/search', async (req, res, next) => {
       ...r,
       ratingAvg: Number(r.ratingAvg ?? 0),
       reviewCount: Number(r.reviewCount ?? 0),
-      baseDeliveryFee: Number(r.baseDeliveryFee ?? 0),
       avgPrepTimeMin: Number(r.avgPrepTimeMin ?? 0),
       isOpenNow: Boolean(r.isOpenNow),
+      ...getDeliveryAvailability(r, currentLocation),
     }));
 
     // Filter conditions for menu items
@@ -166,9 +167,8 @@ router.get('/search', async (req, res, next) => {
         r.id AS restaurantId,
         r.name AS restaurantName,
         r.logo_url AS restaurantLogo,
-        r.base_delivery_fee AS baseDeliveryFee,
         r.avg_prep_time_min AS avgPrepTimeMin,
-        r.is_open_now AS isOpenNow
+        r.is_open_now AS isOpenNow, r.latitude, r.longitude
       FROM menu_items mi
       INNER JOIN restaurants r ON r.id = mi.restaurant_id
       LEFT JOIN cuisines c ON r.cuisine_id = c.id
@@ -193,10 +193,10 @@ router.get('/search', async (req, res, next) => {
       restaurantId: Number(mi.restaurantId),
       restaurantName: mi.restaurantName,
       restaurantLogo: mi.restaurantLogo,
-      baseDeliveryFee: Number(mi.baseDeliveryFee ?? 0),
       avgPrepTimeMin: Number(mi.avgPrepTimeMin ?? 0),
       isOpenNow: Boolean(mi.isOpenNow),
       isAvailable: Boolean(mi.inStock) && mi.status === 'active' && Boolean(mi.isOpenNow),
+      ...getDeliveryAvailability(mi, currentLocation),
     }));
 
     res.json({
@@ -250,11 +250,12 @@ router.get('/:id', async (req, res, next) => {
          r.phone AS restaurantPhone,
          r.rating_avg AS restaurantRatingAvg,
          r.review_count AS restaurantReviewCount,
-         r.base_delivery_fee AS baseDeliveryFee,
          r.min_order_amount AS minOrderAmount,
          r.avg_prep_time_min AS avgPrepTimeMin,
          r.is_open_now AS isOpenNow,
-         r.status AS restaurantStatus
+         r.status AS restaurantStatus,
+         r.latitude,
+         r.longitude
        FROM menu_items mi
        INNER JOIN restaurants r ON r.id = mi.restaurant_id
        WHERE mi.id = ?
@@ -280,6 +281,8 @@ router.get('/:id', async (req, res, next) => {
     } else if (item.itemStatus !== 'active' || !Boolean(item.inStock)) {
       unavailableReason = 'Món ăn hiện tại đã hết hàng.';
     }
+
+    const deliveryAvailability = getDeliveryAvailability(item, parseCurrentLocation(req.query));
 
     res.json({
       item: {
@@ -311,11 +314,11 @@ router.get('/:id', async (req, res, next) => {
         phone: item.restaurantPhone,
         ratingAvg: Number(item.restaurantRatingAvg ?? 0),
         reviewCount: Number(item.restaurantReviewCount ?? 0),
-        baseDeliveryFee: Number(item.baseDeliveryFee ?? 0),
         minOrderAmount: Number(item.minOrderAmount ?? 0),
         avgPrepTimeMin: Number(item.avgPrepTimeMin ?? 0),
         isOpenNow: Boolean(item.isOpenNow),
         status: item.restaurantStatus,
+        ...deliveryAvailability,
       },
     });
   } catch (err) {

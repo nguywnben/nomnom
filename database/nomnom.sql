@@ -1,11 +1,11 @@
-﻿-- phpMyAdmin SQL Dump
+-- phpMyAdmin SQL Dump
 -- version 5.2.3
 -- https://www.phpmyadmin.net/
 --
--- Máy chủ: localhost
--- Thời gian đã tạo: Th6 12, 2026 lúc 01:28 PM
--- Phiên bản máy phục vụ: 8.0.44
--- Phiên bản PHP: 8.2.30
+-- M�y ch?: localhost
+-- Th?i gian �? t?o: Th6 12, 2026 l�c 01:28 PM
+-- Phi�n b?n m�y ph?c v?: 8.0.44
+-- Phi�n b?n PHP: 8.2.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,13 +18,13 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Cơ sở dữ liệu: `nomnom`
+-- C� s? d? li?u: `nomnom`
 --
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `carts`
+-- C?u tr�c b?ng cho b?ng `carts`
 --
 
 CREATE TABLE `carts` (
@@ -39,7 +39,7 @@ CREATE TABLE `carts` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `cart_items`
+-- C?u tr�c b?ng cho b?ng `cart_items`
 --
 
 CREATE TABLE `cart_items` (
@@ -56,7 +56,7 @@ CREATE TABLE `cart_items` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `cuisines`
+-- C?u tr�c b?ng cho b?ng `cuisines`
 --
 
 CREATE TABLE `cuisines` (
@@ -71,22 +71,22 @@ CREATE TABLE `cuisines` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `cuisines`
+-- �ang �? d? li?u cho b?ng `cuisines`
 --
 
 INSERT INTO `cuisines` (`id`, `name`, `slug`, `icon_url`, `sort_order`, `created_at`) VALUES
-(1, 'Ý', 'italian', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80', 1, '2026-05-21 21:42:10'),
-(2, 'Mỹ', 'american', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', 2, '2026-05-21 21:42:10'),
-(3, 'Nhật', 'japanese', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80', 3, '2026-05-21 21:42:10'),
-(4, 'Lành mạnh', 'healthy', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', 4, '2026-05-21 21:42:10'),
+(1, '?', 'italian', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80', 1, '2026-05-21 21:42:10'),
+(2, 'M?', 'american', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', 2, '2026-05-21 21:42:10'),
+(3, 'Nh?t', 'japanese', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80', 3, '2026-05-21 21:42:10'),
+(4, 'L�nh m?nh', 'healthy', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', 4, '2026-05-21 21:42:10'),
 (5, 'Mexico', 'mexican', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', 5, '2026-05-21 21:42:10'),
-(6, 'Cà phê', 'coffee', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80', 6, '2026-05-21 21:42:10'),
-(7, 'Tiệm bánh', 'bakery', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', 7, '2026-05-21 21:42:10');
+(6, 'C� ph�', 'coffee', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80', 6, '2026-05-21 21:42:10'),
+(7, 'Ti?m b�nh', 'bakery', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', 7, '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `customer_addresses`
+-- C?u tr�c b?ng cho b?ng `customer_addresses`
 --
 
 CREATE TABLE `customer_addresses` (
@@ -108,25 +108,25 @@ CREATE TABLE `customer_addresses` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `customer_addresses`
+-- �ang �? d? li?u cho b?ng `customer_addresses`
 --
 
 INSERT INTO `customer_addresses` (`id`, `customer_id`, `label`, `recipient_name`, `recipient_phone`, `line1`, `ward`, `district`, `city`, `latitude`, `longitude`, `delivery_note`, `is_default`, `created_at`, `updated_at`) VALUES
-(1, 2, 'Nhà', 'Mara Chen', '+84901000002', '120 Wythe Ave, Apt 3B', 'P. Bến Nghé', 'Q.1', 'TP. Hồ Chí Minh', 10.7795000, 106.6991000, 'Bấm chuông căn hộ 3B', 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(2, 2, 'Văn phòng', 'Mara Chen', '+84901000002', '88 Holloway St, Tầng 4', 'P. Bến Thành', 'Q.1', 'TP. Hồ Chí Minh', 10.7715000, 106.6981000, 'Để tại quầy lễ tân nếu vắng', 0, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(3, 15, 'Nhà', 'Owen Tran', '+84901000015', '301 Carroll St', 'P. Đa Kao', 'Q.1', 'TP. Hồ Chí Minh', 10.7873000, 106.6919000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(4, 16, 'Nhà', 'Rae Pham', '+84901000016', '14 W 10th St', 'P. 6', 'Q. Bình Thạnh', 'TP. Hồ Chí Minh', 10.8030000, 106.7100000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(5, 17, 'Nhà', 'Lia Do', '+84901000017', '24 Bedford Ave', 'P. 17', 'Q. Bình Thạnh', 'TP. Hồ Chí Minh', 10.8055000, 106.7068000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(6, 18, 'Nhà', 'Sam Kim', '+84901000018', '6 Smith St', 'P. Tân Định', 'Q.1', 'TP. Hồ Chí Minh', 10.7896000, 106.6907000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(7, 19, 'Nhà', 'Kai Vu', '+84901000019', '88 W 4th St', 'P. Cô Giang', 'Q.1', 'TP. Hồ Chí Minh', 10.7660000, 106.6960000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(8, 20, 'Nhà', 'Jamie Phan', '+84901000020', '15 Greenpoint Ave', 'P. Tân Phong', 'Q.7', 'TP. Hồ Chí Minh', 10.7305000, 106.7218000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(9, 21, 'Nhà', 'Daniel Le', '+84901000021', '209 Avenue B', 'P. 12', 'Q. Tân Bình', 'TP. Hồ Chí Minh', 10.8004000, 106.6437000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(10, 22, 'Nhà', 'Sky Reyes', '+84901000022', '4 Sakura Ln', 'P. 9', 'Q. Phú Nhuận', 'TP. Hồ Chí Minh', 10.7990000, 106.6791000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10');
+(1, 2, 'Nh�', 'Mara Chen', '+84901000002', '120 Wythe Ave, Apt 3B', 'P. B?n Ngh�', 'Q.1', 'TP. H? Ch� Minh', 10.7795000, 106.6991000, 'B?m chu�ng c�n h? 3B', 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(2, 2, 'V�n ph?ng', 'Mara Chen', '+84901000002', '88 Holloway St, T?ng 4', 'P. B?n Th�nh', 'Q.1', 'TP. H? Ch� Minh', 10.7715000, 106.6981000, '�? t?i qu?y l? t�n n?u v?ng', 0, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(3, 15, 'Nh�', 'Owen Tran', '+84901000015', '301 Carroll St', 'P. �a Kao', 'Q.1', 'TP. H? Ch� Minh', 10.7873000, 106.6919000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(4, 16, 'Nh�', 'Rae Pham', '+84901000016', '14 W 10th St', 'P. 6', 'Q. B?nh Th?nh', 'TP. H? Ch� Minh', 10.8030000, 106.7100000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(5, 17, 'Nh�', 'Lia Do', '+84901000017', '24 Bedford Ave', 'P. 17', 'Q. B?nh Th?nh', 'TP. H? Ch� Minh', 10.8055000, 106.7068000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(6, 18, 'Nh�', 'Sam Kim', '+84901000018', '6 Smith St', 'P. T�n �?nh', 'Q.1', 'TP. H? Ch� Minh', 10.7896000, 106.6907000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(7, 19, 'Nh�', 'Kai Vu', '+84901000019', '88 W 4th St', 'P. C� Giang', 'Q.1', 'TP. H? Ch� Minh', 10.7660000, 106.6960000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(8, 20, 'Nh�', 'Jamie Phan', '+84901000020', '15 Greenpoint Ave', 'P. T�n Phong', 'Q.7', 'TP. H? Ch� Minh', 10.7305000, 106.7218000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(9, 21, 'Nh�', 'Daniel Le', '+84901000021', '209 Avenue B', 'P. 12', 'Q. T�n B?nh', 'TP. H? Ch� Minh', 10.8004000, 106.6437000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(10, 22, 'Nh�', 'Sky Reyes', '+84901000022', '4 Sakura Ln', 'P. 9', 'Q. Ph� Nhu?n', 'TP. H? Ch� Minh', 10.7990000, 106.6791000, NULL, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `customer_profiles`
+-- C?u tr�c b?ng cho b?ng `customer_profiles`
 --
 
 CREATE TABLE `customer_profiles` (
@@ -139,7 +139,7 @@ CREATE TABLE `customer_profiles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `customer_profiles`
+-- �ang �? d? li?u cho b?ng `customer_profiles`
 --
 
 INSERT INTO `customer_profiles` (`user_id`, `default_address_id`, `preferred_language`, `marketing_opt_in`, `created_at`, `updated_at`) VALUES
@@ -164,7 +164,7 @@ INSERT INTO `customer_profiles` (`user_id`, `default_address_id`, `preferred_lan
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `driver_assignments`
+-- C?u tr�c b?ng cho b?ng `driver_assignments`
 --
 
 CREATE TABLE `driver_assignments` (
@@ -185,7 +185,7 @@ CREATE TABLE `driver_assignments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `driver_assignments`
+-- �ang �? d? li?u cho b?ng `driver_assignments`
 --
 
 INSERT INTO `driver_assignments` (`id`, `order_id`, `driver_id`, `assigned_at`, `arrived_pickup_at`, `picked_up_at`, `arrived_dropoff_at`, `delivered_at`, `status`, `distance_km`, `earning_amount`, `proof_photo_url`, `created_at`, `updated_at`) VALUES
@@ -200,7 +200,7 @@ INSERT INTO `driver_assignments` (`id`, `order_id`, `driver_id`, `assigned_at`, 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `driver_profiles`
+-- C?u tr�c b?ng cho b?ng `driver_profiles`
 --
 
 CREATE TABLE `driver_profiles` (
@@ -230,7 +230,7 @@ CREATE TABLE `driver_profiles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `driver_profiles`
+-- �ang �? d? li?u cho b?ng `driver_profiles`
 --
 
 INSERT INTO `driver_profiles` (`user_id`, `national_id`, `driver_license_no`, `vehicle_type`, `vehicle_model`, `license_plate`, `id_card_url`, `driver_license_url`, `portrait_url`, `bank_account_no`, `bank_name`, `bank_account_holder`, `rating_avg`, `total_trips`, `approval_status`, `approved_at`, `approved_by_admin_id`, `is_online`, `current_lat`, `current_lng`, `last_location_at`, `created_at`, `updated_at`) VALUES
@@ -242,7 +242,7 @@ INSERT INTO `driver_profiles` (`user_id`, `national_id`, `driver_license_no`, `v
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `home_promo_banners`
+-- C?u tr�c b?ng cho b?ng `home_promo_banners`
 --
 
 CREATE TABLE `home_promo_banners` (
@@ -259,18 +259,18 @@ CREATE TABLE `home_promo_banners` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `home_promo_banners`
+-- �ang �? d? li?u cho b?ng `home_promo_banners`
 --
 
 INSERT INTO `home_promo_banners` (`id`, `tag`, `title`, `subtitle`, `cta_label`, `image_url`, `link_url`, `sort_order`, `is_active`, `created_at`) VALUES
-('promo-lunch', 'Trưa · 11–2', 'Miễn phí giao hàng cho đơn từ 500.000 ₫', 'Tránh giờ cao điểm văn phòng · T2–T6', 'Đặt bữa trưa', 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&fit=crop&w=1000&q=80', '/app/search', 2, 1, '2026-05-21 21:42:10'),
-('promo-new', 'Mới mở', '5 bếp mới tuần này', 'Thử ngay trước khi kín chỗ', 'Khám phá', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=1000&q=80', '/app/search', 3, 1, '2026-05-21 21:42:10'),
-('promo-nomnom15', 'Sử dụng NOMNOM15', 'Giảm 15% cho đơn hàng đầu tiên', 'Mỗi khách hàng một mã khuyến mãi · Giảm tối đa 250.000 ₫', 'Nhận ngay', 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1000&q=80', '/app/profile/promotions', 1, 1, '2026-05-21 21:42:10');
+('promo-lunch', 'Tr�a � 11�2', 'Mi?n ph� giao h�ng cho ��n t? 500.000 �', 'Tr�nh gi? cao �i?m v�n ph?ng � T2�T6', '�?t b?a tr�a', 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&fit=crop&w=1000&q=80', '/app/search', 2, 1, '2026-05-21 21:42:10'),
+('promo-new', 'M?i m?', '5 b?p m?i tu?n n�y', 'Th? ngay tr�?c khi k�n ch?', 'Kh�m ph�', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=1000&q=80', '/app/search', 3, 1, '2026-05-21 21:42:10'),
+('promo-nomnom15', 'S? d?ng NOMNOM15', 'Gi?m 15% cho ��n h�ng �?u ti�n', 'M?i kh�ch h�ng m?t m? khuy?n m?i � Gi?m t?i �a 250.000 �', 'Nh?n ngay', 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1000&q=80', '/app/profile/promotions', 1, 1, '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `menu_categories`
+-- C?u tr�c b?ng cho b?ng `menu_categories`
 --
 
 CREATE TABLE `menu_categories` (
@@ -285,39 +285,39 @@ CREATE TABLE `menu_categories` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `menu_categories`
+-- �ang �? d? li?u cho b?ng `menu_categories`
 --
 
 INSERT INTO `menu_categories` (`id`, `restaurant_id`, `name`, `description`, `sort_order`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 1, 'Cổ điển', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(2, 1, 'Đặc sản', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(3, 1, 'Món phụ', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(4, 1, 'Tráng miệng', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(1, 1, 'C? �i?n', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(2, 1, '�?c s?n', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(3, 1, 'M�n ph?', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(4, 1, 'Tr�ng mi?ng', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (5, 2, 'Hamburger', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(6, 2, 'Bánh mì kẹp', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(7, 2, 'Món phụ', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(8, 2, 'Đồ uống', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(6, 2, 'B�nh m? k?p', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(7, 2, 'M�n ph?', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(8, 2, '�? u?ng', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (9, 3, 'Nigiri', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(10, 3, 'Tô trộn', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(11, 3, 'Cuộn', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(12, 3, 'Món phụ', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(13, 4, 'Tô trộn', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(14, 4, 'Đồ uống', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(10, 3, 'T� tr?n', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(11, 3, 'Cu?n', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(12, 3, 'M�n ph?', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(13, 4, 'T� tr?n', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(14, 4, '�? u?ng', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (15, 5, 'Ramen', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(16, 5, 'Món phụ', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(16, 5, 'M�n ph?', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (17, 6, 'Tacos', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (18, 6, 'Burritos', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(19, 6, 'Món phụ', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(20, 6, 'Đồ uống', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(21, 7, 'Cà phê', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(22, 7, 'Bánh ngọt', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(19, 6, 'M�n ph?', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(20, 6, '�? u?ng', NULL, 4, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(21, 7, 'C� ph�', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(22, 7, 'B�nh ng?t', NULL, 2, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (23, 7, 'Brunch', NULL, 3, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
 (24, 8, 'Donuts', NULL, 1, 1, '2026-05-21 21:42:10', '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `menu_items`
+-- C?u tr�c b?ng cho b?ng `menu_items`
 --
 
 CREATE TABLE `menu_items` (
@@ -340,44 +340,44 @@ CREATE TABLE `menu_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `menu_items`
+-- �ang �? d? li?u cho b?ng `menu_items`
 --
 
 INSERT INTO `menu_items` (`id`, `restaurant_id`, `category_id`, `name`, `description`, `image_url`, `price`, `prep_time_min`, `in_stock`, `is_featured`, `sort_order`, `total_sold`, `rating_avg`, `status`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 'Margherita', 'Cà chua San Marzano, phô mai tươi, húng quế.', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80', 89000, 18, 1, 1, 1, 184, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(2, 1, 1, 'Funghi', 'Nấm Crimini, phô mai taleggio, cỏ xạ hương, dầu truffle.', 'https://images.unsplash.com/photo-1593504049359-74330189a345?auto=format&fit=crop&w=800&q=80', 115000, 20, 1, 0, 2, 96, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(3, 1, 2, 'Salsiccia', 'Xúc xích thì là, phô mai mozzarella xông khói, ớt.', 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?auto=format&fit=crop&w=800&q=80', 125000, 22, 1, 1, 1, 71, 4.90, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(4, 1, 3, 'Burrata Salad', 'Cà chua gia truyền, dầu húng quế, muối biển.', 'https://images.unsplash.com/photo-1551248429-40975aa4de74?auto=format&fit=crop&w=800&q=80', 95000, 10, 1, 0, 1, 58, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(5, 1, 4, 'Tiramisu', 'Phô mai Mascarpone, espresso, ca cao.', 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=800&q=80', 59000, 5, 0, 0, 1, 42, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(6, 2, 5, 'Cổ điển', 'Thịt bò đập dập gấp đôi, phô mai Mỹ, sốt bí mật.', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', 99000, 14, 1, 1, 1, 220, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(7, 2, 5, 'Cheddar Bacon', 'Phô mai Cheddar ủ, thịt xông khói ngào đường, dưa chuột muối.', 'https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?auto=format&fit=crop&w=800&q=80', 115000, 16, 1, 0, 2, 144, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(8, 2, 6, 'Gà giòn', 'Gà chiên sữa bơ, salad bắp cải, mật ong cay.', 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=800&q=80', 105000, 18, 1, 0, 1, 92, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(9, 2, 7, 'Khoai tây chiên', 'Cắt tay, muối biển, thảo mộc.', 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=800&q=80', 35000, 8, 1, 0, 1, 320, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(10, 2, 8, 'Vanilla Shake', 'Vani Madagascar, kem tươi.', 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80', 49000, 5, 1, 0, 1, 88, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(11, 3, 9, 'Set Nigiri (8 miếng)', 'Cá ngừ, cá hồi, cá đuôi vàng, tôm.', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80', 249000, 30, 1, 1, 1, 144, 4.95, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(12, 3, 10, 'Cơm bát cá hồi', 'Cơm sushi, cá hồi, bơ, đậu nành Nhật.', 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=800&q=80', 159000, 25, 1, 0, 1, 92, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(13, 3, 11, 'Spicy Tuna Roll', 'Cá ngừ vây vàng, dầu ớt, hành lá.', 'https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=800&q=80', 139000, 20, 1, 0, 1, 68, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(14, 3, 12, 'Súp Miso', 'Miso trắng, đậu phụ, hành lá.', 'https://images.unsplash.com/photo-1607301405390-d831c242f59b?auto=format&fit=crop&w=800&q=80', 35000, 8, 1, 0, 1, 110, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(15, 4, 13, 'Tô mùa vụ', 'Diêm mạch, cải xoăn, bí đỏ, sốt mè.', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', 89000, 12, 1, 1, 1, 64, 4.65, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(16, 4, 13, 'Buddha Bowl', 'Cơm lứt, đậu phụ, đậu nành Nhật, gừng.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80', 95000, 14, 1, 0, 2, 52, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(17, 4, 14, 'Sinh tố xanh', 'Cải xoăn, chuối, hạnh nhân, hạt gai dầu.', 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?auto=format&fit=crop&w=800&q=80', 55000, 5, 1, 0, 1, 38, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(18, 5, 15, 'Tonkotsu Ramen', 'Nước dùng xương heo, xá xíu, trứng ngâm tương.', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=800&q=80', 119000, 18, 1, 1, 1, 268, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(19, 5, 15, 'Miso Ramen', 'Miso đỏ, thịt heo xay, ngô.', 'https://images.unsplash.com/photo-1591814468924-caf88d1232e1?auto=format&fit=crop&w=800&q=80', 109000, 18, 1, 0, 2, 174, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(20, 5, 16, 'Gyoza (6 miếng)', 'Sủi cảo heo, sốt ponzu.', 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80', 59000, 8, 1, 0, 1, 220, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(21, 6, 17, 'Tacos al Pastor (3 chiếc)', 'Dứa, ngò rí, hành tây.', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', 99000, 12, 1, 1, 1, 184, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(22, 6, 18, 'Burrito Carnitas', 'Thịt heo ninh nhừ, cơm, đậu, sốt salsa xanh.', 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=800&q=80', 119000, 15, 1, 0, 1, 96, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(23, 6, 19, 'Elote', 'Ngô nướng cháy cạnh, chanh, phô mai cotija.', 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80', 39000, 8, 1, 0, 1, 70, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(24, 6, 20, 'Horchata', 'Sữa gạo, quế, vani.', 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?auto=format&fit=crop&w=800&q=80', 35000, 4, 1, 0, 1, 52, 4.35, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(25, 7, 21, 'Flat White', 'Cà phê espresso kép, bọt sữa mịn.', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80', 49000, 5, 1, 1, 1, 410, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(26, 7, 22, 'Bánh sừng bò hạnh nhân', 'Kem frangipane, hạnh nhân nướng.', 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=800&q=80', 45000, 3, 1, 0, 1, 220, 4.75, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(27, 7, 23, 'Bánh mì bơ', 'Bánh mì men tự nhiên, ớt, chanh, muối biển.', 'https://plus.unsplash.com/premium_photo-1675604221056-91821ac2df07?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 59000, 10, 1, 0, 1, 154, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 22:35:38'),
-(28, 8, 24, 'Donut phủ đường cổ điển', 'Lớp phủ vani, bánh donut men.', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', 30000, 4, 1, 1, 1, 88, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(29, 8, 24, 'Maple Bacon', 'Lớp phủ phong, thịt xông khói ngào đường.', 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=800&q=80', 39000, 5, 1, 0, 2, 46, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10');
+(1, 1, 1, 'Margherita', 'C� chua San Marzano, ph� mai t��i, h�ng qu?.', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80', 89000, 18, 1, 1, 1, 184, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(2, 1, 1, 'Funghi', 'N?m Crimini, ph� mai taleggio, c? x? h��ng, d?u truffle.', 'https://images.unsplash.com/photo-1593504049359-74330189a345?auto=format&fit=crop&w=800&q=80', 115000, 20, 1, 0, 2, 96, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(3, 1, 2, 'Salsiccia', 'X�c x�ch th? l�, ph� mai mozzarella x�ng kh�i, ?t.', 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?auto=format&fit=crop&w=800&q=80', 125000, 22, 1, 1, 1, 71, 4.90, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(4, 1, 3, 'Burrata Salad', 'C� chua gia truy?n, d?u h�ng qu?, mu?i bi?n.', 'https://images.unsplash.com/photo-1551248429-40975aa4de74?auto=format&fit=crop&w=800&q=80', 95000, 10, 1, 0, 1, 58, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(5, 1, 4, 'Tiramisu', 'Ph� mai Mascarpone, espresso, ca cao.', 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=800&q=80', 59000, 5, 0, 0, 1, 42, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(6, 2, 5, 'C? �i?n', 'Th?t b? �?p d?p g?p ��i, ph� mai M?, s?t b� m?t.', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', 99000, 14, 1, 1, 1, 220, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(7, 2, 5, 'Cheddar Bacon', 'Ph� mai Cheddar ?, th?t x�ng kh�i ng�o ��?ng, d�a chu?t mu?i.', 'https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?auto=format&fit=crop&w=800&q=80', 115000, 16, 1, 0, 2, 144, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(8, 2, 6, 'G� gi?n', 'G� chi�n s?a b�, salad b?p c?i, m?t ong cay.', 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=800&q=80', 105000, 18, 1, 0, 1, 92, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(9, 2, 7, 'Khoai t�y chi�n', 'C?t tay, mu?i bi?n, th?o m?c.', 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=800&q=80', 35000, 8, 1, 0, 1, 320, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(10, 2, 8, 'Vanilla Shake', 'Vani Madagascar, kem t��i.', 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80', 49000, 5, 1, 0, 1, 88, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(11, 3, 9, 'Set Nigiri (8 mi?ng)', 'C� ng?, c� h?i, c� �u�i v�ng, t�m.', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80', 249000, 30, 1, 1, 1, 144, 4.95, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(12, 3, 10, 'C�m b�t c� h?i', 'C�m sushi, c� h?i, b�, �?u n�nh Nh?t.', 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=800&q=80', 159000, 25, 1, 0, 1, 92, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(13, 3, 11, 'Spicy Tuna Roll', 'C� ng? v�y v�ng, d?u ?t, h�nh l�.', 'https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=800&q=80', 139000, 20, 1, 0, 1, 68, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(14, 3, 12, 'S�p Miso', 'Miso tr?ng, �?u ph?, h�nh l�.', 'https://images.unsplash.com/photo-1607301405390-d831c242f59b?auto=format&fit=crop&w=800&q=80', 35000, 8, 1, 0, 1, 110, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(15, 4, 13, 'T� m�a v?', 'Di�m m?ch, c?i xo�n, b� �?, s?t m�.', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', 89000, 12, 1, 1, 1, 64, 4.65, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(16, 4, 13, 'Buddha Bowl', 'C�m l?t, �?u ph?, �?u n�nh Nh?t, g?ng.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80', 95000, 14, 1, 0, 2, 52, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(17, 4, 14, 'Sinh t? xanh', 'C?i xo�n, chu?i, h?nh nh�n, h?t gai d?u.', 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?auto=format&fit=crop&w=800&q=80', 55000, 5, 1, 0, 1, 38, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(18, 5, 15, 'Tonkotsu Ramen', 'N�?c d�ng x��ng heo, x� x�u, tr?ng ng�m t��ng.', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=800&q=80', 119000, 18, 1, 1, 1, 268, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(19, 5, 15, 'Miso Ramen', 'Miso �?, th?t heo xay, ng�.', 'https://images.unsplash.com/photo-1591814468924-caf88d1232e1?auto=format&fit=crop&w=800&q=80', 109000, 18, 1, 0, 2, 174, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(20, 5, 16, 'Gyoza (6 mi?ng)', 'S?i c?o heo, s?t ponzu.', 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80', 59000, 8, 1, 0, 1, 220, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(21, 6, 17, 'Tacos al Pastor (3 chi?c)', 'D?a, ng? r�, h�nh t�y.', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', 99000, 12, 1, 1, 1, 184, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(22, 6, 18, 'Burrito Carnitas', 'Th?t heo ninh nh?, c�m, �?u, s?t salsa xanh.', 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=800&q=80', 119000, 15, 1, 0, 1, 96, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(23, 6, 19, 'Elote', 'Ng� n�?ng ch�y c?nh, chanh, ph� mai cotija.', 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80', 39000, 8, 1, 0, 1, 70, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(24, 6, 20, 'Horchata', 'S?a g?o, qu?, vani.', 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?auto=format&fit=crop&w=800&q=80', 35000, 4, 1, 0, 1, 52, 4.35, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(25, 7, 21, 'Flat White', 'C� ph� espresso k�p, b?t s?a m?n.', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80', 49000, 5, 1, 1, 1, 410, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(26, 7, 22, 'B�nh s?ng b? h?nh nh�n', 'Kem frangipane, h?nh nh�n n�?ng.', 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=800&q=80', 45000, 3, 1, 0, 1, 220, 4.75, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(27, 7, 23, 'B�nh m? b�', 'B�nh m? men t? nhi�n, ?t, chanh, mu?i bi?n.', 'https://plus.unsplash.com/premium_photo-1675604221056-91821ac2df07?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 59000, 10, 1, 0, 1, 154, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 22:35:38'),
+(28, 8, 24, 'Donut ph? ��?ng c? �i?n', 'L?p ph? vani, b�nh donut men.', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', 30000, 4, 1, 1, 1, 88, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(29, 8, 24, 'Maple Bacon', 'L?p ph? phong, th?t x�ng kh�i ng�o ��?ng.', 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=800&q=80', 39000, 5, 1, 0, 2, 46, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `notifications`
+-- C?u tr�c b?ng cho b?ng `notifications`
 --
 
 CREATE TABLE `notifications` (
@@ -393,30 +393,30 @@ CREATE TABLE `notifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `notifications`
+-- �ang �? d? li?u cho b?ng `notifications`
 --
 
 INSERT INTO `notifications` (`id`, `user_id`, `type`, `title`, `body`, `link_url`, `is_read`, `read_at`, `created_at`) VALUES
-(1, 2, 'order_delivered', 'Đơn hàng đã giao', 'Đơn ORD-A1B2C đã được giao tới bạn. Hãy đánh giá tài xế nhé!', '/app/reviews/ord-a1b2c', 0, NULL, '2026-05-21 21:37:10'),
-(2, 2, 'order_picked_up', 'Tài xế đã lấy hàng', 'Tài xế Owen đang trên đường đến địa chỉ của bạn.', '/app/track/ord-a1b2c', 0, NULL, '2026-05-21 21:17:10'),
-(3, 2, 'order_accepted', 'Quán đã xác nhận đơn', 'Hachi Ramen đã nhận đơn ORD-A1B2C, dự kiến giao trong 25 phút.', '/app/track/ord-a1b2c', 0, NULL, '2026-05-21 21:02:10'),
-(4, 2, 'payment_succeeded', 'Thanh toán thành công', 'Thanh toán VNPay cho đơn ORD-A1B2C đã hoàn tất.', '/app/orders', 1, '2026-05-21 18:42:10', '2026-05-21 15:42:10'),
-(5, 2, 'system', 'Ưu đãi mới: NOMNOM15', 'Giảm 15% cho đơn hàng tiếp theo trong tuần này.', '/app/profile/promotions', 1, '2026-05-21 09:42:10', '2026-05-20 19:42:10'),
-(6, 2, 'order_cancelled', 'Đơn hàng bị hủy', 'Đơn ORD-Z9Y8X đã bị hủy theo yêu cầu của bạn. Hoàn tiền trong 1-2 ngày.', '/app/orders', 1, '2026-05-19 21:42:10', '2026-05-18 21:42:10'),
-(7, 7, 'order_placed', 'Đơn hàng mới', 'Mara đặt đơn ORD-7T2RD với 2 món.', '/merchant/orders', 0, NULL, '2026-05-21 21:40:10'),
-(8, 7, 'order_placed', 'Đơn hàng mới', 'Owen Tran đặt đơn ORD-K9XR1 với 1 món.', '/merchant/orders', 0, NULL, '2026-05-21 21:38:10'),
-(9, 7, 'payout_status', 'Yêu cầu rút tiền đã hoàn tất', 'Khoản 2.000.000 ₫ đã được chuyển vào tài khoản Vietcombank · *** 8822.', '/merchant/wallet', 1, '2026-05-20 21:42:10', '2026-05-17 21:42:10'),
-(10, 7, 'kyc_status', 'Giấy phép sắp hết hạn', 'Giấy phép VSATTP sắp hết hạn trong 30 ngày. Hãy cập nhật.', '/merchant/onboarding', 0, NULL, '2026-05-20 21:42:10'),
-(11, 7, 'system', 'Cập nhật chính sách', 'Chính sách hoa hồng mới áp dụng từ tháng sau (15% → 14%).', NULL, 1, '2026-05-16 21:42:10', '2026-05-14 21:42:10'),
-(12, 3, 'order_picked_up', 'Bạn đã nhận đơn ORD-A1B2C', 'Hãy đến Hachi Ramen — 1.2 km, 4 phút.', '/driver/active', 0, NULL, '2026-05-21 21:38:10'),
-(13, 3, 'payout_status', 'Yêu cầu rút tiền đang chờ duyệt', 'Khoản 480.000 ₫ đang chờ NomNom xét duyệt.', '/driver/payouts', 0, NULL, '2026-05-21 19:42:10'),
-(14, 3, 'kyc_status', 'Bằng lái sắp hết hạn', 'Bằng lái xe của bạn sắp hết hạn trong 20 ngày.', '/driver/onboarding', 1, '2026-05-21 09:42:10', '2026-05-20 21:42:10'),
-(15, 3, 'system', 'Thưởng tuần này', 'Hoàn thành 30 chuyến để nhận thưởng 200.000 ₫.', NULL, 1, '2026-05-19 21:42:10', '2026-05-18 21:42:10');
+(1, 2, 'order_delivered', '��n h�ng �? giao', '��n ORD-A1B2C �? ��?c giao t?i b?n. H?y ��nh gi� t�i x? nh�!', '/app/reviews/ord-a1b2c', 0, NULL, '2026-05-21 21:37:10'),
+(2, 2, 'order_picked_up', 'T�i x? �? l?y h�ng', 'T�i x? Owen �ang tr�n ��?ng �?n �?a ch? c?a b?n.', '/app/track/ord-a1b2c', 0, NULL, '2026-05-21 21:17:10'),
+(3, 2, 'order_accepted', 'Qu�n �? x�c nh?n ��n', 'Hachi Ramen �? nh?n ��n ORD-A1B2C, d? ki?n giao trong 25 ph�t.', '/app/track/ord-a1b2c', 0, NULL, '2026-05-21 21:02:10'),
+(4, 2, 'payment_succeeded', 'Thanh to�n th�nh c�ng', 'Thanh to�n VNPay cho ��n ORD-A1B2C �? ho�n t?t.', '/app/orders', 1, '2026-05-21 18:42:10', '2026-05-21 15:42:10'),
+(5, 2, 'system', '�u �?i m?i: NOMNOM15', 'Gi?m 15% cho ��n h�ng ti?p theo trong tu?n n�y.', '/app/profile/promotions', 1, '2026-05-21 09:42:10', '2026-05-20 19:42:10'),
+(6, 2, 'order_cancelled', '��n h�ng b? h?y', '��n ORD-Z9Y8X �? b? h?y theo y�u c?u c?a b?n. Ho�n ti?n trong 1-2 ng�y.', '/app/orders', 1, '2026-05-19 21:42:10', '2026-05-18 21:42:10'),
+(7, 7, 'order_placed', '��n h�ng m?i', 'Mara �?t ��n ORD-7T2RD v?i 2 m�n.', '/merchant/orders', 0, NULL, '2026-05-21 21:40:10'),
+(8, 7, 'order_placed', '��n h�ng m?i', 'Owen Tran �?t ��n ORD-K9XR1 v?i 1 m�n.', '/merchant/orders', 0, NULL, '2026-05-21 21:38:10'),
+(9, 7, 'payout_status', 'Y�u c?u r�t ti?n �? ho�n t?t', 'Kho?n 2.000.000 � �? ��?c chuy?n v�o t�i kho?n Vietcombank � *** 8822.', '/merchant/wallet', 1, '2026-05-20 21:42:10', '2026-05-17 21:42:10'),
+(10, 7, 'kyc_status', 'Gi?y ph�p s?p h?t h?n', 'Gi?y ph�p VSATTP s?p h?t h?n trong 30 ng�y. H?y c?p nh?t.', '/merchant/onboarding', 0, NULL, '2026-05-20 21:42:10'),
+(11, 7, 'system', 'C?p nh?t ch�nh s�ch', 'Ch�nh s�ch hoa h?ng m?i �p d?ng t? th�ng sau (15% ? 14%).', NULL, 1, '2026-05-16 21:42:10', '2026-05-14 21:42:10'),
+(12, 3, 'order_picked_up', 'B?n �? nh?n ��n ORD-A1B2C', 'H?y �?n Hachi Ramen � 1.2 km, 4 ph�t.', '/driver/active', 0, NULL, '2026-05-21 21:38:10'),
+(13, 3, 'payout_status', 'Y�u c?u r�t ti?n �ang ch? duy?t', 'Kho?n 480.000 � �ang ch? NomNom x�t duy?t.', '/driver/payouts', 0, NULL, '2026-05-21 19:42:10'),
+(14, 3, 'kyc_status', 'B?ng l�i s?p h?t h?n', 'B?ng l�i xe c?a b?n s?p h?t h?n trong 20 ng�y.', '/driver/onboarding', 1, '2026-05-21 09:42:10', '2026-05-20 21:42:10'),
+(15, 3, 'system', 'Th�?ng tu?n n�y', 'Ho�n th�nh 30 chuy?n �? nh?n th�?ng 200.000 �.', NULL, 1, '2026-05-19 21:42:10', '2026-05-18 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `orders`
+-- C?u tr�c b?ng cho b?ng `orders`
 --
 
 CREATE TABLE `orders` (
@@ -457,26 +457,26 @@ CREATE TABLE `orders` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `orders`
+-- �ang �? d? li?u cho b?ng `orders`
 --
 
 INSERT INTO `orders` (`id`, `order_code`, `customer_id`, `restaurant_id`, `driver_id`, `delivery_address_id`, `delivery_address_snapshot`, `delivery_lat`, `delivery_lng`, `pickup_lat`, `pickup_lng`, `distance_km`, `subtotal`, `delivery_fee`, `discount_amount`, `total_amount`, `driver_earning`, `merchant_earning`, `platform_fee`, `status`, `payment_status`, `payment_method`, `customer_note`, `estimated_delivery_at`, `placed_at`, `accepted_at`, `ready_at`, `picked_up_at`, `delivered_at`, `cancelled_at`, `cancelled_by_role`, `cancel_reason`, `created_at`, `updated_at`) VALUES
-(1, 'ORD-A1B2C', 2, 5, 3, 1, '120 Wythe Ave, Apt 3B, P. Bến Nghé, Q.1, TP. Hồ Chí Minh', 10.7795000, 106.6991000, 10.7680000, 106.6920000, 3.40, 588000, 62000, 0, 650000, 49600, 499800, 100600, 'delivering', 'paid', 'vnpay', NULL, '2026-05-21 21:50:10', '2026-05-21 21:30:10', '2026-05-21 21:31:10', '2026-05-21 21:38:10', '2026-05-21 21:39:10', NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(2, 'ORD-Q3K9P', 2, 2, 3, 1, '120 Wythe Ave, Apt 3B, P. Bến Nghé, Q.1, TP. Hồ Chí Minh', 10.7795000, 106.6991000, 10.7710000, 106.6985000, 1.80, 689000, 50000, 89000, 650000, 40000, 585650, 113350, 'delivered', 'paid', 'vnpay', NULL, NULL, '2026-05-20 19:42:10', '2026-05-20 19:52:10', '2026-05-20 20:12:10', '2026-05-20 20:22:10', '2026-05-20 20:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(3, 'ORD-7T2RD', 2, 1, NULL, 1, '120 Wythe Ave, Apt 3B, P. Bến Nghé, Q.1, TP. Hồ Chí Minh', 10.7795000, 106.6991000, 10.7765000, 106.7010000, 0.50, 638000, 62000, 0, 700000, 49600, 542300, 108100, 'placed', 'paid', 'vnpay', 'Làm ơn không lấy húng quế', '2026-05-21 22:07:10', '2026-05-21 21:40:10', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(4, 'ORD-K9XR1', 15, 1, NULL, 3, '301 Carroll St, P. Đa Kao, Q.1, TP. Hồ Chí Minh', 10.7873000, 106.6919000, 10.7765000, 106.7010000, 1.20, 800000, 62000, 0, 862000, 49600, 680000, 132400, 'placed', 'paid', 'vnpay', NULL, '2026-05-21 22:10:10', '2026-05-21 21:38:10', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(5, 'ORD-A41QM', 16, 1, NULL, 4, '14 W 10th St, P. 6, Q. Bình Thạnh, TP. Hồ Chí Minh', 10.8030000, 106.7100000, 10.7765000, 106.7010000, 2.80, 776000, 62000, 0, 838000, 49600, 659600, 128800, 'preparing', 'paid', 'vnpay', 'Thêm dầu ớt', '2026-05-21 22:02:10', '2026-05-21 21:33:10', '2026-05-21 21:34:10', NULL, NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(6, 'ORD-V2HHJ', 17, 1, NULL, 5, '24 Bedford Ave, P. 17, Q. Bình Thạnh, TP. Hồ Chí Minh', 10.8055000, 106.7068000, 10.7765000, 106.7010000, 3.30, 526000, 62000, 0, 588000, 49600, 447100, 91300, 'ready_for_pickup', 'paid', 'vnpay', NULL, '2026-05-21 21:57:10', '2026-05-21 21:26:10', '2026-05-21 21:27:10', '2026-05-21 21:39:10', NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(7, 'ORD-P9X22', 18, 1, 4, 6, '6 Smith St, P. Tân Định, Q.1, TP. Hồ Chí Minh', 10.7896000, 106.6907000, 10.7765000, 106.7010000, 2.10, 400000, 62000, 0, 462000, 49600, 340000, 72400, 'delivered', 'paid', 'cod', NULL, NULL, '2026-05-21 20:42:10', '2026-05-21 20:44:10', '2026-05-21 21:02:10', '2026-05-21 21:12:10', '2026-05-21 21:27:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(8, 'ORD-J11HQ', 19, 1, 6, 7, '88 W 4th St, P. Cô Giang, Q.1, TP. Hồ Chí Minh', 10.7660000, 106.6960000, 10.7765000, 106.7010000, 1.40, 1014000, 62000, 0, 1076000, 49600, 861900, 164500, 'delivered', 'paid', 'vnpay', 'Không gluten — đế không gluten', NULL, '2026-05-21 20:12:10', '2026-05-21 20:14:10', '2026-05-21 20:42:10', '2026-05-21 20:47:10', '2026-05-21 21:02:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(9, 'ORD-RV001', 20, 1, 3, 8, '15 Greenpoint Ave, P. Tân Phong, Q.7, TP. Hồ Chí Minh', 10.7305000, 106.7218000, 10.7765000, 106.7010000, 5.40, 438000, 62000, 0, 500000, 49600, 372300, 78100, 'delivered', 'paid', 'vnpay', NULL, NULL, '2026-05-18 21:42:10', '2026-05-18 21:42:10', '2026-05-18 21:42:10', '2026-05-18 21:42:10', '2026-05-18 21:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(10, 'ORD-RV002', 21, 1, 4, 9, '209 Avenue B, P. 12, Q. Tân Bình, TP. Hồ Chí Minh', 10.8004000, 106.6437000, 10.7765000, 106.7010000, 6.80, 338000, 62000, 0, 400000, 49600, 287300, 63100, 'delivered', 'paid', 'vnpay', 'Giao chậm một chút cũng được', NULL, '2026-05-14 21:42:10', '2026-05-14 21:42:10', '2026-05-14 21:42:10', '2026-05-14 21:42:10', '2026-05-14 21:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(11, 'ORD-RV003', 22, 1, 6, 10, '4 Sakura Ln, P. 9, Q. Phú Nhuận, TP. Hồ Chí Minh', 10.7990000, 106.6791000, 10.7765000, 106.7010000, 3.10, 300000, 62000, 0, 362000, 49600, 255000, 57400, 'delivered', 'paid', 'cod', NULL, NULL, '2026-05-07 21:42:10', '2026-05-07 21:42:10', '2026-05-07 21:42:10', '2026-05-07 21:42:10', '2026-05-07 21:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10');
+(1, 'ORD-A1B2C', 2, 5, 3, 1, '120 Wythe Ave, Apt 3B, P. B?n Ngh�, Q.1, TP. H? Ch� Minh', 10.7795000, 106.6991000, 10.7680000, 106.6920000, 3.40, 588000, 62000, 0, 650000, 49600, 499800, 100600, 'delivering', 'paid', 'vnpay', NULL, '2026-05-21 21:50:10', '2026-05-21 21:30:10', '2026-05-21 21:31:10', '2026-05-21 21:38:10', '2026-05-21 21:39:10', NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(2, 'ORD-Q3K9P', 2, 2, 3, 1, '120 Wythe Ave, Apt 3B, P. B?n Ngh�, Q.1, TP. H? Ch� Minh', 10.7795000, 106.6991000, 10.7710000, 106.6985000, 1.80, 689000, 50000, 89000, 650000, 40000, 585650, 113350, 'delivered', 'paid', 'vnpay', NULL, NULL, '2026-05-20 19:42:10', '2026-05-20 19:52:10', '2026-05-20 20:12:10', '2026-05-20 20:22:10', '2026-05-20 20:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(3, 'ORD-7T2RD', 2, 1, NULL, 1, '120 Wythe Ave, Apt 3B, P. B?n Ngh�, Q.1, TP. H? Ch� Minh', 10.7795000, 106.6991000, 10.7765000, 106.7010000, 0.50, 638000, 62000, 0, 700000, 49600, 542300, 108100, 'placed', 'paid', 'vnpay', 'L�m �n kh�ng l?y h�ng qu?', '2026-05-21 22:07:10', '2026-05-21 21:40:10', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(4, 'ORD-K9XR1', 15, 1, NULL, 3, '301 Carroll St, P. �a Kao, Q.1, TP. H? Ch� Minh', 10.7873000, 106.6919000, 10.7765000, 106.7010000, 1.20, 800000, 62000, 0, 862000, 49600, 680000, 132400, 'placed', 'paid', 'vnpay', NULL, '2026-05-21 22:10:10', '2026-05-21 21:38:10', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(5, 'ORD-A41QM', 16, 1, NULL, 4, '14 W 10th St, P. 6, Q. B?nh Th?nh, TP. H? Ch� Minh', 10.8030000, 106.7100000, 10.7765000, 106.7010000, 2.80, 776000, 62000, 0, 838000, 49600, 659600, 128800, 'preparing', 'paid', 'vnpay', 'Th�m d?u ?t', '2026-05-21 22:02:10', '2026-05-21 21:33:10', '2026-05-21 21:34:10', NULL, NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(6, 'ORD-V2HHJ', 17, 1, NULL, 5, '24 Bedford Ave, P. 17, Q. B?nh Th?nh, TP. H? Ch� Minh', 10.8055000, 106.7068000, 10.7765000, 106.7010000, 3.30, 526000, 62000, 0, 588000, 49600, 447100, 91300, 'ready_for_pickup', 'paid', 'vnpay', NULL, '2026-05-21 21:57:10', '2026-05-21 21:26:10', '2026-05-21 21:27:10', '2026-05-21 21:39:10', NULL, NULL, NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(7, 'ORD-P9X22', 18, 1, 4, 6, '6 Smith St, P. T�n �?nh, Q.1, TP. H? Ch� Minh', 10.7896000, 106.6907000, 10.7765000, 106.7010000, 2.10, 400000, 62000, 0, 462000, 49600, 340000, 72400, 'delivered', 'paid', 'cod', NULL, NULL, '2026-05-21 20:42:10', '2026-05-21 20:44:10', '2026-05-21 21:02:10', '2026-05-21 21:12:10', '2026-05-21 21:27:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(8, 'ORD-J11HQ', 19, 1, 6, 7, '88 W 4th St, P. C� Giang, Q.1, TP. H? Ch� Minh', 10.7660000, 106.6960000, 10.7765000, 106.7010000, 1.40, 1014000, 62000, 0, 1076000, 49600, 861900, 164500, 'delivered', 'paid', 'vnpay', 'Kh�ng gluten � �? kh�ng gluten', NULL, '2026-05-21 20:12:10', '2026-05-21 20:14:10', '2026-05-21 20:42:10', '2026-05-21 20:47:10', '2026-05-21 21:02:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(9, 'ORD-RV001', 20, 1, 3, 8, '15 Greenpoint Ave, P. T�n Phong, Q.7, TP. H? Ch� Minh', 10.7305000, 106.7218000, 10.7765000, 106.7010000, 5.40, 438000, 62000, 0, 500000, 49600, 372300, 78100, 'delivered', 'paid', 'vnpay', NULL, NULL, '2026-05-18 21:42:10', '2026-05-18 21:42:10', '2026-05-18 21:42:10', '2026-05-18 21:42:10', '2026-05-18 21:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(10, 'ORD-RV002', 21, 1, 4, 9, '209 Avenue B, P. 12, Q. T�n B?nh, TP. H? Ch� Minh', 10.8004000, 106.6437000, 10.7765000, 106.7010000, 6.80, 338000, 62000, 0, 400000, 49600, 287300, 63100, 'delivered', 'paid', 'vnpay', 'Giao ch?m m?t ch�t c?ng ��?c', NULL, '2026-05-14 21:42:10', '2026-05-14 21:42:10', '2026-05-14 21:42:10', '2026-05-14 21:42:10', '2026-05-14 21:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(11, 'ORD-RV003', 22, 1, 6, 10, '4 Sakura Ln, P. 9, Q. Ph� Nhu?n, TP. H? Ch� Minh', 10.7990000, 106.6791000, 10.7765000, 106.7010000, 3.10, 300000, 62000, 0, 362000, 49600, 255000, 57400, 'delivered', 'paid', 'cod', NULL, NULL, '2026-05-07 21:42:10', '2026-05-07 21:42:10', '2026-05-07 21:42:10', '2026-05-07 21:42:10', '2026-05-07 21:42:10', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `order_items`
+-- C?u tr�c b?ng cho b?ng `order_items`
 --
 
 CREATE TABLE `order_items` (
@@ -492,14 +492,14 @@ CREATE TABLE `order_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `order_items`
+-- �ang �? d? li?u cho b?ng `order_items`
 --
 
 INSERT INTO `order_items` (`id`, `order_id`, `menu_item_id`, `item_name_snapshot`, `unit_price_snapshot`, `quantity`, `line_subtotal`, `note`, `created_at`) VALUES
 (1, 1, 18, 'Tonkotsu Ramen', 400000, 1, 400000, NULL, '2026-05-21 21:42:10'),
-(2, 1, 20, 'Gyoza (6 miếng)', 188000, 1, 188000, NULL, '2026-05-21 21:42:10'),
-(3, 2, 6, 'Cổ điển', 288000, 2, 576000, NULL, '2026-05-21 21:42:10'),
-(4, 2, 9, 'Khoai tây chiên', 113000, 1, 113000, NULL, '2026-05-21 21:42:10'),
+(2, 1, 20, 'Gyoza (6 mi?ng)', 188000, 1, 188000, NULL, '2026-05-21 21:42:10'),
+(3, 2, 6, 'C? �i?n', 288000, 2, 576000, NULL, '2026-05-21 21:42:10'),
+(4, 2, 9, 'Khoai t�y chi�n', 113000, 1, 113000, NULL, '2026-05-21 21:42:10'),
 (5, 3, 1, 'Margherita', 338000, 1, 338000, NULL, '2026-05-21 21:42:10'),
 (6, 3, 4, 'Burrata Salad', 300000, 1, 300000, NULL, '2026-05-21 21:42:10'),
 (7, 4, 2, 'Funghi', 400000, 2, 800000, NULL, '2026-05-21 21:42:10'),
@@ -508,7 +508,7 @@ INSERT INTO `order_items` (`id`, `order_id`, `menu_item_id`, `item_name_snapshot
 (10, 6, 1, 'Margherita', 338000, 1, 338000, NULL, '2026-05-21 21:42:10'),
 (11, 6, 5, 'Tiramisu', 188000, 1, 188000, NULL, '2026-05-21 21:42:10'),
 (12, 7, 2, 'Funghi', 400000, 1, 400000, NULL, '2026-05-21 21:42:10'),
-(13, 8, 1, 'Margherita', 338000, 3, 1014000, 'Đế không gluten', '2026-05-21 21:42:10'),
+(13, 8, 1, 'Margherita', 338000, 3, 1014000, '�? kh�ng gluten', '2026-05-21 21:42:10'),
 (14, 9, 3, 'Salsiccia', 438000, 1, 438000, NULL, '2026-05-21 21:42:10'),
 (15, 10, 1, 'Margherita', 338000, 1, 338000, NULL, '2026-05-21 21:42:10'),
 (16, 11, 4, 'Burrata Salad', 300000, 1, 300000, NULL, '2026-05-21 21:42:10');
@@ -516,7 +516,7 @@ INSERT INTO `order_items` (`id`, `order_id`, `menu_item_id`, `item_name_snapshot
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `order_status_logs`
+-- C?u tr�c b?ng cho b?ng `order_status_logs`
 --
 
 CREATE TABLE `order_status_logs` (
@@ -531,20 +531,20 @@ CREATE TABLE `order_status_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `order_status_logs`
+-- �ang �? d? li?u cho b?ng `order_status_logs`
 --
 
 INSERT INTO `order_status_logs` (`id`, `order_id`, `from_status`, `to_status`, `changed_by_role`, `changed_by_user_id`, `note`, `created_at`) VALUES
-(1, 1, NULL, 'pending_payment', 'customer', 2, 'Khách tạo đơn', '2026-05-21 21:42:10'),
-(2, 1, 'pending_payment', 'placed', 'system', NULL, 'VNPay xác nhận thanh toán', '2026-05-21 21:42:10'),
-(3, 1, 'placed', 'accepted', 'merchant', 11, 'Hachi Ramen xác nhận đơn', '2026-05-21 21:42:10'),
-(4, 1, 'accepted', 'preparing', 'merchant', 11, 'Bắt đầu nấu', '2026-05-21 21:42:10'),
-(5, 1, 'preparing', 'ready_for_pickup', 'merchant', 11, 'Sẵn sàng cho tài xế lấy', '2026-05-21 21:42:10'),
-(6, 1, 'ready_for_pickup', 'picked_up', 'driver', 3, 'Owen đã lấy hàng', '2026-05-21 21:42:10'),
-(7, 1, 'picked_up', 'delivering', 'driver', 3, 'Đang giao đến khách', '2026-05-21 21:42:10'),
+(1, 1, NULL, 'pending_payment', 'customer', 2, 'Kh�ch t?o ��n', '2026-05-21 21:42:10'),
+(2, 1, 'pending_payment', 'placed', 'system', NULL, 'VNPay x�c nh?n thanh to�n', '2026-05-21 21:42:10'),
+(3, 1, 'placed', 'accepted', 'merchant', 11, 'Hachi Ramen x�c nh?n ��n', '2026-05-21 21:42:10'),
+(4, 1, 'accepted', 'preparing', 'merchant', 11, 'B?t �?u n?u', '2026-05-21 21:42:10'),
+(5, 1, 'preparing', 'ready_for_pickup', 'merchant', 11, 'S?n s�ng cho t�i x? l?y', '2026-05-21 21:42:10'),
+(6, 1, 'ready_for_pickup', 'picked_up', 'driver', 3, 'Owen �? l?y h�ng', '2026-05-21 21:42:10'),
+(7, 1, 'picked_up', 'delivering', 'driver', 3, '�ang giao �?n kh�ch', '2026-05-21 21:42:10'),
 (8, 2, 'preparing', 'delivered', 'driver', 3, NULL, '2026-05-21 21:42:10'),
-(9, 3, 'pending_payment', 'placed', 'system', NULL, 'VNPay xác nhận', '2026-05-21 21:42:10'),
-(10, 4, 'pending_payment', 'placed', 'system', NULL, 'VNPay xác nhận', '2026-05-21 21:42:10'),
+(9, 3, 'pending_payment', 'placed', 'system', NULL, 'VNPay x�c nh?n', '2026-05-21 21:42:10'),
+(10, 4, 'pending_payment', 'placed', 'system', NULL, 'VNPay x�c nh?n', '2026-05-21 21:42:10'),
 (11, 5, 'placed', 'accepted', 'merchant', 7, NULL, '2026-05-21 21:42:10'),
 (12, 5, 'accepted', 'preparing', 'merchant', 7, NULL, '2026-05-21 21:42:10'),
 (13, 6, 'preparing', 'ready_for_pickup', 'merchant', 7, NULL, '2026-05-21 21:42:10');
@@ -552,7 +552,7 @@ INSERT INTO `order_status_logs` (`id`, `order_id`, `from_status`, `to_status`, `
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `otp_codes`
+-- C?u tr�c b?ng cho b?ng `otp_codes`
 --
 
 CREATE TABLE `otp_codes` (
@@ -571,7 +571,7 @@ CREATE TABLE `otp_codes` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `payments`
+-- C?u tr�c b?ng cho b?ng `payments`
 --
 
 CREATE TABLE `payments` (
@@ -591,7 +591,7 @@ CREATE TABLE `payments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `payments`
+-- �ang �? d? li?u cho b?ng `payments`
 --
 
 INSERT INTO `payments` (`id`, `order_id`, `method`, `amount`, `currency`, `gateway`, `gateway_txn_id`, `status`, `failure_reason`, `paid_at`, `raw_response`, `created_at`, `updated_at`) VALUES
@@ -610,7 +610,7 @@ INSERT INTO `payments` (`id`, `order_id`, `method`, `amount`, `currency`, `gatew
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `payout_requests`
+-- C?u tr�c b?ng cho b?ng `payout_requests`
 --
 
 CREATE TABLE `payout_requests` (
@@ -631,7 +631,7 @@ CREATE TABLE `payout_requests` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `payout_requests`
+-- �ang �? d? li?u cho b?ng `payout_requests`
 --
 
 INSERT INTO `payout_requests` (`id`, `wallet_id`, `user_id`, `amount`, `bank_account_no`, `bank_name`, `bank_account_holder`, `status`, `reviewed_by_admin_id`, `reviewed_at`, `reject_reason`, `external_ref`, `requested_at`, `completed_at`) VALUES
@@ -639,12 +639,12 @@ INSERT INTO `payout_requests` (`id`, `wallet_id`, `user_id`, `amount`, `bank_acc
 (2, 5, 8, 1500000, '060011223344', 'BIDV', 'JUNEBUG BURGERS', 'pending', NULL, NULL, NULL, NULL, '2026-05-21 15:42:10', NULL),
 (3, 2, 4, 1200000, '060034882001', 'Vietcombank', 'IRIS MENDEZ', 'completed', 1, '2026-05-20 21:42:10', NULL, 'VCB20260520-9911', '2026-05-19 21:42:10', '2026-05-20 21:42:10'),
 (4, 4, 7, 2000000, '037000118822', 'Vietcombank', 'MARCO BELLO', 'completed', 1, '2026-05-17 21:42:10', NULL, 'VCB20260518-7723', '2026-05-16 21:42:10', '2026-05-17 21:42:10'),
-(5, 3, 6, 350000, '1119876543', 'BIDV', 'SASHA PARK', 'rejected', 1, '2026-05-18 21:42:10', 'Số tài khoản không khớp với chủ tài khoản đăng ký.', NULL, '2026-05-18 21:42:10', NULL);
+(5, 3, 6, 350000, '1119876543', 'BIDV', 'SASHA PARK', 'rejected', 1, '2026-05-18 21:42:10', 'S? t�i kho?n kh�ng kh?p v?i ch? t�i kho?n ��ng k?.', NULL, '2026-05-18 21:42:10', NULL);
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `platform_config`
+-- C?u tr�c b?ng cho b?ng `platform_config`
 --
 
 CREATE TABLE `platform_config` (
@@ -657,20 +657,19 @@ CREATE TABLE `platform_config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `platform_config`
+-- �ang �? d? li?u cho b?ng `platform_config`
 --
 
 INSERT INTO `platform_config` (`config_key`, `config_value`, `data_type`, `description`, `updated_by_admin_id`, `updated_at`) VALUES
-('default_commission_rate', '15', 'decimal', 'Hoa hồng nền tảng (%) mặc định cho nhà hàng', NULL, '2026-05-21 21:42:10'),
-('default_driver_share', '80', 'decimal', '% phí giao hàng tài xế nhận được', NULL, '2026-05-21 21:42:10'),
-('max_search_radius_km', '8', 'decimal', 'Bán kính tìm kiếm tối đa (km)', NULL, '2026-05-21 21:42:10'),
-('min_payout_amount', '100000', 'int', 'Số tiền tối thiểu mỗi lần rút (VND)', NULL, '2026-05-21 21:42:10'),
-('order_auto_cancel_minutes', '5', 'int', 'Số phút huỷ tự động nếu nhà hàng không xác nhận', NULL, '2026-05-21 21:42:10');
+('default_commission_rate', '15', 'decimal', 'Hoa h?ng n?n t?ng (%) m?c �?nh cho nh� h�ng', NULL, '2026-05-21 21:42:10'),
+('max_search_radius_km', '8', 'decimal', 'B�n k�nh t?m ki?m t?i �a (km)', NULL, '2026-05-21 21:42:10'),
+('min_payout_amount', '100000', 'int', 'S? ti?n t?i thi?u m?i l?n r�t (VND)', NULL, '2026-05-21 21:42:10'),
+('order_auto_cancel_minutes', '5', 'int', 'S? ph�t hu? t? �?ng n?u nh� h�ng kh�ng x�c nh?n', NULL, '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `refresh_tokens`
+-- C?u tr�c b?ng cho b?ng `refresh_tokens`
 --
 
 CREATE TABLE `refresh_tokens` (
@@ -687,7 +686,7 @@ CREATE TABLE `refresh_tokens` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `registration_pending`
+-- C?u tr�c b?ng cho b?ng `registration_pending`
 --
 
 CREATE TABLE `registration_pending` (
@@ -702,7 +701,7 @@ CREATE TABLE `registration_pending` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `restaurants`
+-- C?u tr�c b?ng cho b?ng `restaurants`
 --
 
 CREATE TABLE `restaurants` (
@@ -724,7 +723,6 @@ CREATE TABLE `restaurants` (
   `city` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
   `latitude` decimal(10,7) DEFAULT NULL,
   `longitude` decimal(10,7) DEFAULT NULL,
-  `base_delivery_fee` bigint UNSIGNED NOT NULL DEFAULT '0',
   `min_order_amount` bigint UNSIGNED NOT NULL DEFAULT '0',
   `avg_prep_time_min` smallint UNSIGNED NOT NULL DEFAULT '20',
   `rating_avg` decimal(3,2) NOT NULL DEFAULT '0.00',
@@ -743,23 +741,23 @@ CREATE TABLE `restaurants` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `restaurants`
+-- �ang �? d? li?u cho b?ng `restaurants`
 --
 
-INSERT INTO `restaurants` (`id`, `owner_user_id`, `cuisine_id`, `name`, `slug`, `tagline`, `description`, `phone`, `banner_url`, `logo_url`, `business_license_url`, `food_safety_cert_url`, `address_line`, `ward`, `district`, `city`, `latitude`, `longitude`, `base_delivery_fee`, `min_order_amount`, `avg_prep_time_min`, `rating_avg`, `review_count`, `commission_rate`, `is_open_now`, `status`, `approved_at`, `approved_by_admin_id`, `rejection_reason`, `created_at`, `updated_at`) VALUES
-(1, 7, 1, 'Cinque Pizzeria', 'cinque-pizzeria', 'Pizza nướng lò củi kiểu Neapolitan từ năm 2017.', 'Pizza Neapolitan, đế nướng cháy cạnh, nguyên liệu nhập từ Ý.', '+84281234001', 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Cinque&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Cinque', 'https://placehold.co/600x400?text=VSATTP+Cinque', '12 Linden Ave', 'P. Bến Nghé', 'Q.1', 'TP. Hồ Chí Minh', 10.7765000, 106.7010000, 62000, 80000, 25, 4.80, 1240, 15.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(2, 8, 2, 'Junebug Burgers', 'junebug-burgers', 'Thịt bò đập dập trên bánh mì khoai tây.', 'Smash burger, sốt đặc trưng, mở đến nửa đêm.', '+84281234002', 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Junebug&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Junebug', 'https://placehold.co/600x400?text=VSATTP+Junebug', '88 Holloway St', 'P. Bến Thành', 'Q.1', 'TP. Hồ Chí Minh', 10.7710000, 106.6985000, 50000, 60000, 20, 4.70, 982, 15.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(3, 9, 3, 'Kaiseki & Co.', 'kaiseki-and-co', 'Omakase, phong cách edomae.', 'Sushi omakase cao cấp, cá nhập trực tiếp từ chợ Toyosu.', '+84281234003', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Kaiseki&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Kaiseki', 'https://placehold.co/600x400?text=VSATTP+Kaiseki', '4 Sakura Ln', 'P. 9', 'Q. Phú Nhuận', 'TP. Hồ Chí Minh', 10.7995000, 106.6790000, 100000, 200000, 35, 4.90, 654, 18.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(4, 10, 4, 'Verdant Bowls', 'verdant-bowls', 'Tô ngũ cốc theo mùa.', 'Tô trộn theo mùa, nguyên liệu hữu cơ tại địa phương.', '+84281234004', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Verdant&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Verdant', NULL, '15 Greenpoint Ave', 'P. Tân Phong', 'Q.7', 'TP. Hồ Chí Minh', 10.7305000, 106.7218000, 50000, 60000, 18, 4.60, 432, 15.00, 0, 'pending', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(5, 11, 3, 'Hachi Ramen', 'hachi-ramen', 'Nước dùng xương heo ninh trong 14 giờ.', 'Ramen tonkotsu chuẩn vị Hakata, không hương liệu nhân tạo.', '+84281234005', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Hachi&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Hachi', 'https://placehold.co/600x400?text=VSATTP+Hachi', '101 Mott St', 'P. Phạm Ngũ Lão', 'Q.1', 'TP. Hồ Chí Minh', 10.7680000, 106.6920000, 62000, 80000, 22, 4.70, 1102, 15.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(6, 12, 5, 'La Carreta', 'la-carreta', 'Tacos al pastor, phục vụ cả ngày.', 'Tacos & burritos kiểu Mexico City, cay nhẹ tới cay đậm.', '+84281234006', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=LaCarreta&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+LaCarreta', 'https://placehold.co/600x400?text=VSATTP+LaCarreta', '209 Avenue B', 'P. 12', 'Q. Tân Bình', 'TP. Hồ Chí Minh', 10.8004000, 106.6437000, 37000, 50000, 20, 4.50, 765, 16.00, 0, 'suspended', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(7, 13, 6, 'Buena Onda Cafe', 'buena-onda-cafe', 'Cà phê, bánh ngọt, buổi sáng thư thái.', 'Cà phê specialty, bánh ngọt nướng trong ngày.', '+84281234007', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Buena&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Buena', 'https://placehold.co/600x400?text=VSATTP+Buena', '24 Bedford Ave', 'P. 17', 'Q. Bình Thạnh', 'TP. Hồ Chí Minh', 10.8055000, 106.7068000, 37000, 40000, 15, 4.80, 510, 12.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(8, 14, 7, 'Dough & Donut', 'dough-and-donut', 'Bánh donut men phủ đường.', 'Donut men ủ qua đêm, phủ đường thủ công.', '+84281234008', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Dough&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Dough', 'https://placehold.co/600x400?text=VSATTP+Dough', '6 Smith St', 'P. Tân Định', 'Q.1', 'TP. Hồ Chí Minh', 10.7896000, 106.6907000, 37000, 40000, 15, 4.60, 322, 12.00, 0, 'closed', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10');
+INSERT INTO `restaurants` (`id`, `owner_user_id`, `cuisine_id`, `name`, `slug`, `tagline`, `description`, `phone`, `banner_url`, `logo_url`, `business_license_url`, `food_safety_cert_url`, `address_line`, `ward`, `district`, `city`, `latitude`, `longitude`, `min_order_amount`, `avg_prep_time_min`, `rating_avg`, `review_count`, `commission_rate`, `is_open_now`, `status`, `approved_at`, `approved_by_admin_id`, `rejection_reason`, `created_at`, `updated_at`) VALUES
+(1, 7, 1, 'Cinque Pizzeria', 'cinque-pizzeria', 'Pizza n�?ng l? c?i ki?u Neapolitan t? n�m 2017.', 'Pizza Neapolitan, �? n�?ng ch�y c?nh, nguy�n li?u nh?p t? ?.', '+84281234001', 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Cinque&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Cinque', 'https://placehold.co/600x400?text=VSATTP+Cinque', '12 Linden Ave', 'P. B?n Ngh�', 'Q.1', 'TP. H? Ch� Minh', 10.7765000, 106.7010000, 80000, 25, 4.80, 1240, 15.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(2, 8, 2, 'Junebug Burgers', 'junebug-burgers', 'Th?t b? �?p d?p tr�n b�nh m? khoai t�y.', 'Smash burger, s?t �?c tr�ng, m? �?n n?a ��m.', '+84281234002', 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Junebug&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Junebug', 'https://placehold.co/600x400?text=VSATTP+Junebug', '88 Holloway St', 'P. B?n Th�nh', 'Q.1', 'TP. H? Ch� Minh', 10.7710000, 106.6985000, 60000, 20, 4.70, 982, 15.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(3, 9, 3, 'Kaiseki & Co.', 'kaiseki-and-co', 'Omakase, phong c�ch edomae.', 'Sushi omakase cao c?p, c� nh?p tr?c ti?p t? ch? Toyosu.', '+84281234003', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Kaiseki&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Kaiseki', 'https://placehold.co/600x400?text=VSATTP+Kaiseki', '4 Sakura Ln', 'P. 9', 'Q. Ph� Nhu?n', 'TP. H? Ch� Minh', 10.7995000, 106.6790000, 200000, 35, 4.90, 654, 18.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(4, 10, 4, 'Verdant Bowls', 'verdant-bowls', 'T� ng? c?c theo m�a.', 'T� tr?n theo m�a, nguy�n li?u h?u c� t?i �?a ph��ng.', '+84281234004', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Verdant&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Verdant', NULL, '15 Greenpoint Ave', 'P. T�n Phong', 'Q.7', 'TP. H? Ch� Minh', 10.7305000, 106.7218000, 60000, 18, 4.60, 432, 15.00, 0, 'pending', NULL, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(5, 11, 3, 'Hachi Ramen', 'hachi-ramen', 'N�?c d�ng x��ng heo ninh trong 14 gi?.', 'Ramen tonkotsu chu?n v? Hakata, kh�ng h��ng li?u nh�n t?o.', '+84281234005', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Hachi&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Hachi', 'https://placehold.co/600x400?text=VSATTP+Hachi', '101 Mott St', 'P. Ph?m Ng? L?o', 'Q.1', 'TP. H? Ch� Minh', 10.7680000, 106.6920000, 80000, 22, 4.70, 1102, 15.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(6, 12, 5, 'La Carreta', 'la-carreta', 'Tacos al pastor, ph?c v? c? ng�y.', 'Tacos & burritos ki?u Mexico City, cay nh? t?i cay �?m.', '+84281234006', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=LaCarreta&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+LaCarreta', 'https://placehold.co/600x400?text=VSATTP+LaCarreta', '209 Avenue B', 'P. 12', 'Q. T�n B?nh', 'TP. H? Ch� Minh', 10.8004000, 106.6437000, 50000, 20, 4.50, 765, 16.00, 0, 'suspended', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(7, 13, 6, 'Buena Onda Cafe', 'buena-onda-cafe', 'C� ph�, b�nh ng?t, bu?i s�ng th� th�i.', 'C� ph� specialty, b�nh ng?t n�?ng trong ng�y.', '+84281234007', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Buena&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Buena', 'https://placehold.co/600x400?text=VSATTP+Buena', '24 Bedford Ave', 'P. 17', 'Q. B?nh Th?nh', 'TP. H? Ch� Minh', 10.8055000, 106.7068000, 40000, 15, 4.80, 510, 12.00, 1, 'active', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(8, 14, 7, 'Dough & Donut', 'dough-and-donut', 'B�nh donut men ph? ��?ng.', 'Donut men ? qua ��m, ph? ��?ng th? c�ng.', '+84281234008', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=1400&q=80', 'https://api.dicebear.com/9.x/shapes/svg?seed=Dough&backgroundColor=171717&shape1Color=ffffff&shape2Color=cfe7ff&shape3Color=a8c8e8', 'https://placehold.co/600x400?text=License+Dough', 'https://placehold.co/600x400?text=VSATTP+Dough', '6 Smith St', 'P. T�n �?nh', 'Q.1', 'TP. H? Ch� Minh', 10.7896000, 106.6907000, 40000, 15, 4.60, 322, 12.00, 0, 'closed', '2026-05-21 21:42:10', 1, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `reviews`
+-- C?u tr�c b?ng cho b?ng `reviews`
 --
 
 CREATE TABLE `reviews` (
@@ -777,18 +775,18 @@ CREATE TABLE `reviews` (
 ) ;
 
 --
--- Đang đổ dữ liệu cho bảng `reviews`
+-- �ang �? d? li?u cho b?ng `reviews`
 --
 
 INSERT INTO `reviews` (`id`, `order_id`, `customer_id`, `restaurant_id`, `rating`, `comment`, `is_hidden`, `reply_text`, `reply_at`, `created_at`, `updated_at`) VALUES
-(1, 9, 20, 1, 5, 'Đế bánh được nướng cháy cạnh hoàn hảo. Salsiccia là chiếc pizza ngon nhất tôi từng ăn trong năm nay.', 0, 'Cảm ơn bạn rất nhiều — hẹn gặp lại nhé!', '2026-05-19 21:42:10', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(2, 10, 21, 1, 4, 'Giao hàng hơi chậm một chút nhưng đồ ăn đã bù đắp lại tất cả.', 0, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(3, 11, 22, 1, 5, 'Salad Burrata thật tuyệt vời. Sẽ đặt lại vào tuần tới.', 0, 'Cảm ơn Sky! Sẽ chuẩn bị thêm burrata tươi cho lần sau.', '2026-05-08 21:42:10', '2026-05-21 21:42:10', '2026-05-21 21:42:10');
+(1, 9, 20, 1, 5, '�? b�nh ��?c n�?ng ch�y c?nh ho�n h?o. Salsiccia l� chi?c pizza ngon nh?t t�i t?ng �n trong n�m nay.', 0, 'C?m �n b?n r?t nhi?u � h?n g?p l?i nh�!', '2026-05-19 21:42:10', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(2, 10, 21, 1, 4, 'Giao h�ng h�i ch?m m?t ch�t nh�ng �? �n �? b� �?p l?i t?t c?.', 0, NULL, NULL, '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(3, 11, 22, 1, 5, 'Salad Burrata th?t tuy?t v?i. S? �?t l?i v�o tu?n t?i.', 0, 'C?m �n Sky! S? chu?n b? th�m burrata t��i cho l?n sau.', '2026-05-08 21:42:10', '2026-05-21 21:42:10', '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `users`
+-- C?u tr�c b?ng cho b?ng `users`
 --
 
 CREATE TABLE `users` (
@@ -810,7 +808,7 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `users`
+-- �ang �? d? li?u cho b?ng `users`
 --
 
 INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `full_name`, `avatar_url`, `primary_role`, `status`, `email_verified_at`, `phone_verified_at`, `last_login_at`, `created_at`, `updated_at`, `suspension_expires_at`) VALUES
@@ -843,7 +841,7 @@ INSERT INTO `users` (`id`, `email`, `phone`, `password_hash`, `full_name`, `avat
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `user_roles`
+-- C?u tr�c b?ng cho b?ng `user_roles`
 --
 
 CREATE TABLE `user_roles` (
@@ -853,7 +851,7 @@ CREATE TABLE `user_roles` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `user_roles`
+-- �ang �? d? li?u cho b?ng `user_roles`
 --
 
 INSERT INTO `user_roles` (`user_id`, `role`, `granted_at`) VALUES
@@ -891,7 +889,7 @@ INSERT INTO `user_roles` (`user_id`, `role`, `granted_at`) VALUES
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `wallets`
+-- C?u tr�c b?ng cho b?ng `wallets`
 --
 
 CREATE TABLE `wallets` (
@@ -908,7 +906,7 @@ CREATE TABLE `wallets` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `wallets`
+-- �ang �? d? li?u cho b?ng `wallets`
 --
 
 INSERT INTO `wallets` (`id`, `user_id`, `owner_type`, `balance`, `pending_balance`, `total_earned`, `total_withdrawn`, `is_locked`, `created_at`, `updated_at`) VALUES
@@ -924,7 +922,7 @@ INSERT INTO `wallets` (`id`, `user_id`, `owner_type`, `balance`, `pending_balanc
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `wallet_transactions`
+-- C?u tr�c b?ng cho b?ng `wallet_transactions`
 --
 
 CREATE TABLE `wallet_transactions` (
@@ -942,28 +940,28 @@ CREATE TABLE `wallet_transactions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `wallet_transactions`
+-- �ang �? d? li?u cho b?ng `wallet_transactions`
 --
 
 INSERT INTO `wallet_transactions` (`id`, `wallet_id`, `direction`, `amount`, `balance_after`, `tx_type`, `reference_type`, `reference_id`, `description`, `performed_by_user_id`, `created_at`) VALUES
-(1, 4, 'credit', 340000, 340000, 'order_earning', 'order', 7, 'Doanh thu đơn ORD-P9X22', NULL, '2026-05-21 21:42:10'),
-(2, 4, 'credit', 861900, 1201900, 'order_earning', 'order', 8, 'Doanh thu đơn ORD-J11HQ', NULL, '2026-05-21 21:42:10'),
-(3, 4, 'credit', 372300, 1574200, 'order_earning', 'order', 9, 'Doanh thu đơn ORD-RV001', NULL, '2026-05-21 21:42:10'),
-(4, 4, 'credit', 287300, 1861500, 'order_earning', 'order', 10, 'Doanh thu đơn ORD-RV002', NULL, '2026-05-21 21:42:10'),
-(5, 4, 'credit', 255000, 2116500, 'order_earning', 'order', 11, 'Doanh thu đơn ORD-RV003', NULL, '2026-05-21 21:42:10'),
-(6, 4, 'debit', 616500, 1500000, 'withdrawal', 'payout', 4, 'Rút tiền PYT-004 đã hoàn tất', 1, '2026-05-21 21:42:10'),
-(7, 1, 'credit', 40000, 40000, 'order_earning', 'order', 2, 'Tiền chuyến ORD-Q3K9P', NULL, '2026-05-21 21:42:10'),
-(8, 1, 'credit', 49600, 89600, 'order_earning', 'order', 9, 'Tiền chuyến ORD-RV001', NULL, '2026-05-21 21:42:10'),
-(9, 2, 'credit', 49600, 850000, 'order_earning', 'order', 7, 'Tiền chuyến ORD-P9X22 (COD)', NULL, '2026-05-21 21:42:10'),
-(10, 2, 'debit', 462000, 388000, 'order_payment', 'order', 7, 'COD: tài xế thu hộ — sẽ đối soát', NULL, '2026-05-21 21:42:10'),
-(11, 2, 'credit', 462000, 850000, 'adjustment', 'manual', NULL, 'Nộp lại tiền COD vào cuối ca', 1, '2026-05-21 21:42:10');
+(1, 4, 'credit', 340000, 340000, 'order_earning', 'order', 7, 'Doanh thu ��n ORD-P9X22', NULL, '2026-05-21 21:42:10'),
+(2, 4, 'credit', 861900, 1201900, 'order_earning', 'order', 8, 'Doanh thu ��n ORD-J11HQ', NULL, '2026-05-21 21:42:10'),
+(3, 4, 'credit', 372300, 1574200, 'order_earning', 'order', 9, 'Doanh thu ��n ORD-RV001', NULL, '2026-05-21 21:42:10'),
+(4, 4, 'credit', 287300, 1861500, 'order_earning', 'order', 10, 'Doanh thu ��n ORD-RV002', NULL, '2026-05-21 21:42:10'),
+(5, 4, 'credit', 255000, 2116500, 'order_earning', 'order', 11, 'Doanh thu ��n ORD-RV003', NULL, '2026-05-21 21:42:10'),
+(6, 4, 'debit', 616500, 1500000, 'withdrawal', 'payout', 4, 'R�t ti?n PYT-004 �? ho�n t?t', 1, '2026-05-21 21:42:10'),
+(7, 1, 'credit', 40000, 40000, 'order_earning', 'order', 2, 'Ti?n chuy?n ORD-Q3K9P', NULL, '2026-05-21 21:42:10'),
+(8, 1, 'credit', 49600, 89600, 'order_earning', 'order', 9, 'Ti?n chuy?n ORD-RV001', NULL, '2026-05-21 21:42:10'),
+(9, 2, 'credit', 49600, 850000, 'order_earning', 'order', 7, 'Ti?n chuy?n ORD-P9X22 (COD)', NULL, '2026-05-21 21:42:10'),
+(10, 2, 'debit', 462000, 388000, 'order_payment', 'order', 7, 'COD: t�i x? thu h? � s? �?i so�t', NULL, '2026-05-21 21:42:10'),
+(11, 2, 'credit', 462000, 850000, 'adjustment', 'manual', NULL, 'N?p l?i ti?n COD v�o cu?i ca', 1, '2026-05-21 21:42:10');
 
 --
--- Chỉ mục cho các bảng đã đổ
+-- Ch? m?c cho c�c b?ng �? �?
 --
 
 --
--- Chỉ mục cho bảng `carts`
+-- Ch? m?c cho b?ng `carts`
 --
 ALTER TABLE `carts`
   ADD PRIMARY KEY (`id`),
@@ -971,7 +969,7 @@ ALTER TABLE `carts`
   ADD KEY `fk_cart_rest` (`restaurant_id`);
 
 --
--- Chỉ mục cho bảng `cart_items`
+-- Ch? m?c cho b?ng `cart_items`
 --
 ALTER TABLE `cart_items`
   ADD PRIMARY KEY (`id`),
@@ -979,7 +977,7 @@ ALTER TABLE `cart_items`
   ADD KEY `fk_ci_item` (`menu_item_id`);
 
 --
--- Chỉ mục cho bảng `cuisines`
+-- Ch? m?c cho b?ng `cuisines`
 --
 ALTER TABLE `cuisines`
   ADD PRIMARY KEY (`id`),
@@ -987,21 +985,21 @@ ALTER TABLE `cuisines`
   ADD UNIQUE KEY `slug` (`slug`);
 
 --
--- Chỉ mục cho bảng `customer_addresses`
+-- Ch? m?c cho b?ng `customer_addresses`
 --
 ALTER TABLE `customer_addresses`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_addr_customer` (`customer_id`);
 
 --
--- Chỉ mục cho bảng `customer_profiles`
+-- Ch? m?c cho b?ng `customer_profiles`
 --
 ALTER TABLE `customer_profiles`
   ADD PRIMARY KEY (`user_id`),
   ADD KEY `fk_cust_default_addr` (`default_address_id`);
 
 --
--- Chỉ mục cho bảng `driver_assignments`
+-- Ch? m?c cho b?ng `driver_assignments`
 --
 ALTER TABLE `driver_assignments`
   ADD PRIMARY KEY (`id`),
@@ -1009,7 +1007,7 @@ ALTER TABLE `driver_assignments`
   ADD KEY `idx_da_driver` (`driver_id`,`status`);
 
 --
--- Chỉ mục cho bảng `driver_profiles`
+-- Ch? m?c cho b?ng `driver_profiles`
 --
 ALTER TABLE `driver_profiles`
   ADD PRIMARY KEY (`user_id`),
@@ -1019,21 +1017,21 @@ ALTER TABLE `driver_profiles`
   ADD KEY `fk_drv_approver` (`approved_by_admin_id`);
 
 --
--- Chỉ mục cho bảng `home_promo_banners`
+-- Ch? m?c cho b?ng `home_promo_banners`
 --
 ALTER TABLE `home_promo_banners`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_hpb_sort` (`sort_order`);
 
 --
--- Chỉ mục cho bảng `menu_categories`
+-- Ch? m?c cho b?ng `menu_categories`
 --
 ALTER TABLE `menu_categories`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_mcat_rest` (`restaurant_id`);
 
 --
--- Chỉ mục cho bảng `menu_items`
+-- Ch? m?c cho b?ng `menu_items`
 --
 ALTER TABLE `menu_items`
   ADD PRIMARY KEY (`id`),
@@ -1042,14 +1040,14 @@ ALTER TABLE `menu_items`
   ADD KEY `idx_item_status` (`status`);
 
 --
--- Chỉ mục cho bảng `notifications`
+-- Ch? m?c cho b?ng `notifications`
 --
 ALTER TABLE `notifications`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_notif_user` (`user_id`,`is_read`,`created_at`);
 
 --
--- Chỉ mục cho bảng `orders`
+-- Ch? m?c cho b?ng `orders`
 --
 ALTER TABLE `orders`
   ADD PRIMARY KEY (`id`),
@@ -1061,7 +1059,7 @@ ALTER TABLE `orders`
   ADD KEY `fk_ord_address` (`delivery_address_id`);
 
 --
--- Chỉ mục cho bảng `order_items`
+-- Ch? m?c cho b?ng `order_items`
 --
 ALTER TABLE `order_items`
   ADD PRIMARY KEY (`id`),
@@ -1069,7 +1067,7 @@ ALTER TABLE `order_items`
   ADD KEY `fk_oi_item` (`menu_item_id`);
 
 --
--- Chỉ mục cho bảng `order_status_logs`
+-- Ch? m?c cho b?ng `order_status_logs`
 --
 ALTER TABLE `order_status_logs`
   ADD PRIMARY KEY (`id`),
@@ -1077,7 +1075,7 @@ ALTER TABLE `order_status_logs`
   ADD KEY `fk_osl_user` (`changed_by_user_id`);
 
 --
--- Chỉ mục cho bảng `otp_codes`
+-- Ch? m?c cho b?ng `otp_codes`
 --
 ALTER TABLE `otp_codes`
   ADD PRIMARY KEY (`id`),
@@ -1085,7 +1083,7 @@ ALTER TABLE `otp_codes`
   ADD KEY `fk_otp_user` (`user_id`);
 
 --
--- Chỉ mục cho bảng `payments`
+-- Ch? m?c cho b?ng `payments`
 --
 ALTER TABLE `payments`
   ADD PRIMARY KEY (`id`),
@@ -1093,7 +1091,7 @@ ALTER TABLE `payments`
   ADD KEY `idx_pay_status` (`status`);
 
 --
--- Chỉ mục cho bảng `payout_requests`
+-- Ch? m?c cho b?ng `payout_requests`
 --
 ALTER TABLE `payout_requests`
   ADD PRIMARY KEY (`id`),
@@ -1103,14 +1101,14 @@ ALTER TABLE `payout_requests`
   ADD KEY `fk_payout_admin` (`reviewed_by_admin_id`);
 
 --
--- Chỉ mục cho bảng `platform_config`
+-- Ch? m?c cho b?ng `platform_config`
 --
 ALTER TABLE `platform_config`
   ADD PRIMARY KEY (`config_key`),
   ADD KEY `fk_cfg_admin` (`updated_by_admin_id`);
 
 --
--- Chỉ mục cho bảng `refresh_tokens`
+-- Ch? m?c cho b?ng `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
   ADD PRIMARY KEY (`id`),
@@ -1118,13 +1116,13 @@ ALTER TABLE `refresh_tokens`
   ADD KEY `idx_refresh_user` (`user_id`);
 
 --
--- Chỉ mục cho bảng `registration_pending`
+-- Ch? m?c cho b?ng `registration_pending`
 --
 ALTER TABLE `registration_pending`
   ADD PRIMARY KEY (`email`);
 
 --
--- Chỉ mục cho bảng `restaurants`
+-- Ch? m?c cho b?ng `restaurants`
 --
 ALTER TABLE `restaurants`
   ADD PRIMARY KEY (`id`),
@@ -1136,7 +1134,7 @@ ALTER TABLE `restaurants`
   ADD KEY `fk_rest_approver` (`approved_by_admin_id`);
 
 --
--- Chỉ mục cho bảng `reviews`
+-- Ch? m?c cho b?ng `reviews`
 --
 ALTER TABLE `reviews`
   ADD PRIMARY KEY (`id`),
@@ -1145,7 +1143,7 @@ ALTER TABLE `reviews`
   ADD KEY `idx_rev_cust` (`customer_id`);
 
 --
--- Chỉ mục cho bảng `users`
+-- Ch? m?c cho b?ng `users`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
@@ -1155,20 +1153,20 @@ ALTER TABLE `users`
   ADD KEY `idx_users_status` (`status`);
 
 --
--- Chỉ mục cho bảng `user_roles`
+-- Ch? m?c cho b?ng `user_roles`
 --
 ALTER TABLE `user_roles`
   ADD PRIMARY KEY (`user_id`,`role`);
 
 --
--- Chỉ mục cho bảng `wallets`
+-- Ch? m?c cho b?ng `wallets`
 --
 ALTER TABLE `wallets`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_wallet_owner` (`user_id`,`owner_type`);
 
 --
--- Chỉ mục cho bảng `wallet_transactions`
+-- Ch? m?c cho b?ng `wallet_transactions`
 --
 ALTER TABLE `wallet_transactions`
   ADD PRIMARY KEY (`id`),
@@ -1177,195 +1175,195 @@ ALTER TABLE `wallet_transactions`
   ADD KEY `fk_wt_admin` (`performed_by_user_id`);
 
 --
--- AUTO_INCREMENT cho các bảng đã đổ
+-- AUTO_INCREMENT cho c�c b?ng �? �?
 --
 
 --
--- AUTO_INCREMENT cho bảng `carts`
+-- AUTO_INCREMENT cho b?ng `carts`
 --
 ALTER TABLE `carts`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `cart_items`
+-- AUTO_INCREMENT cho b?ng `cart_items`
 --
 ALTER TABLE `cart_items`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `cuisines`
+-- AUTO_INCREMENT cho b?ng `cuisines`
 --
 ALTER TABLE `cuisines`
   MODIFY `id` smallint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `customer_addresses`
+-- AUTO_INCREMENT cho b?ng `customer_addresses`
 --
 ALTER TABLE `customer_addresses`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `driver_assignments`
+-- AUTO_INCREMENT cho b?ng `driver_assignments`
 --
 ALTER TABLE `driver_assignments`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `menu_categories`
+-- AUTO_INCREMENT cho b?ng `menu_categories`
 --
 ALTER TABLE `menu_categories`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `menu_items`
+-- AUTO_INCREMENT cho b?ng `menu_items`
 --
 ALTER TABLE `menu_items`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `notifications`
+-- AUTO_INCREMENT cho b?ng `notifications`
 --
 ALTER TABLE `notifications`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `orders`
+-- AUTO_INCREMENT cho b?ng `orders`
 --
 ALTER TABLE `orders`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `order_items`
+-- AUTO_INCREMENT cho b?ng `order_items`
 --
 ALTER TABLE `order_items`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `order_status_logs`
+-- AUTO_INCREMENT cho b?ng `order_status_logs`
 --
 ALTER TABLE `order_status_logs`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `otp_codes`
+-- AUTO_INCREMENT cho b?ng `otp_codes`
 --
 ALTER TABLE `otp_codes`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
--- AUTO_INCREMENT cho bảng `payments`
+-- AUTO_INCREMENT cho b?ng `payments`
 --
 ALTER TABLE `payments`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `payout_requests`
+-- AUTO_INCREMENT cho b?ng `payout_requests`
 --
 ALTER TABLE `payout_requests`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `refresh_tokens`
+-- AUTO_INCREMENT cho b?ng `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
--- AUTO_INCREMENT cho bảng `restaurants`
+-- AUTO_INCREMENT cho b?ng `restaurants`
 --
 ALTER TABLE `restaurants`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `reviews`
+-- AUTO_INCREMENT cho b?ng `reviews`
 --
 ALTER TABLE `reviews`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `users`
+-- AUTO_INCREMENT cho b?ng `users`
 --
 ALTER TABLE `users`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=104;
 
 --
--- AUTO_INCREMENT cho bảng `wallets`
+-- AUTO_INCREMENT cho b?ng `wallets`
 --
 ALTER TABLE `wallets`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- AUTO_INCREMENT cho bảng `wallet_transactions`
+-- AUTO_INCREMENT cho b?ng `wallet_transactions`
 --
 ALTER TABLE `wallet_transactions`
   MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=100;
 
 --
--- Ràng buộc đối với các bảng kết xuất
+-- R�ng bu?c �?i v?i c�c b?ng k?t xu?t
 --
 
 --
--- Ràng buộc cho bảng `carts`
+-- R�ng bu?c cho b?ng `carts`
 --
 ALTER TABLE `carts`
   ADD CONSTRAINT `fk_cart_cust` FOREIGN KEY (`customer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_cart_rest` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `cart_items`
+-- R�ng bu?c cho b?ng `cart_items`
 --
 ALTER TABLE `cart_items`
   ADD CONSTRAINT `fk_ci_cart` FOREIGN KEY (`cart_id`) REFERENCES `carts` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_ci_item` FOREIGN KEY (`menu_item_id`) REFERENCES `menu_items` (`id`) ON DELETE RESTRICT;
 
 --
--- Ràng buộc cho bảng `customer_addresses`
+-- R�ng bu?c cho b?ng `customer_addresses`
 --
 ALTER TABLE `customer_addresses`
   ADD CONSTRAINT `fk_addr_customer` FOREIGN KEY (`customer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `customer_profiles`
+-- R�ng bu?c cho b?ng `customer_profiles`
 --
 ALTER TABLE `customer_profiles`
   ADD CONSTRAINT `fk_cust_default_addr` FOREIGN KEY (`default_address_id`) REFERENCES `customer_addresses` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_cust_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `driver_assignments`
+-- R�ng bu?c cho b?ng `driver_assignments`
 --
 ALTER TABLE `driver_assignments`
   ADD CONSTRAINT `fk_da_driver` FOREIGN KEY (`driver_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
   ADD CONSTRAINT `fk_da_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `driver_profiles`
+-- R�ng bu?c cho b?ng `driver_profiles`
 --
 ALTER TABLE `driver_profiles`
   ADD CONSTRAINT `fk_drv_approver` FOREIGN KEY (`approved_by_admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_drv_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `menu_categories`
+-- R�ng bu?c cho b?ng `menu_categories`
 --
 ALTER TABLE `menu_categories`
   ADD CONSTRAINT `fk_mcat_rest` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `menu_items`
+-- R�ng bu?c cho b?ng `menu_items`
 --
 ALTER TABLE `menu_items`
   ADD CONSTRAINT `fk_item_cat` FOREIGN KEY (`category_id`) REFERENCES `menu_categories` (`id`) ON DELETE RESTRICT,
   ADD CONSTRAINT `fk_item_rest` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `notifications`
+-- R�ng bu?c cho b?ng `notifications`
 --
 ALTER TABLE `notifications`
   ADD CONSTRAINT `fk_notif_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `orders`
+-- R�ng bu?c cho b?ng `orders`
 --
 ALTER TABLE `orders`
   ADD CONSTRAINT `fk_ord_address` FOREIGN KEY (`delivery_address_id`) REFERENCES `customer_addresses` (`id`) ON DELETE RESTRICT,
@@ -1374,33 +1372,33 @@ ALTER TABLE `orders`
   ADD CONSTRAINT `fk_ord_rest` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`) ON DELETE RESTRICT;
 
 --
--- Ràng buộc cho bảng `order_items`
+-- R�ng bu?c cho b?ng `order_items`
 --
 ALTER TABLE `order_items`
   ADD CONSTRAINT `fk_oi_item` FOREIGN KEY (`menu_item_id`) REFERENCES `menu_items` (`id`) ON DELETE RESTRICT,
   ADD CONSTRAINT `fk_oi_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `order_status_logs`
+-- R�ng bu?c cho b?ng `order_status_logs`
 --
 ALTER TABLE `order_status_logs`
   ADD CONSTRAINT `fk_osl_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_osl_user` FOREIGN KEY (`changed_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
--- Ràng buộc cho bảng `otp_codes`
+-- R�ng bu?c cho b?ng `otp_codes`
 --
 ALTER TABLE `otp_codes`
   ADD CONSTRAINT `fk_otp_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
--- Ràng buộc cho bảng `payments`
+-- R�ng bu?c cho b?ng `payments`
 --
 ALTER TABLE `payments`
   ADD CONSTRAINT `fk_pay_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE RESTRICT;
 
 --
--- Ràng buộc cho bảng `payout_requests`
+-- R�ng bu?c cho b?ng `payout_requests`
 --
 ALTER TABLE `payout_requests`
   ADD CONSTRAINT `fk_payout_admin` FOREIGN KEY (`reviewed_by_admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
@@ -1408,19 +1406,19 @@ ALTER TABLE `payout_requests`
   ADD CONSTRAINT `fk_payout_wallet` FOREIGN KEY (`wallet_id`) REFERENCES `wallets` (`id`) ON DELETE RESTRICT;
 
 --
--- Ràng buộc cho bảng `platform_config`
+-- R�ng bu?c cho b?ng `platform_config`
 --
 ALTER TABLE `platform_config`
   ADD CONSTRAINT `fk_cfg_admin` FOREIGN KEY (`updated_by_admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
--- Ràng buộc cho bảng `refresh_tokens`
+-- R�ng bu?c cho b?ng `refresh_tokens`
 --
 ALTER TABLE `refresh_tokens`
   ADD CONSTRAINT `fk_refresh_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `restaurants`
+-- R�ng bu?c cho b?ng `restaurants`
 --
 ALTER TABLE `restaurants`
   ADD CONSTRAINT `fk_rest_approver` FOREIGN KEY (`approved_by_admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
@@ -1428,7 +1426,7 @@ ALTER TABLE `restaurants`
   ADD CONSTRAINT `fk_rest_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT;
 
 --
--- Ràng buộc cho bảng `reviews`
+-- R�ng bu?c cho b?ng `reviews`
 --
 ALTER TABLE `reviews`
   ADD CONSTRAINT `fk_rev_cust` FOREIGN KEY (`customer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
@@ -1436,28 +1434,28 @@ ALTER TABLE `reviews`
   ADD CONSTRAINT `fk_rev_rest` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `user_roles`
+-- R�ng bu?c cho b?ng `user_roles`
 --
 ALTER TABLE `user_roles`
   ADD CONSTRAINT `fk_user_roles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `wallets`
+-- R�ng bu?c cho b?ng `wallets`
 --
 ALTER TABLE `wallets`
   ADD CONSTRAINT `fk_wallet_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ràng buộc cho bảng `wallet_transactions`
+-- R�ng bu?c cho b?ng `wallet_transactions`
 --
 ALTER TABLE `wallet_transactions`
   ADD CONSTRAINT `fk_wt_admin` FOREIGN KEY (`performed_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_wt_wallet` FOREIGN KEY (`wallet_id`) REFERENCES `wallets` (`id`) ON DELETE RESTRICT;
 
 --
--- Bổ sung schema sau các đợt phát triển Wave 4, Wave 5 và GHN.
--- File nomnom.sql là snapshot độc lập: chỉ cần import file này cho database mới.
--- Các file trong database/migrations chỉ dùng để nâng cấp database đã tồn tại.
+-- B? sung schema sau c�c �?t ph�t tri?n Wave 4, Wave 5 v� GHN.
+-- File nomnom.sql l� snapshot �?c l?p: ch? c?n import file n�y cho database m?i.
+-- C�c file trong database/migrations ch? d�ng �? n�ng c?p database �? t?n t?i.
 --
 
 ALTER TABLE `users`
@@ -1493,8 +1491,8 @@ CREATE TABLE `vouchers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `vouchers` (`restaurant_id`, `created_by_user_id`, `code`, `name`, `description`, `discount_type`, `discount_value`, `max_discount_amount`, `min_order_amount`, `starts_at`, `ends_at`, `status`) VALUES
-(NULL, 1, 'NOMNOM15', 'NOMNOM15', 'Giảm 15% cho đơn hàng trên NomNom.', 'percent', 15, 250000, 0, '2026-01-01 00:00:00', '2027-12-31 23:59:59', 'active'),
-(NULL, 1, 'NEW50K', 'NEW50K', 'Giảm 50.000 đ cho đơn hàng đầu tiên.', 'fixed', 50000, NULL, 200000, '2026-01-01 00:00:00', '2027-12-31 23:59:59', 'active');
+(NULL, 1, 'NOMNOM15', 'NOMNOM15', 'Gi?m 15% cho ��n h�ng tr�n NomNom.', 'percent', 15, 250000, 0, '2026-01-01 00:00:00', '2027-12-31 23:59:59', 'active'),
+(NULL, 1, 'NEW50K', 'NEW50K', 'Gi?m 50.000 � cho ��n h�ng �?u ti�n.', 'fixed', 50000, NULL, 200000, '2026-01-01 00:00:00', '2027-12-31 23:59:59', 'active');
 
 ALTER TABLE `orders`
   ADD COLUMN `voucher_id` bigint UNSIGNED DEFAULT NULL AFTER `restaurant_id`,
@@ -1595,18 +1593,6 @@ CREATE TABLE `audit_logs` (
   CONSTRAINT `fk_audit_logs_admin` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE `customer_addresses`
-  ADD COLUMN `ghn_province_id` int UNSIGNED DEFAULT NULL AFTER `city`,
-  ADD COLUMN `ghn_district_id` int UNSIGNED DEFAULT NULL AFTER `ghn_province_id`,
-  ADD COLUMN `ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `ghn_district_id`,
-  ADD KEY `idx_customer_addresses_ghn_route` (`ghn_district_id`, `ghn_ward_code`);
-
-ALTER TABLE `restaurants`
-  ADD COLUMN `ghn_province_id` int UNSIGNED DEFAULT NULL AFTER `city`,
-  ADD COLUMN `ghn_district_id` int UNSIGNED DEFAULT NULL AFTER `ghn_province_id`,
-  ADD COLUMN `ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `ghn_district_id`,
-  ADD KEY `idx_restaurants_ghn_route` (`ghn_district_id`, `ghn_ward_code`);
-
 CREATE TABLE `restaurant_address_change_requests` (
   `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
   `restaurant_id` bigint UNSIGNED NOT NULL,
@@ -1615,16 +1601,14 @@ CREATE TABLE `restaurant_address_change_requests` (
   `current_ward` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `current_district` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `current_city` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `current_ghn_province_id` int UNSIGNED DEFAULT NULL,
-  `current_ghn_district_id` int UNSIGNED DEFAULT NULL,
-  `current_ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `current_latitude` decimal(10,7) DEFAULT NULL,
+  `current_longitude` decimal(10,7) DEFAULT NULL,
   `proposed_address_line` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
   `proposed_ward` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `proposed_district` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
   `proposed_city` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `proposed_ghn_province_id` int UNSIGNED DEFAULT NULL,
-  `proposed_ghn_district_id` int UNSIGNED DEFAULT NULL,
-  `proposed_ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `proposed_latitude` decimal(10,7) DEFAULT NULL,
+  `proposed_longitude` decimal(10,7) DEFAULT NULL,
   `status` enum('pending','approved','rejected','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
   `reviewed_by_admin_id` bigint UNSIGNED DEFAULT NULL,
   `reviewed_at` datetime DEFAULT NULL,

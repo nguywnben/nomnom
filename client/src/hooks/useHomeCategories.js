@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchHomeCategories } from '../lib/api.js';
 
-export function useHomeCategories() {
+export function useHomeCategories(currentLocation) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,7 +11,7 @@ export function useHomeCategories() {
 
     (async () => {
       try {
-        const { data } = await fetchHomeCategories();
+        const { data } = await fetchHomeCategories(currentLocation);
         if (!cancelled) {
           setCategories(data ?? []);
           setError(null);
@@ -29,7 +29,7 @@ export function useHomeCategories() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [currentLocation]);
 
   return { categories, loading, error };
 }

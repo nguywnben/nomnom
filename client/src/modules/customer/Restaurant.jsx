@@ -19,10 +19,10 @@ import { useRestaurantReviews } from '../../hooks/useRestaurantReviews.js';
 export default function CustomerRestaurant() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { addToCart, setCartOpen, pushToast, shopAsCustomer, customerCartRestriction } = useApp();
+  const { addToCart, setCartOpen, pushToast, shopAsCustomer, customerCartRestriction, currentLocation } = useApp();
   const [cat, setCat] = useState('Tất cả');
 
-  const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantDetail(id);
+  const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantDetail(id, currentLocation);
   const { categories, loading: menuLoading, error: menuError } = useRestaurantMenu(id);
   const { reviews, loading: reviewsLoading, error: reviewsError } = useRestaurantReviews(id);
 
@@ -77,6 +77,7 @@ export default function CustomerRestaurant() {
   if (!restaurant) {
     return <RestaurantSkeleton />;
   }
+  const outsideDeliveryRange = restaurant.isWithinDeliveryRange === false;
 
   const isOpen = Boolean(restaurant.isOpenNow);
   const addressLine = [restaurant.addressLine, restaurant.ward, restaurant.district, restaurant.city]
@@ -171,13 +172,6 @@ export default function CustomerRestaurant() {
                   <span className="nums">{formatVnd(restaurant.minOrderAmount)}</span>
                 </div>
               </div>
-              <div className="col-span-2 rounded-lg border border-hairline-strong bg-canvas-soft px-3 py-2">
-                <div className="text-caption text-body">Phí giao hàng</div>
-                <div className="mt-1 inline-flex items-center gap-1.5 font-medium text-ink">
-                  <Icon name="pin" size={14} />
-                  <span className="nums">{formatVnd(restaurant.baseDeliveryFee)}</span>
-                </div>
-              </div>
             </div>
             <div className="flex items-start gap-2 rounded-lg border border-hairline bg-surface-card px-3 py-2.5">
               <Icon name="pin" size={14} className="mt-0.5 shrink-0 text-body" />
@@ -195,9 +189,6 @@ export default function CustomerRestaurant() {
             </span>
             <span className="inline-flex items-center gap-1 text-body">
               <Icon name="pin" size={14} /> {addressLine}
-            </span>
-            <span className="inline-flex items-center gap-1 text-body">
-              <Icon name="cash" size={14} /> phí giao {formatVnd(restaurant.baseDeliveryFee)}
             </span>
             <span className="ml-auto inline-flex items-center gap-1">
               {isOpen ? (
@@ -268,10 +259,10 @@ export default function CustomerRestaurant() {
                 <MenuCard
                   key={item.id}
                   item={item}
-                  disabled={!isOpen || !shopAsCustomer}
+                  disabled={!isOpen || !shopAsCustomer || !currentLocation || outsideDeliveryRange}
                   restaurantClosed={!isOpen}
                   onClick={() => nav('/app/dish/' + item.id)}
-                  onAdd={() => {
+                  onAdd={async () => {
                     if (!shopAsCustomer) {
                       pushToast({
                         kind: 'warning',
@@ -289,14 +280,18 @@ export default function CustomerRestaurant() {
                       });
                       return;
                     }
+                    if (outsideDeliveryRange) {
+                      pushToast({ kind: 'warning', title: 'Ngoài phạm vi giao hàng', message: 'Quán này chưa giao đến vị trí hiện tại của bạn.' });
+                      return;
+                    }
 
-                    addToCart(
+                    const cart = await addToCart(
                       restaurant.id,
                       { ...item, restaurantName: restaurant.name, restaurantLogo: restaurant.logoUrl },
                       1,
-                      { baseDeliveryFee: restaurant.baseDeliveryFee },
+                      {},
                     );
-                    setCartOpen(true);
+                    if (cart) setCartOpen(true);
                   }}
                 />
               ))}

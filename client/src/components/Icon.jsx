@@ -152,6 +152,13 @@ const paths = {
       <circle cx="12" cy="13" r="3.5" />
     </g>
   ),
+  image: (
+    <g {...stroke}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9" r="1.5" />
+      <path d="M3 16l5-5 3.5 3.5 2.5-2.5 4 4" />
+    </g>
+  ),
   edit: (
     <g {...stroke}>
       <path d="M4 20h4l11-11-4-4L4 16v4z" />

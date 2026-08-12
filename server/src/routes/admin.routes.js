@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
 import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
 import { logAudit } from '../lib/audit.js';
+import { hasValidCoordinates } from '../lib/geo.js';
 import { serializeAddressChangeRequest } from '../lib/restaurantAddressChanges.js';
 import {
   ensureWallet,
@@ -103,8 +104,104 @@ function serializeCuisine(row) {
   };
 }
 
+function serializeHomeBanner(row) {
+  return {
+    id: row.id, tag: row.tag, title: row.title, subtitle: row.subtitle,
+    ctaLabel: row.cta_label, imageUrl: row.image_url, linkUrl: row.link_url,
+    sortOrder: Number(row.sort_order), isActive: Boolean(row.is_active),
+  };
+}
+
+function normalizeHomeBannerInput(body, { partial = false } = {}) {
+  const input = body ?? {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(input, key);
+  const result = {};
+  const text = (key, max, label) => {
+    if (partial && !has(key)) return null;
+    const value = String(input[key] ?? '').trim();
+    if (!value || value.length > max) return `${label} phải có từ 1 đến ${max} ký tự.`;
+    result[key] = value;
+    return null;
+  };
+  for (const [key, max, label] of [['tag', 80, 'Nhãn'], ['title', 160, 'Tiêu đề'], ['subtitle', 255, 'Mô tả'], ['ctaLabel', 80, 'Nhãn nút'], ['imageUrl', 500, 'Ảnh']]) {
+    const error = text(key, max, label);
+    if (error) return { error };
+  }
+  if (!partial || has('linkUrl')) {
+    const linkUrl = String(input.linkUrl ?? '').trim();
+    if (!linkUrl.startsWith('/')) return { error: 'Liên kết phải là đường dẫn nội bộ, ví dụ /app/search.' };
+    result.linkUrl = linkUrl;
+  }
+  if (!partial || has('isActive')) {
+    if (typeof input.isActive !== 'boolean') return { error: 'Trạng thái hiển thị không hợp lệ.' };
+    result.isActive = input.isActive;
+  }
+  return { value: result };
+}
+
 router.use(requireAuth);
 router.use(ensureAdmin);
+
+router.get('/home-banners', async (_req, res, next) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM home_promo_banners ORDER BY sort_order ASC, id ASC');
+    return res.json({ data: rows.map(serializeHomeBanner) });
+  } catch (err) { return next(err); }
+});
+
+router.post('/home-banners', async (req, res, next) => {
+  const parsed = normalizeHomeBannerInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  try {
+    const { tag, title, subtitle, ctaLabel, imageUrl, linkUrl, isActive } = parsed.value;
+    const [count] = await pool.query('SELECT COUNT(*) AS total FROM home_promo_banners');
+    const id = `banner-${Date.now().toString(36)}`;
+    await pool.query('INSERT INTO home_promo_banners (id, tag, title, subtitle, cta_label, image_url, link_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, tag, title, subtitle, ctaLabel, imageUrl, linkUrl, Number(count[0].total) + 1, isActive ? 1 : 0]);
+    const [[row]] = await pool.query('SELECT * FROM home_promo_banners WHERE id = ?', [id]);
+    await logAudit(pool, { adminId: req.auth.userId, action: 'tao_banner_trang_chu', targetType: 'home_banner', targetId: id, metadata: { title } });
+    return res.status(201).json({ banner: serializeHomeBanner(row) });
+  } catch (err) { return next(err); }
+});
+
+router.patch('/home-banners/reorder', async (req, res, next) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  if (!ids.length || new Set(ids).size !== ids.length) return res.status(400).json({ error: 'Thứ tự banner không hợp lệ.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query('SELECT id FROM home_promo_banners WHERE id IN (?) FOR UPDATE', [ids]);
+    if (rows.length !== ids.length) { await connection.rollback(); return res.status(400).json({ error: 'Có banner không còn tồn tại.' }); }
+    for (const [index, id] of ids.entries()) await connection.query('UPDATE home_promo_banners SET sort_order = ? WHERE id = ?', [index + 1, id]);
+    await logAudit(connection, { adminId: req.auth.userId, action: 'sap_xep_banner_trang_chu', targetType: 'home_banner', targetId: 'all', metadata: { ids } });
+    await connection.commit();
+    return res.json({ ok: true });
+  } catch (err) { await connection.rollback(); return next(err); } finally { connection.release(); }
+});
+
+router.patch('/home-banners/:id', async (req, res, next) => {
+  const parsed = normalizeHomeBannerInput(req.body, { partial: true });
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const columns = { tag: 'tag', title: 'title', subtitle: 'subtitle', ctaLabel: 'cta_label', imageUrl: 'image_url', linkUrl: 'link_url', isActive: 'is_active' };
+  const updates = Object.keys(parsed.value).map((key) => `${columns[key]} = ?`);
+  if (!updates.length) return res.status(400).json({ error: 'Không có thông tin cần cập nhật.' });
+  try {
+    const values = Object.entries(parsed.value).map(([key, value]) => key === 'isActive' ? (value ? 1 : 0) : value);
+    const [result] = await pool.query(`UPDATE home_promo_banners SET ${updates.join(', ')} WHERE id = ?`, [...values, req.params.id]);
+    if (!result.affectedRows) return res.status(404).json({ error: 'Không tìm thấy banner.' });
+    const [[row]] = await pool.query('SELECT * FROM home_promo_banners WHERE id = ?', [req.params.id]);
+    await logAudit(pool, { adminId: req.auth.userId, action: 'cap_nhat_banner_trang_chu', targetType: 'home_banner', targetId: req.params.id, metadata: { title: row.title } });
+    return res.json({ banner: serializeHomeBanner(row) });
+  } catch (err) { return next(err); }
+});
+
+router.delete('/home-banners/:id', async (req, res, next) => {
+  try {
+    const [result] = await pool.query('DELETE FROM home_promo_banners WHERE id = ?', [req.params.id]);
+    if (!result.affectedRows) return res.status(404).json({ error: 'Không tìm thấy banner.' });
+    await logAudit(pool, { adminId: req.auth.userId, action: 'xoa_banner_trang_chu', targetType: 'home_banner', targetId: req.params.id });
+    return res.status(204).send();
+  } catch (err) { return next(err); }
+});
 
 router.get('/cuisines', async (_req, res, next) => {
   try {
@@ -599,16 +696,15 @@ router.post('/restaurant-address-change-requests/:id/approve', async (req, res, 
     await connection.query(
       `UPDATE restaurants
        SET address_line = ?, ward = ?, district = ?, city = ?,
-           ghn_province_id = ?, ghn_district_id = ?, ghn_ward_code = ?
+           latitude = ?, longitude = ?
        WHERE id = ?`,
       [
         request.proposed_address_line,
         request.proposed_ward,
         request.proposed_district,
         request.proposed_city,
-        request.proposed_ghn_province_id,
-        request.proposed_ghn_district_id,
-        request.proposed_ghn_ward_code,
+        request.proposed_latitude,
+        request.proposed_longitude,
         request.restaurant_id,
       ],
     );
@@ -785,6 +881,10 @@ router.post('/restaurants/:id/approve', async (req, res, next) => {
     if (restaurant.status !== 'pending') {
       await conn.rollback();
       return res.status(400).json({ error: 'Chỉ có thể duyệt nhà hàng đang chờ xét duyệt.' });
+    }
+    if (!hasValidCoordinates(restaurant)) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Không thể duyệt quán khi địa chỉ chưa xác định được tọa độ hợp lệ.' });
     }
 
     await conn.query(

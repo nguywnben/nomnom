@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
 import { requireAuth, ensureCustomer } from '../middleware/auth.js';
+import { buildShippingQuote } from '../lib/shippingQuote.js';
+import { parseCurrentLocation } from '../lib/deliveryAvailability.js';
 
 const router = Router();
 
@@ -30,7 +32,6 @@ function serializeCartRow(cartRow, itemRows) {
     restaurantId: Number(cartRow.restaurantId),
     restaurantName: cartRow.restaurantName,
     restaurantLogo: cartRow.restaurantLogo,
-    baseDeliveryFee: toNumber(cartRow.baseDeliveryFee),
     items,
     subtotal: items.reduce((sum, item) => sum + item.lineSubtotal, 0),
   };
@@ -38,8 +39,7 @@ function serializeCartRow(cartRow, itemRows) {
 
 async function loadActiveCart(customerId) {
   const [cartRows] = await pool.query(
-    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo,
-            r.base_delivery_fee AS baseDeliveryFee
+    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo
      FROM carts c
      INNER JOIN restaurants r ON r.id = c.restaurant_id
      WHERE c.customer_id = ? AND c.status = 'active'
@@ -75,8 +75,7 @@ async function loadActiveCart(customerId) {
 
 async function loadCartForRestaurant(customerId, restaurantId) {
   const [cartRows] = await pool.query(
-    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo,
-            r.base_delivery_fee AS baseDeliveryFee
+    `SELECT c.id, c.restaurant_id AS restaurantId, r.name AS restaurantName, r.logo_url AS restaurantLogo
      FROM carts c
      INNER JOIN restaurants r ON r.id = c.restaurant_id
      WHERE c.customer_id = ? AND c.restaurant_id = ? AND c.status = 'active'
@@ -137,6 +136,7 @@ router.post('/items', async (req, res, next) => {
     const customerId = req.auth.userId;
     const menuItemId = Number(req.body?.menuItemId);
     const quantity = Math.max(1, Math.trunc(Number(req.body?.quantity ?? 1)));
+    const currentLocation = parseCurrentLocation(req.body);
     const noteRaw = String(req.body?.note ?? '').trim();
     const note = noteRaw ? noteRaw.slice(0, 500) : null;
 
@@ -144,11 +144,15 @@ router.post('/items', async (req, res, next) => {
       await connection.rollback();
       return res.status(400).json({ error: 'menuItemId và quantity hợp lệ là bắt buộc.' });
     }
+    if (!currentLocation) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Hãy cho phép truy cập vị trí hiện tại để kiểm tra phạm vi giao hàng.', code: 'CURRENT_LOCATION_REQUIRED' });
+    }
 
     const [menuRows] = await connection.query(
       `SELECT mi.id, mi.restaurant_id AS restaurantId, mi.name, mi.image_url AS imageUrl, mi.price,
               mi.status, mi.in_stock, r.name AS restaurantName, r.logo_url AS restaurantLogo,
-              r.status AS restaurantStatus, r.is_open_now AS restaurantOpen
+              r.status AS restaurantStatus, r.is_open_now AS restaurantOpen, r.latitude, r.longitude
        FROM menu_items mi
        INNER JOIN restaurants r ON r.id = mi.restaurant_id
        WHERE mi.id = ?
@@ -163,6 +167,13 @@ router.post('/items', async (req, res, next) => {
     if (!menuItem.restaurantOpen) {
       await connection.rollback();
       return res.status(409).json({ error: 'Quán ăn hiện đang đóng cửa. Vui lòng quay lại khi quán mở cửa.' });
+    }
+    try {
+      await buildShippingQuote({ restaurant: { id: menuItem.restaurantId, latitude: menuItem.latitude, longitude: menuItem.longitude }, address: currentLocation });
+    } catch (error) {
+      await connection.rollback();
+      if (String(error?.code ?? '').startsWith('SHIPPING_')) return res.status(400).json({ error: error.message, code: error.code });
+      throw error;
     }
 
     const [activeCartRows] = await connection.query(

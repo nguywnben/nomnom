@@ -201,8 +201,13 @@ export function changePasswordApi({ currentPassword, newPassword }) {
 }
 
 /** Carousel "Khám phá theo món ăn" — GET /api/v1/home/categories */
-export function fetchHomeCategories() {
-  return apiGet(`/api/v1/home/categories?viewer=${encodeURIComponent(getHomeViewerId())}`);
+export function fetchHomeCategories(currentLocation) {
+  const query = new URLSearchParams({ viewer: getHomeViewerId() });
+  if (currentLocation) {
+    query.set('latitude', String(currentLocation.latitude));
+    query.set('longitude', String(currentLocation.longitude));
+  }
+  return apiGet(`/api/v1/home/categories?${query.toString()}`);
 }
 
 /** Banner khuyến mãi 3 cột — GET /api/v1/home/promos */
@@ -342,9 +347,9 @@ export function fetchCuisines() {
   return apiGet('/api/v1/cuisines');
 }
 
-export function fetchRestaurantDetail(idOrSlug) {
+export function fetchRestaurantDetail(idOrSlug, currentLocation) {
   const id = String(idOrSlug).replace(/^r-/, '');
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}`);
+  return apiGet(withCurrentLocation(`/api/v1/restaurants/${encodeURIComponent(id)}`, currentLocation));
 }
 
 export function fetchRestaurantMenu(idOrSlug) {
@@ -361,8 +366,14 @@ export function fetchCartApi() {
   return apiGet('/api/v1/cart');
 }
 
-export function addCartItemApi({ menuItemId, quantity, note }) {
-  return apiPost('/api/v1/cart/items', { menuItemId, quantity, note });
+export function addCartItemApi({ menuItemId, quantity, note, currentLocation }) {
+  return apiPost('/api/v1/cart/items', {
+    menuItemId,
+    quantity,
+    note,
+    latitude: currentLocation?.latitude,
+    longitude: currentLocation?.longitude,
+  });
 }
 
 export function updateCartItemApi(itemId, { quantity, note }) {
@@ -414,13 +425,30 @@ export function fetchMyVouchersApi() {
 }
 
 /** Top quán nổi bật — GET /api/v1/home/featured-restaurants */
-export function fetchFeaturedRestaurantsApi() {
-  return apiGet('/api/v1/home/featured-restaurants');
+function withCurrentLocation(path, currentLocation) {
+  if (!currentLocation) return path;
+  const query = new URLSearchParams({
+    latitude: String(currentLocation.latitude),
+    longitude: String(currentLocation.longitude),
+  });
+  return `${path}?${query.toString()}`;
+}
+
+export function fetchFeaturedRestaurantsApi(currentLocation) {
+  const path = withCurrentLocation('/api/v1/home/featured-restaurants', currentLocation);
+  const separator = path.includes('?') ? '&' : '?';
+  return apiGet(`${path}${separator}viewer=${encodeURIComponent(getHomeViewerId())}`);
+}
+
+export function fetchNearbyDishesApi(currentLocation, seed) {
+  const path = withCurrentLocation('/api/v1/home/nearby-dishes', currentLocation);
+  const separator = path.includes('?') ? '&' : '?';
+  return apiGet(`${path}${separator}seed=${encodeURIComponent(seed ?? 'nearby')}`);
 }
 
 /** Các món thịnh hành — GET /api/v1/home/trending-dishes */
-export function fetchTrendingDishesApi() {
-  return apiGet('/api/v1/home/trending-dishes');
+export function fetchTrendingDishesApi(currentLocation) {
+  return apiGet(withCurrentLocation('/api/v1/home/trending-dishes', currentLocation));
 }
 
 /** Đặt lại món từ lịch sử — GET /api/v1/home/order-again */
@@ -523,6 +551,11 @@ export function createAdminCuisineApi(body) { return apiPost('/api/v1/admin/cuis
 export function updateAdminCuisineApi(id, body) { return apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body); }
 export function deleteAdminCuisineApi(id) { return apiDelete('/api/v1/admin/cuisines/' + encodeURIComponent(id)); }
 export function reorderAdminCuisinesApi(ids) { return apiPatch('/api/v1/admin/cuisines/reorder', { ids }); }
+export function fetchAdminHomeBannersApi() { return apiGet('/api/v1/admin/home-banners'); }
+export function createAdminHomeBannerApi(body) { return apiPost('/api/v1/admin/home-banners', body); }
+export function updateAdminHomeBannerApi(id, body) { return apiPatch('/api/v1/admin/home-banners/' + encodeURIComponent(id), body); }
+export function deleteAdminHomeBannerApi(id) { return apiDelete('/api/v1/admin/home-banners/' + encodeURIComponent(id)); }
+export function reorderAdminHomeBannersApi(ids) { return apiPatch('/api/v1/admin/home-banners/reorder', { ids }); }
 
 export function fetchChatConversationsApi() {
   return apiGet('/api/v1/chat/conversations');
@@ -555,6 +588,6 @@ export function fetchAdminAuditLogs({ action = 'all', targetType = 'all', q = ''
   return apiGet('/api/v1/admin/audit-logs?' + params.toString());
 }
 
-export function fetchMenuItemDetailApi(id) {
-  return apiGet('/api/v1/menu-items/' + encodeURIComponent(id));
+export function fetchMenuItemDetailApi(id, currentLocation) {
+  return apiGet(withCurrentLocation('/api/v1/menu-items/' + encodeURIComponent(id), currentLocation));
 }

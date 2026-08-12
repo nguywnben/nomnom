@@ -330,9 +330,8 @@ export default function AdminRestaurantApprovals() {
 
             <InfoBlock title="Giới thiệu quán" value={active.description || 'Chủ quán chưa cung cấp giới thiệu.'} />
 
-            <div className="grid grid-cols-1 gap-base md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-base md:grid-cols-2">
               <Row label="Đơn tối thiểu" value={formatVnd(active.minOrderAmount)} />
-              <Row label="Phí giao cơ bản" value={formatVnd(active.baseDeliveryFee)} />
               <Row label="Chuẩn bị trung bình" value={active.avgPrepTimeMin ? `${active.avgPrepTimeMin} phút` : '—'} />
             </div>
 

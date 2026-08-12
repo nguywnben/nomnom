@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
 import { verifyAccessToken } from '../lib/auth.js';
+import { getDeliveryAvailability, parseCurrentLocation } from '../lib/deliveryAvailability.js';
 
 const router = Router(); 
 
@@ -11,6 +12,7 @@ const router = Router();
 router.get('/categories', async (req, res, next) => {
   try {
     const viewerSeed = resolveHomeViewerSeed(req);
+    const currentLocation = parseCurrentLocation(req.query);
     const [rows] = await pool.query(
       `WITH ranked_menu_items AS (
          SELECT
@@ -27,7 +29,8 @@ router.get('/categories', async (req, res, next) => {
            mi.restaurant_id AS restaurantId,
            r.name AS restaurantName,
            r.logo_url AS restaurantLogo,
-           r.base_delivery_fee AS baseDeliveryFee,
+           r.latitude,
+           r.longitude,
            r.avg_prep_time_min AS avgPrepTimeMin,
            r.is_open_now AS isOpenNow,
            ROW_NUMBER() OVER (
@@ -56,7 +59,7 @@ router.get('/categories', async (req, res, next) => {
        )
        SELECT
          mi.id, mi.name, mi.description, mi.imageUrl, mi.price, mi.prepTimeMin, mi.cuisineSlug,
-         mi.restaurantId, mi.restaurantName, mi.restaurantLogo, mi.baseDeliveryFee, mi.avgPrepTimeMin, mi.isOpenNow
+         mi.restaurantId, mi.restaurantName, mi.restaurantLogo, mi.latitude, mi.longitude, mi.avgPrepTimeMin, mi.isOpenNow
        FROM ranked_menu_items mi
        INNER JOIN restaurant_rotation rr ON rr.restaurantId = mi.restaurantId
        ORDER BY
@@ -72,7 +75,7 @@ router.get('/categories', async (req, res, next) => {
       [viewerSeed],
     );
 
-    res.json({ data: rows });
+    res.json({ data: rows.map((row) => ({ ...row, ...getDeliveryAvailability(row, currentLocation) })) });
   } catch (err) {
     next(err);
   }
@@ -140,32 +143,43 @@ router.get('/cuisines', async (_req, res, next) => {
 
 /**
  * GET /api/v1/home/featured-restaurants
- * Top quán nổi bật (status active, ưu tiên rating_avg & review_count).
+ * Quán nổi bật luân phiên: chỉ chọn nhóm quán chất lượng, sau đó xoay theo ngày và người xem.
  */
-router.get('/featured-restaurants', async (_req, res, next) => {
+router.get('/featured-restaurants', async (req, res, next) => {
   try {
+    const currentLocation = parseCurrentLocation(req.query);
+    const viewerSeed = resolveHomeViewerSeed(req);
     const [rows] = await pool.query(
-      `SELECT
-         r.id, r.name, r.slug, r.tagline, r.banner_url AS bannerUrl, r.logo_url AS logoUrl,
-         c.slug AS cuisineSlug, c.name AS cuisineName,
-         r.rating_avg AS ratingAvg, r.review_count AS reviewCount,
-         r.base_delivery_fee AS baseDeliveryFee, r.avg_prep_time_min AS avgPrepTimeMin,
-         r.is_open_now AS isOpenNow,
-         r.address_line AS addressLine, r.district, r.city
-       FROM restaurants r
-       LEFT JOIN cuisines c ON r.cuisine_id = c.id
-       WHERE r.status = 'active'
-       ORDER BY r.is_open_now DESC, r.rating_avg DESC, r.review_count DESC, r.id ASC
+      `WITH quality_candidates AS (
+         SELECT
+           r.id, r.name, r.slug, r.tagline, r.banner_url AS bannerUrl, r.logo_url AS logoUrl,
+           c.slug AS cuisineSlug, c.name AS cuisineName,
+           r.rating_avg AS ratingAvg, r.review_count AS reviewCount,
+           r.avg_prep_time_min AS avgPrepTimeMin,
+           r.is_open_now AS isOpenNow, r.latitude, r.longitude,
+           r.address_line AS addressLine, r.district, r.city,
+           ROW_NUMBER() OVER (
+             ORDER BY r.is_open_now DESC, r.rating_avg DESC, r.review_count DESC, r.id ASC
+           ) AS qualityRank
+         FROM restaurants r
+         LEFT JOIN cuisines c ON r.cuisine_id = c.id
+         WHERE r.status = 'active'
+       )
+       SELECT *
+       FROM quality_candidates
+       WHERE qualityRank <= 24
+       ORDER BY SHA2(CONCAT(?, ':', TO_DAYS(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+07:00')), ':', id), 256)
        LIMIT 6`,
+      [viewerSeed],
     );
 
     const data = rows.map((row) => ({
       ...row,
       ratingAvg: Number(row.ratingAvg ?? 0),
       reviewCount: Number(row.reviewCount ?? 0),
-      baseDeliveryFee: Number(row.baseDeliveryFee ?? 0),
       avgPrepTimeMin: Number(row.avgPrepTimeMin ?? 0),
       isOpenNow: Boolean(row.isOpenNow),
+      ...getDeliveryAvailability(row, currentLocation),
     }));
 
     res.json({ data });
@@ -175,12 +189,94 @@ router.get('/featured-restaurants', async (_req, res, next) => {
 });
 
 /**
- * GET /api/v1/home/trending-dishes
- * Top món thịnh hành (món active, in_stock, từ quán active, ưu tiên total_sold & rating_avg).
+ * GET /api/v1/home/nearby-dishes
+ * Món còn bán của quán đang mở, ưu tiên khoảng cách từ vị trí trình duyệt.
  */
-router.get('/trending-dishes', async (_req, res, next) => {
+router.get('/nearby-dishes', async (req, res, next) => {
   try {
+    const currentLocation = parseCurrentLocation(req.query);
+    const requestedSeed = String(req.query.seed ?? 'nearby').trim();
+    const seed = /^[a-zA-Z0-9_-]{1,80}$/.test(requestedSeed) ? requestedSeed : 'nearby';
+    if (!currentLocation) {
+      return res.json({ data: [], locationRequired: true });
+    }
+
     const [rows] = await pool.query(
+      `WITH closest_candidates AS (
+         SELECT
+           mi.id, mi.name, mi.description, mi.image_url AS image, mi.price,
+           mi.prep_time_min AS prepTimeMin, mi.total_sold AS totalSold,
+           mi.rating_avg AS itemRating, r.id AS restaurantId, r.name AS restaurantName,
+           r.logo_url AS restaurantLogo, r.avg_prep_time_min AS eta,
+           r.is_open_now AS isOpenNow, r.latitude, r.longitude,
+           r.rating_avg AS restaurantRating,
+           (6371 * ACOS(LEAST(1.0,
+             COS(RADIANS(?)) * COS(RADIANS(r.latitude)) * COS(RADIANS(r.longitude) - RADIANS(?))
+             + SIN(RADIANS(?)) * SIN(RADIANS(r.latitude))
+           ))) AS directDistanceKm
+         FROM menu_items mi
+         INNER JOIN restaurants r ON r.id = mi.restaurant_id
+         WHERE mi.status = 'active'
+           AND mi.in_stock = 1
+           AND r.status = 'active'
+           AND r.is_open_now = 1
+           AND r.latitude IS NOT NULL
+           AND r.longitude IS NOT NULL
+         ORDER BY directDistanceKm ASC, mi.rating_avg DESC, mi.total_sold DESC, mi.id ASC
+         LIMIT 48
+       ),
+       ranked_candidates AS (
+         SELECT
+           closest_candidates.*,
+           SHA2(CONCAT(?, ':', id), 256) AS randomSort,
+           ROW_NUMBER() OVER (
+             PARTITION BY restaurantId
+             ORDER BY SHA2(CONCAT(?, ':', id), 256)
+           ) AS restaurantRank
+         FROM closest_candidates
+       )
+       SELECT *
+       FROM ranked_candidates
+       ORDER BY restaurantRank ASC, randomSort ASC
+       LIMIT 36`,
+      [currentLocation.latitude, currentLocation.longitude, currentLocation.latitude, seed, seed],
+    );
+
+    const data = rows
+      .map((row) => ({
+        id: Number(row.id),
+        name: row.name,
+        description: row.description,
+        image: row.image,
+        price: Number(row.price ?? 0),
+        prepTimeMin: Number(row.prepTimeMin ?? 0),
+        totalSold: Number(row.totalSold ?? 0),
+        itemRating: Number(row.itemRating ?? 0),
+        restaurantId: Number(row.restaurantId),
+        restaurantName: row.restaurantName,
+        restaurantLogo: row.restaurantLogo,
+        eta: `${Number(row.eta ?? 20)}p`,
+        isOpenNow: Boolean(row.isOpenNow),
+        restaurantRating: Number(row.restaurantRating ?? 0),
+        ...getDeliveryAvailability(row, currentLocation),
+      }))
+      .filter((item) => item.isWithinDeliveryRange)
+      .slice(0, 12);
+
+    res.json({ data, locationRequired: false });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/v1/home/trending-dishes
+ * Món được giao nhiều nhất hôm nay, tính theo thời điểm hoàn tất đơn ở GMT+7.
+ */
+router.get('/trending-dishes', async (req, res, next) => {
+  try {
+    const currentLocation = parseCurrentLocation(req.query);
+    let [rows] = await pool.query(
       `SELECT
          mi.id,
          mi.name,
@@ -188,21 +284,45 @@ router.get('/trending-dishes', async (_req, res, next) => {
          mi.image_url AS image,
          mi.price,
          mi.prep_time_min AS prepTimeMin,
-         mi.total_sold AS totalSold,
+         SUM(oi.quantity) AS soldToday,
          mi.rating_avg AS itemRating,
          r.id AS restaurantId,
          r.name AS restaurantName,
          r.logo_url AS restaurantLogo,
-         r.base_delivery_fee AS fee,
          r.avg_prep_time_min AS eta,
-         r.is_open_now AS isOpenNow,
+         r.is_open_now AS isOpenNow, r.latitude, r.longitude,
          r.rating_avg AS restaurantRating
-       FROM menu_items mi
+       FROM order_items oi
+       INNER JOIN orders o
+         ON o.id = oi.order_id
+        AND o.status = 'delivered'
+        AND DATE(o.delivered_at) = DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+07:00'))
+       INNER JOIN menu_items mi ON mi.id = oi.menu_item_id
        INNER JOIN restaurants r ON r.id = mi.restaurant_id AND r.status = 'active'
        WHERE mi.status = 'active' AND mi.in_stock = 1
-       ORDER BY mi.total_sold DESC, mi.rating_avg DESC, mi.id ASC
-       LIMIT 10`,
+       GROUP BY mi.id
+       ORDER BY soldToday DESC, mi.rating_avg DESC, mi.id ASC
+      LIMIT 10`,
     );
+
+    let source = 'today';
+    if (!rows.length) {
+      source = 'all_time';
+      [rows] = await pool.query(
+        `SELECT
+           mi.id, mi.name, mi.description, mi.image_url AS image, mi.price,
+           mi.prep_time_min AS prepTimeMin, mi.total_sold AS soldToday,
+           mi.rating_avg AS itemRating, r.id AS restaurantId, r.name AS restaurantName,
+           r.logo_url AS restaurantLogo, r.avg_prep_time_min AS eta,
+           r.is_open_now AS isOpenNow, r.latitude, r.longitude,
+           r.rating_avg AS restaurantRating
+         FROM menu_items mi
+         INNER JOIN restaurants r ON r.id = mi.restaurant_id AND r.status = 'active'
+         WHERE mi.status = 'active' AND mi.in_stock = 1
+         ORDER BY mi.total_sold DESC, mi.rating_avg DESC, mi.id ASC
+         LIMIT 10`,
+      );
+    }
 
     const data = rows.map((row) => ({
       id: Number(row.id),
@@ -211,18 +331,18 @@ router.get('/trending-dishes', async (_req, res, next) => {
       image: row.image,
       price: Number(row.price ?? 0),
       prepTimeMin: Number(row.prepTimeMin ?? 0),
-      totalSold: Number(row.totalSold ?? 0),
+      soldToday: Number(row.soldToday ?? 0),
       itemRating: Number(row.itemRating ?? 0),
       restaurantId: Number(row.restaurantId),
       restaurantName: row.restaurantName,
       restaurantLogo: row.restaurantLogo,
-      fee: Number(row.fee ?? 0),
       eta: `${Number(row.eta ?? 20)}p`,
       isOpenNow: Boolean(row.isOpenNow),
       restaurantRating: Number(row.restaurantRating ?? 0),
+      ...getDeliveryAvailability(row, currentLocation),
     }));
 
-    res.json({ data });
+    res.json({ data, source });
   } catch (err) {
     next(err);
   }
@@ -255,11 +375,11 @@ router.get('/order-again', async (req, res, next) => {
     const [rows] = await pool.query(
       `SELECT DISTINCT
          r.id, r.name, r.logo_url AS logo, r.avg_prep_time_min AS eta, r.is_open_now AS isOpenNow,
-         r.rating_avg AS ratingAvg, r.base_delivery_fee AS fee, MAX(o.placed_at) AS lastOrderedAt
+         r.rating_avg AS ratingAvg, MAX(o.placed_at) AS lastOrderedAt
        FROM orders o
        INNER JOIN restaurants r ON r.id = o.restaurant_id AND r.status = 'active'
        WHERE o.customer_id = ?
-       GROUP BY r.id, r.name, r.logo_url, r.avg_prep_time_min, r.is_open_now, r.rating_avg, r.base_delivery_fee
+       GROUP BY r.id, r.name, r.logo_url, r.avg_prep_time_min, r.is_open_now, r.rating_avg
        ORDER BY lastOrderedAt DESC
        LIMIT 6`,
       [userId],
@@ -272,7 +392,6 @@ router.get('/order-again', async (req, res, next) => {
       eta: `${Number(r.eta ?? 20)}p`,
       isOpenNow: Boolean(r.isOpenNow),
       ratingAvg: Number(r.ratingAvg ?? 0),
-      fee: Number(r.fee ?? 0),
     }));
 
     res.json({ data });
