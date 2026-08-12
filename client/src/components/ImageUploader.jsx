@@ -10,7 +10,7 @@ import Icon from './Icon.jsx';
  * @param {Object} props
  * @param {string} props.value - Current image URL.
  * @param {Function} props.onUploaded - Callback called when a file has uploaded successfully: (url) => void.
- * @param {string} props.folder - Target folder on Cloudinary (avatar | restaurant | menu | cuisine | driver-kyc | review). Default is 'avatar'.
+ * @param {string} props.folder - Target folder on Cloudinary (avatar | restaurant | menu | cuisine | review). Default is 'avatar'.
  * @param {string} props.shape - Shape of the preview box ('circle' | 'rect'). Default is 'rect'.
  * @param {string} props.className - Extra wrapper CSS class.
  * @param {string} props.aspectRatio - Aspect ratio for the uploader card (e.g. 'square', 'video', 'aspect-video', default is 'square').

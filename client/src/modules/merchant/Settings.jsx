@@ -8,13 +8,14 @@ import Tabs from '../../components/Tabs.jsx';
 import {
   cancelMerchantAddressChangeRequest,
   createMerchantAddressChangeRequest,
-  fetchMerchantGhnDistricts,
-  fetchMerchantGhnProvinces,
-  fetchMerchantGhnWards,
   fetchMerchantSettingsApi,
   updateMerchantSettingsApi,
 } from '../../lib/api.js';
+import { apiGet } from '../../lib/api.js';
+import { createAdministrativeLocationsApi } from '../../lib/administrativeLocations.js';
 import { useApp } from '../../context/AppContext.jsx';
+
+const locationsApi = createAdministrativeLocationsApi(apiGet);
 
 const EMPTY = {
   name: '',
@@ -25,7 +26,6 @@ const EMPTY = {
   ward: '',
   district: '',
   city: '',
-  baseDeliveryFee: 0,
   minOrderAmount: 0,
   avgPrepTimeMin: 20,
   isOpenNow: false,
@@ -44,12 +44,12 @@ export default function MerchantSettings() {
   const [error, setError] = useState('');
   const [addressChangeRequest, setAddressChangeRequest] = useState(null);
   const [addressModalOpen, setAddressModalOpen] = useState(false);
-  const [addressForm, setAddressForm] = useState({ addressLine: '', ghnProvinceId: '', ghnDistrictId: '', ghnWardCode: '' });
+  const [addressForm, setAddressForm] = useState({ addressLine: '', ward: '', district: '', city: '' });
   const [addressSubmitting, setAddressSubmitting] = useState(false);
   const [provinces, setProvinces] = useState([]);
-  const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [provinceCode, setProvinceCode] = useState('');
+  const [wardCode, setWardCode] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,51 +71,17 @@ export default function MerchantSettings() {
   const set = (patch) => setForm((current) => ({ ...current, ...patch }));
   const setAddress = (patch) => setAddressForm((current) => ({ ...current, ...patch }));
 
-  useEffect(() => {
-    if (!addressModalOpen) return undefined;
-    let cancelled = false;
-    setLocationLoading(true);
-    fetchMerchantGhnProvinces()
-      .then((items) => { if (!cancelled) setProvinces(items ?? []); })
-      .catch((err) => { if (!cancelled) pushToast({ kind: 'error', title: 'Không tải được tỉnh/thành', message: err.message || 'Vui lòng thử lại.' }); })
-      .finally(() => { if (!cancelled) setLocationLoading(false); });
-    return () => { cancelled = true; };
-  }, [addressModalOpen, pushToast]);
-
-  useEffect(() => {
-    if (!addressForm.ghnProvinceId) {
-      setDistricts([]);
-      return undefined;
-    }
-    let cancelled = false;
-    setLocationLoading(true);
-    fetchMerchantGhnDistricts(addressForm.ghnProvinceId)
-      .then((items) => { if (!cancelled) setDistricts(items ?? []); })
-      .catch((err) => { if (!cancelled) pushToast({ kind: 'error', title: 'Không tải được quận/huyện', message: err.message || 'Vui lòng thử lại.' }); })
-      .finally(() => { if (!cancelled) setLocationLoading(false); });
-    return () => { cancelled = true; };
-  }, [addressForm.ghnProvinceId, pushToast]);
-
-  useEffect(() => {
-    if (!addressForm.ghnDistrictId) {
-      setWards([]);
-      return undefined;
-    }
-    let cancelled = false;
-    setLocationLoading(true);
-    fetchMerchantGhnWards(addressForm.ghnDistrictId)
-      .then((items) => { if (!cancelled) setWards(items ?? []); })
-      .catch((err) => { if (!cancelled) pushToast({ kind: 'error', title: 'Không tải được phường/xã', message: err.message || 'Vui lòng thử lại.' }); })
-      .finally(() => { if (!cancelled) setLocationLoading(false); });
-    return () => { cancelled = true; };
-  }, [addressForm.ghnDistrictId, pushToast]);
+  useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch(() => setProvinces([])); }, []);
+  useEffect(() => { if (!provinceCode) { setWards([]); return; } locationsApi.getWards(provinceCode).then(setWards).catch(() => setWards([])); }, [provinceCode]);
 
   const openAddressModal = () => {
+    setProvinceCode('');
+    setWardCode('');
     setAddressForm({
       addressLine: form.addressLine || '',
-      ghnProvinceId: form.ghnProvinceId ? String(form.ghnProvinceId) : '',
-      ghnDistrictId: form.ghnDistrictId ? String(form.ghnDistrictId) : '',
-      ghnWardCode: form.ghnWardCode || '',
+      ward: form.ward || '',
+      district: form.district || '',
+      city: form.city || '',
     });
     setAddressModalOpen(true);
   };
@@ -243,8 +209,7 @@ export default function MerchantSettings() {
       )}
 
       {tab === 'operations' && (
-        <Card padded className="grid gap-sm md:grid-cols-3">
-          <Input id="base-delivery-fee" type="number" min="0" step="1000" label="Phí giao cơ bản (VND)" value={form.baseDeliveryFee} onChange={(event) => set({ baseDeliveryFee: Number(event.target.value) })} />
+        <Card padded className="grid gap-sm md:grid-cols-2">
           <Input id="min-order-amount" type="number" min="0" step="1000" label="Đơn tối thiểu (VND)" value={form.minOrderAmount} onChange={(event) => set({ minOrderAmount: Number(event.target.value) })} />
           <Input id="avg-prep-time" type="number" min="1" max="300" label="Chuẩn bị trung bình (phút)" value={form.avgPrepTimeMin} onChange={(event) => set({ avgPrepTimeMin: Number(event.target.value) })} />
           <div className="md:col-span-3 rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body">
@@ -268,33 +233,8 @@ export default function MerchantSettings() {
       <Modal open={addressModalOpen} onClose={() => setAddressModalOpen(false)} title="Yêu cầu đổi địa chỉ quán" size="lg">
         <div className="grid gap-sm md:grid-cols-2">
           <Input id="request-address-line" className="md:col-span-2" label="Địa chỉ cụ thể" required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
-          <Select
-            id="request-city"
-            label="Tỉnh/Thành phố"
-            required
-            value={addressForm.ghnProvinceId}
-            disabled={locationLoading && !provinces.length}
-            options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: String(item.id), label: item.name }))]}
-            onChange={(event) => setAddress({ ghnProvinceId: event.target.value, ghnDistrictId: '', ghnWardCode: '' })}
-          />
-          <Select
-            id="request-district"
-            label="Quận/Huyện"
-            required
-            value={addressForm.ghnDistrictId}
-            disabled={!addressForm.ghnProvinceId || (locationLoading && !districts.length)}
-            options={[{ value: '', label: addressForm.ghnProvinceId ? 'Chọn Quận/Huyện' : 'Chọn Tỉnh/Thành phố trước' }, ...districts.map((item) => ({ value: String(item.id), label: item.name }))]}
-            onChange={(event) => setAddress({ ghnDistrictId: event.target.value, ghnWardCode: '' })}
-          />
-          <Select
-            id="request-ward"
-            label="Phường/Xã"
-            required
-            value={addressForm.ghnWardCode}
-            disabled={!addressForm.ghnDistrictId || (locationLoading && !wards.length)}
-            options={[{ value: '', label: addressForm.ghnDistrictId ? 'Chọn Phường/Xã' : 'Chọn Quận/Huyện trước' }, ...wards.map((item) => ({ value: String(item.code), label: item.name }))]}
-            onChange={(event) => setAddress({ ghnWardCode: event.target.value })}
-          />
+          <Select id="request-city" label="Tỉnh/Thành phố" required value={provinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = provinces.find((value) => value.code === event.target.value); setProvinceCode(event.target.value); setWardCode(''); setAddress({ city: item?.name ?? '', district: '', ward: '' }); }} />
+          <Select id="request-ward" label="Phường/Xã" required value={wardCode} disabled={!provinceCode} options={[{ value: '', label: provinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = wards.find((value) => value.code === event.target.value); setWardCode(event.target.value); setAddress({ ward: item?.name ?? '' }); }} />
           <p className="md:col-span-2 text-caption text-body">Địa chỉ mới chỉ có hiệu lực sau khi admin duyệt; trong lúc chờ, hệ thống vẫn dùng địa chỉ hiện tại.</p>
           <div className="flex justify-end gap-2 md:col-span-2">
             <Button variant="secondary" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>Hủy</Button>

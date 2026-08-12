@@ -4,7 +4,7 @@ import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import db from '../db/pool.js';
 import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
-import { validateGhnAddressCodes } from '../lib/addressGhn.js';
+import { geocodeVietnamAddress } from '../lib/addressGeocoding.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -157,8 +157,7 @@ router.get('/addresses', ensureCustomer, async (req, res, next) => {
     const { userId } = req.auth;
     const [rows] = await db.query(
       `SELECT id, label, recipient_name AS recipientName, recipient_phone AS recipientPhone, 
-              line1, ward, district, city, ghn_province_id AS ghnProvinceId,
-              ghn_district_id AS ghnDistrictId, ghn_ward_code AS ghnWardCode,
+              line1, ward, district, city,
               latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
        FROM customer_addresses 
        WHERE customer_id = ?
@@ -187,12 +186,9 @@ router.post('/addresses', ensureCustomer, async (req, res, next) => {
       ward, district, city, latitude, longitude, 
       deliveryNote, isDefault 
     } = req.body;
-    const ghnValidation = validateGhnAddressCodes(req.body);
-    if (!ghnValidation.ok) {
-      return res.status(400).json({ error: ghnValidation.error });
+    if (!Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+      ({ latitude, longitude } = await geocodeVietnamAddress({ line1, ward, district, city }));
     }
-    const { ghnProvinceId, ghnDistrictId, ghnWardCode } = ghnValidation.codes;
-
     await connection.beginTransaction();
 
     // Check if this is the first address
@@ -213,32 +209,23 @@ router.post('/addresses', ensureCustomer, async (req, res, next) => {
 
     const [result] = await connection.query(
       `INSERT INTO customer_addresses 
-        (customer_id, label, recipient_name, recipient_phone, line1, ward, district, city, ghn_province_id, ghn_district_id, ghn_ward_code, latitude, longitude, delivery_note, is_default)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (customer_id, label, recipient_name, recipient_phone, line1, ward, district, city, latitude, longitude, delivery_note, is_default)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId, label || '', recipientName || '', recipientPhone || '', line1 || '',
-        ward || null, district || null, city || '', ghnProvinceId, ghnDistrictId, ghnWardCode,
-        latitude || null, longitude || null,
+        ward || null, district || null, city || '', latitude || null, longitude || null,
         deliveryNote || null, isDefault ? 1 : 0
       ]
     );
 
     const newId = result.insertId;
 
-    if (isDefault) {
-      await connection.query(
-        'INSERT INTO customer_profiles (user_id, default_address_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE default_address_id = ?',
-        [userId, newId, newId]
-      );
-    }
-
     await connection.commit();
     
     // Return the newly created address
     const [newAddr] = await connection.query(
       `SELECT id, label, recipient_name AS recipientName, recipient_phone AS recipientPhone, 
-              line1, ward, district, city, ghn_province_id AS ghnProvinceId,
-              ghn_district_id AS ghnDistrictId, ghn_ward_code AS ghnWardCode,
+              line1, ward, district, city,
               latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
        FROM customer_addresses WHERE id = ?`,
       [newId]
@@ -263,15 +250,10 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
     const { userId } = req.auth;
     const { id } = req.params;
     const data = req.body;
-    const ghnValidation = validateGhnAddressCodes(data, { required: false });
-    if (!ghnValidation.ok) {
-      return res.status(400).json({ error: ghnValidation.error });
-    }
-
     await connection.beginTransaction();
 
     const [addrList] = await connection.query(
-      'SELECT id FROM customer_addresses WHERE id = ? AND customer_id = ?',
+      'SELECT id, line1, ward, district, city FROM customer_addresses WHERE id = ? AND customer_id = ?',
       [id, userId]
     );
     if (addrList.length === 0) {
@@ -279,14 +261,23 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
       return res.status(404).json({ error: 'Address not found' });
     }
 
+    if (['line1', 'ward', 'district', 'city'].some((key) => data[key] !== undefined)
+      && (!Number.isFinite(Number(data.latitude)) || !Number.isFinite(Number(data.longitude)))) {
+      const current = addrList[0];
+      const coords = await geocodeVietnamAddress({
+        line1: data.line1 ?? current.line1,
+        ward: data.ward ?? current.ward,
+        district: data.district ?? current.district,
+        city: data.city ?? current.city,
+      });
+      data.latitude = coords.latitude;
+      data.longitude = coords.longitude;
+    }
+
     if (data.isDefault) {
       await connection.query(
         'UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?',
         [userId]
-      );
-      await connection.query(
-        'INSERT INTO customer_profiles (user_id, default_address_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE default_address_id = ?',
-        [userId, id, id]
       );
     }
 
@@ -301,9 +292,6 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
       ward: 'ward',
       district: 'district',
       city: 'city',
-      ghnProvinceId: 'ghn_province_id',
-      ghnDistrictId: 'ghn_district_id',
-      ghnWardCode: 'ghn_ward_code',
       latitude: 'latitude',
       longitude: 'longitude',
       deliveryNote: 'delivery_note',
@@ -330,8 +318,7 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
 
     const [updatedRow] = await connection.query(
       `SELECT id, label, recipient_name AS recipientName, recipient_phone AS recipientPhone, 
-              line1, ward, district, city, ghn_province_id AS ghnProvinceId,
-              ghn_district_id AS ghnDistrictId, ghn_ward_code AS ghnWardCode,
+              line1, ward, district, city,
               latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
        FROM customer_addresses WHERE id = ?`,
       [id]
@@ -370,13 +357,6 @@ router.delete('/addresses/:id', ensureCustomer, async (req, res, next) => {
     // Always allow delete based on requirement
     await connection.query('DELETE FROM customer_addresses WHERE id = ? AND customer_id = ?', [id, userId]);
 
-    if (addrList[0].is_default) {
-      await connection.query(
-        'UPDATE customer_profiles SET default_address_id = NULL WHERE user_id = ?',
-        [userId]
-      );
-    }
-    
     await connection.commit();
     res.json({ success: true });
   } catch (err) {
@@ -406,10 +386,6 @@ router.post('/addresses/:id/default', ensureCustomer, async (req, res, next) => 
 
     await connection.query('UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?', [userId]);
     await connection.query('UPDATE customer_addresses SET is_default = 1 WHERE id = ?', [id]);
-    await connection.query(
-      'INSERT INTO customer_profiles (user_id, default_address_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE default_address_id = ?',
-      [userId, id, id]
-    );
     
     await connection.commit();
     res.json({ success: true });

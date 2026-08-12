@@ -35,7 +35,6 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 |----------|--------|
 | [groups.txt](./planning/groups.txt) | Kế hoạch Đợt 1–2 (đã xong) |
 | [waves-remaining.txt](./planning/waves-remaining.txt) | Kế hoạch Đợt 3–5 (không gồm vận hành tài xế) |
-| [driver-phase.txt](./planning/driver-phase.txt) | Phase tài xế — làm sau khi xong Đợt 3–5 |
 | [wave-1-completed.md](./wave-1-completed.md) | Chức năng đã hoàn thành — Đợt 1 (INF-01 … ADM-02) |
 | [wave-2-completed.md](./wave-2-completed.md) | Chức năng đã hoàn thành — Đợt 2 (CUS-03 … ADM-03) |
 | [wave-3-completed.md](./wave-3-completed.md) | Chức năng đã hoàn thành — Đợt 3 (CUS-06 … MER-04) |

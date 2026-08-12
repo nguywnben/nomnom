@@ -15,7 +15,7 @@ if (configured) {
   });
 }
 
-export const uploadFolders = new Set(['avatar', 'restaurant', 'menu', 'cuisine', 'driver-kyc', 'review']);
+export const uploadFolders = new Set(['avatar', 'restaurant', 'menu', 'cuisine', 'review']);
 
 export function normalizeUploadFolder(folder) {
   const value = String(folder ?? 'avatar').trim();

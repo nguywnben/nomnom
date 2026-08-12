@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useNavigate } from 'react-router-dom';
 import {
   initialOrders,
-  initialDriverJobs,
   initialMerchantOrders,
   initialAdminAccounts,
   initialPayouts,
@@ -43,6 +42,24 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [merchantRestaurant, setMerchantRestaurant] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState('loading');
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus('unavailable');
+      return undefined;
+    }
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        setCurrentLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setLocationStatus('available');
+      },
+      () => setLocationStatus('unavailable'),
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   const permittedRoles = useMemo(
     () => (user ? buildPermittedRoles(user.roles) : buildPermittedRoles([])),
@@ -72,20 +89,6 @@ export function AppProvider({ children }) {
       address: '',
     };
   }, [user, shopAsCustomer]);
-
-  const currentDriver = useMemo(() => {
-    if (!user || !permittedRoles.driver) return null;
-    return {
-      id: String(user.id),
-      name: user.fullName,
-      email: user.email ?? '',
-      phone: user.phone ?? '',
-      avatar: user.avatarUrl,
-      vehicle: '—',
-      rating: 4.9,
-      trips: 0,
-    };
-  }, [user, permittedRoles.driver]);
 
   const currentMerchant = useMemo(() => {
     if (!user || !permittedRoles.merchant) return null;
@@ -118,7 +121,6 @@ export function AppProvider({ children }) {
       restaurantId: null,
       restaurantName: null,
       restaurantLogo: null,
-      baseDeliveryFee: 0,
       items: [],
     }),
     [],
@@ -144,7 +146,6 @@ export function AppProvider({ children }) {
         restaurantId: nextCart.restaurantId ?? null,
         restaurantName: nextCart.restaurantName ?? null,
         restaurantLogo: nextCart.restaurantLogo ?? null,
-        baseDeliveryFee: Number(nextCart.baseDeliveryFee ?? 0),
         items: (nextCart.items ?? []).map(normalizeCartItem),
       };
     },
@@ -188,11 +189,6 @@ export function AppProvider({ children }) {
   // Merchant — orders kanban
   const [merchantOrders, setMerchantOrders] = useState(initialMerchantOrders);
 
-  // Driver — job pool + active job
-  const [driverOnline, setDriverOnline] = useState(true);
-  const [driverJobs, setDriverJobs] = useState(initialDriverJobs);
-  const [activeDriverJob, setActiveDriverJob] = useState(null);
-
   // Admin — accounts, payouts, config
   const [adminAccounts, setAdminAccounts] = useState(initialAdminAccounts);
   const [payouts, setPayouts] = useState(initialPayouts);
@@ -212,7 +208,7 @@ export function AppProvider({ children }) {
     () => cart.items.reduce((s, i) => s + i.price * i.quantity, 0),
     [cart.items],
   );
-  const deliveryFee = cart.items.length ? Number(cart.baseDeliveryFee ?? 0) : 0;
+  const deliveryFee = 0;
   const discount = useMemo(() => {
     if (!appliedPromo) return 0;
     if (appliedPromo.kind === 'percent') return Math.min(cartSubtotal * (appliedPromo.amount / 100), appliedPromo.cap ?? 9e9);
@@ -262,12 +258,18 @@ export function AppProvider({ children }) {
         });
         return null;
       }
+      if (!currentLocation) {
+        pushToast({
+          kind: 'warning',
+          title: 'Cần vị trí hiện tại',
+          message: 'Hãy cho phép trình duyệt truy cập vị trí để kiểm tra quán có giao đến khu vực của bạn hay không.',
+          duration: 4200,
+        });
+        return null;
+      }
 
       const nextRestaurantName = item.restaurantName ?? restaurantMeta.restaurantName ?? restaurantMeta.name ?? null;
       const nextRestaurantLogo = item.restaurantLogo ?? restaurantMeta.restaurantLogo ?? restaurantMeta.logo ?? null;
-      const nextBaseDeliveryFee = Number(
-        restaurantMeta.baseDeliveryFee ?? restaurantMeta.fee ?? item.baseDeliveryFee ?? cart.baseDeliveryFee ?? 0,
-      );
       const nextRestaurantId = Number.isNaN(Number(restaurantId)) ? restaurantId : Number(restaurantId);
       const rawMenuItemId = item.menuItemId ?? item.menu_item_id;
       const parsedMenuItemId = Number(rawMenuItemId);
@@ -306,6 +308,7 @@ export function AppProvider({ children }) {
             menuItemId: resolvedMenuItemId,
             quantity,
             note: item.note ?? undefined,
+            currentLocation,
           });
           setCart(normalizeCart(data.cart));
           setAppliedPromo(null);
@@ -347,7 +350,6 @@ export function AppProvider({ children }) {
             restaurantId: nextRestaurantId,
             restaurantName: nextRestaurantName,
             restaurantLogo: nextRestaurantLogo,
-            baseDeliveryFee: nextBaseDeliveryFee,
             items: [nextItem],
           };
         }
@@ -369,7 +371,6 @@ export function AppProvider({ children }) {
           restaurantId: nextRestaurantId,
           restaurantName: nextRestaurantName,
           restaurantLogo: nextRestaurantLogo,
-          baseDeliveryFee: nextBaseDeliveryFee,
           items,
         };
       });
@@ -385,7 +386,7 @@ export function AppProvider({ children }) {
       }
       return null;
     },
-    [cart.baseDeliveryFee, cart.items.length, cart.restaurantId, normalizeCart, permittedRoles, pushToast, user],
+    [cart.items.length, cart.restaurantId, currentLocation, normalizeCart, permittedRoles, pushToast, user],
   );
 
   const setItemQty = useCallback(
@@ -559,7 +560,6 @@ export function AppProvider({ children }) {
         payment,
         status: 'preparing',
         placedAt: Date.now(),
-        driverId: 'drv-1',
         eta: 28,
       };
       setOrders((cur) => [order, ...cur]);
@@ -582,51 +582,6 @@ export function AppProvider({ children }) {
       return order;
     },
     [cart, cartSubtotal, deliveryFee, discount, cartTotal, clearCart, currentCustomer],
-  );
-
-  // ---- Driver helpers ----
-  const acceptDriverJob = useCallback(
-    (jobId) => {
-      // Edge-case: occasionally show "Job already taken"
-      const alreadyTaken = Math.random() < 0.25;
-      if (alreadyTaken) {
-        pushToast({
-          kind: 'error',
-          title: 'Công việc đã có người nhận',
-          message: 'Tài xế khác đã nhanh tay hơn. Hãy thử công việc khác nhé.',
-        });
-        setDriverJobs((cur) => cur.filter((j) => j.id !== jobId));
-        return null;
-      }
-      const job = driverJobs.find((j) => j.id === jobId);
-      if (!job) return null;
-      setDriverJobs((cur) => cur.filter((j) => j.id !== jobId));
-      const active = { ...job, step: 'to-merchant', startedAt: Date.now() };
-      setActiveDriverJob(active);
-      pushToast({ kind: 'success', title: 'Đã nhận công việc', message: `Lấy hàng tại ${job.restaurantName}` });
-      return active;
-    },
-    [driverJobs, pushToast],
-  );
-  const advanceDriverStep = useCallback(
-    (proofUrl) => {
-      setActiveDriverJob((cur) => {
-        if (!cur) return cur;
-        const order = ['to-merchant', 'at-merchant', 'to-customer', 'delivered'];
-        const next = order[Math.min(order.indexOf(cur.step) + 1, order.length - 1)];
-        if (next === 'delivered') {
-          pushToast({
-            kind: 'success',
-            title: 'Đã giao hàng',
-            message: `+${formatVnd(cur.earnings)} đã vào ví`,
-          });
-          setTimeout(() => setActiveDriverJob(null), 1500);
-          return { ...cur, step: next, proofUrl };
-        }
-        return { ...cur, step: next };
-      });
-    },
-    [pushToast],
   );
 
   // ---- Merchant helpers ----
@@ -758,6 +713,23 @@ export function AppProvider({ children }) {
         return;
       }
 
+      // Keep a guest cart until its items can be rechecked against the current location.
+      if (!currentLocation) {
+        setSyncing(true);
+        try {
+          const data = await fetchCartApi();
+          if (!cancelled) {
+            setCart(normalizeCart(data.cart));
+            setAppliedPromo(null);
+          }
+        } catch {
+          if (!cancelled) resetCartState();
+        } finally {
+          if (!cancelled) setSyncing(false);
+        }
+        return;
+      }
+
       const hydrationKey = `customer:${user.id}`;
       if (cartHydratedKey.current === hydrationKey) return;
       cartHydratedKey.current = hydrationKey;
@@ -790,6 +762,7 @@ export function AppProvider({ children }) {
               menuItemId,
               quantity: Math.max(1, Number(item.quantity ?? 1)),
               note: item.note ?? undefined,
+              currentLocation,
             });
           }
           clearGuestCart();
@@ -812,7 +785,7 @@ export function AppProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [authReady, emptyCart, normalizeCart, permittedRoles.customer, pushToast, resetCartState, user]);
+  }, [authReady, currentLocation, emptyCart, normalizeCart, permittedRoles.customer, pushToast, resetCartState, user]);
 
   useEffect(() => {
     if (!authReady || user) return undefined;
@@ -871,9 +844,6 @@ export function AppProvider({ children }) {
         // Clear all session specific data
         setOrders(initialOrders);
         setMerchantOrders(initialMerchantOrders);
-        setDriverOnline(true);
-        setDriverJobs(initialDriverJobs);
-        setActiveDriverJob(null);
         setAdminAccounts(initialAdminAccounts);
         setPayouts(initialPayouts);
         setChats(initialChats);
@@ -896,9 +866,6 @@ export function AppProvider({ children }) {
       user,
       setOrders,
       setMerchantOrders,
-      setDriverOnline,
-      setDriverJobs,
-      setActiveDriverJob,
       setAdminAccounts,
       setPayouts,
       setChats,
@@ -958,14 +925,6 @@ export function AppProvider({ children }) {
     setMerchantOrders,
     moveMerchantOrder,
 
-    driverOnline,
-    setDriverOnline,
-    driverJobs,
-    activeDriverJob,
-    acceptDriverJob,
-    advanceDriverStep,
-    setActiveDriverJob,
-
     adminAccounts,
     setAccountStatus,
     payouts,
@@ -981,8 +940,9 @@ export function AppProvider({ children }) {
     setActiveChatId,
 
     currentCustomer,
-    currentDriver,
     currentMerchant,
+    currentLocation,
+    locationStatus,
     currentAdmin,
     merchantRestaurant,
   };
@@ -1001,11 +961,6 @@ export function useApp() {
 function autoReply(chat, text) {
   const role = chat.participants.find((p) => p.id !== 'me')?.role;
   const t = text.toLowerCase();
-  if (role === 'driver') {
-    if (t.includes('where')) return "Tôi đang cách đây 5 phút — chuẩn bị rời khỏi nhà hàng.";
-    if (t.includes('door') || t.includes('apartment')) return 'Đã rõ, tôi sẽ để ở quầy lễ tân.';
-    return 'Đã hiểu, tôi đang trên đường đến.';
-  }
   if (role === 'merchant') {
     if (t.includes('substitute') || t.includes('out of'))
       return "Chúng tôi có thể thay Margherita cho Funghi — cùng giá. Bạn thấy sao?";

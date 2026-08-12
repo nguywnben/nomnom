@@ -17,7 +17,8 @@ import {
   OnboardingStepper,
 } from '../../components/onboarding/shared.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { applyMerchantApi, fetchMe, fetchCuisinesApi, fetchMerchantRestaurantApi } from '../../lib/api.js';
+import { apiGet, applyMerchantApi, fetchMe, fetchCuisinesApi, fetchMerchantRestaurantApi } from '../../lib/api.js';
+import { createAdministrativeLocationsApi } from '../../lib/administrativeLocations.js';
 import { uploadFile } from '../../lib/upload.js';
 import {
   isMerchantRestaurantApproved,
@@ -36,11 +37,13 @@ const STEPS = [
 
 const STEP_FIELDS = {
   info: ['name', 'cuisine', 'phone', 'avgPrepTime', 'tagline', 'description', 'minOrderAmount'],
-  address: ['addressLine', 'ward', 'district', 'city', 'baseDeliveryFee'],
+  address: ['addressLine', 'ward', 'city'],
   docs: ['logoUrl', 'bannerUrl', 'licenseUrl', 'foodSafetyUrl'],
   banking: ['bankName', 'bankAccountNo', 'bankAccountHolder'],
   review: [],
 };
+
+const locationsApi = createAdministrativeLocationsApi(apiGet);
 
 export default function MerchantOnboarding() {
   const nav = useNavigate();
@@ -75,7 +78,6 @@ export default function MerchantOnboarding() {
       ward: '',
       district: '',
       city: '',
-      baseDeliveryFee: 25000,
       minOrderAmount: 50000,
       logoUrl: '',
       bannerUrl: '',
@@ -98,9 +100,7 @@ export default function MerchantOnboarding() {
           fetchCuisinesApi().catch(() => null),
           fetchMerchantRestaurantApi().catch(() => null),
           fetchMe().catch(() => null),
-          fetch('https://provinces.open-api.vn/api/v2/p/')
-            .then((res) => res.json())
-            .catch(() => []),
+          locationsApi.getProvinces().catch(() => []),
         ]);
 
         if (!active) return;
@@ -144,7 +144,6 @@ export default function MerchantOnboarding() {
           setValue('ward', restaurant.ward ?? '');
           setValue('district', restaurant.district ?? '');
           setValue('city', restaurant.city ?? '');
-          setValue('baseDeliveryFee', Number(restaurant.base_delivery_fee ?? 25000));
           setValue('minOrderAmount', Number(restaurant.min_order_amount ?? 50000));
           setValue('avgPrepTime', Number(restaurant.avg_prep_time_min ?? 20));
           setValue('logoUrl', restaurant.logo_url ?? '');
@@ -188,9 +187,8 @@ export default function MerchantOnboarding() {
       setWards([]);
       return;
     }
-    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
-      .then((res) => res.json())
-      .then((data) => setWards(data.wards || []))
+    locationsApi.getWards(selectedProvinceCode)
+      .then(setWards)
       .catch((err) => console.error('Failed to load wards:', err));
   }, [selectedProvinceCode]);
 
@@ -297,9 +295,8 @@ export default function MerchantOnboarding() {
         phone: data.phone,
         addressLine: data.addressLine,
         ward: data.ward,
-        district: data.district,
+        district: '',
         city: data.city,
-        baseDeliveryFee: data.baseDeliveryFee,
         minOrderAmount: data.minOrderAmount,
         avgPrepTimeMin: data.avgPrepTime,
         bannerUrl: data.bannerUrl,
@@ -516,30 +513,6 @@ export default function MerchantOnboarding() {
                 error={errors.ward?.message}
                 {...register('ward', {
                   required: 'Vui lòng chọn phường/xã.',
-                })}
-              />
-              <Input
-                id="district"
-                label="Quận / Huyện"
-                required
-                placeholder="Ví dụ: Quận 1"
-                aria-label="Quận hoặc huyện"
-                error={errors.district?.message}
-                {...register('district', { required: 'Vui lòng nhập quận/huyện.' })}
-              />
-              <Input
-                id="baseDeliveryFee"
-                label="Phí giao hàng cơ bản (VND)"
-                required
-                className="md:col-span-2"
-                type="number"
-                placeholder="Phí giao hàng cơ bản (VND)"
-                aria-label="Phí giao hàng cơ bản"
-                error={errors.baseDeliveryFee?.message}
-                {...register('baseDeliveryFee', {
-                  valueAsNumber: true,
-                  required: 'Vui lòng nhập phí giao hàng cơ bản.',
-                  min: { value: 0, message: 'Phí giao hàng cơ bản phải lớn hơn hoặc bằng 0.' }
                 })}
               />
               <div className="md:col-span-2">
