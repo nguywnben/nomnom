@@ -52,3 +52,22 @@ test('báo giá dùng dịch vụ hàng nhẹ đầu tiên', async () => {
     toWardCode: '20107',
   });
 });
+
+test('báo giá nhận mã GHN theo tên cột từ truy vấn SELECT *', async () => {
+  const result = await buildShippingQuote({
+    ghnClient: {
+      getShop: async () => ({ district_id: 1455 }),
+      getAvailableServices: async () => [{ service_id: 2, service_type_id: 2 }],
+      quote: async () => ({ total: 32000 }),
+    },
+    cart,
+    restaurant,
+    address: {
+      ghn_province_id: 201,
+      ghn_district_id: 1442,
+      ghn_ward_code: '20107',
+    },
+  });
+
+  assert.equal(result.total, 32000);
+});

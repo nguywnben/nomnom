@@ -49,9 +49,7 @@ export default function Addresses() {
   useEffect(() => {
     if (!selectedProvinceCode) {
       setDistricts([]);
-      setSelectedDistrictCode('');
       setWards([]);
-      setSelectedWardCode('');
       return;
     }
     ghnLocationsApi.getDistricts(selectedProvinceCode)
@@ -62,7 +60,6 @@ export default function Addresses() {
   useEffect(() => {
     if (!selectedDistrictCode) {
       setWards([]);
-      setSelectedWardCode('');
       return;
     }
     ghnLocationsApi.getWards(selectedDistrictCode)
@@ -390,6 +387,7 @@ export default function Addresses() {
                   const code = e.target.value;
                   const name = e.target.options[e.target.selectedIndex].text;
                   setSelectedDistrictCode(code);
+                  setSelectedWardCode('');
                   setEditor((c) => ({ ...c, values: { ...c.values, district: code ? name : '' }, fieldErrors: { ...c.fieldErrors, district: undefined } }));
                 }}
                 disabled={!selectedProvinceCode}

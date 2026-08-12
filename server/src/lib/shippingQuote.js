@@ -5,7 +5,11 @@ function quoteError(code, message) {
 }
 
 export async function buildShippingQuote({ ghnClient, cart, restaurant, address }) {
-  if (!address?.ghnProvinceId || !address?.ghnDistrictId || !address?.ghnWardCode) {
+  const ghnProvinceId = address?.ghnProvinceId ?? address?.ghn_province_id;
+  const ghnDistrictId = address?.ghnDistrictId ?? address?.ghn_district_id;
+  const ghnWardCode = address?.ghnWardCode ?? address?.ghn_ward_code;
+
+  if (!ghnProvinceId || !ghnDistrictId || !ghnWardCode) {
     throw quoteError('GHN_ADDRESS_NOT_READY', 'Địa chỉ chưa có đủ mã GHN.');
   }
   if (!cart?.restaurant_id || !restaurant?.id) {
@@ -13,7 +17,7 @@ export async function buildShippingQuote({ ghnClient, cart, restaurant, address 
   }
 
   const shop = await ghnClient.getShop();
-  const services = await ghnClient.getAvailableServices(shop.district_id, address.ghnDistrictId);
+  const services = await ghnClient.getAvailableServices(shop.district_id, ghnDistrictId);
   const service = services.find((item) => Number(item.service_type_id) === 2);
   if (!service) {
     throw quoteError('GHN_SERVICE_UNAVAILABLE', 'GHN chưa hỗ trợ dịch vụ hàng nhẹ cho tuyến này.');
@@ -22,8 +26,8 @@ export async function buildShippingQuote({ ghnClient, cart, restaurant, address 
   const fee = await ghnClient.quote({
     serviceId: service.service_id,
     fromDistrictId: shop.district_id,
-    toDistrictId: address.ghnDistrictId,
-    toWardCode: address.ghnWardCode,
+    toDistrictId: ghnDistrictId,
+    toWardCode: ghnWardCode,
   });
   const total = Number(fee.total);
   if (!Number.isFinite(total) || total < 0) {

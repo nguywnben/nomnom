@@ -248,6 +248,14 @@ export default function CustomerCheckout() {
           isDefault: makeDefault
         });
         finalAddressId = newAddr.id;
+        // Giữ địa chỉ vừa tạo làm địa chỉ đã chọn. Nếu đặt đơn lỗi và khách thử lại,
+        // checkout sẽ dùng lại địa chỉ này thay vì tạo thêm bản sao.
+        setAddresses((current) => [
+          { ...newAddr, isDefault: Boolean(newAddr.isDefault) },
+          ...current.map((item) => ({ ...item, isDefault: newAddr.isDefault ? false : item.isDefault })),
+        ]);
+        setAddressId(newAddr.id);
+        setIsAddingNewAddress(false);
       } else if (!finalAddressId) {
         pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng chọn địa chỉ' });
         setPlacing(false);
