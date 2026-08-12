@@ -9,7 +9,6 @@ import { serializeAddressChangeRequest } from '../lib/restaurantAddressChanges.j
 import {
   ensureWallet,
   insertNotification,
-  serializeDriverRow,
   serializeRestaurantRow,
 } from '../lib/adminApprovals.js';
 
@@ -326,7 +325,6 @@ router.get('/usersQuery', async (req, res, next) => {
 
     const filters = [
       "u.status <> 'pending'",
-      "NOT EXISTS (SELECT 1 FROM user_roles hidden_driver_role WHERE hidden_driver_role.user_id = u.id AND hidden_driver_role.role = 'driver')",
     ];
     const params = [];
 
@@ -385,7 +383,7 @@ router.get('/users/:id', async (req, res, next) => {
       pool.query(`SELECT r.id, r.name, r.status, r.rating_avg, r.review_count, r.is_open_now, c.name AS cuisine_name FROM restaurants r LEFT JOIN cuisines c ON c.id = r.cuisine_id WHERE r.owner_user_id = ? ORDER BY r.created_at DESC`, [id]).then(([rows]) => rows),
       pool.query(`SELECT balance, pending_balance, total_earned, total_withdrawn, is_locked FROM wallets WHERE user_id = ? AND owner_type = 'merchant' LIMIT 1`, [id]).then(([rows]) => rows[0]),
     ]);
-    if (!user || roleRows.some((row) => row.role === 'driver') || user.status === 'pending') return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+    if (!user || user.status === 'pending') return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
     return res.json({
       account: {
         ...serializeUser(user, roleRows.map((row) => row.role)),
@@ -946,213 +944,6 @@ router.post('/restaurants/:id/reject', async (req, res, next) => {
     );
 
     res.json({ ok: true, restaurant: serializeRestaurantRow(updated[0]) });
-  } catch (err) {
-    await conn.rollback();
-    next(err);
-  } finally {
-    conn.release();
-  }
-});
-
-router.get('/drivers/pending', async (_req, res, next) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.approval_status = 'pending'
-       ORDER BY dp.created_at ASC`,
-    );
-    res.json({ items: rows.map(serializeDriverRow) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/drivers/:userId/approve', async (req, res, next) => {
-  const userId = Number(req.params.userId);
-  const adminId = req.auth.userId;
-
-  if (!userId) {
-    return res.status(400).json({ error: 'ID tài xế không hợp lệ.' });
-  }
-
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [rows] = await conn.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-    const profile = rows[0];
-    if (!profile) {
-      await conn.rollback();
-      return res.status(404).json({ error: 'Hồ sơ tài xế không tồn tại.' });
-    }
-    if (profile.approval_status !== 'pending') {
-      await conn.rollback();
-      return res.status(400).json({ error: 'Chỉ có thể duyệt hồ sơ tài xế đang chờ xét duyệt.' });
-    }
-
-    await conn.query(
-      `UPDATE driver_profiles
-       SET approval_status = 'approved', approved_at = NOW(), approved_by_admin_id = ?
-       WHERE user_id = ?`,
-      [adminId, userId],
-    );
-
-    await conn.query(
-      `UPDATE users
-       SET status = 'active', primary_role = 'driver'
-       WHERE id = ?`,
-      [userId]
-    );
-
-    const [existingRole] = await conn.query(
-      'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
-      [userId, 'driver'],
-    );
-    if (existingRole.length === 0) {
-      await conn.query(
-        'INSERT INTO user_roles (user_id, role) VALUES (?, ?)',
-        [userId, 'driver'],
-      );
-    }
-
-    await ensureWallet(conn, userId, 'driver');
-
-    await logAudit(conn, {
-      adminId,
-      action: 'duyet_tai_xe',
-      targetType: 'driver',
-      targetId: userId,
-      metadata: {
-        tenTaiXe: profile.full_name,
-        email: profile.email,
-      },
-    });
-
-    const title = 'Hồ sơ tài xế đã được duyệt';
-    const body = 'Hồ sơ tài xế của bạn đã được phê duyệt. Bạn có thể bắt đầu nhận đơn trên portal tài xế.';
-    await insertNotification(conn, {
-      userId,
-      title,
-      body,
-      linkUrl: '/driver',
-    });
-
-    await conn.commit();
-
-    await sendKycApprovedEmailSafe({
-      to: profile.email,
-      fullName: profile.full_name,
-      subjectKind: 'tài xế',
-      portalPath: '/driver',
-    });
-
-    const [updated] = await pool.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-
-    res.json({ ok: true, driver: serializeDriverRow(updated[0]) });
-  } catch (err) {
-    await conn.rollback();
-    next(err);
-  } finally {
-    conn.release();
-  }
-});
-
-router.post('/drivers/:userId/reject', async (req, res, next) => {
-  const userId = Number(req.params.userId);
-  const reason = String(req.body?.reason ?? '').trim();
-
-  if (!userId) {
-    return res.status(400).json({ error: 'ID tài xế không hợp lệ.' });
-  }
-  if (!reason) {
-    return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối.' });
-  }
-  if (reason.length > 500) {
-    return res.status(400).json({ error: 'Lý do từ chối không được vượt quá 500 ký tự.' });
-  }
-
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [rows] = await conn.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-    const profile = rows[0];
-    if (!profile) {
-      await conn.rollback();
-      return res.status(404).json({ error: 'Hồ sơ tài xế không tồn tại.' });
-    }
-    if (profile.approval_status !== 'pending') {
-      await conn.rollback();
-      return res.status(400).json({ error: 'Chỉ có thể từ chối hồ sơ tài xế đang chờ xét duyệt.' });
-    }
-
-    await conn.query(
-      `UPDATE driver_profiles
-       SET approval_status = 'rejected', approved_at = NULL, approved_by_admin_id = NULL
-       WHERE user_id = ?`,
-      [userId],
-    );
-
-    await logAudit(conn, {
-      adminId: req.auth.userId,
-      action: 'tu_choi_tai_xe',
-      targetType: 'driver',
-      targetId: userId,
-      metadata: {
-        tenTaiXe: profile.full_name,
-        email: profile.email,
-        lyDo: reason,
-      },
-    });
-
-    const title = 'Hồ sơ tài xế chưa được chấp nhận';
-    const body = `Hồ sơ tài xế của bạn chưa được chấp nhận. Lý do: ${reason}`;
-    await insertNotification(conn, {
-      userId,
-      title,
-      body,
-      linkUrl: '/driver/pending',
-    });
-
-    await conn.commit();
-
-    await sendKycRejectedEmailSafe({
-      to: profile.email,
-      fullName: profile.full_name,
-      subjectKind: 'tài xế',
-      reason,
-      portalPath: '/driver/onboarding',
-    });
-
-    const [updated] = await pool.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-
-    res.json({ ok: true, driver: serializeDriverRow(updated[0]) });
   } catch (err) {
     await conn.rollback();
     next(err);

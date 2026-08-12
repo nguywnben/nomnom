@@ -131,7 +131,6 @@ export async function createUserFromPending(pending) {
     const userId = insertUser.insertId;
 
     await conn.query('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', [userId, 'customer']);
-    await conn.query('INSERT INTO customer_profiles (user_id) VALUES (?)', [userId]);
     await conn.query('DELETE FROM registration_pending WHERE email = ?', [pending.email]);
 
     await conn.commit();

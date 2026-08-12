@@ -1,4 +1,4 @@
-/** @typedef {'customer'|'merchant'|'driver'|'admin'} Role */
+/** @typedef {'customer'|'merchant'|'admin'} Role */
 
 /** Quyền truy cập portal — chỉ từ bảng `user_roles`, không gồm `primary_role`. */
 export function buildPermittedRoles(roles) {
@@ -6,7 +6,6 @@ export function buildPermittedRoles(roles) {
   return {
     customer: set.has('customer'),
     merchant: set.has('merchant'),
-    driver: set.has('driver'),
     admin: set.has('admin'),
   };
 }
@@ -24,7 +23,6 @@ export function loginHref(nextPath = '/app') {
 export const ROLE_HOME = {
   customer: '/app',
   merchant: '/merchant',
-  driver: '/driver',
   admin: '/admin',
 };
 
@@ -41,15 +39,10 @@ export function resolveLoginRedirect(nextPath, user) {
       if (nextPath === '/merchant/onboarding' || nextPath === '/merchant/pending') return nextPath;
       if (roles.includes('merchant')) return nextPath;
     }
-    if (nextPath.startsWith('/driver')) {
-      if (nextPath === '/driver/onboarding' || nextPath === '/driver/pending') return nextPath;
-      if (roles.includes('driver')) return nextPath;
-    }
     if (nextPath.startsWith('/app') && roles.length > 0) return nextPath;
     if (
       !nextPath.startsWith('/admin') &&
       !nextPath.startsWith('/merchant') &&
-      !nextPath.startsWith('/driver') &&
       !nextPath.startsWith('/app')
     ) {
       return nextPath;

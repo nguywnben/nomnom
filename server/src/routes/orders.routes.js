@@ -164,10 +164,11 @@ router.post('/', requireAuth, async (req, res, next) => {
     const discount_amount = voucherDiscount;
     const total_amount = Math.max(0, subtotal + delivery_fee - discount_amount);
 
-    const driver_earning = Math.floor(delivery_fee * 0.8);
     const platform_commission = Math.floor(subtotal * Number(restaurant.commission_rate) / 100);
     const merchant_earning = subtotal - platform_commission;
-    const platform_fee = platform_commission + Math.floor(delivery_fee * 0.2);
+    // NomNom currently uses GHN only to quote delivery. Until a delivery-partner
+    // settlement flow exists, the full quoted delivery fee stays with the platform.
+    const platform_fee = platform_commission + delivery_fee;
 
     // 5. Tính toán khoảng cách và thời gian giao hàng dự kiến
     let distance_km = 0;
@@ -202,7 +203,7 @@ router.post('/', requireAuth, async (req, res, next) => {
         order_code, customer_id, restaurant_id, voucher_id, delivery_address_id, delivery_address_snapshot,
         delivery_lat, delivery_lng, pickup_lat, pickup_lng, distance_km,
         subtotal, delivery_fee, discount_amount, voucher_code_snapshot, total_amount,
-        driver_earning, merchant_earning, platform_fee,
+        merchant_earning, platform_fee,
         status, payment_status, payment_method, customer_note, estimated_delivery_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -222,7 +223,6 @@ router.post('/', requireAuth, async (req, res, next) => {
         discount_amount,
         voucher ? voucher.code : null,
         total_amount,
-        driver_earning,
         merchant_earning,
         platform_fee,
         status,

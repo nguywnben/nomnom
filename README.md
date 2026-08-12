@@ -34,13 +34,12 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 - Restaurant-scoped promotion management and public review replies
 - Wallet, payout requests, restaurant settings, notification inbox, and order-context chat
 
-### Admin and Driver
+### Administration
 
-- User administration and merchant/driver application approval
+- User administration and merchant application approval
 - Platform overview with operational metrics
 - Global order audit/refund operations and review moderation
 - Merchant payout review, financial reporting, platform configuration, notifications, and support chat
-- Driver onboarding and approval status; delivery operations remain a planned phase
 
 ## Project Status
 
@@ -173,7 +172,6 @@ Copy the committed example files; never commit real `.env` files.
 | Variable | Required | Purpose |
 |---|---|---|
 | `VITE_API_URL` | No locally | API origin; empty uses the Vite `/api` proxy |
-| `VITE_DRIVER_APP_URL` | No | External driver-app URL when configured |
 
 See [server/.env.example](./server/.env.example), [client/.env.example](./client/.env.example), and the [authentication guide](./docs/AUTH.md).
 
@@ -201,7 +199,6 @@ After importing `database/nomnom.sql`, all documented demo accounts use the pass
 | Admin | `avery@nomnom.example` | `/admin` |
 | Customer | `mara@example.com` | `/app` |
 | Merchant | `owner@cinque.example` | `/merchant` |
-| Driver | `owen.r@example.com` | `/driver` |
 
 No permanent public demo URL is guaranteed yet. Local setup is the supported demonstration path.
 

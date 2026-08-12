@@ -225,13 +225,6 @@ router.post('/addresses', ensureCustomer, async (req, res, next) => {
 
     const newId = result.insertId;
 
-    if (isDefault) {
-      await connection.query(
-        'INSERT INTO customer_profiles (user_id, default_address_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE default_address_id = ?',
-        [userId, newId, newId]
-      );
-    }
-
     await connection.commit();
     
     // Return the newly created address
@@ -283,10 +276,6 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
       await connection.query(
         'UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?',
         [userId]
-      );
-      await connection.query(
-        'INSERT INTO customer_profiles (user_id, default_address_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE default_address_id = ?',
-        [userId, id, id]
       );
     }
 
@@ -370,13 +359,6 @@ router.delete('/addresses/:id', ensureCustomer, async (req, res, next) => {
     // Always allow delete based on requirement
     await connection.query('DELETE FROM customer_addresses WHERE id = ? AND customer_id = ?', [id, userId]);
 
-    if (addrList[0].is_default) {
-      await connection.query(
-        'UPDATE customer_profiles SET default_address_id = NULL WHERE user_id = ?',
-        [userId]
-      );
-    }
-    
     await connection.commit();
     res.json({ success: true });
   } catch (err) {
@@ -406,10 +388,6 @@ router.post('/addresses/:id/default', ensureCustomer, async (req, res, next) => 
 
     await connection.query('UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?', [userId]);
     await connection.query('UPDATE customer_addresses SET is_default = 1 WHERE id = ?', [id]);
-    await connection.query(
-      'INSERT INTO customer_profiles (user_id, default_address_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE default_address_id = ?',
-      [userId, id, id]
-    );
     
     await connection.commit();
     res.json({ success: true });

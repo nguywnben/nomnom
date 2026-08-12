@@ -107,18 +107,6 @@ export function uploadImageApi(file, folder) {
   });
 }
 
-export function fetchDriverProfile() {
-  return apiGet('/api/v1/driver/me/profile');
-}
-
-export function applyDriverProfile(payload) {
-  return apiPost('/api/v1/driver/apply', payload);
-}
-
-export function updateDriverProfile(payload) {
-  return apiPatch('/api/v1/driver/me/profile', payload);
-}
-
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
@@ -314,18 +302,6 @@ export function approveAdminRestaurantAddressChangeRequest(requestId) {
 
 export function rejectAdminRestaurantAddressChangeRequest(requestId, reason) {
   return apiPost(`/api/v1/admin/restaurant-address-change-requests/${encodeURIComponent(requestId)}/reject`, { reason });
-}
-
-export function fetchAdminPendingDrivers() {
-  return apiGet('/api/v1/admin/drivers/pending');
-}
-
-export function approveAdminDriver(userId) {
-  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/approve`);
-}
-
-export function rejectAdminDriver(userId, reason) {
-  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
 }
 
 export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', page = 1 } = {}) {

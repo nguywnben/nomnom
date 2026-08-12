@@ -61,25 +61,3 @@ export function serializeRestaurantRow(row, { includeBankAccountNo = false } = {
   };
 }
 
-export function serializeDriverRow(row) {
-  return {
-    userId: row.user_id,
-    fullName: row.full_name,
-    email: row.email,
-    phone: row.user_phone ?? row.phone,
-    nationalId: row.national_id,
-    vehicleType: row.vehicle_type,
-    vehicleModel: row.vehicle_model,
-    licensePlate: row.license_plate,
-    idCardUrl: row.id_card_url,
-    driverLicenseUrl: row.driver_license_url,
-    portraitUrl: row.portrait_url,
-    approvalStatus: row.approval_status,
-    submittedAt: row.created_at,
-    docs: {
-      idCard: Boolean(row.id_card_url),
-      license: Boolean(row.driver_license_url),
-      portrait: Boolean(row.portrait_url),
-    },
-  };
-}

@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useNavigate } from 'react-router-dom';
 import {
   initialOrders,
-  initialDriverJobs,
   initialMerchantOrders,
   initialAdminAccounts,
   initialPayouts,
@@ -72,20 +71,6 @@ export function AppProvider({ children }) {
       address: '',
     };
   }, [user, shopAsCustomer]);
-
-  const currentDriver = useMemo(() => {
-    if (!user || !permittedRoles.driver) return null;
-    return {
-      id: String(user.id),
-      name: user.fullName,
-      email: user.email ?? '',
-      phone: user.phone ?? '',
-      avatar: user.avatarUrl,
-      vehicle: '—',
-      rating: 4.9,
-      trips: 0,
-    };
-  }, [user, permittedRoles.driver]);
 
   const currentMerchant = useMemo(() => {
     if (!user || !permittedRoles.merchant) return null;
@@ -187,11 +172,6 @@ export function AppProvider({ children }) {
 
   // Merchant — orders kanban
   const [merchantOrders, setMerchantOrders] = useState(initialMerchantOrders);
-
-  // Driver — job pool + active job
-  const [driverOnline, setDriverOnline] = useState(true);
-  const [driverJobs, setDriverJobs] = useState(initialDriverJobs);
-  const [activeDriverJob, setActiveDriverJob] = useState(null);
 
   // Admin — accounts, payouts, config
   const [adminAccounts, setAdminAccounts] = useState(initialAdminAccounts);
@@ -559,7 +539,6 @@ export function AppProvider({ children }) {
         payment,
         status: 'preparing',
         placedAt: Date.now(),
-        driverId: 'drv-1',
         eta: 28,
       };
       setOrders((cur) => [order, ...cur]);
@@ -582,51 +561,6 @@ export function AppProvider({ children }) {
       return order;
     },
     [cart, cartSubtotal, deliveryFee, discount, cartTotal, clearCart, currentCustomer],
-  );
-
-  // ---- Driver helpers ----
-  const acceptDriverJob = useCallback(
-    (jobId) => {
-      // Edge-case: occasionally show "Job already taken"
-      const alreadyTaken = Math.random() < 0.25;
-      if (alreadyTaken) {
-        pushToast({
-          kind: 'error',
-          title: 'Công việc đã có người nhận',
-          message: 'Tài xế khác đã nhanh tay hơn. Hãy thử công việc khác nhé.',
-        });
-        setDriverJobs((cur) => cur.filter((j) => j.id !== jobId));
-        return null;
-      }
-      const job = driverJobs.find((j) => j.id === jobId);
-      if (!job) return null;
-      setDriverJobs((cur) => cur.filter((j) => j.id !== jobId));
-      const active = { ...job, step: 'to-merchant', startedAt: Date.now() };
-      setActiveDriverJob(active);
-      pushToast({ kind: 'success', title: 'Đã nhận công việc', message: `Lấy hàng tại ${job.restaurantName}` });
-      return active;
-    },
-    [driverJobs, pushToast],
-  );
-  const advanceDriverStep = useCallback(
-    (proofUrl) => {
-      setActiveDriverJob((cur) => {
-        if (!cur) return cur;
-        const order = ['to-merchant', 'at-merchant', 'to-customer', 'delivered'];
-        const next = order[Math.min(order.indexOf(cur.step) + 1, order.length - 1)];
-        if (next === 'delivered') {
-          pushToast({
-            kind: 'success',
-            title: 'Đã giao hàng',
-            message: `+${formatVnd(cur.earnings)} đã vào ví`,
-          });
-          setTimeout(() => setActiveDriverJob(null), 1500);
-          return { ...cur, step: next, proofUrl };
-        }
-        return { ...cur, step: next };
-      });
-    },
-    [pushToast],
   );
 
   // ---- Merchant helpers ----
@@ -871,9 +805,6 @@ export function AppProvider({ children }) {
         // Clear all session specific data
         setOrders(initialOrders);
         setMerchantOrders(initialMerchantOrders);
-        setDriverOnline(true);
-        setDriverJobs(initialDriverJobs);
-        setActiveDriverJob(null);
         setAdminAccounts(initialAdminAccounts);
         setPayouts(initialPayouts);
         setChats(initialChats);
@@ -896,9 +827,6 @@ export function AppProvider({ children }) {
       user,
       setOrders,
       setMerchantOrders,
-      setDriverOnline,
-      setDriverJobs,
-      setActiveDriverJob,
       setAdminAccounts,
       setPayouts,
       setChats,
@@ -958,14 +886,6 @@ export function AppProvider({ children }) {
     setMerchantOrders,
     moveMerchantOrder,
 
-    driverOnline,
-    setDriverOnline,
-    driverJobs,
-    activeDriverJob,
-    acceptDriverJob,
-    advanceDriverStep,
-    setActiveDriverJob,
-
     adminAccounts,
     setAccountStatus,
     payouts,
@@ -981,7 +901,6 @@ export function AppProvider({ children }) {
     setActiveChatId,
 
     currentCustomer,
-    currentDriver,
     currentMerchant,
     currentAdmin,
     merchantRestaurant,
@@ -1001,11 +920,6 @@ export function useApp() {
 function autoReply(chat, text) {
   const role = chat.participants.find((p) => p.id !== 'me')?.role;
   const t = text.toLowerCase();
-  if (role === 'driver') {
-    if (t.includes('where')) return "Tôi đang cách đây 5 phút — chuẩn bị rời khỏi nhà hàng.";
-    if (t.includes('door') || t.includes('apartment')) return 'Đã rõ, tôi sẽ để ở quầy lễ tân.';
-    return 'Đã hiểu, tôi đang trên đường đến.';
-  }
   if (role === 'merchant') {
     if (t.includes('substitute') || t.includes('out of'))
       return "Chúng tôi có thể thay Margherita cho Funghi — cùng giá. Bạn thấy sao?";
