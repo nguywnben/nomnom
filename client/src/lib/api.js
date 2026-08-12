@@ -357,9 +357,11 @@ export function fetchRestaurantMenu(idOrSlug) {
   return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/menu`);
 }
 
-export function fetchRestaurantReviews(idOrSlug) {
+export function fetchRestaurantReviews(idOrSlug, { page = 1, limit = 10, rating, sort = 'newest' } = {}) {
   const id = String(idOrSlug).replace(/^r-/, '');
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/reviews`);
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), sort });
+  if (rating) params.set('rating', String(rating));
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/reviews?${params.toString()}`);
 }
 
 export function fetchCartApi() {
@@ -594,4 +596,10 @@ export function fetchAdminAuditLogs({ action = 'all', targetType = 'all', q = ''
 
 export function fetchMenuItemDetailApi(id, currentLocation) {
   return apiGet(withCurrentLocation('/api/v1/menu-items/' + encodeURIComponent(id), currentLocation));
+}
+
+export function fetchMenuItemReviewsApi(id, { page = 1, limit = 10, rating, sort = 'newest' } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), sort });
+  if (rating) params.set('rating', String(rating));
+  return apiGet(`/api/v1/menu-items/${encodeURIComponent(id)}/reviews?${params.toString()}`);
 }

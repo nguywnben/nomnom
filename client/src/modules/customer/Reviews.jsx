@@ -22,6 +22,8 @@ export default function Reviews() {
 
   const [ratings, setRatings] = useState({});
   const [comments, setComments] = useState({});
+  const [restaurantRating, setRestaurantRating] = useState(0);
+  const [restaurantComment, setRestaurantComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -79,26 +81,32 @@ export default function Reviews() {
   }, [id]);
 
   const submit = async () => {
-    const unrated = order.items.filter((item) => !ratings[item.menuItemId]);
-    if (unrated.length > 0) {
+    const dishReviews = order.items
+      .filter((item) => !order.reviewedMenuItemIds?.includes(Number(item.menuItemId)))
+      .filter((item) => Number(ratings[item.menuItemId]) > 0)
+      .map((item) => ({
+        menuItemId: item.menuItemId,
+        rating: ratings[item.menuItemId],
+        comment: comments[item.menuItemId]?.trim() || null,
+      }));
+    const restaurantReview = !order.restaurantReviewed && restaurantRating
+      ? { rating: restaurantRating, comment: restaurantComment.trim() || null }
+      : null;
+
+    if (!restaurantReview && dishReviews.length === 0) {
       pushToast({
-        kind: 'error',
-        title: 'Thêm đánh giá',
-        message: 'Vui lòng chọn số sao đánh giá cho tất cả các món ăn.',
+        kind: 'info',
+        title: 'Chưa chọn nội dung đánh giá',
+        message: 'Bạn có thể chọn đánh giá quán, một vài món hoặc quay lại để bỏ qua.',
       });
       return;
     }
 
     setSubmitting(true);
     try {
-      const reviewsPayload = order.items.map((item) => ({
-        menuItemId: item.menuItemId,
-        rating: ratings[item.menuItemId],
-        comment: comments[item.menuItemId]?.trim() || null,
-      }));
-
       await apiPost(`/api/v1/orders/${order.id}/review`, {
-        reviews: reviewsPayload,
+        restaurantReview,
+        dishReviews,
       });
 
       pushToast({
@@ -149,20 +157,6 @@ export default function Reviews() {
     );
   }
 
-  if (order.isReviewed) {
-    return (
-      <div className="container-page py-xl text-center">
-        <Card padded className="max-w-md mx-auto">
-          <div className="text-xl font-bold text-ink mb-sm">Đã đánh giá</div>
-          <p className="text-body mb-base">Đơn hàng này đã được đánh giá rồi.</p>
-          <Button onClick={() => nav(`/app/reviews/${order.restaurant_id}`)}>
-            Quay lại danh sách đánh giá quán
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
   const r = order.restaurant;
 
   return (
@@ -177,6 +171,34 @@ export default function Reviews() {
 
       <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
         <div className="space-y-base">
+          <Card padded>
+            <div className="flex flex-wrap items-start justify-between gap-sm">
+              <div>
+                <div className="text-title-md font-semibold text-ink">Đánh giá quán ăn</div>
+                <p className="mt-1 text-caption text-body">Chia sẻ trải nghiệm chung về đơn hàng và quán. Không bắt buộc.</p>
+              </div>
+              {order.restaurantReviewed ? (
+                <Badge tone="success">Đã đánh giá</Badge>
+              ) : (
+                <StarRating value={restaurantRating} onChange={setRestaurantRating} size={24} />
+              )}
+            </div>
+            {!order.restaurantReviewed && restaurantRating > 0 && (
+              <Textarea
+                className="mt-base"
+                rows={3}
+                placeholder={`Nhận xét về ${r?.name || 'quán ăn'} (không bắt buộc)`}
+                aria-label="Nhận xét về quán ăn"
+                value={restaurantComment}
+                onChange={(event) => setRestaurantComment(event.target.value)}
+              />
+            )}
+          </Card>
+
+          <div className="pt-sm">
+            <div className="text-title-md font-semibold text-ink">Đánh giá món ăn</div>
+            <p className="mt-1 text-caption text-body">Chỉ chọn những món bạn muốn đánh giá. Nhận xét không bắt buộc.</p>
+          </div>
           {order.items?.map((item) => (
             <Card padded key={item.id}>
               <div className="flex items-center gap-sm">
@@ -192,30 +214,38 @@ export default function Reviews() {
                   <div className="text-title-md text-ink">{item.name}</div>
                   <div className="text-caption text-body">Số lượng: {item.quantity}</div>
                 </div>
-                <StarRating
-                  value={ratings[item.menuItemId] || 0}
-                  onChange={(val) => setRatings((prev) => ({ ...prev, [item.menuItemId]: val }))}
-                  size={22}
-                />
+                {order.reviewedMenuItemIds?.includes(Number(item.menuItemId)) ? (
+                  <Badge tone="success">Đã đánh giá</Badge>
+                ) : (
+                  <StarRating
+                    value={ratings[item.menuItemId] || 0}
+                    onChange={(val) => setRatings((prev) => ({ ...prev, [item.menuItemId]: val }))}
+                    size={22}
+                  />
+                )}
               </div>
-              <Textarea
-                className="mt-base"
-                rows={3}
-                placeholder={`Chia sẻ nhận xét của bạn về món ${item.name}...`}
-                aria-label={`Đánh giá món ${item.name}`}
-                value={comments[item.menuItemId] || ''}
-                onChange={(e) => setComments((prev) => ({ ...prev, [item.menuItemId]: e.target.value }))}
-              />
+              {!order.reviewedMenuItemIds?.includes(Number(item.menuItemId)) && ratings[item.menuItemId] > 0 && (
+                <Textarea
+                  className="mt-base"
+                  rows={3}
+                  placeholder={`Nhận xét về ${item.name} (không bắt buộc)`}
+                  aria-label={`Đánh giá món ${item.name}`}
+                  value={comments[item.menuItemId] || ''}
+                  onChange={(e) => setComments((prev) => ({ ...prev, [item.menuItemId]: e.target.value }))}
+                />
+              )}
             </Card>
           ))}
 
           <div className="flex items-center justify-end gap-xs">
             <Button variant="secondary" onClick={() => nav(`/app/reviews/${order.restaurant_id}`)}>
-              Bỏ qua
+              {order.isReviewed ? 'Quay lại' : 'Để sau'}
             </Button>
-            <Button onClick={submit} disabled={submitting}>
-              {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
-            </Button>
+            {!order.isReviewed && (
+              <Button onClick={submit} disabled={submitting}>
+                {submitting ? 'Đang gửi...' : 'Gửi đánh giá đã chọn'}
+              </Button>
+            )}
           </div>
         </div>
         <aside className="lg:sticky lg:top-24 lg:self-start">

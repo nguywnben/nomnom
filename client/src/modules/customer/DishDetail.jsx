@@ -7,10 +7,12 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
+import ReviewCard from '../../components/ReviewCard.jsx';
 import NotFoundPage from '../../pages/NotFound.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
-import { fetchMenuItemDetailApi } from '../../lib/api.js';
+import { fetchMenuItemDetailApi, fetchMenuItemReviewsApi } from '../../lib/api.js';
 
 export default function CustomerDishDetail() {
   const { id } = useParams();
@@ -21,6 +23,7 @@ export default function CustomerDishDetail() {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [reviewData, setReviewData] = useState(null);
 
   useEffect(() => {
     const dishId = Number(id);
@@ -32,12 +35,16 @@ export default function CustomerDishDetail() {
 
     setLoading(true);
     setError(null);
-    fetchMenuItemDetailApi(dishId, currentLocation)
-      .then((res) => {
+    Promise.all([
+      fetchMenuItemDetailApi(dishId, currentLocation),
+      fetchMenuItemReviewsApi(dishId, { limit: 4 }),
+    ])
+      .then(([res, reviews]) => {
         if (!res || !res.item) {
           throw { status: 404, message: 'Không tìm thấy món ăn.' };
         }
         setData(res);
+        setReviewData(reviews);
       })
       .catch((err) => {
         console.error('Error fetching dish details:', err);
@@ -218,6 +225,31 @@ export default function CustomerDishDetail() {
           </Card>
         </div>
       </div>
+
+      <section className="container-page pb-xxl">
+        <div className="mb-base flex items-end justify-between gap-base">
+          <div>
+            <div className="text-caption-uppercase text-body">Từ khách đã đặt món</div>
+            <h2 className="text-display-sm text-ink">Đánh giá món ăn</h2>
+          </div>
+          {(reviewData?.stats?.total ?? 0) > 0 && (
+            <Button variant="tertiary" onClick={() => nav(`/app/dish/${item.id}/reviews`)}>
+              Xem tất cả
+            </Button>
+          )}
+        </div>
+        {(reviewData?.data ?? []).length === 0 ? (
+          <EmptyState
+            icon="star"
+            title="Chưa có đánh giá món ăn"
+            message="Đánh giá sẽ xuất hiện sau khi khách nhận món và chia sẻ trải nghiệm."
+          />
+        ) : (
+          <div className="grid gap-base md:grid-cols-2">
+            {reviewData.data.map((review) => <ReviewCard key={review.id} review={review} />)}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

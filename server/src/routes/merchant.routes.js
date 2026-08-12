@@ -249,6 +249,9 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   if (!city || !city.trim()) {
     return res.status(400).json({ error: 'Vui lòng nhập tỉnh/thành phố.' });
   }
+  if (!ward || !ward.trim()) {
+    return res.status(400).json({ error: 'Vui lòng chọn phường/xã.' });
+  }
   const cuisineIdValue = Number(cuisineId);
   if (!Number.isInteger(cuisineIdValue) || cuisineIdValue < 1) {
     return res.status(400).json({ error: 'Loại hình ẩm thực không hợp lệ.' });

@@ -22,6 +22,7 @@ import CustomerHome from './modules/customer/Home.jsx';
 import CustomerSearch from './modules/customer/Search.jsx';
 import CustomerRestaurant from './modules/customer/Restaurant.jsx';
 import CustomerDishDetail from './modules/customer/DishDetail.jsx';
+import CustomerDishReviews from './modules/customer/DishReviews.jsx';
 import CustomerTracking from './modules/customer/Tracking.jsx';
 import CustomerOrders from './modules/customer/Orders.jsx';
 import CustomerReviews from './modules/customer/Reviews.jsx';
@@ -93,6 +94,8 @@ export default function App() {
           <Route path="search" element={<CustomerSearch />} />
           <Route path="restaurant/:id" element={<CustomerRestaurant />} />
           <Route path="dish/:id" element={<CustomerDishDetail />} />
+          <Route path="dish/:id/reviews" element={<CustomerDishReviews />} />
+          <Route path="reviews/:id" element={<CustomerRestaurantReviews />} />
 
           <Route element={<RequireAuth role="customer" />}>
             <Route path="checkout" element={<CustomerCheckout />} />
@@ -107,7 +110,6 @@ export default function App() {
           </Route>
 
           <Route element={<RequireAuth />}>
-            <Route path="reviews/:id" element={<CustomerRestaurantReviews />} />
             <Route path="notifications" element={<CustomerNotifications />} />
             <Route path="profile" element={<CustomerProfile />} />
             <Route path="profile/edit" element={<CustomerProfileEdit />} />

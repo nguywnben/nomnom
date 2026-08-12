@@ -250,10 +250,29 @@ router.get('/:id/reviews', async (req, res, next) => {
     const limitVal = Math.min(parseInt(req.query.limit, 10) || 10, 50);
     const pageVal = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const offset = (pageVal - 1) * limitVal;
+    const rating = req.query.rating ? Number(req.query.rating) : null;
+    const sort = req.query.sort === 'oldest' ? 'oldest' : 'newest';
+    if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'Số sao phải từ 1 đến 5.' });
+    }
+
+    const reviewWhere = ['restaurant_id = ?', 'menu_item_id IS NULL', 'is_hidden = 0'];
+    const reviewParams = [restaurant.id];
+    if (rating !== null) {
+      reviewWhere.push('rating = ?');
+      reviewParams.push(rating);
+    }
 
     const [[{ total }]] = await pool.query(
-      `SELECT COUNT(*) as total FROM reviews WHERE restaurant_id = ? AND is_hidden = 0`,
-      [restaurant.id]
+      `SELECT COUNT(*) as total FROM reviews WHERE ${reviewWhere.join(' AND ')}`,
+      reviewParams,
+    );
+    const [distributionRows] = await pool.query(
+      `SELECT rating, COUNT(*) AS total
+       FROM reviews
+       WHERE restaurant_id = ? AND menu_item_id IS NULL AND is_hidden = 0
+       GROUP BY rating`,
+      [restaurant.id],
     );
     const [rows] = await pool.query(
       `SELECT
@@ -274,10 +293,12 @@ router.get('/:id/reviews', async (req, res, next) => {
        INNER JOIN users u ON u.id = rv.customer_id
        LEFT JOIN menu_items mi ON mi.id = rv.menu_item_id
        WHERE rv.restaurant_id = ?
+         AND rv.menu_item_id IS NULL
          AND rv.is_hidden = 0
-       ORDER BY rv.created_at DESC, rv.id DESC
+         ${rating !== null ? 'AND rv.rating = ?' : ''}
+       ORDER BY rv.created_at ${sort === 'oldest' ? 'ASC' : 'DESC'}, rv.id ${sort === 'oldest' ? 'ASC' : 'DESC'}
        LIMIT ? OFFSET ?`,
-      [restaurant.id, limitVal, offset],
+      [...reviewParams, limitVal, offset],
     );
 
     res.json({
@@ -300,6 +321,11 @@ router.get('/:id/reviews', async (req, res, next) => {
         page: pageVal,
         limit: limitVal,
         total,
+      },
+      stats: {
+        average: Number(restaurant.ratingAvg ?? 0),
+        total: Number(restaurant.reviewCount ?? 0),
+        distribution: Object.fromEntries([1, 2, 3, 4, 5].map((star) => [star, Number(distributionRows.find((row) => Number(row.rating) === star)?.total ?? 0)])),
       },
     });
   } catch (err) {

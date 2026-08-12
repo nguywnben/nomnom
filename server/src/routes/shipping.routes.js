@@ -2,7 +2,7 @@ import { Router } from 'express';
 import pool from '../db/pool.js';
 import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import { buildShippingQuote } from '../lib/shippingQuote.js';
-import { geocodeVietnamAddress } from '../lib/addressGeocoding.js';
+import { geocodeVietnamAddress, reverseGeocodeVietnamLocation } from '../lib/addressGeocoding.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -86,18 +86,30 @@ router.post('/quote', async (req, res, next) => {
 });
 
 router.post('/quote-address', async (req, res, next) => {
-  const { line1, ward, district, city } = req.body ?? {};
-  if (![line1, ward, district, city].every((value) => String(value ?? '').trim())) {
+  const { line1, ward, district, city, latitude, longitude } = req.body ?? {};
+  if (![line1, ward, city].every((value) => String(value ?? '').trim())) {
     return res.status(400).json({ error: 'Vui lòng nhập đầy đủ địa chỉ để tính phí giao hàng.' });
   }
   try {
     const [[cart]] = await pool.query("SELECT id, restaurant_id FROM carts WHERE customer_id = ? AND status = 'active' LIMIT 1", [req.auth.userId]);
     if (!cart) return res.status(400).json({ error: 'Giỏ hàng trống.', code: 'SHIPPING_CART_NOT_READY' });
     const [[restaurant]] = await pool.query('SELECT id, latitude, longitude FROM restaurants WHERE id = ? LIMIT 1', [cart.restaurant_id]);
-    const address = await geocodeVietnamAddress({ line1, ward, district, city });
+    const hasCoordinates = Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+    const address = hasCoordinates
+      ? { latitude: Number(latitude), longitude: Number(longitude) }
+      : await geocodeVietnamAddress({ line1, ward, district, city });
     return res.json({ quote: await buildShippingQuote({ restaurant, address }) });
   } catch (error) {
     if (String(error?.code ?? '').startsWith('SHIPPING_') || error?.status === 400) return res.status(400).json({ error: error.message, code: error.code });
+    return next(error);
+  }
+});
+
+router.post('/reverse-address', async (req, res, next) => {
+  try {
+    return res.json({ address: await reverseGeocodeVietnamLocation(req.body ?? {}) });
+  } catch (error) {
+    if (error?.status === 400) return res.status(400).json({ error: error.message });
     return next(error);
   }
 });

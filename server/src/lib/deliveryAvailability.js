@@ -1,7 +1,7 @@
 import { calculateDistance, hasValidCoordinates } from './geo.js';
 
 export const DELIVERY_RADIUS_KM = 12;
-const ROAD_DISTANCE_FACTOR = 1.3;
+export const ROAD_DISTANCE_FACTOR = 1.3;
 
 export function parseCurrentLocation(query) {
   const latitude = Number(query?.latitude);

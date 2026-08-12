@@ -47,10 +47,8 @@ export default function MerchantSettings() {
   const [addressForm, setAddressForm] = useState({ addressLine: '', ward: '', district: '', city: '' });
   const [addressSubmitting, setAddressSubmitting] = useState(false);
   const [provinces, setProvinces] = useState([]);
-  const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
   const [provinceCode, setProvinceCode] = useState('');
-  const [districtCode, setDistrictCode] = useState('');
   const [wardCode, setWardCode] = useState('');
 
   const load = useCallback(async () => {
@@ -74,12 +72,10 @@ export default function MerchantSettings() {
   const setAddress = (patch) => setAddressForm((current) => ({ ...current, ...patch }));
 
   useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch(() => setProvinces([])); }, []);
-  useEffect(() => { if (!provinceCode) { setDistricts([]); return; } locationsApi.getDistricts(provinceCode).then(setDistricts).catch(() => setDistricts([])); }, [provinceCode]);
-  useEffect(() => { if (!districtCode) { setWards([]); return; } locationsApi.getWards(districtCode).then(setWards).catch(() => setWards([])); }, [districtCode]);
+  useEffect(() => { if (!provinceCode) { setWards([]); return; } locationsApi.getWards(provinceCode).then(setWards).catch(() => setWards([])); }, [provinceCode]);
 
   const openAddressModal = () => {
     setProvinceCode('');
-    setDistrictCode('');
     setWardCode('');
     setAddressForm({
       addressLine: form.addressLine || '',
@@ -237,9 +233,8 @@ export default function MerchantSettings() {
       <Modal open={addressModalOpen} onClose={() => setAddressModalOpen(false)} title="Yêu cầu đổi địa chỉ quán" size="lg">
         <div className="grid gap-sm md:grid-cols-2">
           <Input id="request-address-line" className="md:col-span-2" label="Địa chỉ cụ thể" required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
-          <Select id="request-city" label="Tỉnh/Thành phố" required value={provinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = provinces.find((value) => value.code === event.target.value); setProvinceCode(event.target.value); setDistrictCode(''); setWardCode(''); setAddress({ city: item?.name ?? '', district: '', ward: '' }); }} />
-          <Select id="request-district" label="Quận/Huyện" required value={districtCode} disabled={!provinceCode} options={[{ value: '', label: provinceCode ? 'Chọn Quận/Huyện' : 'Chọn Tỉnh/Thành phố trước' }, ...districts.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = districts.find((value) => value.code === event.target.value); setDistrictCode(event.target.value); setWardCode(''); setAddress({ district: item?.name ?? '', ward: '' }); }} />
-          <Select id="request-ward" label="Phường/Xã" required value={wardCode} disabled={!districtCode} options={[{ value: '', label: districtCode ? 'Chọn Phường/Xã' : 'Chọn Quận/Huyện trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = wards.find((value) => value.code === event.target.value); setWardCode(event.target.value); setAddress({ ward: item?.name ?? '' }); }} />
+          <Select id="request-city" label="Tỉnh/Thành phố" required value={provinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = provinces.find((value) => value.code === event.target.value); setProvinceCode(event.target.value); setWardCode(''); setAddress({ city: item?.name ?? '', district: '', ward: '' }); }} />
+          <Select id="request-ward" label="Phường/Xã" required value={wardCode} disabled={!provinceCode} options={[{ value: '', label: provinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = wards.find((value) => value.code === event.target.value); setWardCode(event.target.value); setAddress({ ward: item?.name ?? '' }); }} />
           <p className="md:col-span-2 text-caption text-body">Địa chỉ mới chỉ có hiệu lực sau khi admin duyệt; trong lúc chờ, hệ thống vẫn dùng địa chỉ hiện tại.</p>
           <div className="flex justify-end gap-2 md:col-span-2">
             <Button variant="secondary" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>Hủy</Button>

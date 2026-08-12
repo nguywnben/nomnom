@@ -33,15 +33,12 @@ export default function Addresses() {
   const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [provinces, setProvinces] = useState([]);
-  const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
-  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
   const [selectedWardCode, setSelectedWardCode] = useState('');
 
   useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch(() => setProvinces([])); }, []);
-  useEffect(() => { if (!selectedProvinceCode) { setDistricts([]); return; } locationsApi.getDistricts(selectedProvinceCode).then(setDistricts).catch(() => setDistricts([])); }, [selectedProvinceCode]);
-  useEffect(() => { if (!selectedDistrictCode) { setWards([]); return; } locationsApi.getWards(selectedDistrictCode).then(setWards).catch(() => setWards([])); }, [selectedDistrictCode]);
+  useEffect(() => { if (!selectedProvinceCode) { setWards([]); return; } locationsApi.getWards(selectedProvinceCode).then(setWards).catch(() => setWards([])); }, [selectedProvinceCode]);
 
 
   const loadAddresses = useCallback(async () => {
@@ -64,14 +61,12 @@ export default function Addresses() {
 
   const openCreate = () => {
     setSelectedProvinceCode('');
-    setSelectedDistrictCode('');
     setSelectedWardCode('');
     setEditor({ open: true, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   };
 
   const openEdit = (addr) => {
     setSelectedProvinceCode('');
-    setSelectedDistrictCode('');
     setSelectedWardCode('');
 
     setEditor({
@@ -117,9 +112,6 @@ export default function Addresses() {
     }
     if (!v.city.trim()) {
       newErrors.city = 'Tỉnh/Thành phố không được để trống';
-    }
-    if (!v.district.trim()) {
-      newErrors.district = 'Quận/Huyện không được để trống';
     }
     if (!v.ward.trim()) {
       newErrors.ward = 'Phường/Xã không được để trống';
@@ -331,19 +323,13 @@ export default function Addresses() {
           <div className="grid grid-cols-2 gap-sm">
             <div className="flex flex-col gap-1">
               <label className="text-body-sm font-medium text-ink">Tỉnh/Thành phố</label>
-              <Select value={selectedProvinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = provinces.find((value) => value.code === e.target.value); setSelectedProvinceCode(e.target.value); setSelectedDistrictCode(''); setSelectedWardCode(''); setEditor((c) => ({ ...c, values: { ...c.values, city: item?.name ?? '', district: '', ward: '' }, fieldErrors: { ...c.fieldErrors, city: undefined } })); }} error={editor.fieldErrors?.city} />
+              <Select value={selectedProvinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = provinces.find((value) => value.code === e.target.value); setSelectedProvinceCode(e.target.value); setSelectedWardCode(''); setEditor((c) => ({ ...c, values: { ...c.values, city: item?.name ?? '', district: '', ward: '' }, fieldErrors: { ...c.fieldErrors, city: undefined } })); }} error={editor.fieldErrors?.city} />
               {editor.fieldErrors?.city && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.city}</div>}
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-body-sm font-medium text-ink">Quận/Huyện</label>
-              <Select value={selectedDistrictCode} disabled={!selectedProvinceCode} options={[{ value: '', label: selectedProvinceCode ? 'Chọn Quận/Huyện' : 'Chọn Tỉnh/Thành phố trước' }, ...districts.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = districts.find((value) => value.code === e.target.value); setSelectedDistrictCode(e.target.value); setSelectedWardCode(''); setEditor((c) => ({ ...c, values: { ...c.values, district: item?.name ?? '', ward: '' }, fieldErrors: { ...c.fieldErrors, district: undefined } })); }} error={editor.fieldErrors?.district} />
-              {editor.fieldErrors?.district && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.district}</div>}
-            </div>
-
-            <div className="flex flex-col gap-1">
               <label className="text-body-sm font-medium text-ink">Phường/Xã</label>
-              <Select value={selectedWardCode} disabled={!selectedDistrictCode} options={[{ value: '', label: selectedDistrictCode ? 'Chọn Phường/Xã' : 'Chọn Quận/Huyện trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = wards.find((value) => value.code === e.target.value); setSelectedWardCode(e.target.value); setEditor((c) => ({ ...c, values: { ...c.values, ward: item?.name ?? '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } })); }} error={editor.fieldErrors?.ward} />
+              <Select value={selectedWardCode} disabled={!selectedProvinceCode} options={[{ value: '', label: selectedProvinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = wards.find((value) => value.code === e.target.value); setSelectedWardCode(e.target.value); setEditor((c) => ({ ...c, values: { ...c.values, ward: item?.name ?? '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } })); }} error={editor.fieldErrors?.ward} />
               {editor.fieldErrors?.ward && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.ward}</div>}
             </div>
           </div>

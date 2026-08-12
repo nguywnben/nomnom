@@ -8,6 +8,7 @@ import { logAudit } from '../lib/audit.js';
 import { hasValidCoordinates } from '../lib/geo.js';
 import { serializeAddressChangeRequest } from '../lib/restaurantAddressChanges.js';
 import { DEFAULT_HOME_PAGE_CONFIG, normalizeHomePageConfig, parseHomePageConfig } from '../lib/homePageConfig.js';
+import { refreshReviewStats } from '../lib/reviewSubmission.js';
 import {
   ensureWallet,
   insertNotification,
@@ -1492,27 +1493,10 @@ router.patch('/reviews/:id', async (req, res, next) => {
       [isHidden ? 1 : 0, id]
     );
 
-    // 1. Tính toán lại điểm trung bình cho món ăn liên quan (nếu có)
-    if (menu_item_id) {
-      const [itemStats] = await connection.query(
-        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
-        [menu_item_id]
-      );
-      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
-      await connection.query(
-        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
-        [nextItemAvg, menu_item_id]
-      );
-    }
-
-    // 2. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
-    await connection.query(
-      `UPDATE restaurants 
-       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
-           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
-       WHERE id = ?`,
-      [restaurant_id, restaurant_id, restaurant_id]
-    );
+    await refreshReviewStats(connection, {
+      restaurantId: restaurant_id,
+      menuItemIds: menu_item_id ? [menu_item_id] : [],
+    });
 
     await connection.commit();
     res.json({ ok: true, isHidden: Boolean(isHidden) });

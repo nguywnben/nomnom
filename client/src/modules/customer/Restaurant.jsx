@@ -302,7 +302,7 @@ export default function CustomerRestaurant() {
             <div className="mb-base flex items-center justify-between">
               <h2 className="text-display-sm text-ink">Đánh giá gần đây</h2>
               <Button variant="tertiary" onClick={() => nav(`/app/reviews/${restaurant.id}`)}>
-                Viết đánh giá
+                Xem tất cả
               </Button>
             </div>
             {reviewsLoading ? (

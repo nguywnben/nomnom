@@ -7,7 +7,8 @@ import Icon from '../../components/Icon.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import StarRating from '../../components/StarRating.jsx';
-import { Textarea } from '../../components/Input.jsx';
+import Pagination from '../../components/Pagination.jsx';
+import { Select, Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { apiGet, apiPatch } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -38,6 +39,10 @@ export default function RestaurantReviews() {
   const [restaurant, setRestaurant] = useState(null);
   const [orders, setOrders] = useState([]);
   const [restaurantReviews, setRestaurantReviews] = useState([]);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewRating, setReviewRating] = useState('');
+  const [reviewSort, setReviewSort] = useState('newest');
+  const [reviewTotal, setReviewTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -63,8 +68,9 @@ export default function RestaurantReviews() {
       });
       
       // Tải lại danh sách đánh giá của nhà hàng
-      const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10`);
+      const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10&page=${reviewPage}&rating=${reviewRating}&sort=${reviewSort}`);
       setRestaurantReviews(reviewsData?.data || []);
+      setReviewTotal(Number(reviewsData?.pagination?.total ?? 0));
       
       setEditingReview(null);
     } catch (err) {
@@ -90,17 +96,19 @@ export default function RestaurantReviews() {
         if (!active) return;
         setRestaurant(restData);
 
-        // 2. Lấy danh sách các đơn hàng đã đặt của quán
-        const ordersData = await apiGet('/api/v1/orders?restaurantId=' + id);
-        if (!active) return;
-        // Chỉ lọc các đơn hàng đã giao thành công (delivered)
-        const deliveredOrders = (ordersData || []).filter(o => o.status === 'delivered');
-        setOrders(deliveredOrders);
+        if (currentCustomer) {
+          const ordersData = await apiGet('/api/v1/orders?restaurantId=' + id);
+          if (!active) return;
+          setOrders((ordersData || []).filter(o => o.status === 'delivered'));
+        } else {
+          setOrders([]);
+        }
 
         // 3. Lấy đánh giá của các khách hàng khác
-        const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10`);
+        const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10&page=${reviewPage}&rating=${reviewRating}&sort=${reviewSort}`);
         if (!active) return;
         setRestaurantReviews(reviewsData?.data || []);
+        setReviewTotal(Number(reviewsData?.pagination?.total ?? 0));
 
       } catch (err) {
         if (active) setError(err.message || 'Không thể tải thông tin dữ liệu.');
@@ -114,7 +122,7 @@ export default function RestaurantReviews() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [currentCustomer, id, reviewPage, reviewRating, reviewSort]);
 
   if (loading) {
     return <div className="container-page py-section text-center">Đang tải danh sách...</div>;
@@ -139,14 +147,22 @@ export default function RestaurantReviews() {
       </Link>
       
       <div className="mt-2 mb-base">
-        <div className="text-caption-uppercase text-body">Danh sách đơn hàng cần đánh giá</div>
+        <div className="text-caption-uppercase text-body">Đánh giá quán ăn</div>
         <h1 className="text-display-lg text-ink">{restaurant.name}</h1>
         <p className="text-body-sm text-body mt-1">{restaurant.addressLine}</p>
       </div>
 
-      <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-xl lg:grid-cols-[360px_1fr]">
         <div className="space-y-base">
-          {orders.length === 0 ? (
+          {!currentCustomer ? (
+            <Card padded>
+              <div className="text-title-md text-ink">Đánh giá sau khi nhận hàng</div>
+              <p className="mt-1 text-body-sm text-body">Đăng nhập bằng tài khoản khách hàng để đánh giá các đơn đã giao.</p>
+              <Link to={`/login?next=${encodeURIComponent(`/app/reviews/${restaurant.id}`)}`}>
+                <Button className="mt-base">Đăng nhập</Button>
+              </Link>
+            </Card>
+          ) : orders.length === 0 ? (
             <EmptyState
               icon="package"
               title="Chưa có đơn hàng nào hoàn thành"
@@ -194,11 +210,39 @@ export default function RestaurantReviews() {
           )}
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
+        <aside>
           <Card padded>
-            <div className="text-title-md text-ink mb-base">Nhận xét của khách hàng khác</div>
+            <div className="flex flex-wrap items-end justify-between gap-sm">
+              <div>
+                <div className="text-title-md text-ink">Tất cả đánh giá</div>
+                <div className="mt-1 text-caption text-body">{reviewTotal} đánh giá về quán</div>
+              </div>
+              <div className="flex flex-wrap gap-xs">
+                <Select
+                  className="w-36"
+                  aria-label="Lọc theo số sao"
+                  value={reviewRating}
+                  onChange={(event) => { setReviewRating(event.target.value); setReviewPage(1); }}
+                  options={[
+                    { value: '', label: 'Tất cả sao' },
+                    ...[5, 4, 3, 2, 1].map((star) => ({ value: String(star), label: `${star} sao` })),
+                  ]}
+                />
+                <Select
+                  className="w-36"
+                  aria-label="Sắp xếp đánh giá"
+                  value={reviewSort}
+                  onChange={(event) => { setReviewSort(event.target.value); setReviewPage(1); }}
+                  options={[
+                    { value: 'newest', label: 'Mới nhất' },
+                    { value: 'oldest', label: 'Cũ nhất' },
+                  ]}
+                />
+              </div>
+            </div>
+            <div className="mt-base">
             {restaurantReviews.length === 0 ? (
-              <div className="text-caption text-body py-sm text-center">Chưa có đánh giá nào khác.</div>
+              <div className="text-caption text-body py-xl text-center">Chưa có đánh giá phù hợp.</div>
             ) : (
               <div className="space-y-base">
                 {restaurantReviews.map((rev) => {
@@ -258,6 +302,16 @@ export default function RestaurantReviews() {
                 })}
               </div>
             )}
+            </div>
+            {reviewTotal > 10 && (
+              <Pagination
+                className="mt-base border-t border-hairline pt-base"
+                total={reviewTotal}
+                pageSize={10}
+                page={reviewPage}
+                onChange={setReviewPage}
+              />
+            )}
           </Card>
         </aside>
       </div>
@@ -302,7 +356,7 @@ export default function RestaurantReviews() {
                 <Textarea
                   id="edit-comment"
                   rows={4}
-                  placeholder="Chia sẻ cảm nhận của bạn về món ăn này..."
+                  placeholder="Chia sẻ cảm nhận của bạn về quán ăn..."
                   value={editComment}
                   onChange={(e) => setEditComment(e.target.value)}
                 />

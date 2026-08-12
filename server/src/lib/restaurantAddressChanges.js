@@ -16,8 +16,8 @@ export function validateAddressChangePayload(body) {
   const city = String(body?.city ?? '').trim();
   const district = String(body?.district ?? '').trim();
   const ward = String(body?.ward ?? '').trim();
-  if (!city || !district || !ward) {
-    const error = new Error('Vui lòng nhập đầy đủ Tỉnh/Thành, Quận/Huyện và Phường/Xã.');
+  if (!city || !ward) {
+    const error = new Error('Vui lòng nhập đầy đủ Tỉnh/Thành phố và Phường/Xã.');
     error.status = 400;
     throw error;
   }

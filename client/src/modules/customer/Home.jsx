@@ -214,7 +214,7 @@ export default function CustomerHome() {
           ref={cuisineScroll.ref}
           onMouseDown={cuisineScroll.onMouseDown}
           onClickCapture={cuisineScroll.onClickCapture}
-          className="-mx-base min-w-0 cursor-grab overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          className="-mx-base min-w-0 cursor-default overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           role="region"
           aria-label="Loại hình ẩm thực — cuộn ngang"
         >
@@ -226,7 +226,7 @@ export default function CustomerHome() {
               <Link
                 key={cuisine.id}
                 to={`/app/search?cuisine=${encodeURIComponent(cuisine.slug)}`}
-                className="group w-28 shrink-0"
+                className="group w-28 shrink-0 cursor-pointer"
               >
                 <div className="relative aspect-square overflow-hidden rounded-lg border border-hairline-strong bg-canvas-soft transition-shadow duration-200 ease-out group-hover:shadow-soft">
                   {cuisine.iconUrl ? <img src={cuisine.iconUrl} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-body"><Icon name="grid" size={22} /></div>}
@@ -253,7 +253,7 @@ export default function CustomerHome() {
           ref={exploreScroll.ref}
           onMouseDown={exploreScroll.onMouseDown}
           onClickCapture={exploreScroll.onClickCapture}
-          className="-mx-base min-w-0 cursor-grab overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          className="-mx-base min-w-0 cursor-default overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           role="region"
           aria-label="Món nổi bật từ nhiều quán — cuộn ngang"
         >
@@ -302,7 +302,7 @@ export default function CustomerHome() {
             ref={nearbyScroll.ref}
             onMouseDown={nearbyScroll.onMouseDown}
             onClickCapture={nearbyScroll.onClickCapture}
-            className="-mx-base flex cursor-grab gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+            className="-mx-base flex cursor-default gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           >
             {nearbyDishes.map((dish) => (
               <DishCard key={dish.id} dish={dish} onPreview={() => setQuickViewDish(dish)} />
@@ -367,7 +367,7 @@ export default function CustomerHome() {
             ref={trendingScroll.ref}
             onMouseDown={trendingScroll.onMouseDown}
             onClickCapture={trendingScroll.onClickCapture}
-            className="-mx-base flex cursor-grab gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+            className="-mx-base flex cursor-default gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           >
             {trendingDishes.map((d) => (
               <DishCard
