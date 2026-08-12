@@ -11,6 +11,9 @@ import { useApp } from '../../context/AppContext.jsx';
 // Import formatVnd
 import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet, apiPost } from '../../lib/api.js';
+import { createGhnLocationsApi } from '../../lib/ghnLocations.js';
+
+const ghnLocationsApi = createGhnLocationsApi(apiGet, apiPost);
 
 const PAYMENTS = [
   { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán khi nhận món', icon: 'cash' },
@@ -22,9 +25,7 @@ export default function CustomerCheckout() {
   const {
     cart,
     cartSubtotal,
-    deliveryFee,
     discount,
-    cartTotal,
     pushToast,
     currentCustomer,
     clearCart,
@@ -36,6 +37,8 @@ export default function CustomerCheckout() {
   const [addresses, setAddresses] = useState([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [addressId, setAddressId] = useState(null);
+  const [shippingQuote, setShippingQuote] = useState(null);
+  const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
@@ -45,10 +48,13 @@ export default function CustomerCheckout() {
 
   // Location states
   const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
 
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
   const [selectedProvinceName, setSelectedProvinceName] = useState('');
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
+  const [selectedDistrictName, setSelectedDistrictName] = useState('');
 
   const [selectedWardCode, setSelectedWardCode] = useState('');
   const [selectedWardName, setSelectedWardName] = useState('');
@@ -87,25 +93,40 @@ export default function CustomerCheckout() {
   }, [currentCustomer]);
 
   const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
+  const quotedDeliveryFee = shippingQuote?.total ?? 0;
+  const quotedCartTotal = Math.max(0, cartSubtotal + quotedDeliveryFee - discount);
+  const deliveryFee = quotedDeliveryFee;
+  const cartTotal = quotedCartTotal;
 
   useEffect(() => {
-    fetch('https://provinces.open-api.vn/api/v2/p/')
-      .then(res => res.json())
-      .then(data => setProvinces(data))
+    ghnLocationsApi.getProvinces()
+      .then(setProvinces)
       .catch(err => console.error('Failed to load provinces:', err));
   }, []);
 
   useEffect(() => {
     if (!selectedProvinceCode) {
+      setDistricts([]);
+      setSelectedDistrictCode('');
       setWards([]);
       setSelectedWardCode('');
       return;
     }
-    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
-      .then(res => res.json())
-      .then(data => setWards(data.wards || []))
-      .catch(err => console.error('Failed to load wards:', err));
+    ghnLocationsApi.getDistricts(selectedProvinceCode)
+      .then(setDistricts)
+      .catch(err => console.error('Failed to load districts:', err));
   }, [selectedProvinceCode]);
+
+  useEffect(() => {
+    if (!selectedDistrictCode) {
+      setWards([]);
+      setSelectedWardCode('');
+      return;
+    }
+    ghnLocationsApi.getWards(selectedDistrictCode)
+      .then(setWards)
+      .catch(err => console.error('Failed to load wards:', err));
+  }, [selectedDistrictCode]);
 
   useEffect(() => {
     if (addressId && addresses.length > 0 && !isAddingNewAddress) {
@@ -117,6 +138,30 @@ export default function CustomerCheckout() {
       }
     }
   }, [addressId, addresses, currentCustomer, isAddingNewAddress]);
+
+  useEffect(() => {
+    if (isAddingNewAddress || !addressId) {
+      setShippingQuote(null);
+      return;
+    }
+    const address = addresses.find((item) => item.id === addressId);
+    if (!address?.ghnProvinceId || !address?.ghnDistrictId || !address?.ghnWardCode) {
+      setShippingQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setShippingQuoteLoading(true);
+    ghnLocationsApi.quote(addressId)
+      .then((data) => { if (!cancelled) setShippingQuote(data.quote); })
+      .catch((error) => {
+        if (!cancelled) {
+          setShippingQuote(null);
+          pushToast({ kind: 'error', title: 'Không thể tính phí GHN', message: error.message });
+        }
+      })
+      .finally(() => { if (!cancelled) setShippingQuoteLoading(false); });
+    return () => { cancelled = true; };
+  }, [addressId, addresses, isAddingNewAddress, pushToast]);
 
   if (!cart?.items?.length) {
     return (
@@ -162,7 +207,10 @@ export default function CustomerCheckout() {
         setProvinceError('Vui lòng chọn Tỉnh/Thành phố');
         hasError = true;
       }
-      if (!selectedWardCode) {
+      if (!selectedDistrictCode) {
+        setWardError('Vui lòng chọn Quận/Huyện');
+        hasError = true;
+      } else if (!selectedWardCode) {
         setWardError('Vui lòng chọn Phường/Xã');
         hasError = true;
       }
@@ -170,6 +218,11 @@ export default function CustomerCheckout() {
 
     if (hasError) {
       pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra lại thông tin nhập' });
+      return;
+    }
+
+    if (!isAddingNewAddress && !shippingQuote) {
+      pushToast({ kind: 'error', title: 'Chưa có phí giao hàng', message: 'Hãy chọn địa chỉ đã có đủ mã GHN.' });
       return;
     }
 
@@ -186,7 +239,11 @@ export default function CustomerCheckout() {
           recipientPhone: phone.trim(),
           line1: newLine1.trim(),
           ward: selectedWardName,
+          district: selectedDistrictName,
           city: selectedProvinceName,
+          ghnProvinceId: Number(selectedProvinceCode),
+          ghnDistrictId: Number(selectedDistrictCode),
+          ghnWardCode: selectedWardCode,
           deliveryNote: note,
           isDefault: makeDefault
         });
@@ -317,15 +374,33 @@ export default function CustomerCheckout() {
                           onChange={(e) => {
                             setSelectedProvinceCode(e.target.value);
                             setSelectedProvinceName(e.target.options[e.target.selectedIndex].text);
+                            setSelectedDistrictCode('');
                             if (provinceError) setProvinceError('');
                           }}
                         >
                           <option value="">Chọn Tỉnh/Thành phố</option>
                           {provinces.map((p) => (
-                            <option key={p.code} value={p.code}>{p.name}</option>
+                            <option key={p.id} value={p.id}>{p.name}</option>
                           ))}
                         </select>
                         {provinceError && <div className="text-xs text-red-500 mt-1">{provinceError}</div>}
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-body-sm font-medium text-ink">Quận/Huyện</label>
+                        <select
+                          className="flex h-11 w-full items-center rounded-md border border-hairline-strong bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50"
+                          value={selectedDistrictCode}
+                          onChange={(e) => {
+                            setSelectedDistrictCode(e.target.value);
+                            setSelectedDistrictName(e.target.options[e.target.selectedIndex].text);
+                            if (wardError) setWardError('');
+                          }}
+                          disabled={!selectedProvinceCode}
+                        >
+                          <option value="">Chọn Quận/Huyện</option>
+                          {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
                       </div>
 
                       <div className="flex flex-col gap-1">
@@ -338,7 +413,7 @@ export default function CustomerCheckout() {
                             setSelectedWardName(e.target.options[e.target.selectedIndex].text);
                             if (wardError) setWardError('');
                           }}
-                          disabled={!selectedProvinceCode}
+                          disabled={!selectedDistrictCode}
                         >
                           <option value="">Chọn Phường/Xã</option>
                           {wards.map((w) => (
@@ -531,6 +606,10 @@ export default function CustomerCheckout() {
               <Row label="Phí giao hàng" value={formatVnd(deliveryFee)} />
               {discount > 0 && <Row label="Khuyến mãi" value={`−${formatVnd(discount)}`} tone="success" />}
               <div className="my-2 h-px bg-hairline" />
+              <Row
+                label="Phí GHN"
+                value={shippingQuoteLoading ? 'Đang tính...' : shippingQuote ? formatVnd(quotedDeliveryFee) : 'Chọn địa chỉ GHN'}
+              />
               <Row label="Tổng cộng" value={formatVnd(cartTotal)} bold />
               {/* Nút đặt hàng trên Desktop — màn hình Mobile sử dụng thanh dưới cùng cố định */}
               <Button onClick={onPlace} loading={placing} className="hidden lg:flex">
