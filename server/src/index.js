@@ -19,6 +19,7 @@ import notificationsRoutes from './routes/notifications.routes.js';
 import merchantFinanceRoutes from './routes/merchant-finance.routes.js';
 import adminFinanceRoutes from './routes/admin-finance.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import shippingRoutes from './routes/shipping.routes.js';
 import { ensureWave5Schema } from './lib/wave5Schema.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
@@ -55,6 +56,7 @@ app.use('/api/v1/orders', ordersRoutes);
 app.use('/api/v1/payments', paymentsRoutes);
 app.use('/api/v1/vouchers', vouchersRoutes);
 app.use('/api/v1/menu-items', menuItemsRoutes);
+app.use('/api/v1/shipping', shippingRoutes);
 
 app.use((err, _req, res, _next) => {
   if (err?.message === 'Request aborted' || err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') {
