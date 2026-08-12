@@ -10,8 +10,6 @@ import { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { apiGet, apiPost } from '../../lib/api.js';
 
-const QUICK_TAGS = ['Đúng giờ', 'Nguyên liệu tươi', 'Đóng gói cẩn thận', 'Tài xế thân thiện', 'Làm đúng yêu cầu'];
-
 export default function Reviews() {
   const { id } = useParams(); // ID đơn hàng
   const nav = useNavigate();
