@@ -75,13 +75,13 @@ CREATE TABLE `cuisines` (
 --
 
 INSERT INTO `cuisines` (`id`, `name`, `slug`, `icon_url`, `sort_order`, `created_at`) VALUES
-(1, 'Ý', 'italian', NULL, 1, '2026-05-21 21:42:10'),
-(2, 'Mỹ', 'american', NULL, 2, '2026-05-21 21:42:10'),
-(3, 'Nhật', 'japanese', NULL, 3, '2026-05-21 21:42:10'),
-(4, 'Lành mạnh', 'healthy', NULL, 4, '2026-05-21 21:42:10'),
-(5, 'Mexico', 'mexican', NULL, 5, '2026-05-21 21:42:10'),
-(6, 'Cà phê', 'coffee', NULL, 6, '2026-05-21 21:42:10'),
-(7, 'Tiệm bánh', 'bakery', NULL, 7, '2026-05-21 21:42:10');
+(1, 'Ý', 'italian', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80', 1, '2026-05-21 21:42:10'),
+(2, 'Mỹ', 'american', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', 2, '2026-05-21 21:42:10'),
+(3, 'Nhật', 'japanese', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80', 3, '2026-05-21 21:42:10'),
+(4, 'Lành mạnh', 'healthy', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', 4, '2026-05-21 21:42:10'),
+(5, 'Mexico', 'mexican', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', 5, '2026-05-21 21:42:10'),
+(6, 'Cà phê', 'coffee', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80', 6, '2026-05-21 21:42:10'),
+(7, 'Tiệm bánh', 'bakery', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', 7, '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
@@ -344,35 +344,35 @@ CREATE TABLE `menu_items` (
 --
 
 INSERT INTO `menu_items` (`id`, `restaurant_id`, `category_id`, `name`, `description`, `image_url`, `price`, `prep_time_min`, `in_stock`, `is_featured`, `sort_order`, `total_sold`, `rating_avg`, `status`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 'Margherita', 'Cà chua San Marzano, phô mai tươi, húng quế.', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80', 338000, 18, 1, 1, 1, 184, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(2, 1, 1, 'Funghi', 'Nấm Crimini, phô mai taleggio, cỏ xạ hương, dầu truffle.', 'https://images.unsplash.com/photo-1593504049359-74330189a345?auto=format&fit=crop&w=800&q=80', 400000, 20, 1, 0, 2, 96, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(3, 1, 2, 'Salsiccia', 'Xúc xích thì là, phô mai mozzarella xông khói, ớt.', 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?auto=format&fit=crop&w=800&q=80', 438000, 22, 1, 1, 1, 71, 4.90, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(4, 1, 3, 'Burrata Salad', 'Cà chua gia truyền, dầu húng quế, muối biển.', 'https://images.unsplash.com/photo-1551248429-40975aa4de74?auto=format&fit=crop&w=800&q=80', 300000, 10, 1, 0, 1, 58, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(5, 1, 4, 'Tiramisu', 'Phô mai Mascarpone, espresso, ca cao.', 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=800&q=80', 188000, 5, 0, 0, 1, 42, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(6, 2, 5, 'Cổ điển', 'Thịt bò đập dập gấp đôi, phô mai Mỹ, sốt bí mật.', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', 288000, 14, 1, 1, 1, 220, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(7, 2, 5, 'Cheddar Bacon', 'Phô mai Cheddar ủ, thịt xông khói ngào đường, dưa chuột muối.', 'https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?auto=format&fit=crop&w=800&q=80', 325000, 16, 1, 0, 2, 144, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(8, 2, 6, 'Gà giòn', 'Gà chiên sữa bơ, salad bắp cải, mật ong cay.', 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=800&q=80', 313000, 18, 1, 0, 1, 92, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(9, 2, 7, 'Khoai tây chiên', 'Cắt tay, muối biển, thảo mộc.', 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=800&q=80', 113000, 8, 1, 0, 1, 320, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(10, 2, 8, 'Vanilla Shake', 'Vani Madagascar, kem tươi.', 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80', 138000, 5, 1, 0, 1, 88, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(11, 3, 9, 'Set Nigiri (8 miếng)', 'Cá ngừ, cá hồi, cá đuôi vàng, tôm.', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80', 650000, 30, 1, 1, 1, 144, 4.95, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(12, 3, 10, 'Cơm bát cá hồi', 'Cơm sushi, cá hồi, bơ, đậu nành Nhật.', 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=800&q=80', 450000, 25, 1, 0, 1, 92, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(13, 3, 11, 'Spicy Tuna Roll', 'Cá ngừ vây vàng, dầu ớt, hành lá.', 'https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=800&q=80', 350000, 20, 1, 0, 1, 68, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(14, 3, 12, 'Súp Miso', 'Miso trắng, đậu phụ, hành lá.', 'https://images.unsplash.com/photo-1607301405390-d831c242f59b?auto=format&fit=crop&w=800&q=80', 113000, 8, 1, 0, 1, 110, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(15, 4, 13, 'Tô mùa vụ', 'Diêm mạch, cải xoăn, bí đỏ, sốt mè.', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', 325000, 12, 1, 1, 1, 64, 4.65, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(16, 4, 13, 'Buddha Bowl', 'Cơm lứt, đậu phụ, đậu nành Nhật, gừng.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80', 313000, 14, 1, 0, 2, 52, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(17, 4, 14, 'Sinh tố xanh', 'Cải xoăn, chuối, hạnh nhân, hạt gai dầu.', 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?auto=format&fit=crop&w=800&q=80', 163000, 5, 1, 0, 1, 38, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(18, 5, 15, 'Tonkotsu Ramen', 'Nước dùng xương heo, xá xíu, trứng ngâm tương.', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=800&q=80', 400000, 18, 1, 1, 1, 268, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(19, 5, 15, 'Miso Ramen', 'Miso đỏ, thịt heo xay, ngô.', 'https://images.unsplash.com/photo-1591814468924-caf88d1232e1?auto=format&fit=crop&w=800&q=80', 388000, 18, 1, 0, 2, 174, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(20, 5, 16, 'Gyoza (6 miếng)', 'Sủi cảo heo, sốt ponzu.', 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80', 188000, 8, 1, 0, 1, 220, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(21, 6, 17, 'Tacos al Pastor (3 chiếc)', 'Dứa, ngò rí, hành tây.', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', 275000, 12, 1, 1, 1, 184, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(22, 6, 18, 'Burrito Carnitas', 'Thịt heo ninh nhừ, cơm, đậu, sốt salsa xanh.', 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=800&q=80', 313000, 15, 1, 0, 1, 96, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(23, 6, 19, 'Elote', 'Ngô nướng cháy cạnh, chanh, phô mai cotija.', 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80', 125000, 8, 1, 0, 1, 70, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(24, 6, 20, 'Horchata', 'Sữa gạo, quế, vani.', 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?auto=format&fit=crop&w=800&q=80', 100000, 4, 1, 0, 1, 52, 4.35, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(25, 7, 21, 'Flat White', 'Cà phê espresso kép, bọt sữa mịn.', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80', 120000, 5, 1, 1, 1, 410, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(26, 7, 22, 'Bánh sừng bò hạnh nhân', 'Kem frangipane, hạnh nhân nướng.', 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=800&q=80', 113000, 3, 1, 0, 1, 220, 4.75, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(27, 7, 23, 'Bánh mì bơ', 'Bánh mì men tự nhiên, ớt, chanh, muối biển.', 'https://plus.unsplash.com/premium_photo-1675604221056-91821ac2df07?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 238000, 10, 1, 0, 1, 154, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 22:35:38'),
-(28, 8, 24, 'Donut phủ đường cổ điển', 'Lớp phủ vani, bánh donut men.', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', 75000, 4, 1, 1, 1, 88, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
-(29, 8, 24, 'Maple Bacon', 'Lớp phủ phong, thịt xông khói ngào đường.', 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=800&q=80', 113000, 5, 1, 0, 2, 46, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10');
+(1, 1, 1, 'Margherita', 'Cà chua San Marzano, phô mai tươi, húng quế.', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=800&q=80', 89000, 18, 1, 1, 1, 184, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(2, 1, 1, 'Funghi', 'Nấm Crimini, phô mai taleggio, cỏ xạ hương, dầu truffle.', 'https://images.unsplash.com/photo-1593504049359-74330189a345?auto=format&fit=crop&w=800&q=80', 115000, 20, 1, 0, 2, 96, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(3, 1, 2, 'Salsiccia', 'Xúc xích thì là, phô mai mozzarella xông khói, ớt.', 'https://images.unsplash.com/photo-1571997478779-2adcbbe9ab2f?auto=format&fit=crop&w=800&q=80', 125000, 22, 1, 1, 1, 71, 4.90, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(4, 1, 3, 'Burrata Salad', 'Cà chua gia truyền, dầu húng quế, muối biển.', 'https://images.unsplash.com/photo-1551248429-40975aa4de74?auto=format&fit=crop&w=800&q=80', 95000, 10, 1, 0, 1, 58, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(5, 1, 4, 'Tiramisu', 'Phô mai Mascarpone, espresso, ca cao.', 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=800&q=80', 59000, 5, 0, 0, 1, 42, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(6, 2, 5, 'Cổ điển', 'Thịt bò đập dập gấp đôi, phô mai Mỹ, sốt bí mật.', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', 99000, 14, 1, 1, 1, 220, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(7, 2, 5, 'Cheddar Bacon', 'Phô mai Cheddar ủ, thịt xông khói ngào đường, dưa chuột muối.', 'https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?auto=format&fit=crop&w=800&q=80', 115000, 16, 1, 0, 2, 144, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(8, 2, 6, 'Gà giòn', 'Gà chiên sữa bơ, salad bắp cải, mật ong cay.', 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=800&q=80', 105000, 18, 1, 0, 1, 92, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(9, 2, 7, 'Khoai tây chiên', 'Cắt tay, muối biển, thảo mộc.', 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=800&q=80', 35000, 8, 1, 0, 1, 320, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(10, 2, 8, 'Vanilla Shake', 'Vani Madagascar, kem tươi.', 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80', 49000, 5, 1, 0, 1, 88, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(11, 3, 9, 'Set Nigiri (8 miếng)', 'Cá ngừ, cá hồi, cá đuôi vàng, tôm.', 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=800&q=80', 249000, 30, 1, 1, 1, 144, 4.95, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(12, 3, 10, 'Cơm bát cá hồi', 'Cơm sushi, cá hồi, bơ, đậu nành Nhật.', 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=800&q=80', 159000, 25, 1, 0, 1, 92, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(13, 3, 11, 'Spicy Tuna Roll', 'Cá ngừ vây vàng, dầu ớt, hành lá.', 'https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=800&q=80', 139000, 20, 1, 0, 1, 68, 4.80, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(14, 3, 12, 'Súp Miso', 'Miso trắng, đậu phụ, hành lá.', 'https://images.unsplash.com/photo-1607301405390-d831c242f59b?auto=format&fit=crop&w=800&q=80', 35000, 8, 1, 0, 1, 110, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(15, 4, 13, 'Tô mùa vụ', 'Diêm mạch, cải xoăn, bí đỏ, sốt mè.', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', 89000, 12, 1, 1, 1, 64, 4.65, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(16, 4, 13, 'Buddha Bowl', 'Cơm lứt, đậu phụ, đậu nành Nhật, gừng.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80', 95000, 14, 1, 0, 2, 52, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(17, 4, 14, 'Sinh tố xanh', 'Cải xoăn, chuối, hạnh nhân, hạt gai dầu.', 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?auto=format&fit=crop&w=800&q=80', 55000, 5, 1, 0, 1, 38, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(18, 5, 15, 'Tonkotsu Ramen', 'Nước dùng xương heo, xá xíu, trứng ngâm tương.', 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=800&q=80', 119000, 18, 1, 1, 1, 268, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(19, 5, 15, 'Miso Ramen', 'Miso đỏ, thịt heo xay, ngô.', 'https://images.unsplash.com/photo-1591814468924-caf88d1232e1?auto=format&fit=crop&w=800&q=80', 109000, 18, 1, 0, 2, 174, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(20, 5, 16, 'Gyoza (6 miếng)', 'Sủi cảo heo, sốt ponzu.', 'https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=800&q=80', 59000, 8, 1, 0, 1, 220, 4.60, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(21, 6, 17, 'Tacos al Pastor (3 chiếc)', 'Dứa, ngò rí, hành tây.', 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', 99000, 12, 1, 1, 1, 184, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(22, 6, 18, 'Burrito Carnitas', 'Thịt heo ninh nhừ, cơm, đậu, sốt salsa xanh.', 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=800&q=80', 119000, 15, 1, 0, 1, 96, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(23, 6, 19, 'Elote', 'Ngô nướng cháy cạnh, chanh, phô mai cotija.', 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80', 39000, 8, 1, 0, 1, 70, 4.40, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(24, 6, 20, 'Horchata', 'Sữa gạo, quế, vani.', 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?auto=format&fit=crop&w=800&q=80', 35000, 4, 1, 0, 1, 52, 4.35, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(25, 7, 21, 'Flat White', 'Cà phê espresso kép, bọt sữa mịn.', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80', 49000, 5, 1, 1, 1, 410, 4.85, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(26, 7, 22, 'Bánh sừng bò hạnh nhân', 'Kem frangipane, hạnh nhân nướng.', 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=800&q=80', 45000, 3, 1, 0, 1, 220, 4.75, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(27, 7, 23, 'Bánh mì bơ', 'Bánh mì men tự nhiên, ớt, chanh, muối biển.', 'https://plus.unsplash.com/premium_photo-1675604221056-91821ac2df07?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', 59000, 10, 1, 0, 1, 154, 4.70, 'active', '2026-05-21 21:42:10', '2026-05-21 22:35:38'),
+(28, 8, 24, 'Donut phủ đường cổ điển', 'Lớp phủ vani, bánh donut men.', 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', 30000, 4, 1, 1, 1, 88, 4.55, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10'),
+(29, 8, 24, 'Maple Bacon', 'Lớp phủ phong, thịt xông khói ngào đường.', 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=800&q=80', 39000, 5, 1, 0, 2, 46, 4.50, 'active', '2026-05-21 21:42:10', '2026-05-21 21:42:10');
 
 -- --------------------------------------------------------
 
@@ -1453,6 +1453,193 @@ ALTER TABLE `wallets`
 ALTER TABLE `wallet_transactions`
   ADD CONSTRAINT `fk_wt_admin` FOREIGN KEY (`performed_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_wt_wallet` FOREIGN KEY (`wallet_id`) REFERENCES `wallets` (`id`) ON DELETE RESTRICT;
+
+--
+-- Bổ sung schema sau các đợt phát triển Wave 4, Wave 5 và GHN.
+-- File nomnom.sql là snapshot độc lập: chỉ cần import file này cho database mới.
+-- Các file trong database/migrations chỉ dùng để nâng cấp database đã tồn tại.
+--
+
+ALTER TABLE `users`
+  ADD COLUMN `suspension_reason` text COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `suspension_expires_at`;
+
+CREATE TABLE `vouchers` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `restaurant_id` bigint UNSIGNED DEFAULT NULL,
+  `created_by_user_id` bigint UNSIGNED NOT NULL,
+  `code` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `name` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `discount_type` enum('percent','fixed') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `discount_value` bigint UNSIGNED NOT NULL,
+  `max_discount_amount` bigint UNSIGNED DEFAULT NULL,
+  `min_order_amount` bigint UNSIGNED NOT NULL DEFAULT '0',
+  `usage_limit` int UNSIGNED DEFAULT NULL,
+  `per_user_limit` int UNSIGNED NOT NULL DEFAULT '1',
+  `starts_at` datetime NOT NULL,
+  `ends_at` datetime NOT NULL,
+  `status` enum('draft','active','paused') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_vouchers_code` (`code`),
+  KEY `idx_vouchers_restaurant_status_window` (`restaurant_id`, `status`, `starts_at`, `ends_at`),
+  KEY `idx_vouchers_created_by` (`created_by_user_id`),
+  CONSTRAINT `fk_vouchers_restaurant` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_vouchers_created_by` FOREIGN KEY (`created_by_user_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `chk_vouchers_window` CHECK (`ends_at` > `starts_at`),
+  CONSTRAINT `chk_vouchers_value` CHECK (`discount_value` > 0),
+  CONSTRAINT `chk_vouchers_per_user_limit` CHECK (`per_user_limit` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `vouchers` (`restaurant_id`, `created_by_user_id`, `code`, `name`, `description`, `discount_type`, `discount_value`, `max_discount_amount`, `min_order_amount`, `starts_at`, `ends_at`, `status`) VALUES
+(NULL, 1, 'NOMNOM15', 'NOMNOM15', 'Giảm 15% cho đơn hàng trên NomNom.', 'percent', 15, 250000, 0, '2026-01-01 00:00:00', '2027-12-31 23:59:59', 'active'),
+(NULL, 1, 'NEW50K', 'NEW50K', 'Giảm 50.000 đ cho đơn hàng đầu tiên.', 'fixed', 50000, NULL, 200000, '2026-01-01 00:00:00', '2027-12-31 23:59:59', 'active');
+
+ALTER TABLE `orders`
+  ADD COLUMN `voucher_id` bigint UNSIGNED DEFAULT NULL AFTER `restaurant_id`,
+  ADD COLUMN `voucher_code_snapshot` varchar(40) COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `discount_amount`,
+  ADD KEY `idx_orders_voucher` (`voucher_id`),
+  ADD CONSTRAINT `fk_orders_voucher` FOREIGN KEY (`voucher_id`) REFERENCES `vouchers` (`id`) ON DELETE SET NULL;
+
+CREATE TABLE `voucher_redemptions` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `voucher_id` bigint UNSIGNED NOT NULL,
+  `customer_id` bigint UNSIGNED NOT NULL,
+  `order_id` bigint UNSIGNED NOT NULL,
+  `discount_amount` bigint UNSIGNED NOT NULL,
+  `status` enum('reserved','redeemed','released') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'reserved',
+  `redeemed_at` datetime DEFAULT NULL,
+  `released_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_voucher_redemptions_order` (`order_id`),
+  KEY `idx_voucher_redemptions_usage` (`voucher_id`, `status`),
+  KEY `idx_voucher_redemptions_customer` (`voucher_id`, `customer_id`, `status`),
+  CONSTRAINT `fk_voucher_redemptions_voucher` FOREIGN KEY (`voucher_id`) REFERENCES `vouchers` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_voucher_redemptions_customer` FOREIGN KEY (`customer_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_voucher_redemptions_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `payments`
+  ADD COLUMN `gateway_reference` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `gateway`,
+  ADD COLUMN `gateway_created_at` datetime DEFAULT NULL AFTER `gateway_txn_id`,
+  ADD UNIQUE KEY `uq_payments_gateway_reference` (`gateway_reference`);
+
+CREATE TABLE `payment_refunds` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `payment_id` bigint UNSIGNED NOT NULL,
+  `order_id` bigint UNSIGNED NOT NULL,
+  `request_id` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `amount` bigint UNSIGNED NOT NULL,
+  `status` enum('initiated','succeeded','failed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'initiated',
+  `gateway_txn_id` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `failure_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `raw_response` json DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `completed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_payment_refunds_request` (`request_id`),
+  KEY `idx_payment_refunds_payment` (`payment_id`, `status`),
+  KEY `idx_payment_refunds_order` (`order_id`, `status`),
+  CONSTRAINT `fk_payment_refunds_payment` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_payment_refunds_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `conversations` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `order_id` bigint UNSIGNED NOT NULL,
+  `restaurant_id` bigint UNSIGNED NOT NULL,
+  `participant_one_user_id` bigint UNSIGNED NOT NULL,
+  `participant_one_role` enum('customer','merchant','admin') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `participant_two_user_id` bigint UNSIGNED NOT NULL,
+  `participant_two_role` enum('customer','merchant','admin') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `subject` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `last_message_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_conversation_order_pair` (`order_id`, `participant_one_user_id`, `participant_two_user_id`),
+  KEY `idx_conversation_participant_one` (`participant_one_user_id`, `last_message_at`),
+  KEY `idx_conversation_participant_two` (`participant_two_user_id`, `last_message_at`),
+  CONSTRAINT `fk_conversation_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_conversation_restaurant` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_conversation_participant_one` FOREIGN KEY (`participant_one_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_conversation_participant_two` FOREIGN KEY (`participant_two_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `chat_messages` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `conversation_id` bigint UNSIGNED NOT NULL,
+  `sender_user_id` bigint UNSIGNED NOT NULL,
+  `body` varchar(2000) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `read_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_chat_messages_conversation` (`conversation_id`, `id`),
+  KEY `idx_chat_messages_unread` (`conversation_id`, `read_at`, `sender_user_id`),
+  CONSTRAINT `fk_chat_message_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_chat_message_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `audit_logs` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `admin_id` bigint UNSIGNED NOT NULL,
+  `action` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `target_id` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `metadata` json DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_audit_logs_admin` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `customer_addresses`
+  ADD COLUMN `ghn_province_id` int UNSIGNED DEFAULT NULL AFTER `city`,
+  ADD COLUMN `ghn_district_id` int UNSIGNED DEFAULT NULL AFTER `ghn_province_id`,
+  ADD COLUMN `ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `ghn_district_id`,
+  ADD KEY `idx_customer_addresses_ghn_route` (`ghn_district_id`, `ghn_ward_code`);
+
+ALTER TABLE `restaurants`
+  ADD COLUMN `ghn_province_id` int UNSIGNED DEFAULT NULL AFTER `city`,
+  ADD COLUMN `ghn_district_id` int UNSIGNED DEFAULT NULL AFTER `ghn_province_id`,
+  ADD COLUMN `ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `ghn_district_id`,
+  ADD KEY `idx_restaurants_ghn_route` (`ghn_district_id`, `ghn_ward_code`);
+
+CREATE TABLE `restaurant_address_change_requests` (
+  `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+  `restaurant_id` bigint UNSIGNED NOT NULL,
+  `requested_by_user_id` bigint UNSIGNED NOT NULL,
+  `current_address_line` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `current_ward` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `current_district` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `current_city` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `current_ghn_province_id` int UNSIGNED DEFAULT NULL,
+  `current_ghn_district_id` int UNSIGNED DEFAULT NULL,
+  `current_ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `proposed_address_line` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `proposed_ward` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `proposed_district` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `proposed_city` varchar(160) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `proposed_ghn_province_id` int UNSIGNED DEFAULT NULL,
+  `proposed_ghn_district_id` int UNSIGNED DEFAULT NULL,
+  `proposed_ghn_ward_code` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('pending','approved','rejected','cancelled') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `reviewed_by_admin_id` bigint UNSIGNED DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `rejection_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `pending_restaurant_id` bigint UNSIGNED GENERATED ALWAYS AS (CASE WHEN `status` = 'pending' THEN `restaurant_id` ELSE NULL END) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_racr_one_pending` (`pending_restaurant_id`),
+  KEY `idx_racr_restaurant_status` (`restaurant_id`, `status`),
+  KEY `idx_racr_status_created` (`status`, `created_at`),
+  CONSTRAINT `fk_racr_restaurant` FOREIGN KEY (`restaurant_id`) REFERENCES `restaurants` (`id`),
+  CONSTRAINT `fk_racr_requester` FOREIGN KEY (`requested_by_user_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_racr_reviewer` FOREIGN KEY (`reviewed_by_admin_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
