@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-API mặc định: `http://localhost:3001`
+API mặc định: `http://localhost:3000`
 
 ## Upload ảnh (INF-01)
 
@@ -79,7 +79,7 @@ mysql -u root -p nomnom < sql/002_home_promo_banners.sql
 
 ## Frontend
 
-Vite proxy `/api` → `localhost:3001` (xem `client/vite.config.js`).
+Vite proxy `/api` → `localhost:3000` (xem `client/vite.config.js`).
 
 Chạy song song:
 
@@ -91,18 +91,45 @@ cd server && npm run dev
 cd client && npm run dev
 ```
 
-## Chuẩn bị Đợt 4
+## Wave 4 Runtime
 
-Áp migration nền tảng voucher trước khi các nhánh CUS-10 và MER-05 bắt đầu:
+Apply both Wave 4 migrations after the base database import:
 
 ```bash
 mysql -u root -p nomnom < ../database/migrations/20260711_wave4_foundation.sql
+mysql -u root -p nomnom < ../database/migrations/20260803_wave4_completion.sql
 ```
 
-Sau đó cấu hình các biến `VNPAY_*` theo `server/.env.example`. Không commit `VNPAY_HASH_SECRET` hoặc file `.env`.
+Configure `VNPAY_TMN_CODE` and `VNPAY_HASH_SECRET` in `server/.env`. Sandbox URLs already have defaults in `.env.example`; never commit the real secret.
 
-Contract API, thứ tự triển khai và checklist nằm tại:
+Run backend regression tests with:
+
+```bash
+npm test
+```
+
+Wave 4 API contracts and verification evidence are documented in:
 
 - `docs/planning/issues-wave-4.md`
-- `tasks/plan.md`
+- `docs/wave-4-completed.md`
 - `tasks/todo.md`
+
+
+## Wave 5 Runtime
+
+Apply the Wave 5 migration after the Wave 4 migrations:
+
+    mysql -u root -p nomnom < ../database/migrations/20260804_wave5_completion.sql
+
+Wave 5 authenticated endpoint groups:
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET, POST, PATCH | /api/v1/me/notifications/* | Notification inbox and read state |
+| GET, POST, PATCH | /api/v1/merchant/me/wallet, payouts, settings | Merchant finance and settings |
+| GET, PATCH | /api/v1/admin/payouts/* | Merchant payout review |
+| GET | /api/v1/admin/financial | Delivered-order financial report |
+| GET, PATCH | /api/v1/admin/config/* | Whitelisted platform configuration |
+| GET, POST | /api/v1/chat/conversations/* | Contextual order chat |
+
+Payout completion records an external transfer reference; the application does not call a bank transfer API. Chat uses HTTP polling and requires no additional runtime service.

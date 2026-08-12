@@ -1,268 +1,202 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
-import { IconButton } from '../../components/Button.jsx';
+import {
+  fetchChatConversationsApi,
+  fetchChatMessagesApi,
+  markChatReadApi,
+  sendChatMessageApi,
+} from '../../lib/api.js';
 import { useApp } from '../../context/AppContext.jsx';
 
-// ---------------------------------------------------------------------------
-// Dedicated chat screen — real-time messaging UI.
-//   • Header: avatar + name + role badge + online indicator
-//   • Body: message history with day separators + grouped bubbles
-//   • Footer: bottom-fixed composer with send icon button
-//
-// Tokens: rounded-md on inputs, rounded-lg on bubbles (12px), rounded-pill
-// on badges, primary CTA pure black, Inter type, hairline borders.
-// ---------------------------------------------------------------------------
-
-const ROLE_META = {
-  driver: { label: 'Tài xế của bạn', tone: 'success' },
+const ROLE = {
+  customer: { label: 'Khách hàng', tone: 'outline' },
   merchant: { label: 'Quán ăn', tone: 'default' },
-  admin: { label: 'Hỗ trợ', tone: 'outline' },
-};
-
-const QUICK_REPLIES_BY_ROLE = {
-  driver: ['Bạn đang ở đâu?', 'Mã cửa là 1234', 'Để ở cửa nhé, cảm ơn'],
-  merchant: ['Tôi có thể đổi món không?', 'Không hành nhé', 'Thêm khăn giấy'],
-  admin: ['Tôi cần hoàn tiền', 'Tài xế đi sai đường', 'Thiếu món hàng'],
+  admin: { label: 'Hỗ trợ', tone: 'live' },
 };
 
 export default function ChatScreen() {
   const { id } = useParams();
-  const { chats, sendChat } = useApp();
-  const chat = chats.find((c) => c.id === id) || chats[0];
+  const { user, role, pushToast } = useApp();
+  const [conversations, setConversations] = useState([]);
+  const [activeId, setActiveId] = useState(id === 'inbox' ? null : Number(id));
+  const [active, setActive] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
   const scroller = useRef(null);
-  const composerRef = useRef(null);
+
+  const loadConversations = useCallback(async (silent = false) => {
+    if (!silent) setLoadingList(true);
+    try {
+      const response = await fetchChatConversationsApi();
+      setConversations(response.data);
+      setActiveId((current) => {
+        if (current && response.data.some((item) => item.id === current)) return current;
+        return response.data[0]?.id || null;
+      });
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không thể tải danh sách trò chuyện.');
+    } finally {
+      if (!silent) setLoadingList(false);
+    }
+  }, []);
+
+  const loadMessages = useCallback(async (conversationId, silent = false) => {
+    if (!conversationId) return;
+    if (!silent) setLoadingMessages(true);
+    try {
+      const response = await fetchChatMessagesApi(conversationId);
+      setActive(response.conversation);
+      setMessages(response.data);
+      await markChatReadApi(conversationId);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không thể tải tin nhắn.');
+    } finally {
+      if (!silent) setLoadingMessages(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!scroller.current) return;
-    scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' });
-  }, [chat?.messages?.length]);
+    loadConversations();
+    const timer = window.setInterval(() => loadConversations(true), 5000);
+    return () => window.clearInterval(timer);
+  }, [loadConversations]);
 
-  if (!chat) return null;
+  useEffect(() => {
+    if (!activeId) {
+      setActive(null);
+      setMessages([]);
+      return undefined;
+    }
+    loadMessages(activeId);
+    const timer = window.setInterval(() => loadMessages(activeId, true), 3000);
+    return () => window.clearInterval(timer);
+  }, [activeId, loadMessages]);
 
-  const otherParticipant = chat.participants.find((p) => p.id !== 'me');
-  const meta = ROLE_META[otherParticipant?.role] ?? ROLE_META.merchant;
-  const replies = QUICK_REPLIES_BY_ROLE[otherParticipant?.role] ?? [];
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' });
+  }, [messages.length]);
 
-  const onSend = (value) => {
-    if (!value.trim()) return;
-    sendChat(chat.id, value);
-    setText('');
-    composerRef.current?.focus();
+  const send = async (event) => {
+    event.preventDefault();
+    const body = text.trim();
+    if (!body || !activeId) return;
+    setSending(true);
+    try {
+      const response = await sendChatMessageApi(activeId, body);
+      setMessages((current) => [...current, response.message]);
+      setText('');
+      await loadConversations(true);
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể gửi tin nhắn', message: err.message || 'Vui lòng thử lại.' });
+    } finally {
+      setSending(false);
+    }
   };
 
-  // Build day-grouped message list
-  const groups = groupByDay(chat.messages);
+  const backTo = role === 'merchant' ? '/merchant' : role === 'admin' ? '/admin' : '/app';
+  const other = active?.otherParticipant;
+  const meta = ROLE[other?.role] || ROLE.customer;
 
   return (
-    // Strict h-screen + overflow-hidden so the page never bounces on iOS.
-    // Header / body / footer are siblings with the body taking flex-1.
-    <div className="flex h-screen flex-col overflow-hidden bg-canvas">
-      {/* HEADER */}
-      <header className="shrink-0 border-b border-hairline bg-canvas/95 backdrop-blur">
-        <div className="pt-safe" />
-        <div className="container-page flex h-14 items-center gap-sm md:h-16">
-          <Link
-            to="/app"
-            className="grid h-11 w-11 -ml-2 place-items-center rounded-md text-ink hover:bg-canvas-soft"
-            aria-label="Quay lại"
-          >
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden bg-canvas">
+      <header className="shrink-0 border-b border-hairline bg-canvas">
+        <div className="container-page flex h-16 items-center gap-sm">
+          <Link to={backTo} className="grid h-11 w-11 -ml-2 place-items-center rounded-md text-ink hover:bg-canvas-soft" aria-label="Quay lại">
             <Icon name="chevronLeft" size={18} />
           </Link>
-          <Avatar src={otherParticipant?.avatar} name={otherParticipant?.name} size="md" />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-title-md text-ink truncate">{otherParticipant?.name}</span>
-              <Badge tone={meta.tone} dot>
-                {meta.label}
-              </Badge>
-            </div>
-            <div className="text-caption text-body inline-flex items-center gap-1">
-              <span className="inline-block h-1.5 w-1.5 rounded-pill bg-success pulse-dot" />
-              Đang hoạt động · {chat.subtitle}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <IconButton icon="phone" label="Gọi" variant="secondary" />
-            <IconButton icon="cog" label="Cài đặt" variant="secondary" />
+            <div className="text-title-md text-ink">Trò chuyện theo đơn hàng</div>
+            <div className="text-caption text-body">Mỗi cuộc trò chuyện chỉ dành cho các bên liên quan.</div>
           </div>
         </div>
       </header>
 
-      {/* MESSAGES — scrollable body */}
-      <main ref={scroller} className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        <div className="container-page flex flex-col gap-base py-base">
-          {groups.length === 0 && (
-            <div className="grid place-items-center py-xxl text-center">
-              <span className="grid h-12 w-12 place-items-center rounded-pill bg-surface-strong text-body">
-                <Icon name="chat" size={18} />
-              </span>
-              <div className="mt-sm text-title-md text-ink">Gửi lời chào</div>
-              <div className="text-body-sm text-body">Bắt đầu cuộc trò chuyện với trả lời nhanh bên dưới.</div>
-            </div>
-          )}
-          {groups.map((g, gi) => (
-            <Fragment key={gi}>
-              <DaySeparator label={g.label} />
-              <MessageGroup messages={g.messages} participants={chat.participants} />
-            </Fragment>
-          ))}
-        </div>
-      </main>
+      {error && <div className="shrink-0 border-b border-error bg-[#fbeaea] px-base py-sm text-body-sm text-error" role="alert">{error}</div>}
 
-      {/* COMPOSER — fixed footer */}
-      <footer className="shrink-0 border-t border-hairline bg-surface-card">
-        <div className="container-page">
-          {/* Quick replies */}
-          {replies.length > 0 && (
-            <div className="-mx-base flex items-center gap-1 overflow-x-auto px-base pt-sm scrollbar-hide">
-              {replies.map((r) => (
+      <div className="flex min-h-0 flex-1">
+        <aside className="w-[112px] shrink-0 overflow-y-auto border-r border-hairline bg-surface-card sm:w-72">
+          <div className="hidden border-b border-hairline px-base py-sm text-title-sm text-ink sm:block">Hộp thư</div>
+          {loadingList && !conversations.length && <div className="p-sm text-caption text-body" role="status">Đang tải...</div>}
+          <ul className="divide-y divide-hairline">
+            {conversations.map((conversation) => (
+              <li key={conversation.id}>
                 <button
-                  key={r}
                   type="button"
-                  onClick={() => onSend(r)}
-                  className="h-9 shrink-0 rounded-pill border border-hairline-strong bg-surface-card px-3 text-caption text-ink hover:bg-canvas-soft"
+                  onClick={() => setActiveId(conversation.id)}
+                  className={clsx('w-full p-sm text-left hover:bg-canvas-soft sm:p-base', activeId === conversation.id && 'bg-canvas-soft')}
                 >
-                  {r}
+                  <div className="flex items-start gap-2">
+                    <Avatar src={conversation.otherParticipant.avatarUrl} name={conversation.otherParticipant.name} size="sm" />
+                    <div className="hidden min-w-0 flex-1 sm:block">
+                      <div className="truncate text-body-sm font-semibold text-ink">{conversation.otherParticipant.name}</div>
+                      <div className="truncate text-caption text-body">{conversation.orderCode} · {conversation.restaurantName}</div>
+                      <div className="truncate text-caption text-body">{conversation.lastMessage || 'Chưa có tin nhắn'}</div>
+                    </div>
+                    {conversation.unreadCount > 0 && <Badge tone="live">{conversation.unreadCount}</Badge>}
+                  </div>
+                  <div className="mt-1 truncate text-[10px] text-body sm:hidden">{conversation.orderCode}</div>
                 </button>
-              ))}
+              </li>
+            ))}
+          </ul>
+        </aside>
+
+        <section className="flex min-w-0 flex-1 flex-col">
+          {!active ? (
+            <div className="grid flex-1 place-items-center p-base">
+              <EmptyState icon="chat" title={conversations.length ? 'Chọn một cuộc trò chuyện' : 'Chưa có cuộc trò chuyện'} message="Mở chat từ một đơn hàng để liên hệ quán hoặc bộ phận hỗ trợ." />
             </div>
-          )}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              onSend(text);
-            }}
-            className="flex items-center gap-xs py-sm"
-          >
-            <input
-              ref={composerRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={`Nhắn tin cho ${otherParticipant?.name?.split(' ')[0] ?? ''}…`}
-              // text-base = 16px → prevents iOS Safari from auto-zooming on focus
-              className="h-12 flex-1 rounded-md border border-hairline-strong bg-surface-card px-base text-base text-ink placeholder:text-muted outline-none focus:border-ink focus:border-2"
-            />
-            <button
-              type="submit"
-              disabled={!text.trim()}
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-primary text-on-primary hover:bg-primary-active disabled:bg-muted-soft"
-              aria-label="Gửi"
-            >
-              <Icon name="send" size={18} />
-            </button>
-          </form>
-          <div className="pb-safe" />
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function MessageGroup({ messages, participants }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      {messages.map((m, i) => {
-        const mine = m.senderId === 'me';
-        const sender = participants.find((p) => p.id === m.senderId);
-        const prev = messages[i - 1];
-        const isStartOfBurst = !prev || prev.senderId !== m.senderId;
-        const isEndOfBurst = i === messages.length - 1 || messages[i + 1]?.senderId !== m.senderId;
-        return (
-          <div
-            key={m.id}
-            className={clsx('flex items-end gap-2', mine ? 'flex-row-reverse' : 'flex-row')}
-          >
-            {!mine && (
-              <div className="w-8 shrink-0">
-                {isEndOfBurst && <Avatar src={sender?.avatar} name={sender?.name} size="sm" />}
+          ) : <>
+            <div className="flex shrink-0 items-center gap-sm border-b border-hairline px-base py-sm">
+              <Avatar src={other?.avatarUrl} name={other?.name} size="md" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-title-sm text-ink">{other?.name}</div>
+                <div className="truncate text-caption text-body">{active.orderCode} · {active.restaurantName}</div>
               </div>
-            )}
-            <div className="flex max-w-[75%] flex-col">
-              {!mine && isStartOfBurst && (
-                <span className="ml-2 mb-0.5 text-caption text-body">{sender?.name}</span>
-              )}
-              <div
-                className={clsx(
-                  'px-sm py-2 text-body-sm leading-snug',
-                  mine
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-canvas-soft border border-hairline-strong text-ink',
-                  // Stack-aware corner rounding
-                  bubbleRounding({ mine, isStartOfBurst, isEndOfBurst }),
-                )}
-              >
-                {m.text}
-              </div>
-              {isEndOfBurst && (
-                <span
-                  className={clsx(
-                    'mt-0.5 text-caption text-body',
-                    mine ? 'text-right pr-1' : 'pl-2',
-                  )}
-                >
-                  {formatTime(m.at)}
-                  {mine && (
-                    <Icon name="check" size={10} className="ml-1 inline text-success" />
-                  )}
-                </span>
-              )}
+              <Badge tone={meta.tone}>{meta.label}</Badge>
             </div>
-          </div>
-        );
-      })}
+
+            <main ref={scroller} className="flex-1 overflow-y-auto p-base">
+              {loadingMessages && !messages.length ? (
+                <div className="py-section text-center text-body-sm text-body" role="status">Đang tải tin nhắn...</div>
+              ) : !messages.length ? (
+                <EmptyState icon="chat" title="Bắt đầu cuộc trò chuyện" message="Tin nhắn sẽ được lưu cùng ngữ cảnh đơn hàng này." />
+              ) : (
+                <div className="mx-auto flex max-w-3xl flex-col gap-sm">
+                  {messages.map((message) => {
+                    const mine = Number(message.senderUserId) === Number(user?.id);
+                    return <div key={message.id} className={clsx('flex', mine ? 'justify-end' : 'justify-start')}>
+                      <div className={clsx('max-w-[80%] rounded-lg px-sm py-2', mine ? 'bg-primary text-on-primary rounded-br-sm' : 'border border-hairline-strong bg-canvas-soft text-ink rounded-bl-sm')}>
+                        {!mine && <div className="mb-1 text-caption font-semibold">{message.senderName}</div>}
+                        <div className="whitespace-pre-wrap break-words text-body-sm">{message.text}</div>
+                        <div className={clsx('mt-1 text-[10px]', mine ? 'text-on-dark-soft' : 'text-body')}>{new Date(message.createdAt).toLocaleString('vi-VN')}</div>
+                      </div>
+                    </div>;
+                  })}
+                </div>
+              )}
+            </main>
+
+            <form onSubmit={send} className="flex shrink-0 items-center gap-xs border-t border-hairline bg-surface-card p-sm">
+              <input value={text} onChange={(event) => setText(event.target.value)} maxLength={2000} placeholder={'Nhắn tin cho ' + (other?.name || '') + '...'} className="h-12 min-w-0 flex-1 rounded-md border border-hairline-strong bg-surface-card px-base text-base text-ink outline-none" />
+              <button type="submit" disabled={!text.trim() || sending} className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-primary text-on-primary disabled:bg-muted-soft" aria-label="Gửi">
+                <Icon name={sending ? 'spinner' : 'send'} size={18} className={sending ? 'animate-spin' : ''} />
+              </button>
+            </form>
+          </>}
+        </section>
+      </div>
     </div>
   );
-}
-
-function bubbleRounding({ mine, isStartOfBurst, isEndOfBurst }) {
-  if (mine) {
-    if (isStartOfBurst && isEndOfBurst) return 'rounded-lg rounded-br-sm';
-    if (isStartOfBurst) return 'rounded-lg rounded-br-sm';
-    if (isEndOfBurst) return 'rounded-l-lg rounded-tr-lg rounded-br-sm';
-    return 'rounded-l-lg rounded-r-sm';
-  }
-  if (isStartOfBurst && isEndOfBurst) return 'rounded-lg rounded-bl-sm';
-  if (isStartOfBurst) return 'rounded-lg rounded-bl-sm';
-  if (isEndOfBurst) return 'rounded-r-lg rounded-tl-lg rounded-bl-sm';
-  return 'rounded-r-lg rounded-l-sm';
-}
-
-function DaySeparator({ label }) {
-  return (
-    <div className="flex items-center gap-3 py-1">
-      <div className="h-px flex-1 bg-hairline" />
-      <span className="text-caption-uppercase text-body">{label}</span>
-      <div className="h-px flex-1 bg-hairline" />
-    </div>
-  );
-}
-
-function groupByDay(messages) {
-  const buckets = new Map();
-  for (const m of messages) {
-    const d = new Date(m.at);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    if (!buckets.has(key)) buckets.set(key, { label: dayLabel(d), messages: [] });
-    buckets.get(key).messages.push(m);
-  }
-  return Array.from(buckets.values());
-}
-
-function dayLabel(d) {
-  const now = new Date();
-  const oneDay = 1000 * 60 * 60 * 24;
-  const diff = Math.round((now.setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / oneDay);
-  if (diff === 0) return 'Hôm nay';
-  if (diff === 1) return 'Hôm qua';
-  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-function formatTime(at) {
-  const d = new Date(at);
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }

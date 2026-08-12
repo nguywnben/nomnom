@@ -26,7 +26,6 @@ const RANGE_OPTIONS = [
 const ROLE_LABELS = {
   customer: 'Khách hàng',
   merchant: 'Chủ quán',
-  driver: 'Tài xế',
   admin: 'Quản trị',
 };
 
@@ -74,7 +73,7 @@ export default function AdminOverview() {
   const totals = data?.totals;
   const pending = data?.pendingApprovals;
   const chart = data?.chart ?? [];
-  const pendingTotal = (pending?.restaurants ?? 0) + (pending?.drivers ?? 0);
+  const pendingTotal = pending?.restaurants ?? 0;
 
   return (
     <div className="space-y-base">
@@ -99,7 +98,6 @@ export default function AdminOverview() {
               {opt.label}
             </button>
           ))}
-          {!loading && data && <Badge tone="live" dot>Dữ liệu từ DB</Badge>}
         </div>
       </div>
 
@@ -138,19 +136,19 @@ export default function AdminOverview() {
               value={totals.refundCount.toLocaleString('vi-VN')}
               icon="alert"
               deltaTone={totals.refundCount > 0 ? 'error' : 'success'}
-              sub="đơn refunded trong kỳ"
+              sub="đơn được hoàn tiền trong kỳ"
             />
           </div>
 
-          <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-5">
-            <StatCard label="Tổng tài khoản" value={totals.userCount.toLocaleString('vi-VN')} icon="user" />
-            <StatCard label="Khách hàng" value={totals.customerCount.toLocaleString('vi-VN')} icon="user" />
-            <StatCard label="Chủ quán" value={totals.merchantCount.toLocaleString('vi-VN')} icon="store" />
-            <StatCard label="Tài xế" value={totals.driverCount.toLocaleString('vi-VN')} icon="bike" />
+          <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard label="Tổng tài khoản" value={totals.userCount.toLocaleString('vi-VN')} icon="user" sub="trên hệ thống" />
+            <StatCard label="Khách hàng" value={totals.customerCount.toLocaleString('vi-VN')} icon="user" sub="có vai trò khách hàng" />
+            <StatCard label="Chủ quán" value={totals.merchantCount.toLocaleString('vi-VN')} icon="store" sub="có vai trò chủ quán" />
             <StatCard
               label="Quán đang hoạt động"
               value={totals.restaurantActiveCount.toLocaleString('vi-VN')}
               icon="store"
+              sub="đã được duyệt hoạt động"
             />
           </div>
 
@@ -169,13 +167,13 @@ export default function AdminOverview() {
                   </Badge>
                 )}
               </div>
-              <div className="h-64">
+              <div className="h-64 min-w-0">
                 {chart.length === 0 ? (
                   <div className="flex h-full items-center justify-center text-body-sm text-body">
                     Chưa có đơn trong kỳ này.
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <AreaChart data={chart}>
                       <defs>
                         <linearGradient id="adminGmv" x1="0" y1="0" x2="0" y2="1">
@@ -235,18 +233,6 @@ export default function AdminOverview() {
                     </Link>
                   </div>
                 </li>
-                <li className="flex items-center justify-between rounded-md border border-hairline px-sm py-sm">
-                  <div>
-                    <div className="text-body-sm font-medium text-ink">Tài xế</div>
-                    <div className="text-caption text-body">Hồ sơ chờ duyệt</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-title-md nums text-ink">{pending?.drivers ?? 0}</span>
-                    <Link to="/admin/drivers" className="text-caption text-ink underline">
-                      Xem
-                    </Link>
-                  </div>
-                </li>
               </ul>
               {pendingTotal > 0 && (
                 <div className="mt-base">
@@ -261,13 +247,13 @@ export default function AdminOverview() {
               <div className="text-caption-uppercase text-body">Khối lượng đơn</div>
               <div className="text-title-md text-ink">Theo ngày trong kỳ</div>
             </div>
-            <div className="h-56">
+            <div className="h-56 min-w-0">
               {chart.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-body-sm text-body">
                   Chưa có đơn trong kỳ này.
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <BarChart data={chart}>
                     <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
                     <XAxis

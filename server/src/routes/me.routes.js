@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import db from '../db/pool.js';
 import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
@@ -151,7 +151,7 @@ router.post('/change-password', async (req, res, next) => {
   }
 });
 
-router.get('/addresses', async (req, res, next) => {
+router.get('/addresses', ensureCustomer, async (req, res, next) => {
   try {
     const { userId } = req.auth;
     const [rows] = await db.query(
@@ -175,7 +175,7 @@ router.get('/addresses', async (req, res, next) => {
   }
 });
 
-router.post('/addresses', async (req, res, next) => {
+router.post('/addresses', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
@@ -246,7 +246,7 @@ router.post('/addresses', async (req, res, next) => {
   }
 });
 
-router.patch('/addresses/:id', async (req, res, next) => {
+router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
@@ -330,7 +330,7 @@ router.patch('/addresses/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/addresses/:id', async (req, res, next) => {
+router.delete('/addresses/:id', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
@@ -367,7 +367,7 @@ router.delete('/addresses/:id', async (req, res, next) => {
   }
 });
 
-router.post('/addresses/:id/default', async (req, res, next) => {
+router.post('/addresses/:id/default', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
@@ -401,7 +401,7 @@ router.post('/addresses/:id/default', async (req, res, next) => {
   }
 });
 
-router.get('/orders', async (req, res, next) => {
+router.get('/orders', ensureCustomer, async (req, res, next) => {
   try {
     const { userId } = req.auth;
     const status = req.query.status || 'all';
@@ -413,11 +413,11 @@ router.get('/orders', async (req, res, next) => {
     let queryParams = [userId];
 
     if (status === 'active') {
-      queryConds.push("o.status IN ('pending_payment', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
+      queryConds.push("o.status IN ('pending_payment', 'payment_failed', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
     } else if (status === 'delivered') {
       queryConds.push("o.status = 'delivered'");
     } else if (status === 'cancelled') {
-      queryConds.push("o.status IN ('cancelled', 'failed')");
+      queryConds.push("o.status IN ('cancelled', 'failed', 'expired')");
     }
 
     const whereClause = 'WHERE ' + queryConds.join(' AND ');
@@ -491,7 +491,7 @@ router.get('/orders', async (req, res, next) => {
   }
 });
 
-router.post('/orders/:id/cancel', async (req, res, next) => {
+router.post('/orders/:id/cancel', ensureCustomer, async (req, res, next) => {
   try {
     const { userId } = req.auth;
     const { id } = req.params;
@@ -522,6 +522,38 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
     );
 
     res.json({ success: true, message: 'Hủy đơn hàng thành công' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/vouchers', ensureCustomer, async (req, res, next) => {
+  try {
+    const now = new Date();
+    const [rows] = await db.query(
+      `SELECT id, code, kind, amount, min_order, max_discount, valid_from, valid_to, usage_limit, usage_count, is_active, created_at
+       FROM vouchers
+       WHERE is_active = 1 AND valid_from <= ? AND valid_to >= ? AND (usage_limit IS NULL OR usage_count < usage_limit)
+       ORDER BY created_at DESC`,
+      [now, now]
+    );
+
+    const formattedVouchers = rows.map((v) => ({
+      id: v.id,
+      code: v.code,
+      kind: v.kind,
+      amount: Number(v.amount),
+      min_order: Number(v.min_order),
+      max_discount: v.max_discount !== null ? Number(v.max_discount) : null,
+      valid_from: v.valid_from,
+      valid_to: v.valid_to,
+      usage_limit: v.usage_limit,
+      usage_count: v.usage_count,
+      is_active: Boolean(v.is_active),
+      created_at: v.created_at,
+    }));
+
+    res.json(formattedVouchers);
   } catch (err) {
     next(err);
   }

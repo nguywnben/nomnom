@@ -5,18 +5,22 @@ import Icon from './Icon.jsx';
 //   • Editorial 1..N buttons with truncation
 //   • DESIGN tokens: rounded-md (8px), hairline borders, Inter 500 buttons,
 //     primary-ink for the active page.
-export default function Pagination({ total, pageSize, page, onChange, className }) {
-  const pages = Math.max(1, Math.ceil(total / pageSize));
+export default function Pagination({ total, pageSize, page, onChange, pageCount, showSummary = true, className }) {
+  const pages = Math.max(1, pageCount ?? Math.ceil(total / pageSize));
   const range = buildRange(page, pages);
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(total, page * pageSize);
 
   return (
     <div className={clsx('flex items-center justify-between gap-base', className)}>
-      <span className="text-caption text-body">
-        Hiển thị <span className="nums text-ink">{start}</span>–<span className="nums text-ink">{end}</span>{' '}
-        của <span className="nums text-ink">{total}</span>
-      </span>
+      {showSummary ? (
+        <span className="text-caption text-body">
+          Hiển thị <span className="nums text-ink">{start}</span>–<span className="nums text-ink">{end}</span>{' '}
+          của <span className="nums text-ink">{total}</span>
+        </span>
+      ) : (
+        <span className="text-caption text-body">Trang <span className="nums text-ink">{page}</span> / <span className="nums text-ink">{pages}</span></span>
+      )}
       <nav className="inline-flex items-center gap-1" aria-label="Pagination">
         <PageButton
           ariaLabel="Trang trước"

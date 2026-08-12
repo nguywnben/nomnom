@@ -1,68 +1,93 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Input from '../../components/Input.jsx';
-import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Input, { Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
-import { Textarea } from '../../components/Input.jsx';
+import Pagination from '../../components/Pagination.jsx';
+import Tabs from '../../components/Tabs.jsx';
+import { fetchAdminPayoutDetailApi, fetchAdminPayoutsApi, updateAdminPayoutApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { useApp } from '../../context/AppContext.jsx';
 
-// Duyệt yêu cầu rút tiền — `payout_requests` (status: pending → approved → completed | rejected).
-const ITEMS = [
-  { id: 'PYT-008', user: 'Cinque Pizzeria', role: 'merchant', amount: 2_000_000, bank: 'Vietcombank · *** 2839', holder: 'NGUYEN VAN A', status: 'pending', at: Date.now() - 2 * 60 * 60 * 1000 },
-  { id: 'PYT-D-014', user: 'Phạm Văn Hoàng', role: 'driver', amount: 480_000, bank: 'Techcombank · *** 1199', holder: 'PHAM VAN HOANG', status: 'pending', at: Date.now() - 6 * 60 * 60 * 1000 },
-  { id: 'PYT-007', user: 'Junebug Burgers', role: 'merchant', amount: 1_500_000, bank: 'BIDV · *** 4480', holder: 'JUNEBUG VN CO', status: 'approved', at: Date.now() - 8 * 60 * 60 * 1000 },
-  { id: 'PYT-D-013', user: 'Trần Quốc Bảo', role: 'driver', amount: 1_200_000, bank: 'Techcombank · *** 1199', holder: 'TRAN QUOC BAO', status: 'completed', at: Date.now() - 24 * 60 * 60 * 1000 },
-  { id: 'PYT-D-012', user: 'Hoàng Văn Nam', role: 'driver', amount: 350_000, bank: 'ACB · *** 9912', holder: 'HOANG VAN NAM', status: 'rejected', at: Date.now() - 3 * 24 * 60 * 60 * 1000, reason: 'Số tài khoản không khớp với chủ tài khoản đăng ký.' },
-];
-
 const STATUS = {
   pending: { label: 'Chờ duyệt', tone: 'warning' },
-  approved: { label: 'Đã duyệt — chờ chuyển', tone: 'live' },
+  approved: { label: 'Chờ chuyển khoản', tone: 'live' },
   completed: { label: 'Đã chuyển', tone: 'success' },
   rejected: { label: 'Từ chối', tone: 'error' },
 };
 
 export default function AdminPayouts() {
   const { pushToast } = useApp();
-  const [items, setItems] = useState(ITEMS);
-  const [tab, setTab] = useState('pending');
-  const [q, setQ] = useState('');
-  const [rejectOf, setRejectOf] = useState(null);
-  const [reason, setReason] = useState('');
-  const [refOf, setRefOf] = useState(null);
-  const [externalRef, setExternalRef] = useState('');
+  const [items, setItems] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
+  const [status, setStatus] = useState('pending');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [dialog, setDialog] = useState(null);
+  const [payoutDetail, setPayoutDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [value, setValue] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState(false);
+  const [error, setError] = useState('');
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return items.filter((p) => {
-      if (tab !== 'all' && p.status !== tab) return false;
-      if (!needle) return true;
-      return `${p.id} ${p.user} ${p.bank}`.toLowerCase().includes(needle);
-    });
-  }, [items, tab, q]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetchAdminPayoutsApi({ status, q: query, page, limit: 20 });
+      setItems(response.data);
+      setPagination(response.pagination);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không thể tải yêu cầu rút tiền.');
+    } finally {
+      setLoading(false);
+    }
+  }, [status, query, page]);
 
-  const approve = (id) =>
-    setItems((cur) => cur.map((p) => (p.id === id ? { ...p, status: 'approved' } : p))) ||
-    pushToast({ kind: 'success', title: 'Đã duyệt', message: 'Chuyển sang trạng thái chờ chuyển khoản.' });
+  useEffect(() => { load(); }, [load]);
 
-  const complete = (id) => {
-    if (!externalRef.trim()) return;
-    setItems((cur) => cur.map((p) => (p.id === id ? { ...p, status: 'completed', externalRef } : p)));
-    setRefOf(null);
-    setExternalRef('');
-    pushToast({ kind: 'success', title: 'Đã hoàn tất', message: 'Khoản tiền đã được đánh dấu là đã chuyển.' });
+  const closeDialog = () => {
+    setDialog(null);
+    setPayoutDetail(null);
+    setDetailLoading(false);
+    setValue('');
   };
 
-  const reject = (id) => {
-    if (!reason.trim()) return;
-    setItems((cur) => cur.map((p) => (p.id === id ? { ...p, status: 'rejected', reason } : p)));
-    setRejectOf(null);
-    setReason('');
-    pushToast({ kind: 'info', title: 'Đã từ chối', message: 'Người yêu cầu sẽ nhận thông báo.' });
+  const openCompletionDialog = async (payout) => {
+    setDialog({ type: 'complete', payout });
+    setPayoutDetail(null);
+    setValue('');
+    setDetailLoading(true);
+    try {
+      const response = await fetchAdminPayoutDetailApi(payout.id);
+      setPayoutDetail(response.payout);
+    } catch (err) {
+      closeDialog();
+      pushToast({ kind: 'error', title: 'Không thể tải thông tin nhận tiền', message: err.message || 'Vui lòng thử lại.' });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const changeStatus = async (payout, action) => {
+    setActing(true);
+    try {
+      await updateAdminPayoutApi(payout.id, {
+        action,
+        reason: action === 'reject' ? value.trim() : undefined,
+        externalRef: action === 'complete' ? value.trim() : undefined,
+      });
+      closeDialog();
+      pushToast({ kind: 'success', title: 'Đã cập nhật payout', message: payout.code + ' đã chuyển trạng thái.' });
+      await load();
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể cập nhật', message: err.message || 'Vui lòng thử lại.' });
+    } finally {
+      setActing(false);
+    }
   };
 
   return (
@@ -71,75 +96,58 @@ export default function AdminPayouts() {
         <div>
           <div className="text-caption-uppercase text-body">Tài chính</div>
           <h1 className="text-display-lg text-ink">Duyệt rút tiền</h1>
+          <p className="mt-xs text-body-sm text-body">Chỉ hoàn tất sau khi có mã giao dịch ngân hàng.</p>
         </div>
-        <Input
-          className="w-full md:w-72"
-          leadingIcon="search"
-          placeholder="Tìm theo mã, người yêu cầu, ngân hàng…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button>
       </div>
 
-      <Tabs
-        className="w-fit max-w-full"
-        items={[
-          { value: 'pending', label: `Chờ duyệt (${items.filter((p) => p.status === 'pending').length})` },
-          { value: 'approved', label: 'Chờ chuyển' },
-          { value: 'completed', label: 'Đã chuyển' },
-          { value: 'rejected', label: 'Từ chối' },
-          { value: 'all', label: 'Tất cả' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
+      <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
+        <Tabs
+          className="max-w-full"
+          items={[
+            { value: 'pending', label: 'Chờ duyệt' },
+            { value: 'approved', label: 'Chờ chuyển' },
+            { value: 'completed', label: 'Đã chuyển' },
+            { value: 'rejected', label: 'Từ chối' },
+            { value: 'all', label: 'Tất cả' },
+          ]}
+          value={status}
+          onChange={(next) => { setStatus(next); setPage(1); }}
+        />
+        <Input leadingIcon="search" aria-label="Tìm payout" placeholder="Tìm quán hoặc ngân hàng..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} className="w-full md:w-72" />
+      </div>
 
-      {filtered.length === 0 ? (
-        <EmptyState icon="wallet" title="Không có yêu cầu phù hợp" />
+      {error && <div className="rounded-md border border-error bg-[#fbeaea] p-sm text-body-sm text-error" role="alert">{error}</div>}
+
+      {!loading && !items.length ? (
+        <EmptyState icon="wallet" title="Không có yêu cầu phù hợp" message="Thử đổi trạng thái hoặc từ khóa tìm kiếm." />
       ) : (
         <Card padded={false} className="overflow-hidden">
           <ul className="divide-y divide-hairline">
-            {filtered.map((p) => {
-              const s = STATUS[p.status];
+            {items.map((payout) => {
+              const state = STATUS[payout.status] || { label: payout.status, tone: 'outline' };
               return (
-                <li key={p.id} className="p-base">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                <li key={payout.id} className="p-base">
+                  <div className="flex flex-wrap items-start justify-between gap-sm">
                     <div className="min-w-0">
-                      <div className="nums text-body-sm font-semibold text-ink">{p.id}</div>
-                      <div className="text-caption text-body truncate">
-                        {p.user} · {p.role === 'driver' ? 'Tài xế' : 'Chủ quán'}
-                      </div>
-                      <div className="text-caption text-body truncate">
-                        {p.bank} · {p.holder}
-                      </div>
-                      <div className="text-caption text-body">{new Date(p.at).toLocaleString('vi-VN')}</div>
+                      <div className="nums text-body-sm font-semibold text-ink">{payout.code}</div>
+                      <div className="text-body-sm text-ink">{payout.userName}</div>
+                      <div className="text-caption text-body">{payout.bankName} · {payout.bankAccountMasked} · {payout.bankAccountHolder}</div>
+                      <div className="text-caption text-body">{new Date(payout.requestedAt).toLocaleString('vi-VN')}</div>
                     </div>
                     <div className="text-right">
-                      <div className="nums text-body-sm font-semibold text-ink">{formatVnd(p.amount)}</div>
-                      <Badge tone={s.tone}>{s.label}</Badge>
+                      <div className="nums text-title-sm text-ink">{formatVnd(payout.amount)}</div>
+                      <Badge tone={state.tone}>{state.label}</Badge>
                     </div>
                   </div>
-
-                  {p.reason && (
-                    <div className="mt-2 rounded-md border border-hairline-strong bg-[#fbeaea] p-2 text-caption text-error">
-                      Lý do: {p.reason}
-                    </div>
-                  )}
-
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {p.status === 'pending' && (
-                      <>
-                        <Button size="sm" leadingIcon="check" onClick={() => approve(p.id)}>Duyệt</Button>
-                        <Button size="sm" variant="secondary" leadingIcon="x" onClick={() => { setRejectOf(p); setReason(''); }}>
-                          Từ chối
-                        </Button>
-                      </>
-                    )}
-                    {p.status === 'approved' && (
-                      <Button size="sm" leadingIcon="check" onClick={() => { setRefOf(p); setExternalRef(''); }}>
-                        Đánh dấu đã chuyển
-                      </Button>
-                    )}
+                  {payout.rejectReason && <div className="mt-sm rounded-md bg-[#fbeaea] p-sm text-caption text-error">Lý do: {payout.rejectReason}</div>}
+                  {payout.externalRef && <div className="mt-sm text-caption text-body">Mã ngân hàng: <span className="nums text-ink">{payout.externalRef}</span></div>}
+                  <div className="mt-sm flex flex-wrap gap-xs">
+                    {payout.status === 'pending' && <>
+                      <Button size="sm" leadingIcon="check" onClick={() => changeStatus(payout, 'approve')}>Duyệt</Button>
+                      <Button size="sm" variant="secondary" leadingIcon="x" onClick={() => { setDialog({ type: 'reject', payout }); setValue(''); }}>Từ chối</Button>
+                    </>}
+                    {payout.status === 'approved' && <Button size="sm" leadingIcon="cash" onClick={() => openCompletionDialog(payout)}>Thực hiện chuyển khoản</Button>}
                   </div>
                 </li>
               );
@@ -148,28 +156,27 @@ export default function AdminPayouts() {
         </Card>
       )}
 
-      <Modal open={!!rejectOf} onClose={() => setRejectOf(null)} title="Từ chối yêu cầu" size="sm">
-        <div className="flex flex-col gap-sm">
-          <Textarea rows={4} placeholder="Lý do từ chối" value={reason} onChange={(e) => setReason(e.target.value)} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setRejectOf(null)}>Hủy</Button>
-            <Button onClick={() => reject(rejectOf.id)} disabled={!reason.trim()}>Xác nhận từ chối</Button>
-          </div>
-        </div>
-      </Modal>
+      {pagination.total > pagination.limit && <Pagination total={pagination.total} pageSize={pagination.limit} page={pagination.page} onChange={setPage} />}
 
-      <Modal open={!!refOf} onClose={() => setRefOf(null)} title="Xác nhận đã chuyển khoản" size="sm">
-        <div className="flex flex-col gap-sm">
-          <Input
-            placeholder="Mã giao dịch ngân hàng (external_ref)"
-            value={externalRef}
-            onChange={(e) => setExternalRef(e.target.value)}
-            hint="Lưu trong cột external_ref để đối soát sau."
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setRefOf(null)}>Hủy</Button>
-            <Button onClick={() => complete(refOf.id)} disabled={!externalRef.trim()} leadingIcon="check">
-              Xác nhận
+      <Modal open={Boolean(dialog)} onClose={closeDialog} title={dialog?.type === 'reject' ? 'Từ chối yêu cầu' : 'Thực hiện chuyển khoản'} size="sm">
+        <div className="space-y-sm">
+          {dialog?.type === 'reject'
+            ? <Textarea label="Lý do" rows={4} value={value} onChange={(event) => setValue(event.target.value)} />
+            : <>
+              {detailLoading ? <div className="py-base text-center text-body-sm text-body">Đang tải thông tin nhận tiền...</div> : <>
+                <div className="rounded-md border border-hairline-strong bg-canvas-soft p-sm text-body-sm text-body">
+                  <div className="text-caption-uppercase">Chuyển đến</div>
+                  <div className="mt-1 font-semibold text-ink">{payoutDetail?.bankName} · <span className="nums">{payoutDetail?.bankAccountNo}</span></div>
+                  <div className="mt-1">Chủ tài khoản: {payoutDetail?.bankAccountHolder}</div>
+                  <div className="mt-1 nums text-ink">Số tiền: {formatVnd(payoutDetail?.amount || 0)}</div>
+                </div>
+                <Input label="Mã giao dịch ngân hàng" value={value} onChange={(event) => setValue(event.target.value)} hint="Mã dùng để đối soát và không thể bỏ trống." />
+              </>}
+            </>}
+          <div className="flex justify-end gap-xs">
+            <Button variant="secondary" onClick={closeDialog}>Hủy</Button>
+            <Button loading={acting} disabled={detailLoading || (dialog?.type === 'complete' && !payoutDetail) || value.trim().length < 3} onClick={() => changeStatus(dialog.payout, dialog.type)}>
+              {dialog?.type === 'reject' ? 'Xác nhận từ chối' : 'Xác nhận đã chuyển tiền'}
             </Button>
           </div>
         </div>

@@ -6,18 +6,77 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-import { apiGet } from '../../lib/api.js';
+import StarRating from '../../components/StarRating.jsx';
+import { Textarea } from '../../components/Input.jsx';
+import { useApp } from '../../context/AppContext.jsx';
+import { apiGet, apiPatch } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
+
+const getRemainingTimeText = (createdAt) => {
+  const created = new Date(createdAt);
+  const expiry = created.getTime() + 7 * 24 * 60 * 60 * 1000;
+  const diffMs = expiry - Date.now();
+  if (diffMs <= 0) return 'Đã hết hạn chỉnh sửa';
+  
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays > 0) {
+    return `Còn lại ${diffDays} ngày để sửa`;
+  }
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffHours > 0) {
+    return `Còn lại ${diffHours} giờ để sửa`;
+  }
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  return `Còn lại ${diffMinutes} phút để sửa`;
+};
 
 export default function RestaurantReviews() {
   const { id } = useParams(); // ID nhà hàng
   const nav = useNavigate();
+  const { currentCustomer, pushToast } = useApp();
   
   const [restaurant, setRestaurant] = useState(null);
   const [orders, setOrders] = useState([]);
   const [restaurantReviews, setRestaurantReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // States cho chỉnh sửa đánh giá
+  const [editingReview, setEditingReview] = useState(null);
+  const [editRating, setEditRating] = useState(0);
+  const [editComment, setEditComment] = useState('');
+  const [updating, setUpdating] = useState(false);
+
+  const handleUpdateReview = async () => {
+    if (!editRating) return;
+    setUpdating(true);
+    try {
+      await apiPatch(`/api/v1/orders/reviews/${editingReview.id}`, {
+        rating: editRating,
+        comment: editComment.trim() || null,
+      });
+      
+      pushToast({
+        kind: 'success',
+        title: 'Cập nhật thành công',
+        message: 'Đánh giá của bạn đã được cập nhật thành công.',
+      });
+      
+      // Tải lại danh sách đánh giá của nhà hàng
+      const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10`);
+      setRestaurantReviews(reviewsData?.data || []);
+      
+      setEditingReview(null);
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Lỗi cập nhật',
+        message: err.message || 'Không thể lưu thay đổi đánh giá lúc này.',
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -142,26 +201,125 @@ export default function RestaurantReviews() {
               <div className="text-caption text-body py-sm text-center">Chưa có đánh giá nào khác.</div>
             ) : (
               <div className="space-y-base">
-                {restaurantReviews.map((rev) => (
-                  <div key={rev.id} className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <Avatar src={rev.customerAvatar} name={rev.customerName} size="sm" />
-                      <span className="text-body-sm font-semibold text-ink">{rev.customerName}</span>
-                      <Badge tone="outline">{rev.rating}★</Badge>
-                    </div>
-                    <p className="text-caption text-body leading-relaxed">{rev.comment}</p>
-                    {rev.replyText && (
-                      <div className="ml-4 p-2 bg-canvas-soft border-l border-primary rounded text-xs text-body leading-relaxed">
-                        <span className="font-semibold text-ink">Quán phản hồi:</span> {rev.replyText}
+                {restaurantReviews.map((rev) => {
+                  const isOwnReview = String(rev.customerId) === String(currentCustomer?.id);
+                  const showEditButton = isOwnReview && rev.canEdit;
+                  return (
+                    <div key={rev.id} className="flex flex-col gap-1 pb-base border-b border-hairline last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Avatar src={rev.customerAvatar} name={rev.customerName} size="sm" />
+                          <div className="flex flex-col">
+                            <span className="text-body-sm font-semibold text-ink">{rev.customerName}</span>
+                            <span className="text-caption-sm text-body">{new Date(rev.createdAt).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                          <Badge tone="outline">{rev.rating}★</Badge>
+                        </div>
+                        {showEditButton && (
+                          <div className="flex items-center gap-xs">
+                           
+                            <button
+                              onClick={() => {
+                                setEditingReview(rev);
+                                setEditRating(rev.rating);
+                                setEditComment(rev.comment || '');
+                              }}
+                              className="text-caption font-semibold text-primary hover:underline flex items-center gap-xs"
+                            >
+                              <Icon name="edit" size={12} />
+                              Sửa
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {rev.itemName && (
+                        <div className="text-caption font-medium text-body-sm bg-canvas-soft px-2 py-0.5 rounded border border-hairline w-fit my-1">
+                          Món: <span className="text-ink font-semibold">{rev.itemName}</span>
+                        </div>
+                      )}
+
+                      <p className="text-caption text-body leading-relaxed mt-1">
+                        {rev.comment}
+                        {rev.isEdited && (
+                          <span className="ml-base text-caption-sm text-body font-normal italic bg-canvas-soft px-1.5 py-0.5 rounded border border-hairline">
+                            đã chỉnh sửa
+                          </span>
+                        )}
+                      </p>
+
+                      {rev.replyText && (
+                        <div className="ml-4 mt-sm p-2 bg-canvas-soft border-l border-primary rounded text-xs text-body leading-relaxed">
+                          <span className="font-semibold text-ink">Quán phản hồi:</span> {rev.replyText}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Card>
         </aside>
       </div>
+
+      {editingReview && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card padded className="max-w-md w-full animate-fade-in shadow-xl bg-surface-card border border-hairline-strong">
+            <div className="flex items-center justify-between border-b border-hairline pb-sm mb-base">
+              <h2 className="text-title-lg font-bold text-ink">Chỉnh sửa đánh giá</h2>
+              <button 
+                onClick={() => setEditingReview(null)} 
+                className="text-body hover:text-ink transition-colors p-1"
+                aria-label="Đóng"
+              >
+                <Icon name="close" size={20} />
+              </button>
+            </div>
+
+            <div className="mb-base p-sm bg-red-50 text-red-600 rounded-md border border-red-200 text-xs space-y-1">
+              <div className="font-semibold flex items-center gap-xs">
+                <Icon name="warning" size={14} className="text-red-600" />
+                Lưu ý: Bạn chỉ có thể chỉnh sửa đánh giá này 1 lần duy nhất.
+              </div>
+              <div className="font-medium text-red-500 pl-4">{getRemainingTimeText(editingReview.createdAt)}</div>
+            </div>
+            
+            {editingReview.itemName && (
+              <div className="mb-base p-sm bg-canvas-soft rounded-md border border-hairline flex items-center gap-xs">
+                <span className="text-body-sm font-medium text-ink">Sản phẩm:</span>
+                <span className="text-body-sm font-semibold text-primary">{editingReview.itemName}</span>
+              </div>
+            )}
+            
+            <div className="space-y-base">
+              <div>
+                <label className="block text-body-sm font-semibold text-ink mb-xs">Số sao đánh giá</label>
+                <StarRating value={editRating} onChange={setEditRating} size={26} />
+              </div>
+              
+              <div>
+                <label htmlFor="edit-comment" className="block text-body-sm font-semibold text-ink mb-xs">Nội dung nhận xét</label>
+                <Textarea
+                  id="edit-comment"
+                  rows={4}
+                  placeholder="Chia sẻ cảm nhận của bạn về món ăn này..."
+                  value={editComment}
+                  onChange={(e) => setEditComment(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-end gap-xs mt-xl pt-sm border-t border-hairline">
+              <Button variant="secondary" onClick={() => setEditingReview(null)} disabled={updating}>
+                Hủy
+              </Button>
+              <Button onClick={handleUpdateReview} disabled={updating || !editRating}>
+                {updating ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

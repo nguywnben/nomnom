@@ -1,116 +1,123 @@
-import { useState } from 'react';
-import Badge from '../../components/Badge.jsx';
+import { useCallback, useEffect, useState } from 'react';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
+import { fetchAdminConfigApi, updateAdminConfigApi } from '../../lib/api.js';
 import { useApp } from '../../context/AppContext.jsx';
 
-// Trang sửa `platform_config` (key / value / data_type).
-const SEED = [
-  { key: 'default_commission_rate', value: '15', dataType: 'decimal', description: 'Hoa hồng nền tảng (%) mặc định cho nhà hàng', unit: '%' },
-  { key: 'default_driver_share', value: '80', dataType: 'decimal', description: '% phí giao hàng tài xế nhận được', unit: '%' },
-  { key: 'min_payout_amount', value: '100000', dataType: 'int', description: 'Số tiền tối thiểu mỗi lần rút', unit: 'VND' },
-  { key: 'order_auto_cancel_minutes', value: '5', dataType: 'int', description: 'Số phút huỷ tự động nếu nhà hàng không xác nhận', unit: 'phút' },
-  { key: 'max_search_radius_km', value: '8', dataType: 'decimal', description: 'Bán kính tìm kiếm tối đa', unit: 'km' },
-];
-
-const TYPE_TONE = {
-  string: 'default',
-  int: 'live',
-  decimal: 'live',
-  boolean: 'preview',
-  json: 'preview',
+const LABELS = {
+  default_commission_rate: {
+    label: 'Hoa hồng mặc định',
+    description: 'Tỷ lệ hoa hồng áp dụng cho quán sử dụng mức mặc định của nền tảng.',
+    suffix: '%',
+    min: 0,
+    max: 50,
+    step: 0.1,
+  },
+  max_search_radius_km: {
+    label: 'Bán kính tìm kiếm tối đa',
+    description: 'Khoảng cách tối đa để khách tìm và xem các quán ăn lân cận.',
+    suffix: 'km',
+    min: 1,
+    max: 100,
+    step: 0.1,
+  },
+  min_payout_amount: {
+    label: 'Số tiền rút tối thiểu',
+    description: 'Số dư khả dụng tối thiểu để quán có thể gửi yêu cầu rút tiền.',
+    suffix: 'đ',
+    min: 10000,
+    max: 1000000000,
+    step: 1000,
+  },
+  order_auto_cancel_minutes: {
+    label: 'Thời gian tự hủy đơn',
+    description: 'Đơn sẽ tự hủy nếu quán không xác nhận trong khoảng thời gian này.',
+    suffix: 'phút',
+    min: 1,
+    max: 120,
+    step: 1,
+  },
 };
 
 export default function AdminConfig() {
   const { pushToast } = useApp();
-  const [items, setItems] = useState(SEED);
-  const [edit, setEdit] = useState({});
-  const [savingKey, setSavingKey] = useState(null);
+  const [items, setItems] = useState([]);
+  const [draft, setDraft] = useState({});
+  const [saving, setSaving] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const start = (k, v) => setEdit((cur) => ({ ...cur, [k]: v }));
-  const save = (k) => {
-    setSavingKey(k);
-    setTimeout(() => {
-      setItems((cur) => cur.map((c) => (c.key === k ? { ...c, value: edit[k] } : c)));
-      setEdit((cur) => {
-        const rest = { ...cur };
-        delete rest[k];
-        return rest;
-      });
-      setSavingKey(null);
-      pushToast({ kind: 'success', title: 'Đã lưu cấu hình', message: `Khoá ${k} đã được cập nhật.` });
-    }, 400);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetchAdminConfigApi();
+      setItems(response.data);
+      setDraft(Object.fromEntries(response.data.map((item) => [item.key, item.value])));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không thể tải cấu hình nền tảng.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (item) => {
+    setSaving(item.key);
+    try {
+      const response = await updateAdminConfigApi(item.key, draft[item.key]);
+      setItems((current) => current.map((entry) => entry.key === item.key ? response.config : entry));
+      setDraft((current) => ({ ...current, [item.key]: response.config.value }));
+      const affected = response.affectedRestaurants ? ' Đã cập nhật ' + response.affectedRestaurants + ' quán dùng mức mặc định.' : '';
+      pushToast({ kind: 'success', title: 'Đã lưu cấu hình', message: (LABELS[item.key]?.label || item.key) + '.' + affected });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể lưu', message: err.message || 'Giá trị không hợp lệ.' });
+    } finally {
+      setSaving('');
+    }
   };
-  const cancel = (k) =>
-    setEdit((cur) => {
-      const rest = { ...cur };
-      delete rest[k];
-      return rest;
-    });
 
   return (
     <div className="space-y-base">
-      <div>
-        <div className="text-caption-uppercase text-body">Cấu hình</div>
-        <h1 className="text-display-lg text-ink">Tham số nền tảng</h1>
-        <p className="mt-xs text-body-sm text-body">
-          Các giá trị này nằm trong bảng <code>platform_config</code> và ảnh hưởng toàn hệ thống. Thận trọng khi chỉnh sửa.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-sm">
+        <div>
+          <div className="text-caption-uppercase text-body">Hệ thống</div>
+          <h1 className="text-display-lg text-ink">Cấu hình nền tảng</h1>
+          <p className="mt-xs text-body-sm text-body">Các tham số được hệ thống kiểm tra giới hạn trước khi áp dụng.</p>
+        </div>
+        <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button>
       </div>
 
-      <Card padded={false} className="overflow-hidden">
-        <ul className="divide-y divide-hairline">
-          {items.map((c) => {
-            const editing = c.key in edit;
-            return (
-              <li key={c.key} className="p-base">
-                <div className="flex flex-wrap items-start justify-between gap-sm">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <code className="text-body-sm font-semibold text-ink">{c.key}</code>
-                      <Badge tone={TYPE_TONE[c.dataType]}>{c.dataType}</Badge>
-                    </div>
-                    <div className="mt-1 text-body-sm text-body">{c.description}</div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {editing ? (
-                      <>
-                        <Input
-                          className="w-40"
-                          value={edit[c.key]}
-                          onChange={(e) => start(c.key, e.target.value)}
-                          aria-label={c.key}
-                        />
-                        <Button size="sm" leadingIcon="check" loading={savingKey === c.key} onClick={() => save(c.key)}>
-                          Lưu
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => cancel(c.key)}>
-                          Hủy
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="nums text-body-sm font-semibold text-ink">
-                          {c.value} {c.unit}
-                        </span>
-                        <Button size="sm" variant="secondary" leadingIcon="edit" onClick={() => start(c.key, c.value)}>
-                          Sửa
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
+      {error && <div className="rounded-md border border-error bg-[#fbeaea] p-sm text-body-sm text-error" role="alert">{error}</div>}
+      {loading && !items.length && <div className="py-section text-center text-body-sm text-body" role="status">Đang tải cấu hình...</div>}
 
-      <div className="rounded-md border border-hairline-strong bg-canvas-soft p-base text-caption text-body">
-        <Icon name="alert" size={12} className="mr-1 inline" />
-        Mọi thay đổi đều được ghi log vào trường <code>updated_by_admin_id</code> + <code>updated_at</code>. Cần phê duyệt cấp cao trước khi đẩy lên môi trường production.
+      <div className="grid gap-base lg:grid-cols-2">
+        {items.map((item) => {
+          const meta = LABELS[item.key] || { label: 'Cấu hình hệ thống', description: 'Tham số vận hành của nền tảng.', suffix: '', step: 1 };
+          const changed = String(draft[item.key]) !== String(item.value);
+          return (
+            <Card key={item.key} padded>
+              <div className="text-title-md text-ink">{meta.label}</div>
+              <div className="mt-1 text-caption text-body">{meta.description}</div>
+              <div className="mt-sm flex flex-col gap-sm sm:flex-row sm:items-end">
+                <Input
+                  id={'config-' + item.key}
+                  className="flex-1"
+                  type="number"
+                  min={meta.min}
+                  max={meta.max}
+                  step={meta.step}
+                  label={meta.label + ' (' + meta.suffix + ')'}
+                  value={draft[item.key] ?? ''}
+                  onChange={(event) => setDraft((current) => ({ ...current, [item.key]: event.target.value }))}
+                />
+                <Button leadingIcon="check" loading={saving === item.key} disabled={!changed} onClick={() => save(item)}>Lưu</Button>
+              </div>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

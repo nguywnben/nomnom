@@ -8,8 +8,7 @@ import Image from '../components/Image.jsx';
 import Logo from '../components/Logo.jsx';
 import Avatar from '../components/Avatar.jsx';
 import { useGeolocationLocalityLabel } from '../hooks/useGeolocationLocalityLabel.js';
-import { useHomeCategories } from '../hooks/useHomeCategories.js';
-import { helpers, restaurants } from '../data/mock.js';
+import { helpers } from '../data/mock.js';
 
 // ---------------------------------------------------------------------------
 // Landing page — high-converting food brand splash, NOT a SaaS marketing page.
@@ -30,13 +29,12 @@ import { helpers, restaurants } from '../data/mock.js';
 
 const HERO_BG = helpers.unsplash('photo-1504674900247-0877df9cc836', 1800);
 const MERCHANT_BG = helpers.unsplash('photo-1517248135467-4c7edcad34c4', 1400);
-const DRIVER_BG = helpers.unsplash('photo-1532635241-17e820acc59f', 1400);
 
 const HOW_IT_WORKS = [
   {
     icon: 'search',
     title: 'Chọn món',
-    desc: 'Khám phá hơn 2.000 quán ăn gần bạn — được tuyển chọn kỹ lưỡng, không tài trợ.',
+    desc: 'Khám phá quán ăn và món ăn phù hợp với nhu cầu của bạn.',
   },
   {
     icon: 'cart',
@@ -46,15 +44,49 @@ const HOW_IT_WORKS = [
   {
     icon: 'bike',
     title: 'Thưởng thức',
-    desc: 'Theo dõi tài xế tận cửa. Thời gian giao hàng trung bình là 22 phút.',
+    desc: 'Theo dõi trạng thái đơn hàng rõ ràng cho đến khi bạn nhận món.',
   },
 ];
 
-const STATS = [
-  { value: '2,140', label: 'Quán ăn' },
-  { value: '22 phút', label: 'Thời gian giao trung bình' },
-  { value: '318', label: 'Tài xế hoạt động' },
-  { value: '4.9★', label: 'Đánh giá khách hàng' },
+const MOMENTS = [
+  {
+    label: 'Buổi trưa',
+    title: 'Một lựa chọn gọn gàng giữa ngày bận rộn.',
+    imageUrl: helpers.unsplash('photo-1547592180-85f173990554', 1000),
+  },
+  {
+    label: 'Buổi chiều',
+    title: 'Một khoảng nghỉ nhỏ cho điều bạn đang thèm.',
+    imageUrl: helpers.unsplash('photo-1551024601-bec78aea704b', 1000),
+  },
+  {
+    label: 'Buổi tối',
+    title: 'Một bữa ăn để quay về và quây quần.',
+    imageUrl: helpers.unsplash('photo-1515003197210-e0cd71810b5f', 1000),
+  },
+];
+
+const EXPERIENCE_PRINCIPLES = [
+  {
+    icon: 'search',
+    title: 'Dễ tìm',
+    description: 'Tìm theo món hoặc quán ăn, với thông tin được trình bày rõ ràng.',
+  },
+  {
+    icon: 'cart',
+    title: 'Dễ quyết định',
+    description: 'Từ món ăn đến thanh toán, mỗi bước đều có một mục đích cụ thể.',
+  },
+  {
+    icon: 'eye',
+    title: 'Dễ theo dõi',
+    description: 'Trạng thái đơn hàng luôn sẵn sàng khi bạn cần kiểm tra.',
+  },
+  {
+    icon: 'refresh',
+    title: 'Dễ quay lại',
+    description: 'Những lựa chọn phù hợp sẽ luôn sẵn để bạn tiếp tục lần sau.',
+  },
 ];
 
 /** Cuộn mượt. Các khối CTA (đối tác / tài xế) căn giữa khung nhìn; "Cách hoạt động" cuộn tự nhiên từ đầu section. */
@@ -68,7 +100,8 @@ const LANDING_HEADER_ELEVATE_AFTER_PX = 16;
 export default function Landing() {
   const [headerElevated, setHeaderElevated] = useState(false);
   const heroLocalityLine = useGeolocationLocalityLabel();
-  const { categories } = useHomeCategories();
+  const categories = [];
+  const featuredRestaurants = [];
 
   useEffect(() => {
     const onScroll = () => {
@@ -125,19 +158,6 @@ export default function Landing() {
             >
               Hợp tác
             </a>
-            <a
-              href="#tuyen-tai-xe"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('tuyen-tai-xe');
-              }}
-              className={clsx(
-                'hidden text-nav-link transition-colors duration-300 ease-out md:inline-flex',
-                headerElevated ? 'text-body hover:text-ink' : 'text-on-dark hover:text-on-dark-soft',
-              )}
-            >
-              Tuyển tài xế
-            </a>
             <Button
               as={Link}
               to="/app"
@@ -168,9 +188,9 @@ export default function Landing() {
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-ink/70 via-ink/40 to-ink/75" />
 
-        <div className="container-page flex min-h-[560px] flex-col justify-center pt-28 pb-xxl text-center text-on-dark md:min-h-[680px] md:pt-32 lg:min-h-[720px]">
+        <div className="hidden" aria-hidden="true">
           <Badge tone="dark" className="mx-auto mb-base !bg-canvas/15 !text-on-dark backdrop-blur">
-            Giao hàng trong 22 phút · {heroLocalityLine}
+            Giao nhanh, đặt món thuận tiện · {heroLocalityLine}
           </Badge>
           <h1 className="mx-auto max-w-3xl text-display-lg md:text-display-xl lg:text-display-mega">
             Đói bụng? Đặt món ngay.
@@ -180,7 +200,7 @@ export default function Landing() {
           </p>
 
           {/* CTA vào ứng dụng — đặt món, nhập địa chỉ trong /app */}
-          <div id="dat-hang" className="mx-auto mt-lg flex justify-center">
+          <div id="dat-hang-legacy" className="mx-auto mt-lg flex justify-center">
             <Button
               as={Link}
               to="/app"
@@ -197,6 +217,30 @@ export default function Landing() {
             >
               Vào ứng dụng đặt món
             </Button>
+          </div>
+        </div>
+
+        <div id="dat-hang" className="container-page flex min-h-[560px] flex-col items-center justify-end pb-xxl pt-28 text-center text-on-dark md:min-h-[680px] md:justify-center md:pb-12 md:pt-32 lg:min-h-[720px]">
+          <div className="max-w-2xl">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.88px] leading-[1.4] text-on-dark-soft">NomNom cho những bữa ăn thường ngày</div>
+            <h1 className="mt-sm text-display-lg text-on-dark md:text-display-xl lg:text-display-mega">
+              Ăn ngon theo cách nhẹ nhàng hơn.
+            </h1>
+            <p className="mx-auto mt-md w-full max-w-xl text-title-md text-on-dark-soft">
+              Khám phá món ăn, đặt đơn và theo dõi hành trình của bữa ăn trong một không gian rõ ràng, thân thuộc.
+            </p>
+            <div className="mt-lg flex justify-center">
+              <Button
+                as={Link}
+                to="/app"
+                size="lg"
+                variant="secondary"
+                trailingIcon="arrowRight"
+                className="!border-canvas/35 !bg-canvas/15 !text-on-dark backdrop-blur-md shadow-lg shadow-ink/25 transition-[background-color,border-color,box-shadow] hover:!border-canvas/45 hover:!bg-canvas/25 hover:shadow-xl active:!bg-canvas/30"
+              >
+                Khám phá NomNom
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -235,7 +279,7 @@ export default function Landing() {
       </section>
 
       {/* ---- Cuisines carousel ------------------------------------------- */}
-      <section className="container-page pb-xxl">
+      <section className="hidden" aria-hidden="true">
         <div className="mb-base flex items-end justify-between">
           <div>
             <div className="text-caption-uppercase text-body">Từ mọi nơi</div>
@@ -254,13 +298,9 @@ export default function Landing() {
         </div>
         <div className="-mx-base flex gap-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:px-0">
           {categories.map((c) => (
-            <a
+            <Link
               key={c.id}
-              href="#dat-hang"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('dat-hang');
-              }}
+              to="/app/search"
               className="group flex w-[100px] shrink-0 flex-col items-center gap-1.5 md:w-[120px]"
             >
               <span className="relative overflow-hidden rounded-pill border border-hairline-strong bg-surface-card transition-shadow group-hover:shadow-soft">
@@ -270,13 +310,13 @@ export default function Landing() {
                 <span aria-hidden="true">{c.emoji} </span>
                 {c.name}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
 
       {/* ---- Featured restaurants ---------------------------------------- */}
-      <section className="container-page pb-xxl md:pb-section">
+      <section className="hidden" aria-hidden="true">
         <div className="mb-base flex items-end justify-between">
           <div>
             <div className="text-caption-uppercase text-body">Lựa chọn hàng đầu</div>
@@ -294,25 +334,21 @@ export default function Landing() {
           </a>
         </div>
         <div className="grid grid-cols-2 gap-base lg:grid-cols-4">
-          {restaurants.slice(0, 4).map((r) => (
-            <a
+          {featuredRestaurants.map((r) => (
+            <Link
               key={r.id}
-              href="#dat-hang"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollToSection('dat-hang');
-              }}
+              to={`/app/restaurant/${r.id}`}
               className="group flex flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
             >
               <div className="relative">
                 <Image
-                  src={r.banner}
+                  src={r.bannerUrl}
                   alt={r.name}
                   ratio="16/10"
-                  className="transition-transform group-hover:scale-[1.02]"
+                  className="w-full"
                 />
                 <div className="absolute -bottom-3 right-base">
-                  <Avatar src={r.logo} name={r.name} square size="md" className="ring-2 ring-canvas" />
+                  <Avatar src={r.logoUrl} name={r.name} square size="md" className="ring-2 ring-canvas" />
                 </div>
               </div>
               <div className="p-base pt-md">
@@ -320,20 +356,70 @@ export default function Landing() {
                   <div className="text-title-md text-ink leading-tight">{r.name}</div>
                   <span className="inline-flex items-center gap-0.5 text-body-sm text-ink">
                     <Icon name="starFilled" size={12} />
-                    <span className="nums">{r.rating.toFixed(1)}</span>
+                    <span className="nums">{Number(r.ratingAvg ?? 0).toFixed(1)}</span>
                   </span>
                 </div>
                 <div className="mt-1 text-caption text-body">
-                  {r.cuisine} · <span className="nums">{r.eta}</span>
+                  {r.tagline || 'Quán ăn đối tác'} · <span className="nums">{r.avgPrepTimeMin ? `${r.avgPrepTimeMin} phút` : 'Đang cập nhật'}</span>
                 </div>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       </section>
 
+      <section className="container-page pb-xxl md:pb-section">
+        <div className="mb-lg max-w-xl md:mb-xl">
+          <div className="text-caption-uppercase text-body">Theo nhịp của bạn</div>
+          <h2 className="mt-1 text-display-md text-ink">Có những bữa ăn chỉ cần đến đúng lúc.</h2>
+          <p className="mt-xs text-body-md text-body">
+            NomNom ở đây cho những khoảnh khắc thường ngày, khi bạn muốn dành ít thời gian hơn cho thao tác và nhiều thời gian hơn cho bữa ăn.
+          </p>
+        </div>
+        <div className="grid gap-base md:grid-cols-3">
+          {MOMENTS.map((moment) => (
+            <div key={moment.label} className="overflow-hidden rounded-lg border border-hairline-strong bg-surface-card">
+              <Image src={moment.imageUrl} alt={moment.title} ratio="4/3" className="w-full" />
+              <div className="p-base">
+                <div className="text-caption-uppercase text-body">{moment.label}</div>
+                <div className="mt-1 text-title-md text-ink">{moment.title}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="container-page pb-xxl md:pb-section">
+          <div className="max-w-xl">
+            <div className="text-caption-uppercase text-body">Trải nghiệm NomNom</div>
+            <h2 className="mt-1 text-display-md text-ink">Những điều quan trọng được đặt đúng chỗ.</h2>
+          </div>
+          <div className="mt-xl grid md:grid-cols-2">
+            {EXPERIENCE_PRINCIPLES.map((principle, index) => (
+              <div
+                key={principle.title}
+                className={clsx(
+                  'flex gap-sm border-b border-hairline-strong p-base last:border-b-0',
+                  index >= 2 && 'md:border-b-0',
+                  index % 2 === 1 && 'md:border-l md:border-hairline-strong',
+                )}
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-surface-card text-ink">
+                  <Icon name={principle.icon} size={17} />
+                </span>
+                <div>
+                  <div className="text-title-sm text-ink">{principle.title}</div>
+                  <p className="mt-1 text-body-sm text-body">{principle.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ---- Partner with us --------------------------------------------- */}
-      <section id="doi-tac" className="container-page pb-xxl md:pb-section">
+      <section id="doi-tac" className="container-page">
         <div className="grid overflow-hidden rounded-lg border border-hairline-strong md:grid-cols-2">
           <div className="relative isolate aspect-video w-full overflow-hidden md:aspect-auto md:min-h-[360px]">
             <Image src={MERCHANT_BG} alt="Restaurant kitchen" ratio="16/9" className="absolute inset-0 h-full w-full" />
@@ -355,58 +441,13 @@ export default function Landing() {
             </ul>
             <div className="mt-lg flex flex-wrap items-center gap-xs">
               <Button as={Link} to="/merchant/onboarding" trailingIcon="arrowRight">
-                Đăng ký nhà hàng
+                Đăng ký quán ăn
               </Button>
               <Button as={Link} to="/faq#faq-quan-an" variant="secondary">
                 Tìm hiểu thêm
               </Button>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ---- Ride with us ------------------------------------------------ */}
-      <section id="tuyen-tai-xe" className="container-page pb-xxl md:pb-section">
-        <div className="grid overflow-hidden rounded-lg border border-hairline-strong md:grid-cols-2">
-          <div className="order-2 flex flex-col justify-center bg-surface-card p-xl md:order-1 md:p-xxl">
-            <h3 className="text-display-md text-ink">Lái xe cùng chúng tôi</h3>
-            <p className="mt-xs text-body-md text-body">
-              Kiếm tiền theo lịch trình, thành phố và tốc độ của bạn. Rút tiền hàng ngày — không cần đợi đến thứ Sáu.
-            </p>
-            <ul className="mt-base space-y-2 text-body-sm text-ink">
-              <PartnerPoint>Trung bình <span className="nums">450.000 ₫</span>/giờ trong giờ cao điểm</PartnerPoint>
-              <PartnerPoint>Thanh toán hàng ngày — rút tiền bất cứ lúc nào bạn muốn</PartnerPoint>
-              <PartnerPoint>Xe đạp, xe máy, hay ô tô — sự lựa chọn là của bạn</PartnerPoint>
-              <PartnerPoint>Điều hướng và trò chuyện với khách hàng trong ứng dụng</PartnerPoint>
-            </ul>
-            <div className="mt-lg flex flex-wrap items-center gap-xs">
-              <Button as={Link} to="/driver/onboarding" trailingIcon="arrowRight">
-                Đăng ký tài xế
-              </Button>
-              <Button as={Link} to="/faq#faq-tai-xe" variant="secondary">
-                Tìm hiểu thêm
-              </Button>
-            </div>
-          </div>
-          <div className="relative isolate order-1 aspect-video w-full overflow-hidden md:order-2 md:aspect-auto md:min-h-[360px]">
-            <Image src={DRIVER_BG} alt="Delivery rider" ratio="16/9" className="absolute inset-0 h-full w-full" />
-            <div className="absolute inset-0 bg-gradient-to-tl from-ink/40 to-transparent" />
-            <div className="absolute right-base top-base">
-              <Badge tone="dark" className="!bg-canvas/15 !text-on-dark backdrop-blur">Dành cho tài xế</Badge>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ---- By the numbers ---------------------------------------------- */}
-      <section className="border-y border-hairline bg-canvas-soft">
-        <div className="container-page grid grid-cols-2 gap-base py-xl md:grid-cols-4">
-          {STATS.map((s) => (
-            <div key={s.label} className="text-center md:text-left">
-              <div className="text-display-md text-ink nums">{s.value}</div>
-              <div className="text-caption-uppercase text-body">{s.label}</div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -446,8 +487,7 @@ export default function Landing() {
             <FooterGroup
               title="Đối tác"
               links={[
-                { label: 'Đăng ký nhà hàng', to: '/merchant/onboarding' },
-                { label: 'Đăng ký tài xế', to: '/driver/onboarding' },
+                { label: 'Đăng ký quán ăn', to: '/merchant/onboarding' },
                 { label: 'FAQ đối tác', to: '/faq' },
               ]}
             />
@@ -463,7 +503,7 @@ export default function Landing() {
               <Link to="/privacy-policy" className="text-body hover:text-ink">
                 Bảo mật
               </Link>
-              <Link to="#" className="text-body hover:text-ink">Cookie</Link>
+              <Link to="/privacy-policy" className="text-body hover:text-ink">Cookie</Link>
             </div>
           </div>
         </div>

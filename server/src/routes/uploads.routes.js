@@ -19,6 +19,15 @@ const uploadWindowMs = 60 * 1000;
 const maxUploadsPerWindow = 20;
 const userUploadHistory = new Map();
 
+function isAbortedUploadError(error, req) {
+  return (
+    req?.aborted ||
+    error?.message === 'Request aborted' ||
+    error?.code === 'ECONNRESET' ||
+    error?.code === 'ECONNABORTED'
+  );
+}
+
 function enforceRateLimit(userId) {
   const now = Date.now();
   const recent = (userUploadHistory.get(userId) ?? []).filter((timestamp) => now - timestamp < uploadWindowMs);
@@ -36,6 +45,9 @@ function enforceRateLimit(userId) {
 function handleUpload(req, res, next) {
   upload.single('file')(req, res, (err) => {
     if (err) {
+      if (isAbortedUploadError(err, req)) {
+        return;
+      }
       return next(err);
     }
     next();

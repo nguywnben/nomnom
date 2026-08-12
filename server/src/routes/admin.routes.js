@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
+import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
+import { logAudit } from '../lib/audit.js';
 import {
   ensureWallet,
   insertNotification,
@@ -41,8 +43,168 @@ function generateRandomPassword() {
   }).join('');
 }
 
+function cuisineSlug(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'd')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeCuisineInput(body, { partial = false } = {}) {
+  const has = (key) => Object.prototype.hasOwnProperty.call(body ?? {}, key);
+  const input = body ?? {};
+  const result = {};
+
+  if (!partial || has('name')) {
+    const name = String(input.name ?? '').trim();
+    if (!name || name.length > 80) return { error: 'Tên loại ẩm thực phải có từ 1 đến 80 ký tự.' };
+    result.name = name;
+  }
+  if (!partial || has('slug')) {
+    const slug = cuisineSlug(input.slug ?? result.name);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) return { error: 'Slug chỉ gồm chữ cái không dấu, số và dấu gạch nối.' };
+    result.slug = slug;
+  }
+  if (has('iconUrl')) {
+    const iconUrl = String(input.iconUrl ?? '').trim();
+    if (iconUrl.length > 500) return { error: 'Đường dẫn biểu tượng không được vượt quá 500 ký tự.' };
+    if (iconUrl) {
+      try {
+        const url = new URL(iconUrl);
+        if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Invalid protocol');
+      } catch {
+        return { error: 'Đường dẫn biểu tượng phải là URL http hoặc https hợp lệ.' };
+      }
+    }
+    result.iconUrl = iconUrl || null;
+  } else if (!partial) result.iconUrl = null;
+  if (has('sortOrder')) {
+    const sortOrder = Number(input.sortOrder);
+    if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 32767) return { error: 'Thứ tự hiển thị phải là số nguyên từ 0 đến 32767.' };
+    result.sortOrder = sortOrder;
+  } else if (!partial) result.sortOrder = 0;
+  if (has('isActive')) {
+    if (typeof input.isActive !== 'boolean') return { error: 'Trạng thái hoạt động không hợp lệ.' };
+    result.isActive = input.isActive;
+  } else if (!partial) result.isActive = true;
+  return { value: result };
+}
+
+function serializeCuisine(row) {
+  return {
+    id: row.id, name: row.name, slug: row.slug, iconUrl: row.icon_url,
+    sortOrder: row.sort_order, isActive: Boolean(row.is_active),
+    restaurantCount: Number(row.restaurant_count ?? 0), createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
 router.use(requireAuth);
 router.use(ensureAdmin);
+
+router.get('/cuisines', async (_req, res, next) => {
+  try {
+    const [rows] = await pool.query(`SELECT c.*, COUNT(r.id) AS restaurant_count FROM cuisines c LEFT JOIN restaurants r ON r.cuisine_id = c.id GROUP BY c.id ORDER BY c.sort_order ASC, c.id ASC`);
+    return res.json({ data: rows.map(serializeCuisine) });
+  } catch (err) { return next(err); }
+});
+
+router.post('/cuisines', async (req, res, next) => {
+  const parsed = normalizeCuisineInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { name, slug, iconUrl, sortOrder, isActive } = parsed.value;
+    const [result] = await connection.query('INSERT INTO cuisines (name, slug, icon_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?)', [name, slug, iconUrl, sortOrder, isActive ? 1 : 0]);
+    const [[row]] = await connection.query('SELECT * FROM cuisines WHERE id = ?', [result.insertId]);
+    await logAudit(connection, { adminId: req.auth.userId, action: 'tao_loai_am_thuc', targetType: 'cuisine', targetId: result.insertId, metadata: { tenLoai: name, slug } });
+    await connection.commit();
+    return res.status(201).json({ cuisine: serializeCuisine(row) });
+  } catch (err) {
+    await connection.rollback();
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Tên hoặc slug loại ẩm thực đã tồn tại.' });
+    return next(err);
+  } finally { connection.release(); }
+});
+
+router.patch('/cuisines/reorder', async (req, res, next) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number) : [];
+  if (!ids.length || ids.some((id) => !Number.isInteger(id) || id <= 0) || new Set(ids).size !== ids.length) {
+    return res.status(400).json({ error: 'Danh sách thứ tự loại ẩm thực không hợp lệ.' });
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [existing] = await connection.query('SELECT id FROM cuisines WHERE id IN (?) FOR UPDATE', [ids]);
+    if (existing.length !== ids.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Có loại ẩm thực không còn tồn tại.' });
+    }
+    for (const [index, id] of ids.entries()) {
+      await connection.query('UPDATE cuisines SET sort_order = ? WHERE id = ?', [index + 1, id]);
+    }
+    await logAudit(connection, { adminId: req.auth.userId, action: 'sap_xep_loai_am_thuc', targetType: 'cuisine', targetId: 'all', metadata: { thuTuIds: ids } });
+    await connection.commit();
+    return res.json({ ok: true });
+  } catch (err) {
+    await connection.rollback();
+    return next(err);
+  } finally { connection.release(); }
+});
+
+router.patch('/cuisines/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  const parsed = normalizeCuisineInput(req.body, { partial: true });
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID loại ẩm thực không hợp lệ.' });
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  if (!Object.keys(parsed.value).length) return res.status(400).json({ error: 'Không có thông tin cần cập nhật.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[previous]] = await connection.query('SELECT * FROM cuisines WHERE id = ? FOR UPDATE', [id]);
+    if (!previous) { await connection.rollback(); return res.status(404).json({ error: 'Loại ẩm thực không tồn tại.' }); }
+    const updates = [];
+    const values = [];
+    const columnMap = { name: 'name', slug: 'slug', iconUrl: 'icon_url', sortOrder: 'sort_order', isActive: 'is_active' };
+    for (const [key, column] of Object.entries(columnMap)) {
+      if (Object.prototype.hasOwnProperty.call(parsed.value, key)) {
+        updates.push(`${column} = ?`);
+        values.push(key === 'isActive' ? (parsed.value[key] ? 1 : 0) : parsed.value[key]);
+      }
+    }
+    await connection.query(`UPDATE cuisines SET ${updates.join(', ')} WHERE id = ?`, [...values, id]);
+    const [[row]] = await connection.query(`SELECT c.*, COUNT(r.id) AS restaurant_count FROM cuisines c LEFT JOIN restaurants r ON r.cuisine_id = c.id WHERE c.id = ? GROUP BY c.id`, [id]);
+    await logAudit(connection, { adminId: req.auth.userId, action: parsed.value.isActive === false ? 'an_loai_am_thuc' : 'cap_nhat_loai_am_thuc', targetType: 'cuisine', targetId: id, metadata: { tenLoai: row.name, thayDoi: parsed.value } });
+    await connection.commit();
+    return res.json({ cuisine: serializeCuisine(row) });
+  } catch (err) {
+    await connection.rollback();
+    if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Tên hoặc slug loại ẩm thực đã tồn tại.' });
+    return next(err);
+  } finally { connection.release(); }
+});
+
+router.delete('/cuisines/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID loại ẩm thực không hợp lệ.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[cuisine]] = await connection.query('SELECT id, name FROM cuisines WHERE id = ? FOR UPDATE', [id]);
+    if (!cuisine) { await connection.rollback(); return res.status(404).json({ error: 'Loại ẩm thực không tồn tại.' }); }
+    const [[usage]] = await connection.query('SELECT COUNT(*) AS total FROM restaurants WHERE cuisine_id = ?', [id]);
+    if (Number(usage.total) > 0) { await connection.rollback(); return res.status(409).json({ error: 'Loại ẩm thực này đang được sử dụng. Hãy ẩn thay vì xóa.' }); }
+    await connection.query('DELETE FROM cuisines WHERE id = ?', [id]);
+    await logAudit(connection, { adminId: req.auth.userId, action: 'xoa_loai_am_thuc', targetType: 'cuisine', targetId: id, metadata: { tenLoai: cuisine.name } });
+    await connection.commit();
+    return res.status(204).send();
+  } catch (err) { await connection.rollback(); return next(err); } finally { connection.release(); }
+});
 
 const ORDER_METRICS_WHERE = "status NOT IN ('cancelled', 'failed', 'pending_payment')";
 
@@ -77,9 +239,6 @@ router.get('/overview', async (req, res, next) => {
     const [[merchantCountRow]] = await pool.query(
       "SELECT COUNT(DISTINCT user_id) AS n FROM user_roles WHERE role = 'merchant'",
     );
-    const [[driverCountRow]] = await pool.query(
-      "SELECT COUNT(DISTINCT user_id) AS n FROM user_roles WHERE role = 'driver'",
-    );
     const [[restaurantActiveRow]] = await pool.query(
       "SELECT COUNT(*) AS n FROM restaurants WHERE status = 'active'",
     );
@@ -101,9 +260,6 @@ router.get('/overview', async (req, res, next) => {
 
     const [[pendingRestaurantsRow]] = await pool.query(
       "SELECT COUNT(*) AS n FROM restaurants WHERE status = 'pending'",
-    );
-    const [[pendingDriversRow]] = await pool.query(
-      "SELECT COUNT(*) AS n FROM driver_profiles WHERE approval_status = 'pending'",
     );
 
     const [recentSignupRows] = await pool.query(
@@ -130,7 +286,6 @@ router.get('/overview', async (req, res, next) => {
         userCount: Number(userCountRow?.n ?? 0),
         customerCount: Number(customerCountRow?.n ?? 0),
         merchantCount: Number(merchantCountRow?.n ?? 0),
-        driverCount: Number(driverCountRow?.n ?? 0),
         restaurantActiveCount: Number(restaurantActiveRow?.n ?? 0),
         orderCount: Number(orderMetrics?.orderCount ?? 0),
         gmv: Number(orderMetrics?.gmv ?? 0),
@@ -139,7 +294,6 @@ router.get('/overview', async (req, res, next) => {
       },
       pendingApprovals: {
         restaurants: Number(pendingRestaurantsRow?.n ?? 0),
-        drivers: Number(pendingDriversRow?.n ?? 0),
       },
       recentSignups: recentSignupRows.map((row) => ({
         id: row.id,
@@ -169,14 +323,15 @@ router.get('/usersQuery', async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const filters = ['1 = 1'];
+    const filters = [
+      "u.status <> 'pending'",
+      "NOT EXISTS (SELECT 1 FROM user_roles hidden_driver_role WHERE hidden_driver_role.user_id = u.id AND hidden_driver_role.role = 'driver')",
+    ];
     const params = [];
 
     if (role && role !== 'all') {
-      filters.push(
-        `(u.primary_role = ? OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = ?))`,
-      );
-      params.push(role, role);
+      filters.push('EXISTS (SELECT 1 FROM user_roles role_filter WHERE role_filter.user_id = u.id AND role_filter.role = ?)');
+      params.push(role);
     }
 
     if (status && status !== 'all') {
@@ -217,6 +372,35 @@ router.get('/usersQuery', async (req, res, next) => {
   }
 });
 
+router.get('/users/:id', async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'ID người dùng không hợp lệ.' });
+  try {
+    const [user, roleRows, customerSummary, addressRows, restaurantRows, wallet] = await Promise.all([
+      pool.query(`SELECT id, email, phone, full_name, avatar_url, primary_role, status, suspension_expires_at, suspension_reason, email_verified_at, phone_verified_at, last_login_at, created_at, updated_at FROM users WHERE id = ?`, [id]).then(([rows]) => rows[0]),
+      pool.query('SELECT role FROM user_roles WHERE user_id = ? ORDER BY role', [id]).then(([rows]) => rows),
+      pool.query(`SELECT COUNT(*) AS order_count, COALESCE(SUM(total_amount), 0) AS total_spent FROM orders WHERE customer_id = ? AND status NOT IN ('cancelled', 'failed', 'expired')`, [id]).then(([rows]) => rows[0]),
+      pool.query(`SELECT label, line1, ward, district, city FROM customer_addresses WHERE customer_id = ? AND is_default = 1 LIMIT 1`, [id]).then(([rows]) => rows),
+      pool.query(`SELECT r.id, r.name, r.status, r.rating_avg, r.review_count, r.is_open_now, c.name AS cuisine_name FROM restaurants r LEFT JOIN cuisines c ON c.id = r.cuisine_id WHERE r.owner_user_id = ? ORDER BY r.created_at DESC`, [id]).then(([rows]) => rows),
+      pool.query(`SELECT balance, pending_balance, total_earned, total_withdrawn, is_locked FROM wallets WHERE user_id = ? AND owner_type = 'merchant' LIMIT 1`, [id]).then(([rows]) => rows[0]),
+    ]);
+    if (!user || roleRows.some((row) => row.role === 'driver') || user.status === 'pending') return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+    return res.json({
+      account: {
+        ...serializeUser(user, roleRows.map((row) => row.role)),
+        phone: user.phone,
+        emailVerifiedAt: user.email_verified_at,
+        phoneVerifiedAt: user.phone_verified_at,
+        lastLoginAt: user.last_login_at,
+        updatedAt: user.updated_at,
+        customerSummary: { orderCount: Number(customerSummary.order_count), totalSpent: Number(customerSummary.total_spent), defaultAddress: addressRows[0] || null },
+        restaurants: restaurantRows.map((row) => ({ id: row.id, name: row.name, status: row.status, cuisineName: row.cuisine_name, ratingAvg: Number(row.rating_avg), reviewCount: Number(row.review_count), isOpenNow: Boolean(row.is_open_now) })),
+        wallet: wallet ? { balance: Number(wallet.balance), pendingBalance: Number(wallet.pending_balance), totalEarned: Number(wallet.total_earned), totalWithdrawn: Number(wallet.total_withdrawn), isLocked: Boolean(wallet.is_locked) } : null,
+      },
+    });
+  } catch (err) { return next(err); }
+});
+
 router.patch('/users/:id/status', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -230,15 +414,6 @@ router.patch('/users/:id/status', async (req, res, next) => {
 
     if (id === req.auth.userId && status !== 'active') {
       return res.status(400).json({ error: 'Bạn không thể tự đình chỉ hoặc khóa tài khoản của chính mình.' });
-    }
-
-    const [rows] = await pool.query(
-      'SELECT id, email, full_name FROM users WHERE id = ? LIMIT 1',
-      [id],
-    );
-    const user = rows[0];
-    if (!user) {
-      return res.status(404).json({ error: 'Người dùng không tồn tại.' });
     }
 
     let expiresAt = null;
@@ -255,10 +430,49 @@ router.patch('/users/:id/status', async (req, res, next) => {
       reasonValue = suspensionReason;
     }
 
-    await pool.query(
-      'UPDATE users SET status = ?, suspension_expires_at = ?, suspension_reason = ? WHERE id = ?',
-      [status, expiresAt, reasonValue, id],
-    );
+    const connection = await pool.getConnection();
+    let user;
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query(
+        'SELECT id, email, full_name, status FROM users WHERE id = ? LIMIT 1',
+        [id],
+      );
+      user = rows[0];
+      if (!user) {
+        await connection.rollback();
+        return res.status(404).json({ error: 'Người dùng không tồn tại.' });
+      }
+
+      const [targetRoles] = await connection.query('SELECT role FROM user_roles WHERE user_id = ?', [id]);
+      if (['suspended', 'banned'].includes(status) && targetRoles.some((row) => row.role === 'admin')) {
+        await connection.rollback();
+        return res.status(403).json({ error: 'Không thể đình chỉ hoặc khóa tài khoản quản trị viên.' });
+      }
+
+      await connection.query(
+        'UPDATE users SET status = ?, suspension_expires_at = ?, suspension_reason = ? WHERE id = ?',
+        [status, expiresAt, reasonValue, id],
+      );
+
+      await logAudit(connection, {
+        adminId: req.auth.userId,
+        action: 'doi_trang_thai_tai_khoan',
+        targetType: 'user',
+        targetId: id,
+        metadata: {
+          trangThaiCu: user.status,
+          trangThaiMoi: status,
+          lyDo: reasonValue || suspensionReason || 'Thay đổi trạng thái tài khoản',
+        },
+      });
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
 
     if (status === 'suspended' && user.email) {
       await sendAccountSuspensionEmail({
@@ -332,6 +546,28 @@ router.get('/restaurants/pending', async (_req, res, next) => {
   }
 });
 
+router.get('/restaurants/:id', async (req, res, next) => {
+  const restaurantId = Number(req.params.id);
+  if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+    return res.status(400).json({ error: 'ID nhà hàng không hợp lệ.' });
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT r.*, u.full_name AS owner_name, u.email AS owner_email, c.name AS cuisine_name
+       FROM restaurants r
+       JOIN users u ON u.id = r.owner_user_id
+       LEFT JOIN cuisines c ON c.id = r.cuisine_id
+       WHERE r.id = ? AND r.status = 'pending'
+       LIMIT 1`,
+      [restaurantId],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy hồ sơ quán đang chờ duyệt.' });
+    return res.json({ restaurant: serializeRestaurantRow(rows[0], { includeBankAccountNo: true }) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post('/restaurants/:id/approve', async (req, res, next) => {
   const restaurantId = Number(req.params.id);
   const adminId = req.auth.userId;
@@ -368,7 +604,36 @@ router.post('/restaurants/:id/approve', async (req, res, next) => {
       [adminId, restaurantId],
     );
 
+    await conn.query(
+      `UPDATE users
+       SET status = 'active', primary_role = 'merchant'
+       WHERE id = ?`,
+      [restaurant.owner_user_id],
+    );
+
+    const [existingRole] = await conn.query(
+      'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
+      [restaurant.owner_user_id, 'merchant'],
+    );
+    if (existingRole.length === 0) {
+      await conn.query(
+        'INSERT INTO user_roles (user_id, role) VALUES (?, ?)',
+        [restaurant.owner_user_id, 'merchant'],
+      );
+    }
+
     await ensureWallet(conn, restaurant.owner_user_id, 'merchant');
+
+    await logAudit(conn, {
+      adminId,
+      action: 'duyet_nha_hang',
+      targetType: 'restaurant',
+      targetId: restaurantId,
+      metadata: {
+        tenNhaHang: restaurant.name,
+        chuSoHuuId: restaurant.owner_user_id,
+      },
+    });
 
     const title = 'Hồ sơ quán đã được duyệt';
     const body = `Quán "${restaurant.name}" đã được phê duyệt. Bạn có thể truy cập portal merchant ngay bây giờ.`;
@@ -447,6 +712,18 @@ router.post('/restaurants/:id/reject', async (req, res, next) => {
        WHERE id = ?`,
       [reason, restaurantId],
     );
+
+    await logAudit(conn, {
+      adminId: req.auth.userId,
+      action: 'tu_choi_nha_hang',
+      targetType: 'restaurant',
+      targetId: restaurantId,
+      metadata: {
+        tenNhaHang: restaurant.name,
+        chuSoHuuId: restaurant.owner_user_id,
+        lyDo: reason,
+      },
+    });
 
     const title = 'Hồ sơ quán chưa được chấp nhận';
     const body = `Hồ sơ quán "${restaurant.name}" chưa được chấp nhận. Lý do: ${reason}`;
@@ -536,7 +813,36 @@ router.post('/drivers/:userId/approve', async (req, res, next) => {
       [adminId, userId],
     );
 
+    await conn.query(
+      `UPDATE users
+       SET status = 'active', primary_role = 'driver'
+       WHERE id = ?`,
+      [userId]
+    );
+
+    const [existingRole] = await conn.query(
+      'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
+      [userId, 'driver'],
+    );
+    if (existingRole.length === 0) {
+      await conn.query(
+        'INSERT INTO user_roles (user_id, role) VALUES (?, ?)',
+        [userId, 'driver'],
+      );
+    }
+
     await ensureWallet(conn, userId, 'driver');
+
+    await logAudit(conn, {
+      adminId,
+      action: 'duyet_tai_xe',
+      targetType: 'driver',
+      targetId: userId,
+      metadata: {
+        tenTaiXe: profile.full_name,
+        email: profile.email,
+      },
+    });
 
     const title = 'Hồ sơ tài xế đã được duyệt';
     const body = 'Hồ sơ tài xế của bạn đã được phê duyệt. Bạn có thể bắt đầu nhận đơn trên portal tài xế.';
@@ -615,6 +921,18 @@ router.post('/drivers/:userId/reject', async (req, res, next) => {
       [userId],
     );
 
+    await logAudit(conn, {
+      adminId: req.auth.userId,
+      action: 'tu_choi_tai_xe',
+      targetType: 'driver',
+      targetId: userId,
+      metadata: {
+        tenTaiXe: profile.full_name,
+        email: profile.email,
+        lyDo: reason,
+      },
+    });
+
     const title = 'Hồ sơ tài xế chưa được chấp nhận';
     const body = `Hồ sơ tài xế của bạn chưa được chấp nhận. Lý do: ${reason}`;
     await insertNotification(conn, {
@@ -668,5 +986,507 @@ async function sendKycRejectedEmailSafe(payload) {
     console.error('[mail] reject notification failed:', err.message);
   }
 }
+
+// --- QUẢN LÝ ĐƠN HÀNG TOÀN HỆ THỐNG ---
+
+router.get('/orders', async (req, res, next) => {
+  try {
+    const status = req.query.status;
+    const paymentMethod = req.query.paymentMethod;
+    const paymentStatus = req.query.paymentStatus;
+    const q = req.query.q;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = 10;
+    const offset = (page - 1) * limit;
+
+    const filters = ['1 = 1'];
+    const params = [];
+
+    if (status && status !== 'all') {
+      filters.push('o.status = ?');
+      params.push(status);
+    }
+
+    if (paymentMethod && paymentMethod !== 'all') {
+      filters.push('o.payment_method = ?');
+      params.push(paymentMethod);
+    }
+
+    if (paymentStatus && paymentStatus !== 'all') {
+      filters.push('o.payment_status = ?');
+      params.push(paymentStatus);
+    }
+
+    if (q) {
+      filters.push('(o.order_code LIKE ? OR u.email LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`);
+    }
+
+    const whereClause = filters.join(' AND ');
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total 
+       FROM orders o
+       LEFT JOIN users u ON o.customer_id = u.id
+       WHERE ${whereClause}`,
+      params
+    );
+    const total = countRows[0]?.total ?? 0;
+
+    const [rows] = await pool.query(
+      `SELECT o.*, u.full_name AS customer_name, u.email AS customer_email, r.name AS restaurant_name
+       FROM orders o
+       LEFT JOIN users u ON o.customer_id = u.id
+       LEFT JOIN restaurants r ON o.restaurant_id = r.id
+       WHERE ${whereClause}
+       ORDER BY o.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows,
+      pagination: {
+        page,
+        limit,
+        total
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/orders/:id', async (req, res, next) => {
+  try {
+    const orderId = Number(req.params.id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return res.status(400).json({ error: 'Invalid order ID.' });
+    }
+
+    const [orderRows] = await pool.query(
+      'SELECT o.*, u.full_name AS customer_name, u.email AS customer_email, r.name AS restaurant_name FROM orders o LEFT JOIN users u ON u.id = o.customer_id LEFT JOIN restaurants r ON r.id = o.restaurant_id WHERE o.id = ? LIMIT 1',
+      [orderId],
+    );
+    if (!orderRows.length) return res.status(404).json({ error: 'Order not found.' });
+
+    const [itemsResult, logsResult, paymentsResult, refundsResult] = await Promise.all([
+      pool.query('SELECT * FROM order_items WHERE order_id = ? ORDER BY id ASC', [orderId]),
+      pool.query('SELECT * FROM order_status_logs WHERE order_id = ? ORDER BY created_at ASC, id ASC', [orderId]),
+      pool.query('SELECT * FROM payments WHERE order_id = ? ORDER BY created_at DESC, id DESC', [orderId]),
+      pool.query('SELECT * FROM payment_refunds WHERE order_id = ? ORDER BY created_at DESC, id DESC', [orderId]),
+    ]);
+
+    return res.json({
+      order: {
+        ...orderRows[0],
+        items: itemsResult[0],
+        statusLogs: logsResult[0],
+        payments: paymentsResult[0],
+        refunds: refundsResult[0],
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/orders/:id/cancel', async (req, res, next) => {
+  const orderId = Number(req.params.id);
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 500)
+    || 'Cancelled by an administrator.';
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({ error: 'Invalid order ID.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [orders] = await connection.query(
+      'SELECT * FROM orders WHERE id = ? FOR UPDATE',
+      [orderId],
+    );
+    const order = orders[0];
+    if (!order) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+    if (!['placed', 'accepted', 'preparing', 'ready_for_pickup'].includes(order.status)) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Chỉ có thể hủy đơn đang chờ quán xử lý hoặc đang chuẩn bị.' });
+    }
+
+    let paymentStatus = order.payment_status;
+    let refundResponse = null;
+    if (order.payment_status === 'paid') {
+      if (order.payment_method !== 'vnpay') {
+        await connection.rollback();
+        return res.status(409).json({ error: 'Paid non-VNPay orders require a manual refund workflow.' });
+      }
+
+      const refundConfig = {
+        tmnCode: process.env.VNPAY_TMN_CODE,
+        secret: process.env.VNPAY_HASH_SECRET,
+        apiUrl: process.env.VNPAY_API_URL,
+      };
+      const missing = Object.entries(refundConfig)
+        .filter(([, value]) => !value)
+        .map(([key]) => key);
+      if (missing.length) {
+        await connection.rollback();
+        return res.status(503).json({ error: 'VNPay refund is not configured.', missing });
+      }
+
+      const [paymentRows] = await connection.query(
+        "SELECT * FROM payments WHERE order_id = ? AND method = 'vnpay' AND status = 'succeeded' ORDER BY paid_at DESC, id DESC LIMIT 1 FOR UPDATE",
+        [order.id],
+      );
+      const payment = paymentRows[0];
+      if (!payment) {
+        await connection.rollback();
+        return res.status(409).json({ error: 'No successful VNPay payment was found for this order.' });
+      }
+
+      const [activeRefundRows] = await connection.query(
+        "SELECT * FROM payment_refunds WHERE payment_id = ? AND status IN ('initiated', 'succeeded') ORDER BY id DESC LIMIT 1 FOR UPDATE",
+        [payment.id],
+      );
+      if (activeRefundRows.length) {
+        await connection.rollback();
+        return res.status(409).json({
+          error: activeRefundRows[0].status === 'succeeded'
+            ? 'This payment has already been refunded.'
+            : 'A refund is already in progress.',
+        });
+      }
+
+      const requestId = ('RF-' + order.order_code + '-' + Date.now()).slice(0, 120);
+      const [refundResult] = await connection.query(
+        "INSERT INTO payment_refunds (payment_id, order_id, request_id, amount, status) VALUES (?, ?, ?, ?, 'initiated')",
+        [payment.id, order.id, requestId, order.total_amount],
+      );
+      const payload = buildRefundPayload({
+        secret: refundConfig.secret,
+        tmnCode: refundConfig.tmnCode,
+        requestId,
+        txnRef: payment.gateway_reference || order.order_code,
+        amount: order.total_amount,
+        transactionNo: payment.gateway_txn_id,
+        transactionDate: formatVnpayDate(new Date(payment.gateway_created_at || payment.paid_at || payment.created_at)),
+        createBy: req.auth.userId,
+        ipAddress: String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1')
+          .split(',')[0].trim().replace(/^::ffff:/, ''),
+        orderInfo: 'Hoan tien don hang ' + order.order_code,
+      });
+
+      let refundFailure = null;
+      try {
+        const gatewayResult = await fetch(refundConfig.apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
+        });
+        const rawText = await gatewayResult.text();
+        try {
+          refundResponse = JSON.parse(rawText);
+        } catch {
+          refundResponse = { rawText: rawText.slice(0, 2000) };
+        }
+        const signatureValid = verifyRefundResponse(refundResponse, refundConfig.secret);
+        const gatewaySucceeded = gatewayResult.ok
+          && signatureValid
+          && refundResponse.vnp_ResponseCode === '00'
+          && refundResponse.vnp_TransactionStatus === '00';
+        if (!gatewaySucceeded) {
+          refundFailure = signatureValid
+            ? String(refundResponse.vnp_Message || refundResponse.vnp_ResponseCode || 'VNPay rejected the refund.')
+            : 'Invalid VNPay refund response signature.';
+        }
+      } catch (error) {
+        refundFailure = error.name === 'TimeoutError'
+          ? 'VNPay refund request timed out.'
+          : 'VNPay refund request failed: ' + error.message;
+        refundResponse = { error: refundFailure };
+      }
+
+      if (refundFailure) {
+        await connection.query(
+          "UPDATE payment_refunds SET status = 'failed', failure_reason = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
+          [refundFailure.slice(0, 500), JSON.stringify(refundResponse), refundResult.insertId],
+        );
+        await connection.commit();
+        return res.status(502).json({
+          error: 'The gateway did not confirm the refund. The order was not cancelled.',
+          reason: refundFailure,
+        });
+      }
+
+      await connection.query(
+        "UPDATE payment_refunds SET status = 'succeeded', gateway_txn_id = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
+        [refundResponse.vnp_TransactionNo || null, JSON.stringify(refundResponse), refundResult.insertId],
+      );
+      paymentStatus = 'refunded';
+    }
+
+    await connection.query(
+      "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'admin', cancel_reason = ?, cancelled_at = NOW(), payment_status = ? WHERE id = ?",
+      [reason, paymentStatus, order.id],
+    );
+    await connection.query(
+      "UPDATE payments SET status = 'cancelled', failure_reason = 'Order cancelled by admin' WHERE order_id = ? AND status IN ('initiated', 'pending')",
+      [order.id],
+    );
+    await connection.query(
+      "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+      [order.id],
+    );
+    await connection.query(
+      "INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note) VALUES (?, ?, 'cancelled', 'admin', ?, ?)",
+      [order.id, order.status, req.auth.userId, reason],
+    );
+    await connection.query(
+      "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'order_cancelled', ?, ?, '/app/orders')",
+      [
+        order.customer_id,
+        'Don hang ' + order.order_code + ' da bi huy',
+        'Don hang ' + order.order_code + ' da bi quan tri vien huy. Ly do: ' + reason,
+      ],
+    );
+
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: 'huy_don_hang',
+      targetType: 'order',
+      targetId: order.id,
+      metadata: {
+        maDonHang: order.order_code,
+        lyDo: reason,
+        khachHangId: order.customer_id,
+        nhaHangId: order.restaurant_id,
+        tongTien: Number(order.total_amount),
+      },
+    });
+
+    await connection.commit();
+    const [updatedOrders] = await pool.query(
+      'SELECT * FROM orders WHERE id = ? LIMIT 1',
+      [order.id],
+    );
+    return res.json({
+      ok: true,
+      order: updatedOrders[0],
+      refund: refundResponse
+        ? { status: 'succeeded', transactionNo: refundResponse.vnp_TransactionNo || null }
+        : null,
+    });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
+// --- KIEM DUYET DANH GIA ---
+
+router.get('/reviews', async (req, res, next) => {
+  try {
+    const { hidden, page, q } = req.query;
+    const ratingMax = req.query.ratingMax === undefined ? null : Number(req.query.ratingMax);
+    const pageVal = Math.max(1, parseInt(page, 10) || 1);
+    const limit = 10;
+    const offset = (pageVal - 1) * limit;
+
+    let whereSql = '1 = 1';
+    const params = [];
+
+    if (hidden === 'true' || hidden === '1') {
+      whereSql += ' AND rv.is_hidden = 1';
+    } else if (hidden === 'false' || hidden === '0') {
+      whereSql += ' AND rv.is_hidden = 0';
+    }
+
+    if (ratingMax !== null) {
+      if (!Number.isInteger(ratingMax) || ratingMax < 1 || ratingMax > 5) {
+        return res.status(400).json({ error: 'ratingMax must be an integer from 1 to 5.' });
+      }
+      whereSql += ' AND rv.rating <= ?';
+      params.push(ratingMax);
+    }
+    const search = String(q ?? '').trim();
+    if (search) {
+      whereSql += ' AND (rv.comment LIKE ? OR u.full_name LIKE ? OR r.name LIKE ? OR o.order_code LIKE ?)';
+      const needle = '%' + search + '%';
+      params.push(needle, needle, needle, needle);
+    }
+
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM reviews rv
+       LEFT JOIN users u ON rv.customer_id = u.id
+       LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN orders o ON rv.order_id = o.id
+       WHERE ${whereSql}`,
+      params
+    );
+    const total = countRows[0]?.total ?? 0;
+
+    const [rows] = await pool.query(
+      `SELECT rv.*, u.full_name AS customer_name, u.avatar_url AS customer_avatar, r.name AS restaurant_name, o.order_code
+       FROM reviews rv
+       LEFT JOIN users u ON rv.customer_id = u.id
+       LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN orders o ON rv.order_id = o.id
+       WHERE ${whereSql}
+       ORDER BY rv.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows,
+      pagination: {
+        page: pageVal,
+        limit,
+        total
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/reviews/:id', async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const id = Number(req.params.id);
+    const { isHidden } = req.body;
+
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'ID đánh giá không hợp lệ' });
+    }
+
+    if (isHidden === undefined) {
+      return res.status(400).json({ error: 'Thiếu trường isHidden' });
+    }
+
+    await connection.beginTransaction();
+
+    const [reviews] = await connection.query(
+      'SELECT restaurant_id, menu_item_id FROM reviews WHERE id = ? FOR UPDATE',
+      [id]
+    );
+
+    if (reviews.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đánh giá' });
+    }
+
+    const { restaurant_id, menu_item_id } = reviews[0];
+
+    await connection.query(
+      'UPDATE reviews SET is_hidden = ? WHERE id = ?',
+      [isHidden ? 1 : 0, id]
+    );
+
+    // 1. Tính toán lại điểm trung bình cho món ăn liên quan (nếu có)
+    if (menu_item_id) {
+      const [itemStats] = await connection.query(
+        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
+        [menu_item_id]
+      );
+      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
+      await connection.query(
+        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
+        [nextItemAvg, menu_item_id]
+      );
+    }
+
+    // 2. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
+    await connection.query(
+      `UPDATE restaurants 
+       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
+           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
+       WHERE id = ?`,
+      [restaurant_id, restaurant_id, restaurant_id]
+    );
+
+    await connection.commit();
+    res.json({ ok: true, isHidden: Boolean(isHidden) });
+  } catch (err) {
+    await connection.rollback();
+    next(err);
+  } finally {
+    connection.release();
+  }
+});
+
+router.get('/audit-logs', async (req, res, next) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const offset = (page - 1) * limit;
+
+    const filters = ['1 = 1'];
+    const params = [];
+
+    if (req.query.action && req.query.action !== 'all') {
+      filters.push('al.action = ?');
+      params.push(String(req.query.action));
+    }
+    if (req.query.targetType && req.query.targetType !== 'all') {
+      filters.push('al.target_type = ?');
+      params.push(String(req.query.targetType));
+    }
+    if (req.query.q) {
+      filters.push('(u.full_name LIKE ? OR al.action LIKE ? OR al.target_type LIKE ? OR al.target_id LIKE ?)');
+      const needle = `%${req.query.q}%`;
+      params.push(needle, needle, needle, needle);
+    }
+
+    const where = filters.join(' AND ');
+
+    const [[count]] = await pool.query(
+      `SELECT COUNT(*) AS total
+       FROM audit_logs al
+       LEFT JOIN users u ON u.id = al.admin_id
+       WHERE ${where}`,
+      params
+    );
+
+    const [rows] = await pool.query(
+      `SELECT al.*, u.full_name AS admin_name, u.email AS admin_email
+       FROM audit_logs al
+       LEFT JOIN users u ON u.id = al.admin_id
+       WHERE ${where}
+       ORDER BY al.created_at DESC, al.id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      items: rows.map((row) => ({
+        id: Number(row.id),
+        adminId: Number(row.admin_id),
+        adminName: row.admin_name || 'Hệ thống',
+        adminEmail: row.admin_email || '',
+        action: row.action,
+        targetType: row.target_type,
+        targetId: row.target_id,
+        metadata: row.metadata,
+        createdAt: row.created_at,
+      })),
+      pagination: {
+        page,
+        limit,
+        total: Number(count.total),
+        totalPages: Math.ceil(Number(count.total) / limit),
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;

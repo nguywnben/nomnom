@@ -24,7 +24,7 @@ const variantStyles = {
   secondary:
     'bg-surface-card text-ink border border-hairline-strong hover:bg-canvas-soft active:bg-surface-strong disabled:text-muted-soft disabled:border-hairline',
   tertiary:
-    'bg-transparent text-text-link border border-transparent hover:underline disabled:text-muted-soft',
+    'link-underline bg-transparent text-text-link border border-transparent hover:text-link-secondary disabled:text-muted-soft',
   ghost:
     'bg-transparent text-ink border border-transparent hover:bg-canvas-soft active:bg-surface-strong disabled:text-muted-soft',
   dark:
@@ -52,7 +52,7 @@ const Button = forwardRef(function Button(
       ref={ref}
       disabled={Component === 'button' ? isDisabled : undefined}
       className={clsx(
-        'inline-flex select-none items-center justify-center gap-2 rounded-md font-medium transition-colors',
+        'inline-flex select-none items-center justify-center gap-2 rounded-md font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
         'disabled:cursor-not-allowed',
         sizeStyles[size],
         variantStyles[variant],
@@ -86,7 +86,7 @@ export function IconButton({ icon, label, variant = 'ghost', size = 'md', classN
       aria-label={label}
       title={label}
       className={clsx(
-        'inline-flex items-center justify-center rounded-md transition-colors',
+        'inline-flex items-center justify-center rounded-md transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
         dim,
         variant === 'primary'
           ? 'bg-primary text-on-primary hover:bg-primary-active'

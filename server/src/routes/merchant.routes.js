@@ -50,6 +50,139 @@ async function loadCustomer(customerId) {
   return rows[0] ?? null;
 }
 
+function normalizeVoucherCode(code) {
+  return String(code ?? '').trim().toUpperCase();
+}
+
+function parseNullableNumber(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const next = Number(value);
+  return Number.isFinite(next) ? next : null;
+}
+
+function serializeVoucher(row) {
+  return {
+    id: Number(row.id),
+    restaurantId: row.restaurant_id === null ? null : Number(row.restaurant_id),
+    createdByUserId: Number(row.created_by_user_id),
+    code: row.code,
+    name: row.name,
+    description: row.description ?? null,
+    discountType: row.discount_type,
+    discountValue: Number(row.discount_value),
+    maxDiscountAmount: row.max_discount_amount === null ? null : Number(row.max_discount_amount),
+    minOrderAmount: Number(row.min_order_amount ?? 0),
+    usageLimit: row.usage_limit === null ? null : Number(row.usage_limit),
+    perUserLimit: Number(row.per_user_limit ?? 1),
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function validateVoucherPayload(body) {
+  const code = normalizeVoucherCode(body?.code);
+  const name = String(body?.name ?? '').trim();
+  const description = String(body?.description ?? '').trim();
+  const discountType = String(body?.discountType ?? '').trim().toLowerCase();
+  const discountValue = Number(body?.discountValue);
+  const maxDiscountAmount = parseNullableNumber(body?.maxDiscountAmount);
+  const minOrderAmount = Number(body?.minOrderAmount ?? 0);
+  const usageLimit = parseNullableNumber(body?.usageLimit);
+  const perUserLimit = Number(body?.perUserLimit ?? 1);
+  const startsAt = String(body?.startsAt ?? '').trim();
+  const endsAt = String(body?.endsAt ?? '').trim();
+  const status = String(body?.status ?? 'draft').trim().toLowerCase();
+
+  if (!code || code.length < 4 || code.length > 40) {
+    const err = new Error('Mã voucher phải từ 4 đến 40 ký tự.');
+    err.status = 400;
+    throw err;
+  }
+  if (!name || name.length < 3 || name.length > 160) {
+    const err = new Error('Tên voucher phải từ 3 đến 160 ký tự.');
+    err.status = 400;
+    throw err;
+  }
+  if (!['percent', 'fixed'].includes(discountType)) {
+    const err = new Error('Loại giảm giá không hợp lệ.');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isFinite(discountValue) || discountValue <= 0) {
+    const err = new Error('Giá trị giảm giá phải lớn hơn 0.');
+    err.status = 400;
+    throw err;
+  }
+  if (maxDiscountAmount !== null && (!Number.isFinite(maxDiscountAmount) || maxDiscountAmount < 0)) {
+    const err = new Error('Giới hạn giảm tối đa không hợp lệ.');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isFinite(minOrderAmount) || minOrderAmount < 0) {
+    const err = new Error('Giá trị đơn tối thiểu không hợp lệ.');
+    err.status = 400;
+    throw err;
+  }
+  if (usageLimit !== null && (!Number.isInteger(usageLimit) || usageLimit < 1)) {
+    const err = new Error('Giới hạn lượt dùng không hợp lệ.');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isInteger(perUserLimit) || perUserLimit < 1) {
+    const err = new Error('Giới hạn mỗi khách không hợp lệ.');
+    err.status = 400;
+    throw err;
+  }
+  if (!startsAt || !endsAt) {
+    const err = new Error('Vui lòng nhập thời gian bắt đầu và kết thúc.');
+    err.status = 400;
+    throw err;
+  }
+  if (!['draft', 'active', 'paused'].includes(status)) {
+    const err = new Error('Trạng thái voucher không hợp lệ.');
+    err.status = 400;
+    throw err;
+  }
+
+  const startDate = new Date(startsAt);
+  const endDate = new Date(endsAt);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) {
+    const err = new Error('Thời gian voucher không hợp lệ.');
+    err.status = 400;
+    throw err;
+  }
+
+  return {
+    code,
+    name,
+    description: description || null,
+    discountType,
+    discountValue: Math.round(discountValue),
+    maxDiscountAmount,
+    minOrderAmount: Math.round(minOrderAmount),
+    usageLimit,
+    perUserLimit: Math.round(perUserLimit),
+    startsAt: startDate,
+    endsAt: endDate,
+    status,
+  };
+}
+
+async function loadVoucherForRestaurant(voucherId, restaurantId) {
+  const [rows] = await pool.query(
+    `SELECT *
+       FROM vouchers
+      WHERE id = ?
+        AND restaurant_id = ?
+      LIMIT 1`,
+    [voucherId, restaurantId],
+  );
+  return rows[0] ?? null;
+}
+
 // Hàm chuẩn hóa tạo slug từ tiếng Việt
 function slugify(text) {
   if (!text) return '';
@@ -114,11 +247,13 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   if (!addressLine || !addressLine.trim()) {
     return res.status(400).json({ error: 'Vui lòng nhập địa chỉ cụ thể.' });
   }
-  if (!district || !district.trim()) {
-    return res.status(400).json({ error: 'Vui lòng nhập quận/huyện.' });
-  }
+  const districtValue = district ? String(district).trim() : '';
   if (!city || !city.trim()) {
     return res.status(400).json({ error: 'Vui lòng nhập tỉnh/thành phố.' });
+  }
+  const cuisineIdValue = Number(cuisineId);
+  if (!Number.isInteger(cuisineIdValue) || cuisineIdValue < 1) {
+    return res.status(400).json({ error: 'Loại hình ẩm thực không hợp lệ.' });
   }
   if (baseDeliveryFee === undefined || isNaN(Number(baseDeliveryFee)) || Number(baseDeliveryFee) < 0) {
     return res.status(400).json({ error: 'Phí giao hàng cơ bản phải lớn hơn hoặc bằng 0.' });
@@ -155,6 +290,12 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    const [cuisineRows] = await conn.query('SELECT id FROM cuisines WHERE id = ? LIMIT 1', [cuisineIdValue]);
+    if (cuisineRows.length === 0) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Loại hình ẩm thực không hợp lệ.' });
+    }
 
     // 2. Kiểm tra trùng lặp chủ sở hữu
     const [existingOwner] = await conn.query(
@@ -222,7 +363,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           status = 'pending', rejection_reason = NULL, approved_at = NULL, approved_by_admin_id = NULL
          WHERE id = ?`,
         [
-          Number(cuisineId),
+          cuisineIdValue,
           name.trim(),
           slug,
           tagline.trim(),
@@ -234,7 +375,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           foodSafetyCertUrl,
           addressLine.trim(),
           ward.trim(),
-          district.trim(),
+          districtValue,
           city.trim(),
           latitude ? Number(latitude) : null,
           longitude ? Number(longitude) : null,
@@ -259,7 +400,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [
           userId,
-          Number(cuisineId),
+          cuisineIdValue,
           name.trim(),
           slug,
           tagline.trim(),
@@ -271,7 +412,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           foodSafetyCertUrl,
           addressLine.trim(),
           ward.trim(),
-          district.trim(),
+          districtValue,
           city.trim(),
           latitude ? Number(latitude) : null,
           longitude ? Number(longitude) : null,
@@ -452,7 +593,7 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
          o.placed_at AS placedAt
        FROM orders o
        LEFT JOIN users u ON u.id = o.customer_id
-       WHERE o.restaurant_id = ?
+       WHERE o.restaurant_id = ? AND o.status NOT IN ('pending_payment', 'payment_failed', 'expired')
        ORDER BY o.placed_at DESC
        LIMIT 10`,
       [restaurantId]
@@ -556,8 +697,13 @@ router.get('/me/orders', requireAuth, ensureMerchant, async (req, res, next) => 
     const params = [restaurant.id, date];
     let statusSql = '';
     if (status) {
+      if (['pending_payment', 'payment_failed', 'expired'].includes(status)) {
+        return res.json({ orders: [] });
+      }
       statusSql = ' AND o.status = ?';
       params.push(status);
+    } else {
+      statusSql = " AND o.status NOT IN ('pending_payment', 'payment_failed', 'expired')";
     }
 
     const [orders] = await pool.query(
@@ -664,9 +810,17 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
       return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
     }
 
+    if (['pending_payment', 'payment_failed', 'expired'].includes(order.status)) {
+      return res.status(400).json({ error: 'Không thể cập nhật trạng thái của đơn hàng chưa thanh toán hoặc đã hết hạn.' });
+    }
+
     const transition = resolveStatusAction(action, order);
     const cancelReason = String(req.body?.cancelReason ?? '').trim()
       || 'Quán hủy đơn hàng.';
+
+    if (transition.cancel && order.payment_status === 'paid') {
+      return res.status(409).json({ error: 'Paid orders must be refunded and cancelled by an administrator.' });
+    }
 
     await conn.beginTransaction();
 
@@ -686,6 +840,13 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
 
     values.push(order.id);
     await conn.query(`UPDATE orders SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    if (transition.cancel) {
+      await conn.query(
+        "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+        [order.id],
+      );
+    }
 
     const noteByAction = {
       accept: 'Quán xác nhận đơn',
@@ -1042,6 +1203,313 @@ router.delete('/me/items/:id', requireAuth, getMerchantRestaurant, async (req, r
 
     await pool.query('DELETE FROM menu_items WHERE id = ?', [itemId]);
     res.json({ message: 'Xóa món ăn thành công.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/me/vouchers', requireAuth, ensureMerchant, async (req, res, next) => {
+  try {
+    const restaurant = await loadOwnedRestaurant(req.auth.userId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT *
+         FROM vouchers
+        WHERE restaurant_id = ?
+        ORDER BY created_at DESC, id DESC`,
+      [restaurant.id],
+    );
+
+    res.json({ vouchers: rows.map(serializeVoucher) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/me/vouchers', requireAuth, ensureMerchant, async (req, res, next) => {
+  try {
+    const restaurant = await loadOwnedRestaurant(req.auth.userId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
+    }
+
+    const payload = validateVoucherPayload(req.body);
+    const [duplicateRows] = await pool.query(
+      'SELECT id FROM vouchers WHERE code = ? LIMIT 1',
+      [payload.code],
+    );
+    if (duplicateRows.length > 0) {
+      return res.status(409).json({ error: 'Mã voucher đã tồn tại trên hệ thống.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO vouchers (
+        restaurant_id, created_by_user_id, code, name, description,
+        discount_type, discount_value, max_discount_amount, min_order_amount,
+        usage_limit, per_user_limit, starts_at, ends_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+      [
+        restaurant.id,
+        req.auth.userId,
+        payload.code,
+        payload.name,
+        payload.description,
+        payload.discountType,
+        payload.discountValue,
+        payload.maxDiscountAmount,
+        payload.minOrderAmount,
+        payload.usageLimit,
+        payload.perUserLimit,
+        payload.startsAt,
+        payload.endsAt,
+        payload.status,
+      ],
+    );
+
+    const [rows] = await pool.query('SELECT * FROM vouchers WHERE id = ? LIMIT 1', [result.insertId]);
+    res.status(201).json({ voucher: serializeVoucher(rows[0]) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, next) => {
+  try {
+    const restaurant = await loadOwnedRestaurant(req.auth.userId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
+    }
+
+    const voucherId = Number(req.params.id);
+    if (!voucherId) {
+      return res.status(400).json({ error: 'ID voucher không hợp lệ.' });
+    }
+
+    const current = await loadVoucherForRestaurant(voucherId, restaurant.id);
+    if (!current) {
+      return res.status(404).json({ error: 'Không tìm thấy voucher của quán.' });
+    }
+
+    const payload = validateVoucherPayload({
+      code: current.code,
+      name: current.name,
+      description: current.description,
+      discountType: current.discount_type,
+      discountValue: current.discount_value,
+      maxDiscountAmount: current.max_discount_amount,
+      minOrderAmount: current.min_order_amount,
+      usageLimit: current.usage_limit,
+      perUserLimit: current.per_user_limit,
+      startsAt: current.starts_at,
+      endsAt: current.ends_at,
+      status: current.status,
+      ...req.body,
+    });
+
+    if (payload.code !== current.code) {
+      const [duplicateRows] = await pool.query(
+        'SELECT id FROM vouchers WHERE code = ? AND id <> ? LIMIT 1',
+        [payload.code, voucherId],
+      );
+      if (duplicateRows.length > 0) {
+        return res.status(409).json({ error: 'Mã voucher đã tồn tại trên hệ thống.' });
+      }
+    }
+
+    await pool.query(
+      `UPDATE vouchers SET
+        code = ?, name = ?, description = ?, discount_type = ?, discount_value = ?,
+        max_discount_amount = ?, min_order_amount = ?, usage_limit = ?, per_user_limit = ?,
+        starts_at = ?, ends_at = ?, status = ?
+       WHERE id = ? AND restaurant_id = ?`,
+      [
+        payload.code,
+        payload.name,
+        payload.description,
+        payload.discountType,
+        payload.discountValue,
+        payload.maxDiscountAmount,
+        payload.minOrderAmount,
+        payload.usageLimit,
+        payload.perUserLimit,
+        payload.startsAt,
+        payload.endsAt,
+        payload.status,
+        voucherId,
+        restaurant.id,
+      ],
+    );
+
+    const [rows] = await pool.query('SELECT * FROM vouchers WHERE id = ? LIMIT 1', [voucherId]);
+    res.json({ voucher: serializeVoucher(rows[0]) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const restaurant = await loadOwnedRestaurant(req.auth.userId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found.' });
+    }
+
+    const voucherId = Number(req.params.id);
+    if (!Number.isInteger(voucherId) || voucherId <= 0) {
+      return res.status(400).json({ error: 'Invalid voucher ID.' });
+    }
+
+    await connection.beginTransaction();
+    const [voucherRows] = await connection.query(
+      'SELECT id FROM vouchers WHERE id = ? AND restaurant_id = ? FOR UPDATE',
+      [voucherId, restaurant.id],
+    );
+    if (!voucherRows.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Voucher not found.' });
+    }
+
+    const [[usage]] = await connection.query(
+      'SELECT COUNT(*) AS total FROM voucher_redemptions WHERE voucher_id = ?',
+      [voucherId],
+    );
+    const archived = Number(usage?.total ?? 0) > 0;
+    if (archived) {
+      await connection.query(
+        "UPDATE vouchers SET status = 'paused' WHERE id = ?",
+        [voucherId],
+      );
+    } else {
+      await connection.query('DELETE FROM vouchers WHERE id = ?', [voucherId]);
+    }
+
+    await connection.commit();
+    return res.json({ ok: true, archived });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
+router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) => {
+  try {
+    const restaurant = await loadOwnedRestaurant(req.auth.userId);
+    if (!restaurant) return res.status(404).json({ error: 'Restaurant not found.' });
+
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const offset = (page - 1) * limit;
+    const rating = req.query.rating === undefined ? null : Number(req.query.rating);
+    const replied = String(req.query.replied ?? 'all');
+    if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      return res.status(400).json({ error: 'rating must be an integer from 1 to 5.' });
+    }
+    if (!['all', 'true', 'false'].includes(replied)) {
+      return res.status(400).json({ error: 'replied must be all, true, or false.' });
+    }
+
+    const filters = ['rv.restaurant_id = ?'];
+    const params = [restaurant.id];
+    if (rating !== null) {
+      filters.push('rv.rating = ?');
+      params.push(rating);
+    }
+    if (replied === 'true') filters.push('rv.reply_text IS NOT NULL');
+    if (replied === 'false') filters.push('rv.reply_text IS NULL');
+    const where = filters.join(' AND ');
+
+    const [[countRow]] = await pool.query(
+      'SELECT COUNT(*) AS total FROM reviews rv WHERE ' + where,
+      params,
+    );
+    const [rows] = await pool.query(
+      'SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at, u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code FROM reviews rv INNER JOIN users u ON u.id = rv.customer_id INNER JOIN orders o ON o.id = rv.order_id WHERE ' + where + ' ORDER BY rv.created_at DESC, rv.id DESC LIMIT ? OFFSET ?',
+      [...params, limit, offset],
+    );
+
+    return res.json({
+      items: rows.map((row) => ({
+        id: Number(row.id),
+        orderId: Number(row.order_id),
+        orderCode: row.order_code,
+        rating: Number(row.rating),
+        comment: row.comment ?? '',
+        replyText: row.reply_text ?? null,
+        replyAt: row.reply_at ?? null,
+        createdAt: row.created_at,
+        customerName: row.customer_name,
+        customerAvatar: row.customer_avatar,
+      })),
+      total: Number(countRow?.total ?? 0),
+      page,
+      limit,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.patch('/me/reviews/:reviewId/reply', requireAuth, ensureMerchant, async (req, res, next) => {
+  try {
+    const restaurant = await loadOwnedRestaurant(req.auth.userId);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
+    }
+
+    const reviewId = Number(req.params.reviewId);
+    const replyText = String(req.body?.replyText ?? '').trim();
+    if (!reviewId) {
+      return res.status(400).json({ error: 'ID review không hợp lệ.' });
+    }
+    if (!replyText) {
+      return res.status(400).json({ error: 'Nội dung phản hồi không được để trống.' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT id FROM reviews WHERE id = ? AND restaurant_id = ? LIMIT 1',
+      [reviewId, restaurant.id],
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy review của quán.' });
+    }
+
+    await pool.query(
+      'UPDATE reviews SET reply_text = ?, reply_at = NOW() WHERE id = ?',
+      [replyText, reviewId],
+    );
+
+    const [updatedRows] = await pool.query(
+      `SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at,
+              u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code
+         FROM reviews rv
+         INNER JOIN users u ON u.id = rv.customer_id
+         INNER JOIN orders o ON o.id = rv.order_id
+        WHERE rv.id = ?
+        LIMIT 1`,
+      [reviewId],
+    );
+
+    const row = updatedRows[0];
+    res.json({
+      review: {
+        id: Number(row.id),
+        orderId: Number(row.order_id),
+        orderCode: row.order_code,
+        rating: Number(row.rating),
+        comment: row.comment ?? '',
+        replyText: row.reply_text ?? null,
+        replyAt: row.reply_at ?? null,
+        createdAt: row.created_at,
+        customerName: row.customer_name,
+        customerAvatar: row.customer_avatar,
+      },
+    });
   } catch (err) {
     next(err);
   }

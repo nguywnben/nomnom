@@ -1,296 +1,103 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Icon from '../../components/Icon.jsx';
-import Input from '../../components/Input.jsx';
-import Pagination from '../../components/Pagination.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 import Tabs from '../../components/Tabs.jsx';
-import { useApp } from '../../context/AppContext.jsx';
+import { fetchAdminFinancialApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 
-const STATUS_TONE = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'error',
-};
-
-const PAGE_SIZE = 6;
-
 export default function AdminFinancial() {
-  const { payouts, resolvePayout, commissionRate, setCommissionRate, pushToast } = useApp();
-  const [draftRate, setDraftRate] = useState(commissionRate);
-  const [deliveryFee, setDeliveryFee] = useState(62000);
-  const [minOrder, setMinOrder] = useState(200000);
+  const [range, setRange] = useState('month');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [filter, setFilter] = useState('all');
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setData(await fetchAdminFinancialApi(range));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không thể tải báo cáo tài chính.');
+    } finally {
+      setLoading(false);
+    }
+  }, [range]);
 
-  const setFilterAndReset = (v) => { setFilter(v); setPage(1); };
-  const setQueryAndReset = (v) => { setQuery(v); setPage(1); };
-
-  const filtered = useMemo(
-    () =>
-      payouts.filter((p) => {
-        if (filter !== 'all' && p.status !== filter) return false;
-        if (query && !`${p.name} ${p.type}`.toLowerCase().includes(query.toLowerCase())) return false;
-        return true;
-      }),
-    [payouts, filter, query],
-  );
-
-  const effectivePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const paginated = filtered.slice((effectivePage - 1) * PAGE_SIZE, effectivePage * PAGE_SIZE);
-
-  const pending = payouts.filter((p) => p.status === 'pending');
-  const approved = payouts.filter((p) => p.status === 'approved');
-  const total = payouts.reduce((s, p) => s + p.amount, 0);
-
-  const saveRates = () => {
-    setCommissionRate(draftRate);
-    pushToast({
-      kind: 'success',
-      title: 'Đã cập nhật tỷ giá',
-      message: `Hoa hồng ${draftRate}% · Giao hàng ${formatVnd(deliveryFee)} · Tối thiểu ${formatVnd(minOrder)}`,
-    });
-  };
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="space-y-base">
-      <div className="flex items-end justify-between gap-base">
+      <div className="flex flex-wrap items-end justify-between gap-sm">
         <div>
-          <div className="text-caption-uppercase text-body">Tiền bạc</div>
-          <h1 className="text-display-lg text-ink">Quản lý tài chính</h1>
+          <div className="text-caption-uppercase text-body">Tài chính</div>
+          <h1 className="text-display-lg text-ink">Báo cáo nền tảng</h1>
+          <p className="mt-xs text-body-sm text-body">Dữ liệu từ các đơn đã giao và payout merchant.</p>
         </div>
-        <div className="flex items-center gap-xs">
-          <Badge tone="warning" dot>{pending.length} đang chờ</Badge>
-          <Badge tone="success" dot>{approved.length} đã duyệt</Badge>
-        </div>
+        <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button>
       </div>
 
-      {/* Rate config */}
-      <div className="grid gap-base lg:grid-cols-3">
-        <Card padded className="lg:col-span-2">
-          <div className="mb-base flex items-center justify-between">
-            <div>
-              <div className="text-caption-uppercase text-body">Cấu hình</div>
-              <div className="text-title-md text-ink">Phí nền tảng</div>
-            </div>
-            <Badge tone="outline">Có hiệu lực từ hôm nay</Badge>
-          </div>
-          <div className="grid gap-sm md:grid-cols-3">
-            <Input
-              type="number"
-              step="0.5"
-              value={draftRate}
-              onChange={(e) => setDraftRate(Number(e.target.value))}
-              leadingIcon="trending"
-              placeholder="Hoa hồng (%)"
-              aria-label="Hoa hồng phần trăm"
-              hint="Tính trên mỗi đơn hàng hoàn tất."
-            />
-            <Input
-              type="number"
-              step="1000"
-              value={deliveryFee}
-              onChange={(e) => setDeliveryFee(Number(e.target.value))}
-              leadingIcon="bike"
-              placeholder="Phí giao mặc định (VNĐ)"
-              aria-label="Phí giao hàng mặc định VNĐ"
-              hint="Nhà hàng có thể thay đổi."
-            />
-            <Input
-              type="number"
-              step="10000"
-              value={minOrder}
-              onChange={(e) => setMinOrder(Number(e.target.value))}
-              leadingIcon="cart"
-              placeholder="Đơn tối thiểu (VNĐ)"
-              aria-label="Đơn hàng tối thiểu VNĐ"
-              hint="Dưới mức này, ẩn thanh toán."
-            />
-          </div>
-          <div className="mt-base flex justify-end gap-xs">
-            <Button variant="secondary" onClick={() => setDraftRate(commissionRate)}>
-              Đặt lại
-            </Button>
-            <Button onClick={saveRates}>Lưu thay đổi</Button>
-          </div>
-        </Card>
+      <Tabs className="w-fit max-w-full" items={[
+        { value: 'today', label: 'Hôm nay' },
+        { value: 'week', label: '7 ngày' },
+        { value: 'month', label: '30 ngày' },
+      ]} value={range} onChange={setRange} />
+
+      {error && <div className="rounded-md border border-error bg-[#fbeaea] p-sm text-body-sm text-error" role="alert">{error}</div>}
+      {loading && !data && <div className="py-section text-center text-body-sm text-body" role="status">Đang tổng hợp dữ liệu...</div>}
+
+      {data && <>
+        <div className="grid gap-base sm:grid-cols-2 xl:grid-cols-4">
+          <Metric title="Tổng giá trị đơn" value={formatVnd(data.metrics.gmv)} hint={data.metrics.deliveredOrders + ' đơn đã giao'} />
+          <Metric title="Phí nền tảng" value={formatVnd(data.metrics.platformFee)} hint="Doanh thu hoa hồng" />
+          <Metric title="Thu nhập merchant" value={formatVnd(data.metrics.merchantNet)} hint={'Trung bình ' + formatVnd(data.metrics.averageOrder) + '/đơn'} />
+          <Metric title="Hoàn tiền" value={formatVnd(data.metrics.refundAmount)} hint={data.metrics.refundCount + ' giao dịch'} />
+        </div>
 
         <Card padded>
-          <div className="text-caption-uppercase text-body">Tình trạng</div>
-          <div className="text-title-md text-ink">Thanh toán</div>
-          <div className="mt-sm space-y-2">
-            <Row label="Đang chờ" value={`${pending.length}`} />
-            <Row label="Đã duyệt tuần này" value={`${approved.length}`} />
-            <Row label="Tổng cộng đã xử lý" value={formatVnd(total)} bold />
+          <div className="flex flex-wrap items-center justify-between gap-sm">
+            <div>
+              <div className="text-caption-uppercase text-body">Payout merchant</div>
+              <div className="text-title-md text-ink">Trạng thái đối soát</div>
+            </div>
+            <div className="flex flex-wrap gap-xs">
+              <Badge tone="warning">{data.payouts.pendingCount} chờ duyệt</Badge>
+              <Badge tone="live">{data.payouts.approvedCount} chờ chuyển</Badge>
+              <Badge tone="success">{formatVnd(data.payouts.completedAmount)} đã chuyển</Badge>
+            </div>
           </div>
         </Card>
-      </div>
 
-      {/* Payout requests */}
-      <Card padded={false}>
-        <div className="flex flex-col gap-xs border-b border-hairline px-base py-sm md:flex-row md:items-center">
-          <div className="text-title-md text-ink">Yêu cầu thanh toán</div>
-          <div className="flex flex-wrap items-center gap-xs md:ml-auto">
-            <Tabs
-              items={[
-                { value: 'all', label: 'Tất cả' },
-                { value: 'pending', label: 'Đang chờ' },
-                { value: 'approved', label: 'Đã phê duyệt' },
-                { value: 'rejected', label: 'Đã từ chối' },
-              ]}
-              value={filter}
-              onChange={setFilterAndReset}
-            />
-            <Input
-              leadingIcon="search"
-              placeholder="Tìm người nhận…"
-              aria-label="Tìm người nhận thanh toán"
-              value={query}
-              onChange={(e) => setQueryAndReset(e.target.value)}
-              className="w-full md:w-56"
-            />
-          </div>
+        <div>
+          <div className="mb-sm text-title-md text-ink">Doanh thu theo ngày</div>
+          {!data.series.length ? (
+            <EmptyState icon="trending" title="Chưa có đơn đã giao" message="Khoảng thời gian này chưa phát sinh doanh thu ghi nhận." />
+          ) : (
+            <Card padded={false} className="overflow-x-auto">
+              <table className="w-full min-w-[560px]">
+                <thead className="bg-canvas-soft text-caption-uppercase text-body">
+                  <tr><Th>Ngày</Th><Th>Đơn đã giao</Th><Th>GMV</Th><Th>Phí nền tảng</Th></tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {data.series.map((row) => <tr key={row.date}>
+                    <Td>{new Date(row.date).toLocaleDateString('vi-VN')}</Td>
+                    <Td>{row.orderCount}</Td>
+                    <Td>{formatVnd(row.gmv)}</Td>
+                    <Td>{formatVnd(row.platformFee)}</Td>
+                  </tr>)}
+                </tbody>
+              </table>
+            </Card>
+          )}
         </div>
-
-        {/* Mobile: stacked cards */}
-        <ul className="flex flex-col divide-y divide-hairline md:hidden">
-          {paginated.map((p) => (
-            <li key={p.id} className="p-base">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-body-sm font-semibold text-ink truncate">{p.name}</div>
-                  <div className="text-caption text-body">
-                    <Badge tone={p.type === 'merchant' ? 'default' : 'outline'}>{p.type}</Badge>{' '}
-                    · Đã yêu cầu {p.requestedAt}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="nums text-title-sm text-ink">{formatVnd(p.amount)}</div>
-                  <Badge tone={STATUS_TONE[p.status]} dot>{p.status}</Badge>
-                </div>
-              </div>
-              {p.status === 'pending' && (
-                <div className="mt-sm flex justify-end gap-1">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      resolvePayout(p.id, 'rejected');
-                      pushToast({ kind: 'error', title: 'Đã từ chối thanh toán', message: p.name });
-                    }}
-                  >
-                    Từ chối
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      resolvePayout(p.id, 'approved');
-                      pushToast({
-                        kind: 'success',
-                        title: 'Đã phê duyệt thanh toán',
-                        message: `${formatVnd(p.amount)} cho ${p.name}`,
-                      });
-                    }}
-                  >
-                    Phê duyệt
-                  </Button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-
-        {/* Desktop: wide table */}
-        <table className="hidden w-full md:table">
-          <thead className="bg-canvas-soft text-caption-uppercase text-body">
-            <tr>
-              <Th>Người nhận</Th>
-              <Th>Loại</Th>
-              <Th>Số tiền</Th>
-              <Th>Đã yêu cầu</Th>
-              <Th>Trạng thái</Th>
-              <Th className="text-right pr-base">Thao tác</Th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-hairline">
-            {paginated.map((p) => (
-              <tr key={p.id} className="hover:bg-canvas-soft">
-                <Td className="text-body-sm font-semibold text-ink">{p.name}</Td>
-                <Td>
-                  <Badge tone={p.type === 'merchant' ? 'default' : 'outline'}>{p.type}</Badge>
-                </Td>
-                <Td className="nums text-body-sm text-ink">{formatVnd(p.amount)}</Td>
-                <Td className="text-body-sm text-body">{p.requestedAt}</Td>
-                <Td>
-                  <Badge tone={STATUS_TONE[p.status]} dot>{p.status}</Badge>
-                </Td>
-                <Td className="text-right pr-base">
-                  {p.status === 'pending' ? (
-                    <div className="inline-flex gap-1">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          resolvePayout(p.id, 'rejected');
-                          pushToast({ kind: 'error', title: 'Đã từ chối thanh toán', message: p.name });
-                        }}
-                      >
-                        Từ chối
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          resolvePayout(p.id, 'approved');
-                          pushToast({
-                            kind: 'success',
-                            title: 'Đã phê duyệt thanh toán',
-                            message: `${formatVnd(p.amount)} cho ${p.name}`,
-                          });
-                        }}
-                      >
-                        Phê duyệt
-                      </Button>
-                    </div>
-                  ) : (
-                    <span className="text-caption text-body">Đã xử lý</span>
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <div className="grid place-items-center py-xxl text-body-sm text-body">
-            <Icon name="search" size={20} className="mb-2" />
-            Không có yêu cầu thanh toán nào khớp với bộ lọc.
-          </div>
-        )}
-        {filtered.length > 0 && (
-          <div className="border-t border-hairline px-base py-sm">
-            <Pagination total={filtered.length} pageSize={PAGE_SIZE} page={effectivePage} onChange={setPage} />
-          </div>
-        )}
-      </Card>
+      </>}
     </div>
   );
 }
 
-function Th({ className = '', children }) {
-  return <th className={`px-base py-2 text-left text-caption-uppercase ${className}`}>{children}</th>;
+function Metric({ title, value, hint }) {
+  return <Card padded><div className="text-caption-uppercase text-body">{title}</div><div className="mt-1 nums text-display-sm text-ink">{value}</div><div className="mt-1 text-caption text-body">{hint}</div></Card>;
 }
-function Td({ className = '', children }) {
-  return <td className={`px-base py-sm ${className}`}>{children}</td>;
-}
-
-function Row({ label, value, bold }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-body-sm text-body">{label}</span>
-      <span className={'nums ' + (bold ? 'text-title-md text-ink' : 'text-body-sm text-ink')}>{value}</span>
-    </div>
-  );
-}
+function Th({ children }) { return <th className="px-base py-sm text-left font-semibold">{children}</th>; }
+function Td({ children }) { return <td className="px-base py-sm text-body-sm text-ink">{children}</td>; }

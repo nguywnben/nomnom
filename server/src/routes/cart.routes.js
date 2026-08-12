@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import pool from '../db/pool.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(ensureCustomer);
+
 
 function toNumber(value, fallback = 0) {
   const n = Number(value);
@@ -145,7 +147,8 @@ router.post('/items', async (req, res, next) => {
 
     const [menuRows] = await connection.query(
       `SELECT mi.id, mi.restaurant_id AS restaurantId, mi.name, mi.image_url AS imageUrl, mi.price,
-              mi.status, mi.in_stock, r.name AS restaurantName, r.logo_url AS restaurantLogo, r.status AS restaurantStatus
+              mi.status, mi.in_stock, r.name AS restaurantName, r.logo_url AS restaurantLogo,
+              r.status AS restaurantStatus, r.is_open_now AS restaurantOpen
        FROM menu_items mi
        INNER JOIN restaurants r ON r.id = mi.restaurant_id
        WHERE mi.id = ?
@@ -156,6 +159,10 @@ router.post('/items', async (req, res, next) => {
     if (!menuItem || menuItem.status !== 'active' || !menuItem.in_stock || menuItem.restaurantStatus !== 'active') {
       await connection.rollback();
       return res.status(404).json({ error: 'Món ăn không tồn tại.' });
+    }
+    if (!menuItem.restaurantOpen) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Quán ăn hiện đang đóng cửa. Vui lòng quay lại khi quán mở cửa.' });
     }
 
     const [activeCartRows] = await connection.query(

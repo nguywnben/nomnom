@@ -4,8 +4,9 @@ import {
   getRefreshToken,
   saveTokens,
 } from './authStorage.js';
+import { getHomeViewerId } from './homeViewer.js';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
+const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
 let refreshInFlight = null;
 
@@ -213,7 +214,7 @@ export function changePasswordApi({ currentPassword, newPassword }) {
 
 /** Carousel "Khám phá theo món ăn" — GET /api/v1/home/categories */
 export function fetchHomeCategories() {
-  return apiGet('/api/v1/home/categories');
+  return apiGet(`/api/v1/home/categories?viewer=${encodeURIComponent(getHomeViewerId())}`);
 }
 
 /** Banner khuyến mãi 3 cột — GET /api/v1/home/promos */
@@ -252,6 +253,36 @@ export function updateMerchantOrderStatusApi(orderCode, action, cancelReason) {
   return apiPatch(`/api/v1/merchant/me/orders/${encodeURIComponent(orderCode)}/status`, body);
 }
 
+export function fetchMerchantVouchersApi() {
+  return apiGet('/api/v1/merchant/me/vouchers');
+}
+
+export function createMerchantVoucherApi(body) {
+  return apiPost('/api/v1/merchant/me/vouchers', body);
+}
+
+export function updateMerchantVoucherApi(id, body) {
+  return apiPatch(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteMerchantVoucherApi(id) {
+  return apiDelete(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`);
+}
+
+export function fetchMerchantReviewsApi({ page = 1, limit = 50, rating, replied = 'all' } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), replied });
+  if (rating) params.set('rating', String(rating));
+  return apiGet(`/api/v1/merchant/me/reviews?${params.toString()}`);
+}
+
+export function replyMerchantReviewApi(reviewId, replyText) {
+  return apiPatch(`/api/v1/merchant/me/reviews/${encodeURIComponent(reviewId)}/reply`, { replyText });
+}
+
+export function fetchRestaurantVouchersApi(restaurantId) {
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(restaurantId)}/vouchers`);
+}
+
 /** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
@@ -259,6 +290,10 @@ export function fetchCuisinesApi() {
 
 export function fetchAdminPendingRestaurants() {
   return apiGet('/api/v1/admin/restaurants/pending');
+}
+
+export function fetchAdminRestaurantDetail(restaurantId) {
+  return apiGet(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}`);
 }
 
 export function approveAdminRestaurant(restaurantId) {
@@ -279,6 +314,35 @@ export function approveAdminDriver(userId) {
 
 export function rejectAdminDriver(userId, reason) {
   return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
+}
+
+export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', page = 1 } = {}) {
+  const params = new URLSearchParams({
+    status,
+    paymentMethod,
+    paymentStatus,
+    q,
+    page: String(page),
+  });
+  return apiGet(`/api/v1/admin/orders?${params.toString()}`);
+}
+
+export function fetchAdminOrderDetail(orderId) {
+  return apiGet(`/api/v1/admin/orders/${encodeURIComponent(orderId)}`);
+}
+
+export function cancelAdminOrder(orderId, reason) {
+  return apiPost(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/cancel`, { reason });
+}
+
+export function fetchAdminReviews({ hidden = 'all', page = 1, q = '', ratingMax } = {}) {
+  const params = new URLSearchParams({ hidden, page: String(page), q });
+  if (ratingMax) params.set('ratingMax', String(ratingMax));
+  return apiGet(`/api/v1/admin/reviews?${params.toString()}`);
+}
+
+export function updateAdminReviewHidden(reviewId, isHidden) {
+  return apiPatch(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}`, { isHidden });
 }
 
 export function fetchRestaurants(params = {}) {
@@ -353,3 +417,136 @@ export function deleteMerchantMenuItemApi(id) {
   return apiDelete(`/api/v1/merchant/me/items/${encodeURIComponent(id)}`);
 }
 
+export function validateVoucherApi(code, subtotal) {
+  return apiPost('/api/v1/vouchers/validate', { code, subtotal });
+}
+
+export function fetchMyVouchersApi() {
+  return apiGet('/api/v1/me/vouchers');
+}
+
+/** Top quán nổi bật — GET /api/v1/home/featured-restaurants */
+export function fetchFeaturedRestaurantsApi() {
+  return apiGet('/api/v1/home/featured-restaurants');
+}
+
+/** Các món thịnh hành — GET /api/v1/home/trending-dishes */
+export function fetchTrendingDishesApi() {
+  return apiGet('/api/v1/home/trending-dishes');
+}
+
+/** Đặt lại món từ lịch sử — GET /api/v1/home/order-again */
+export function fetchOrderAgainApi() {
+  return apiGet('/api/v1/home/order-again');
+}
+
+/** Tìm kiếm kết hợp nhà hàng & món ăn — GET /api/v1/menu-items/search */
+export function searchExploreApi(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      query.set(key, String(val));
+    }
+  });
+  return apiGet(`/api/v1/menu-items/search?${query.toString()}`);
+}
+
+
+// Wave 5: notifications, merchant finance/settings, admin finance/config, and contextual chat.
+export function fetchNotificationsApi({ unread = false, type = 'all', page = 1, limit = 50 } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), type });
+  if (unread) params.set('unread', 'true');
+  return apiGet('/api/v1/me/notifications?' + params.toString());
+}
+
+export function markNotificationReadApi(id) {
+  return apiPatch('/api/v1/me/notifications/' + encodeURIComponent(id) + '/read', {});
+}
+
+export function markAllNotificationsReadApi() {
+  return apiPost('/api/v1/me/notifications/read-all', {});
+}
+
+export function fetchMerchantWalletApi() {
+  return apiGet('/api/v1/merchant/me/wallet');
+}
+
+export function requestMerchantPayoutApi(amount) {
+  return apiPost('/api/v1/merchant/me/payouts', { amount });
+}
+
+export function fetchMerchantSettingsApi() {
+  return apiGet('/api/v1/merchant/me/settings');
+}
+
+export function updateMerchantSettingsApi(body) {
+  return apiPatch('/api/v1/merchant/me/settings', body);
+}
+
+export function fetchAdminPayoutsApi({ status = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({ status, q, page: String(page), limit: String(limit), ownerType: 'merchant' });
+  return apiGet('/api/v1/admin/payouts?' + params.toString());
+}
+
+export function fetchAdminPayoutDetailApi(id) {
+  return apiGet('/api/v1/admin/payouts/' + encodeURIComponent(id));
+}
+
+export function updateAdminPayoutApi(id, body) {
+  return apiPatch('/api/v1/admin/payouts/' + encodeURIComponent(id), body);
+}
+
+export function fetchAdminFinancialApi(range = 'month') {
+  return apiGet('/api/v1/admin/financial?range=' + encodeURIComponent(range));
+}
+
+export function fetchAdminConfigApi() {
+  return apiGet('/api/v1/admin/config');
+}
+
+export function updateAdminConfigApi(key, value) {
+  return apiPatch('/api/v1/admin/config/' + encodeURIComponent(key), { value });
+}
+
+export function fetchAdminUserDetailApi(id) { return apiGet('/api/v1/admin/users/' + encodeURIComponent(id)); }
+
+export function fetchAdminCuisinesApi() { return apiGet('/api/v1/admin/cuisines'); }
+export function createAdminCuisineApi(body) { return apiPost('/api/v1/admin/cuisines', body); }
+export function updateAdminCuisineApi(id, body) { return apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body); }
+export function deleteAdminCuisineApi(id) { return apiDelete('/api/v1/admin/cuisines/' + encodeURIComponent(id)); }
+export function reorderAdminCuisinesApi(ids) { return apiPatch('/api/v1/admin/cuisines/reorder', { ids }); }
+
+export function fetchChatConversationsApi() {
+  return apiGet('/api/v1/chat/conversations');
+}
+
+export function createOrderConversationApi(orderId, counterpartRole) {
+  return apiPost('/api/v1/chat/conversations', { orderId, counterpartRole });
+}
+
+export function fetchChatMessagesApi(conversationId, afterId = 0) {
+  return apiGet('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/messages?afterId=' + encodeURIComponent(afterId));
+}
+
+export function sendChatMessageApi(conversationId, text) {
+  return apiPost('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/messages', { text });
+}
+
+export function markChatReadApi(conversationId) {
+  return apiPost('/api/v1/chat/conversations/' + encodeURIComponent(conversationId) + '/read', {});
+}
+
+export function fetchAdminAuditLogs({ action = 'all', targetType = 'all', q = '', page = 1, limit = 20 } = {}) {
+  const params = new URLSearchParams({
+    action,
+    targetType,
+    q,
+    page: String(page),
+    limit: String(limit),
+  });
+  return apiGet('/api/v1/admin/audit-logs?' + params.toString());
+}
+
+export function fetchMenuItemDetailApi(id) {
+  return apiGet('/api/v1/menu-items/' + encodeURIComponent(id));
+}

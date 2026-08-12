@@ -39,7 +39,7 @@ export default function OrderSuccess() {
           Chúng tôi đã gửi đơn hàng của bạn đến nhà bếp và điều phối tài xế. Chúng tôi sẽ cập nhật cho bạn.
         </p>
 
-        <Card padded className="mt-xl text-left">
+        <Card padded hover={false} className="mt-xl text-left">
           <div className="mb-sm flex items-center justify-between">
             <div className="text-caption-uppercase text-body">Mã đơn hàng</div>
             <Badge tone="outline">{order.order_code}</Badge>

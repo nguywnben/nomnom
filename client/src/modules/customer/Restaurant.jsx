@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
+import { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
@@ -93,6 +94,17 @@ export default function CustomerRestaurant() {
           className="w-full max-h-[420px]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent" />
+        <div className="absolute inset-x-0 top-0">
+          <div className="container-page pt-base">
+            <button
+              type="button"
+              onClick={() => nav(-1)}
+              className="inline-flex h-10 items-center gap-1 rounded-md bg-surface-card/95 px-3 text-button text-ink shadow-soft transition-colors hover:bg-surface-card"
+            >
+              <Icon name="arrowLeft" size={16} /> Quay lại
+            </button>
+          </div>
+        </div>
         <div className="absolute inset-x-0 bottom-0">
           <div className="container-page pb-lg">
             <div className="flex items-end gap-base">
@@ -204,6 +216,15 @@ export default function CustomerRestaurant() {
 
       <div className="container-page grid gap-xl py-xl md:grid-cols-[1fr_320px]">
         <div>
+          {!isOpen && (
+            <div className="mb-base flex items-start gap-sm rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body" role="status">
+              <Icon name="clock" size={18} className="mt-0.5 shrink-0 text-ink" />
+              <div>
+                <div className="font-semibold text-ink">Quán đang đóng cửa</div>
+                <p className="mt-1">Bạn vẫn có thể xem thực đơn, nhưng chưa thể thêm món vào giỏ hàng.</p>
+              </div>
+            </div>
+          )}
           <div className="mb-base flex items-center gap-xs overflow-x-auto no-scrollbar">
             {activeCategories.map((c) => (
               <button
@@ -248,6 +269,8 @@ export default function CustomerRestaurant() {
                   key={item.id}
                   item={item}
                   disabled={!isOpen || !shopAsCustomer}
+                  restaurantClosed={!isOpen}
+                  onClick={() => nav('/app/dish/' + item.id)}
                   onAdd={() => {
                     if (!shopAsCustomer) {
                       pushToast({
@@ -303,6 +326,12 @@ export default function CustomerRestaurant() {
                 title="Không tải được đánh giá"
                 message={reviewsError.message ?? 'Vui lòng thử lại sau.'}
               />
+            ) : reviews.length === 0 ? (
+              <EmptyState
+                icon="star"
+                title="Chưa có đánh giá"
+                message="Hãy là người đầu tiên chia sẻ trải nghiệm về quán ăn này."
+              />
             ) : (
               <div className="grid gap-base md:grid-cols-2">
                 {reviews.map((rev) => (
@@ -351,7 +380,7 @@ export default function CustomerRestaurant() {
                 <div className="text-body-sm text-ink">{restaurant.phone}</div>
               </div>
             )}
-            <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/chat-merchant')}>
+            <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Trò chuyện với quán
             </Button>
             <Button onClick={() => setCartOpen(true)} disabled={!isOpen}>
@@ -364,37 +393,48 @@ export default function CustomerRestaurant() {
   );
 }
 
-function MenuCard({ item, onAdd, disabled }) {
+function MenuCard({ item, onAdd, onClick, disabled, restaurantClosed }) {
   const isOutOfStock = !item.inStock;
   const isDisabled = disabled || isOutOfStock;
 
   return (
-    <Card padded={false} className={`flex overflow-hidden ${isOutOfStock ? 'opacity-50 select-none' : ''}`}>
-      <div className="flex-1 p-base">
-        <div className="flex items-start justify-between gap-2">
-          <div className="text-title-md text-ink">{item.name}</div>
-          <span className="nums text-title-sm text-ink">{formatVnd(item.price)}</span>
-        </div>
-        <p className="mt-1 text-body-sm text-body line-clamp-2">{item.description}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          {item.isFeatured && <Badge tone="outline">Nổi bật</Badge>}
-          <Badge tone="outline">{item.prepTimeMin} phút</Badge>
-          <Badge tone="outline">⭐ {item.ratingAvg.toFixed(1)}</Badge>
-          {isOutOfStock && <Badge tone="error">Hết hàng</Badge>}
+    <Card
+      padded={false}
+      className={`flex overflow-hidden cursor-pointer hover:shadow-soft transition-shadow ${isOutOfStock ? 'opacity-60 select-none' : ''}`}
+      onClick={onClick}
+    >
+      <div className="flex-1 p-base flex flex-col justify-between">
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-title-md text-ink font-semibold line-clamp-1">{item.name}</span>
+            <span className="nums text-title-sm text-ink font-semibold shrink-0">{formatVnd(item.price)}</span>
+          </div>
+          <p className="mt-1 text-body-sm text-body line-clamp-2">{item.description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1">
+            {item.isFeatured && <Badge tone="outline">Nổi bật</Badge>}
+            {item.prepTimeMin > 0 && <Badge tone="outline">{item.prepTimeMin} phút</Badge>}
+            {item.ratingAvg > 0 && <Badge tone="outline">⭐ {item.ratingAvg.toFixed(1)}</Badge>}
+            {isOutOfStock && <Badge tone="error">Hết hàng</Badge>}
+          </div>
         </div>
         <div className="mt-sm">
-          <Button
+          <IconButton
+            icon={isOutOfStock ? 'close' : 'plus'}
+            label={isOutOfStock ? `${item.name} đã hết hàng` : restaurantClosed ? `Quán đang đóng cửa, chưa thể thêm ${item.name}` : `Thêm ${item.name} vào giỏ`}
             variant={isDisabled ? 'secondary' : 'primary'}
             size="sm"
-            leadingIcon={isOutOfStock ? 'close' : 'plus'}
             disabled={isDisabled}
-            onClick={onAdd}
-          >
-            {isOutOfStock ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
-          </Button>
+            className={isDisabled ? 'cursor-not-allowed opacity-40' : ''}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdd();
+            }}
+          />
         </div>
       </div>
-      <Image src={item.imageUrl} alt={item.name} className="w-32 shrink-0" ratio="1" />
+      <div className="w-32 shrink-0">
+        <Image src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" ratio="1" />
+      </div>
     </Card>
   );
 }

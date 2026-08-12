@@ -1,5 +1,5 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import Button from '../../components/Button.jsx';
 import Logo from '../../components/Logo.jsx';
@@ -7,11 +7,11 @@ import Icon from '../../components/Icon.jsx';
 import Avatar from '../../components/Avatar.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { loginHref, ROLE_HOME } from '../../lib/auth.js';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
 
 const PORTAL_LINKS = [
   { role: 'admin', label: 'Quản trị hệ thống', icon: 'shield', to: ROLE_HOME.admin },
-  { role: 'merchant', label: 'Cổng nhà hàng', icon: 'store', to: ROLE_HOME.merchant },
-  { role: 'driver', label: 'Cổng tài xế', icon: 'bike', to: ROLE_HOME.driver },
+  { role: 'merchant', label: 'Cổng quán ăn', icon: 'store', to: ROLE_HOME.merchant },
 ];
 
 const links = [
@@ -36,7 +36,7 @@ export default function TopNav() {
   const { pathname, search } = useLocation();
   const nav = useNavigate();
   const returnTo = pathname + search;
-  const { cartCount, setCartOpen, user, orders, logout } = useApp();
+  const { cartCount, setCartOpen, shopAsCustomer, user, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const menuRef = useRef(null);
@@ -74,7 +74,7 @@ export default function TopNav() {
 
   const onHeroDark = heroOverlay && !headerElevated;
 
-  const notifCount = useMemo(() => orders.filter((o) => o.status !== 'delivered').length, [orders]);
+  const notifCount = useUnreadNotificationCount(Boolean(user));
 
   const accountName = user?.fullName ?? '';
   const accountEmail = user?.email ?? '';
@@ -141,7 +141,7 @@ export default function TopNav() {
               </span>
             )}
           </Link>
-          <button
+          {(!user || shopAsCustomer) && <button
             onClick={() => setCartOpen(true)}
             className={clsx(
               'relative inline-flex h-10 items-center gap-2 overflow-visible rounded-md pl-1 pr-3 text-button transition-[background-color,border-color,color] duration-300 ease-out',
@@ -160,10 +160,10 @@ export default function TopNav() {
                 {cartCount > 99 ? '99+' : cartCount}
               </span>
             )}
-          </button>
+          </button>}
 
           {user ? (
-            <div className="relative ml-xs" ref={menuRef}>
+            <div className="relative ml-xs flex h-10 items-center" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
@@ -171,11 +171,11 @@ export default function TopNav() {
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
                 className={clsx(
-                  'rounded-full transition-shadow',
+                  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-shadow',
                   menuOpen && 'ring-2 ring-ink/15 ring-offset-2 ring-offset-transparent',
                 )}
               >
-                <Avatar src={accountAvatar} name={accountName} size="sm" />
+                <Avatar src={accountAvatar} name={accountName} size="md" />
               </button>
               {menuOpen && (
                 <div
@@ -208,17 +208,18 @@ export default function TopNav() {
                           onClick={() => setMenuOpen(false)}
                         >
                           <Icon name="user" size={16} className="shrink-0 text-body" />
-                          Hồ sơ khách hàng
-                        </Link>
-                        <Link
-                          to="/app/orders"
-                          role="menuitem"
-                          className={MENU_ITEM}
-                          onClick={() => setMenuOpen(false)}
-                        >
-                          <Icon name="package" size={16} className="shrink-0 text-body" />
-                          Đơn hàng của tôi
-                        </Link>
+                          Hồ sơ tài khoản
+                        </Link>                        {shopAsCustomer && (
+                          <Link
+                            to="/app/orders"
+                            role="menuitem"
+                            className={MENU_ITEM}
+                            onClick={() => setMenuOpen(false)}
+                          >
+                            <Icon name="package" size={16} className="shrink-0 text-body" />
+                            Đơn hàng của tôi
+                          </Link>
+                        )}
                         <Link
                           to="/app/profile/settings"
                           role="menuitem"
