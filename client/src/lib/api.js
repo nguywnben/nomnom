@@ -304,6 +304,18 @@ export function rejectAdminRestaurant(restaurantId, reason) {
   return apiPost(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/reject`, { reason });
 }
 
+export function fetchAdminRestaurantAddressChangeRequests(status = 'pending') {
+  return apiGet(`/api/v1/admin/restaurant-address-change-requests?status=${encodeURIComponent(status)}`);
+}
+
+export function approveAdminRestaurantAddressChangeRequest(requestId) {
+  return apiPost(`/api/v1/admin/restaurant-address-change-requests/${encodeURIComponent(requestId)}/approve`);
+}
+
+export function rejectAdminRestaurantAddressChangeRequest(requestId, reason) {
+  return apiPost(`/api/v1/admin/restaurant-address-change-requests/${encodeURIComponent(requestId)}/reject`, { reason });
+}
+
 export function fetchAdminPendingDrivers() {
   return apiGet('/api/v1/admin/drivers/pending');
 }
@@ -477,6 +489,26 @@ export function requestMerchantPayoutApi(amount) {
 
 export function fetchMerchantSettingsApi() {
   return apiGet('/api/v1/merchant/me/settings');
+}
+
+export function createMerchantAddressChangeRequest(body) {
+  return apiPost('/api/v1/merchant/me/address-change-requests', body);
+}
+
+export function fetchMerchantGhnProvinces() {
+  return apiGet('/api/v1/merchant/me/ghn/provinces');
+}
+
+export function fetchMerchantGhnDistricts(provinceId) {
+  return apiGet(`/api/v1/merchant/me/ghn/districts?provinceId=${encodeURIComponent(provinceId)}`);
+}
+
+export function fetchMerchantGhnWards(districtId) {
+  return apiGet(`/api/v1/merchant/me/ghn/wards?districtId=${encodeURIComponent(districtId)}`);
+}
+
+export function cancelMerchantAddressChangeRequest(requestId) {
+  return apiPost(`/api/v1/merchant/me/address-change-requests/${encodeURIComponent(requestId)}/cancel`);
 }
 
 export function updateMerchantSettingsApi(body) {

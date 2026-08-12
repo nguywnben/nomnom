@@ -3,6 +3,8 @@ import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import pool from '../db/pool.js';
 import { calculateDistance } from '../lib/geo.js';
 import { evaluateVoucher } from '../lib/voucher.js';
+import { createGhnClient, GhnProviderError } from '../lib/ghn.js';
+import { buildShippingQuote } from '../lib/shippingQuote.js';
 import crypto from 'crypto';
 
 const router = Router();
@@ -27,6 +29,14 @@ function generateOrderCode() {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `ORD-${code}`;
+}
+
+function getGhnClient() {
+  return createGhnClient({
+    token: process.env.GHN_TOKEN,
+    shopId: process.env.GHN_SHOP_ID,
+    baseUrl: process.env.GHN_API_BASE_URL ?? 'https://online-gateway.ghn.vn/shiip/public-api',
+  });
 }
 
 router.post('/', requireAuth, async (req, res, next) => {
@@ -91,6 +101,28 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
     const restaurant = rests[0];
 
+    let shippingQuote;
+    try {
+      shippingQuote = await buildShippingQuote({
+        ghnClient: getGhnClient(),
+        cart,
+        restaurant,
+        address: deliveryAddress,
+      });
+    } catch (error) {
+      await connection.rollback();
+      if (error?.code === 'GHN_ADDRESS_NOT_READY' || error?.code === 'GHN_CART_NOT_READY') {
+        return res.status(400).json({ error: error.message, code: error.code });
+      }
+      if (error instanceof GhnProviderError || String(error?.code ?? '').startsWith('GHN_')) {
+        return res.status(502).json({
+          error: error.message,
+          code: error.code ?? 'GHN_PROVIDER_ERROR',
+        });
+      }
+      throw error;
+    }
+
     let voucher = null;
     let voucherDiscount = 0;
     const normalizedVoucherCode = String(voucherCode ?? '').trim().toUpperCase();
@@ -108,7 +140,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // 4. Tính toán tiền theo công thức đơn giản
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const delivery_fee = restaurant.base_delivery_fee;
+    const delivery_fee = shippingQuote.total;
     if (voucher) {
       const [[voucherUsageRow]] = await connection.query(
         "SELECT COUNT(*) AS totalUsage, COALESCE(SUM(CASE WHEN customer_id = ? THEN 1 ELSE 0 END), 0) AS customerUsage FROM voucher_redemptions WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')",

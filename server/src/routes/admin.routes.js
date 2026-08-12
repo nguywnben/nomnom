@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
 import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
 import { logAudit } from '../lib/audit.js';
+import { serializeAddressChangeRequest } from '../lib/restaurantAddressChanges.js';
 import {
   ensureWallet,
   insertNotification,
@@ -543,6 +544,197 @@ router.get('/restaurants/pending', async (_req, res, next) => {
     res.json({ items: rows.map(serializeRestaurantRow) });
   } catch (err) {
     next(err);
+  }
+});
+
+router.get('/restaurant-address-change-requests', async (req, res, next) => {
+  const status = String(req.query.status ?? 'pending').trim();
+  const allowedStatuses = ['pending', 'approved', 'rejected', 'cancelled'];
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Trạng thái yêu cầu không hợp lệ.' });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT acr.*, r.name AS restaurant_name, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.status = ?
+       ORDER BY acr.created_at ASC, acr.id ASC`,
+      [status],
+    );
+    return res.json({ items: rows.map(serializeAddressChangeRequest) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/restaurant-address-change-requests/:id/approve', async (req, res, next) => {
+  const requestId = Number(req.params.id);
+  if (!Number.isInteger(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'ID yêu cầu không hợp lệ.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, r.owner_user_id, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ?
+       LIMIT 1 FOR UPDATE`,
+      [requestId],
+    );
+    const request = rows[0];
+    if (!request) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu đổi địa chỉ.' });
+    }
+    if (request.status !== 'pending') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Yêu cầu này không còn ở trạng thái chờ duyệt.' });
+    }
+
+    await connection.query(
+      `UPDATE restaurants
+       SET address_line = ?, ward = ?, district = ?, city = ?,
+           ghn_province_id = ?, ghn_district_id = ?, ghn_ward_code = ?
+       WHERE id = ?`,
+      [
+        request.proposed_address_line,
+        request.proposed_ward,
+        request.proposed_district,
+        request.proposed_city,
+        request.proposed_ghn_province_id,
+        request.proposed_ghn_district_id,
+        request.proposed_ghn_ward_code,
+        request.restaurant_id,
+      ],
+    );
+    await connection.query(
+      `UPDATE restaurant_address_change_requests
+       SET status = 'approved', reviewed_by_admin_id = ?, reviewed_at = NOW(), rejection_reason = NULL
+       WHERE id = ?`,
+      [req.auth.userId, request.id],
+    );
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: 'duyet_doi_dia_chi_quan',
+      targetType: 'restaurant_address_change_request',
+      targetId: request.id,
+      metadata: {
+        quanId: request.restaurant_id,
+        tenQuan: request.restaurant_name,
+        diaChiCu: {
+          diaChi: request.current_address_line,
+          phuongXa: request.current_ward,
+          quanHuyen: request.current_district,
+          tinhThanh: request.current_city,
+        },
+        diaChiMoi: {
+          diaChi: request.proposed_address_line,
+          phuongXa: request.proposed_ward,
+          quanHuyen: request.proposed_district,
+          tinhThanh: request.proposed_city,
+        },
+      },
+    });
+    await insertNotification(connection, {
+      userId: request.owner_user_id,
+      title: 'Yêu cầu đổi địa chỉ đã được duyệt',
+      body: `Địa chỉ của quán "${request.restaurant_name}" đã được cập nhật theo yêu cầu của bạn.`,
+      linkUrl: '/merchant/settings',
+    });
+    const [updatedRows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ? LIMIT 1`,
+      [request.id],
+    );
+    await connection.commit();
+    return res.json({ request: serializeAddressChangeRequest(updatedRows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
+router.post('/restaurant-address-change-requests/:id/reject', async (req, res, next) => {
+  const requestId = Number(req.params.id);
+  const reason = String(req.body?.reason ?? '').trim();
+  if (!Number.isInteger(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'ID yêu cầu không hợp lệ.' });
+  }
+  if (!reason) {
+    return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối.' });
+  }
+  if (reason.length > 500) {
+    return res.status(400).json({ error: 'Lý do từ chối không được vượt quá 500 ký tự.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, r.owner_user_id, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ?
+       LIMIT 1 FOR UPDATE`,
+      [requestId],
+    );
+    const request = rows[0];
+    if (!request) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu đổi địa chỉ.' });
+    }
+    if (request.status !== 'pending') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Yêu cầu này không còn ở trạng thái chờ duyệt.' });
+    }
+
+    await connection.query(
+      `UPDATE restaurant_address_change_requests
+       SET status = 'rejected', reviewed_by_admin_id = ?, reviewed_at = NOW(), rejection_reason = ?
+       WHERE id = ?`,
+      [req.auth.userId, reason, request.id],
+    );
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: 'tu_choi_doi_dia_chi_quan',
+      targetType: 'restaurant_address_change_request',
+      targetId: request.id,
+      metadata: { quanId: request.restaurant_id, tenQuan: request.restaurant_name, lyDo: reason },
+    });
+    await insertNotification(connection, {
+      userId: request.owner_user_id,
+      title: 'Yêu cầu đổi địa chỉ chưa được duyệt',
+      body: `Yêu cầu đổi địa chỉ của quán "${request.restaurant_name}" chưa được duyệt. Lý do: ${reason}`,
+      linkUrl: '/merchant/settings',
+    });
+    const [updatedRows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ? LIMIT 1`,
+      [request.id],
+    );
+    await connection.commit();
+    return res.json({ request: serializeAddressChangeRequest(updatedRows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
   }
 });
 

@@ -10,6 +10,7 @@ import Modal from '../../../components/Modal.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../../lib/api.js';
+import { createGhnLocationsApi } from '../../../lib/ghnLocations.js';
 
 const EMPTY_FORM = {
   label: '',
@@ -17,9 +18,12 @@ const EMPTY_FORM = {
   recipientPhone: '',
   line1: '',
   ward: '',
+  district: '',
   city: '',
   deliveryNote: '',
 };
+
+const ghnLocationsApi = createGhnLocationsApi(apiGet, apiPost);
 
 export default function Addresses() {
   const { pushToast, permittedRoles } = useApp();
@@ -29,29 +33,39 @@ export default function Addresses() {
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
   const [wards, setWards] = useState([]);
   
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
   const [selectedWardCode, setSelectedWardCode] = useState('');
 
   useEffect(() => {
-    fetch('https://provinces.open-api.vn/api/v2/p/')
-      .then(res => res.json())
-      .then(data => setProvinces(data))
+    ghnLocationsApi.getProvinces()
+      .then(setProvinces)
       .catch(err => console.error('Failed to load provinces:', err));
   }, []);
 
   useEffect(() => {
     if (!selectedProvinceCode) {
+      setDistricts([]);
       setWards([]);
-      setSelectedWardCode('');
       return;
     }
-    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
-      .then(res => res.json())
-      .then(data => setWards(data.wards || []))
-      .catch(err => console.error('Failed to load wards:', err));
+    ghnLocationsApi.getDistricts(selectedProvinceCode)
+      .then(setDistricts)
+      .catch(err => console.error('Failed to load districts:', err));
   }, [selectedProvinceCode]);
+
+  useEffect(() => {
+    if (!selectedDistrictCode) {
+      setWards([]);
+      return;
+    }
+    ghnLocationsApi.getWards(selectedDistrictCode)
+      .then(setWards)
+      .catch(err => console.error('Failed to load wards:', err));
+  }, [selectedDistrictCode]);
 
   const loadAddresses = useCallback(async () => {
     setLoading(true);
@@ -73,20 +87,15 @@ export default function Addresses() {
 
   const openCreate = () => {
     setSelectedProvinceCode('');
+    setSelectedDistrictCode('');
     setSelectedWardCode('');
     setEditor({ open: true, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   };
 
   const openEdit = (addr) => {
-    // Tìm province code từ tên
-    const p = provinces.find((x) => x.name === addr.city);
-    if (p) setSelectedProvinceCode(p.code);
-
-    // Ward sẽ load ở useEffect do dependency selectedProvinceCode
-    // Ta xài setTimeout hoặc giữ addr.ward vào properties tạm để useEffect set lại
-    setTimeout(() => {
-      setEditor(c => ({...c, __initialWard: addr.ward}));
-    }, 0);
+    setSelectedProvinceCode(String(addr.ghnProvinceId ?? ''));
+    setSelectedDistrictCode(String(addr.ghnDistrictId ?? ''));
+    setSelectedWardCode(String(addr.ghnWardCode ?? ''));
 
     setEditor({
       open: true,
@@ -98,6 +107,7 @@ export default function Addresses() {
         recipientPhone: addr.recipientPhone || '',
         line1: addr.line1 || '',
         ward: addr.ward || '',
+        district: addr.district || '',
         city: addr.city || '',
         deliveryNote: addr.deliveryNote || '',
       },
@@ -105,15 +115,6 @@ export default function Addresses() {
       fieldErrors: {}
     });
   };
-
-  useEffect(() => {
-    // Tự set ward code khi load song wards
-    if (editor.__initialWard && wards.length > 0) {
-      const w = wards.find((x) => x.name === editor.__initialWard);
-      if (w) setSelectedWardCode(w.code);
-      setEditor(c => ({...c, __initialWard: null}));
-    }
-  }, [wards, editor.__initialWard]);
 
   const close = () => setEditor((c) => ({ ...c, open: false }));
 
@@ -140,6 +141,9 @@ export default function Addresses() {
     if (!v.city.trim()) {
       newErrors.city = 'Tỉnh/Thành phố không được để trống';
     }
+    if (!v.district.trim()) {
+      newErrors.district = 'Quận/Huyện không được để trống';
+    }
     if (!v.ward.trim()) {
       newErrors.ward = 'Phường/Xã không được để trống';
     }
@@ -152,12 +156,17 @@ export default function Addresses() {
 
     setEditor((c) => ({ ...c, submitting: true, fieldErrors: {} }));
     try {
+      const locationCodes = {
+        ghnProvinceId: Number(selectedProvinceCode),
+        ghnDistrictId: Number(selectedDistrictCode),
+        ghnWardCode: selectedWardCode,
+      };
       if (editor.mode === 'create') {
-        const newAddr = await apiPost('/api/v1/me/addresses', v);
+        const newAddr = await apiPost('/api/v1/me/addresses', { ...v, ...locationCodes });
         setList((cur) => [newAddr, ...cur].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)));
         pushToast({ kind: 'success', title: 'Đã thêm địa chỉ', message: v.label });
       } else {
-        const updatedAddr = await apiPatch(`/api/v1/me/addresses/${editor.id}`, v);
+        const updatedAddr = await apiPatch(`/api/v1/me/addresses/${editor.id}`, { ...v, ...locationCodes });
         setList((cur) =>
           cur.map((a) => (a.id === editor.id ? updatedAddr : a)).sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
         );
@@ -357,15 +366,36 @@ export default function Addresses() {
                   const code = e.target.value;
                   const name = e.target.options[e.target.selectedIndex].text;
                   setSelectedProvinceCode(code);
+                  setSelectedDistrictCode('');
                   setEditor((c) => ({ ...c, values: { ...c.values, city: code ? name : '' }, fieldErrors: { ...c.fieldErrors, city: undefined } }));
                 }}
               >
                 <option value="">Chọn Tỉnh/Thành phố</option>
                 {provinces.map((p) => (
-                  <option key={p.code} value={p.code}>{p.name}</option>
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
               {editor.fieldErrors?.city && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.city}</div>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-body-sm font-medium text-ink">Quận/Huyện</label>
+              <select
+                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.district ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
+                value={selectedDistrictCode}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  const name = e.target.options[e.target.selectedIndex].text;
+                  setSelectedDistrictCode(code);
+                  setSelectedWardCode('');
+                  setEditor((c) => ({ ...c, values: { ...c.values, district: code ? name : '' }, fieldErrors: { ...c.fieldErrors, district: undefined } }));
+                }}
+                disabled={!selectedProvinceCode}
+              >
+                <option value="">Chọn Quận/Huyện</option>
+                {districts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              {editor.fieldErrors?.district && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.district}</div>}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -379,7 +409,7 @@ export default function Addresses() {
                   setSelectedWardCode(code);
                   setEditor((c) => ({ ...c, values: { ...c.values, ward: code ? name : '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } }));
                 }}
-                disabled={!selectedProvinceCode}
+                disabled={!selectedDistrictCode}
               >
                 <option value="">Chọn Phường/Xã</option>
                 {wards.map((w) => (
