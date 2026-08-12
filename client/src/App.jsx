@@ -61,7 +61,7 @@ import AdminOrders from './modules/admin/Orders.jsx';
 import AdminReviewsModeration from './modules/admin/ReviewsModeration.jsx';
 import AdminConfig from './modules/admin/Config.jsx';
 import AdminCuisines from './modules/admin/Cuisines.jsx';
-import AdminHomeBanners from './modules/admin/HomeBanners.jsx';
+import AdminCustomerHome from './modules/admin/CustomerHomeManagement.jsx';
 import AdminAuditLogs from './modules/admin/AuditLogs.jsx';
 
 // Chat
@@ -144,7 +144,7 @@ export default function App() {
             <Route path="orders" element={<AdminOrders />} />
             <Route path="reviews" element={<AdminReviewsModeration />} />
             <Route path="cuisines" element={<AdminCuisines />} />
-            <Route path="home-banners" element={<AdminHomeBanners />} />
+            <Route path="customer-home" element={<AdminCustomerHome />} />
             <Route path="config" element={<AdminConfig />} />
             <Route path="audit-logs" element={<AdminAuditLogs />} />
           </Route>

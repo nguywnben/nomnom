@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -119,16 +118,17 @@ export default function AdminCuisines() {
       <div>
         {loading && !cuisines.length ? <div className="py-section text-center text-body-sm text-body" role="status">Đang tải loại hình ẩm thực...</div> : cuisines.length === 0 ? (
           <EmptyState icon="grid" title="Chưa có loại hình ẩm thực" description="Tạo loại đầu tiên để quán có thể lựa chọn khi đăng ký." action={<Button leadingIcon="plus" onClick={openCreate}>Thêm loại</Button>} />
-        ) : <div className="grid gap-xs p-sm sm:grid-cols-4 xl:grid-cols-5">
-          {cuisines.map((cuisine) => <Card key={cuisine.id} padded={false} hover={false} draggable onDragStart={() => setDraggedId(cuisine.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(cuisine.id)} onDragEnd={() => setDraggedId(null)} className={'overflow-hidden cursor-grab active:cursor-grabbing ' + (draggedId === cuisine.id ? 'opacity-50' : '')}>
+        ) : <div className="grid gap-base md:grid-cols-2 xl:grid-cols-4">
+          {cuisines.map((cuisine) => <Card key={cuisine.id} padded={false} hover={false} draggable onDragStart={() => setDraggedId(cuisine.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(cuisine.id)} onDragEnd={() => setDraggedId(null)} className="overflow-hidden cursor-grab active:cursor-grabbing">
             <div className="relative aspect-[4/3] bg-canvas-soft">
-              {cuisine.iconUrl ? <img src={cuisine.iconUrl} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-body"><span className="text-title-md">{cuisine.name.slice(0, 1)}</span></div>}
-              <div className="absolute right-sm top-sm"><Badge tone={cuisine.isActive ? 'success' : 'outline'}>{cuisine.isActive ? 'Hiển thị' : 'Đang ẩn'}</Badge></div>
+              {cuisine.iconUrl ? <img draggable={false} src={cuisine.iconUrl} alt="" className="h-full w-full select-none object-cover" /> : <div className="grid h-full place-items-center text-body"><span className="text-title-md">{cuisine.name.slice(0, 1)}</span></div>}
             </div>
-            <div className="p-sm">
-              <div className="truncate text-body-md font-semibold text-ink">{cuisine.name}</div>
-              <div className="mt-1 text-caption text-body">{cuisine.restaurantCount} quán đang dùng</div>
-              <div className="mt-sm flex items-center justify-between gap-xxs border-t border-hairline pt-xs"><Switch checked={cuisine.isActive} onChange={() => toggleActive(cuisine)} label={cuisine.isActive ? 'Hiển thị' : 'Ẩn'} /><div className="flex gap-xxs"><IconButton icon="edit" label={'Sửa ' + cuisine.name} variant="secondary" size="sm" onClick={() => openEdit(cuisine)} /><IconButton icon="trash" label={'Xóa ' + cuisine.name} size="sm" className="text-error hover:bg-[#fbeaea]" onClick={() => setDeleteTarget(cuisine)} /></div></div>
+            <div className="flex min-h-[116px] flex-col p-sm">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-title-md text-ink">{cuisine.name}</div>
+                <div className="text-caption text-body">{cuisine.restaurantCount} quán đang dùng</div>
+              </div>
+              <div className="mt-sm flex items-center justify-between gap-sm"><Switch checked={cuisine.isActive} onChange={() => toggleActive(cuisine)} label={cuisine.isActive ? 'Hiển thị' : 'Ẩn'} /><div className="flex gap-xxs"><IconButton icon="edit" label={'Sửa ' + cuisine.name} variant="secondary" size="sm" onClick={() => openEdit(cuisine)} /><IconButton icon="trash" label={'Xóa ' + cuisine.name} size="sm" className="text-error" onClick={() => setDeleteTarget(cuisine)} /></div></div>
             </div>
           </Card>)}
         </div>}

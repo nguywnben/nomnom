@@ -21,6 +21,7 @@ import chatRoutes from './routes/chat.routes.js';
 import shippingRoutes from './routes/shipping.routes.js';
 import locationsRoutes from './routes/locations.routes.js';
 import { ensureWave5Schema } from './lib/wave5Schema.js';
+import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -86,6 +87,16 @@ async function ensureSuspensionColumn() {
     console.log('[DB] Thêm cột suspension_expires_at vào bảng users');
     await pool.query("ALTER TABLE users ADD COLUMN suspension_expires_at datetime DEFAULT NULL");
   }
+}
+
+async function ensureHomePageSettings() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS home_page_settings (
+    id tinyint UNSIGNED NOT NULL PRIMARY KEY,
+    config_json json NOT NULL,
+    updated_by_admin_id bigint UNSIGNED DEFAULT NULL,
+    updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  await pool.query('INSERT IGNORE INTO home_page_settings (id, config_json) VALUES (1, ?)', [JSON.stringify(DEFAULT_HOME_PAGE_CONFIG)]);
 }
 
 async function ensureSuspensionReasonColumn() {
@@ -355,6 +366,7 @@ async function start() {
     await ensureOrderPaymentStates();
     await ensureRestaurantBankColumns();
     await ensureWave5Schema(pool);
+    await ensureHomePageSettings();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(

@@ -2,8 +2,16 @@ import { Router } from 'express';
 import pool from '../db/pool.js';
 import { verifyAccessToken } from '../lib/auth.js';
 import { getDeliveryAvailability, parseCurrentLocation } from '../lib/deliveryAvailability.js';
+import { DEFAULT_HOME_PAGE_CONFIG, parseHomePageConfig } from '../lib/homePageConfig.js';
 
 const router = Router(); 
+
+router.get('/page-config', async (_req, res, next) => {
+  try {
+    const [[row]] = await pool.query('SELECT config_json FROM home_page_settings WHERE id = 1');
+    return res.json({ config: row?.config_json ? parseHomePageConfig(row.config_json) : DEFAULT_HOME_PAGE_CONFIG });
+  } catch (err) { return next(err); }
+});
 
 /**
  * GET /api/v1/home/categories

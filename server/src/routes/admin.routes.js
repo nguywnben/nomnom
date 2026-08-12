@@ -7,6 +7,7 @@ import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../li
 import { logAudit } from '../lib/audit.js';
 import { hasValidCoordinates } from '../lib/geo.js';
 import { serializeAddressChangeRequest } from '../lib/restaurantAddressChanges.js';
+import { DEFAULT_HOME_PAGE_CONFIG, normalizeHomePageConfig, parseHomePageConfig } from '../lib/homePageConfig.js';
 import {
   ensureWallet,
   insertNotification,
@@ -142,6 +143,23 @@ function normalizeHomeBannerInput(body, { partial = false } = {}) {
 router.use(requireAuth);
 router.use(ensureAdmin);
 
+router.get('/customer-home', async (_req, res, next) => {
+  try {
+    const [[row]] = await pool.query('SELECT config_json FROM home_page_settings WHERE id = 1');
+    return res.json({ config: row?.config_json ? parseHomePageConfig(row.config_json) : DEFAULT_HOME_PAGE_CONFIG });
+  } catch (err) { return next(err); }
+});
+
+router.patch('/customer-home', async (req, res, next) => {
+  const config = normalizeHomePageConfig(req.body?.config);
+  if (!config) return res.status(400).json({ error: 'Cấu hình trang chủ không hợp lệ.' });
+  try {
+    await pool.query('UPDATE home_page_settings SET config_json = ?, updated_by_admin_id = ? WHERE id = 1', [JSON.stringify(config), req.auth.userId]);
+    await logAudit(pool, { adminId: req.auth.userId, action: 'cap_nhat_trang_chu_khach_hang', targetType: 'customer_home', targetId: '1' });
+    return res.json({ config });
+  } catch (err) { return next(err); }
+});
+
 router.get('/home-banners', async (_req, res, next) => {
   try {
     const [rows] = await pool.query('SELECT * FROM home_promo_banners ORDER BY sort_order ASC, id ASC');
@@ -155,6 +173,7 @@ router.post('/home-banners', async (req, res, next) => {
   try {
     const { tag, title, subtitle, ctaLabel, imageUrl, linkUrl, isActive } = parsed.value;
     const [count] = await pool.query('SELECT COUNT(*) AS total FROM home_promo_banners');
+    if (Number(count[0].total) >= 6) return res.status(409).json({ error: 'Chỉ được tạo tối đa 6 banner chiến dịch.' });
     const id = `banner-${Date.now().toString(36)}`;
     await pool.query('INSERT INTO home_promo_banners (id, tag, title, subtitle, cta_label, image_url, link_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, tag, title, subtitle, ctaLabel, imageUrl, linkUrl, Number(count[0].total) + 1, isActive ? 1 : 0]);
     const [[row]] = await pool.query('SELECT * FROM home_promo_banners WHERE id = ?', [id]);

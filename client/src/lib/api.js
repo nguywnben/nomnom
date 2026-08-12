@@ -544,6 +544,10 @@ export function updateAdminConfigApi(key, value) {
   return apiPatch('/api/v1/admin/config/' + encodeURIComponent(key), { value });
 }
 
+export function fetchHomePageConfigApi() { return apiGet('/api/v1/home/page-config'); }
+export function fetchAdminCustomerHomeApi() { return apiGet('/api/v1/admin/customer-home'); }
+export function updateAdminCustomerHomeApi(config) { return apiPatch('/api/v1/admin/customer-home', { config }); }
+
 export function fetchAdminUserDetailApi(id) { return apiGet('/api/v1/admin/users/' + encodeURIComponent(id)); }
 
 export function fetchAdminCuisinesApi() { return apiGet('/api/v1/admin/cuisines'); }

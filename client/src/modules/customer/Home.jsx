@@ -18,6 +18,7 @@ import {
   fetchNearbyDishesApi,
   fetchTrendingDishesApi,
   fetchOrderAgainApi,
+  fetchHomePageConfigApi,
 } from '../../lib/api.js';
 
 const HERO_BG = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1800&q=80';
@@ -28,13 +29,6 @@ const HERO_TRUST_TAGS = [
   { label: 'Nhiều quán hay quanh bạn', icon: 'pin' },
   { label: 'Rõ giá trước khi thanh toán', icon: 'shield' },
   { label: 'Hỗ trợ nhanh khi cần', icon: 'chat' },
-];
-
-const MOODS = [
-  { id: 'comfort', label: 'Món ăn quen thuộc', sub: 'Burger, mì Ý, mì ramen', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'american' },
-  { id: 'healthy', label: 'Món ăn tốt cho sức khỏe', sub: 'Rau xanh, ngũ cốc, protein', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'healthy' },
-  { id: 'sweet', label: 'Món ngọt', sub: 'Bánh ngọt, bánh donut, kem', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'bakery' },
-  { id: 'fast', label: 'Ăn nhẹ', sub: 'Sẵn sàng dưới 25 phút', image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'mexican' },
 ];
 
 export default function CustomerHome() {
@@ -63,6 +57,17 @@ export default function CustomerHome() {
 
   const [orderAgainList, setOrderAgainList] = useState([]);
   const [quickViewDish, setQuickViewDish] = useState(null);
+  const [pageConfig, setPageConfig] = useState(null);
+
+  useEffect(() => {
+    fetchHomePageConfigApi().then((response) => setPageConfig(response.config ?? null)).catch(() => {});
+  }, []);
+
+  const sectionProps = (id) => {
+    const section = pageConfig?.sections?.find((item) => item.id === id);
+    return { hidden: section?.isVisible === false, style: section ? { order: section.sortOrder } : undefined };
+  };
+  const hero = pageConfig?.hero;
 
   useEffect(() => {
     let mounted = true;
@@ -113,13 +118,13 @@ export default function CustomerHome() {
   }, [canViewOrderAgain, currentLocation]);
 
   return (
-    <div className="bg-canvas">
+    <div className="flex flex-col bg-canvas">
       {/* HERO */}
-      <section className="relative isolate">
+      <section className="relative isolate" style={{ order: 0 }}>
         <div
           className="absolute inset-0 -z-10"
           style={{
-            backgroundImage: `url(${HERO_BG})`,
+            backgroundImage: `url(${hero?.imageUrl || HERO_BG})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -137,10 +142,10 @@ export default function CustomerHome() {
               <span className="min-w-0 truncate">Khám phá quanh bạn · {deliveryLocalityLine}</span>
             </span>
             <h1 className="mt-base text-display-lg text-on-dark md:text-display-xl lg:text-display-mega">
-              Đói bụng? Đặt món ngay.
+              {hero?.title || 'Đói bụng? Đặt món ngay.'}
             </h1>
             <p className="mt-xs text-body-md text-on-dark-soft">
-              Khám phá món ngon giao siêu tốc từ các quán ăn hàng đầu quanh bạn.
+              {hero?.subtitle || 'Khám phá món ngon giao siêu tốc từ các quán ăn hàng đầu quanh bạn.'}
             </p>
 
             {/* Hero search bar */}
@@ -200,7 +205,7 @@ export default function CustomerHome() {
       </section>
 
       {/* CUISINES */}
-      <section className="container-page py-xl">
+      <section className="container-page py-xl" {...sectionProps('cuisines')}>
         <SectionHeader
           caption="Khám phá nhanh"
           title="Loại hình ẩm thực"
@@ -234,7 +239,7 @@ export default function CustomerHome() {
       </section>
 
       {/* FEATURED DISHES */}
-      <section className="container-page pb-xl">
+      <section className="container-page pb-xl" {...sectionProps('featured-dishes')}>
         <SectionHeader
           caption="Khám phá hôm nay"
           title="Món nổi bật từ nhiều quán"
@@ -276,7 +281,7 @@ export default function CustomerHome() {
       </section>
 
       {/* NEARBY DISHES */}
-      <section className="container-page">
+      <section className="container-page" {...sectionProps('nearby-dishes')}>
         <SectionHeader
           caption="Theo vị trí hiện tại"
           title="Các món gần bạn"
@@ -307,7 +312,7 @@ export default function CustomerHome() {
       </section>
 
       {/* PROMO STRIP */}
-      <section className="container-page py-xl">
+      <section className="container-page py-xl" {...sectionProps('promos')}>
         <div className="grid gap-base md:grid-cols-3">
           {promosLoading &&
             Array.from({ length: 3 }).map((_, i) => (
@@ -333,7 +338,7 @@ export default function CustomerHome() {
       </section>
 
       {/* TODAY'S TRENDING DISHES */}
-      <section className="container-page pb-xl">
+      <section className="container-page pb-xl" {...sectionProps('trending')}>
         <SectionHeader
           caption={trendingSource === 'today' ? 'Được giao nhiều hôm nay' : 'Đang hot'}
           title={trendingSource === 'today' ? 'Thịnh hành hôm nay' : 'Các món thịnh hành'}
@@ -377,7 +382,7 @@ export default function CustomerHome() {
 
       {/* ORDER AGAIN (Chỉ hiển thị khi đã đăng nhập và có lịch sử) */}
       {canViewOrderAgain && orderAgainList.length > 0 && (
-        <section className="container-page pb-xl">
+        <section className="container-page pb-xl" {...sectionProps('order-again')}>
           <SectionHeader
             caption="Chào mừng trở lại"
             title="Đặt lại món"
@@ -409,7 +414,7 @@ export default function CustomerHome() {
       )}
 
       {/* FEATURED RESTAURANTS */}
-      <section className="container-page pb-xl">
+      <section className="container-page pb-xl" {...sectionProps('featured-restaurants')}>
         <SectionHeader
           caption="Nổi bật"
           title="Quán ăn nổi bật"
@@ -433,19 +438,19 @@ export default function CustomerHome() {
       </section>
 
       {/* MOOD TILES */}
-      <section className="container-page pb-xxl">
+      <section className="container-page pb-xxl" {...sectionProps('moods')}>
         <SectionHeader caption="Khám phá" title="Theo tâm trạng" />
         <div className="grid grid-cols-2 gap-base lg:grid-cols-4">
-          {MOODS.map((m) => (
+          {(pageConfig?.moods ?? []).filter((m) => m.isVisible).map((m) => (
             <Link
               key={m.id}
-              to={`/app/search?cuisine=${m.cuisineSlug}`}
+              to={m.linkUrl}
               className="group relative aspect-[4/5] overflow-hidden rounded-lg border border-hairline-strong transition-shadow hover:shadow-soft"
             >
-              <Image src={m.image} alt={m.label} ratio="4/5" className="h-full w-full" />
+              <Image src={m.imageUrl} alt={m.label} ratio="4/5" className="h-full w-full" />
               <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-transparent" />
               <div className="absolute inset-0 flex flex-col justify-end p-base text-on-dark">
-                <span className="text-caption-uppercase text-on-dark-soft">{m.sub}</span>
+                <span className="text-caption-uppercase text-on-dark-soft">{m.subtitle}</span>
                 <span className="text-display-sm">{m.label}</span>
                 <span className="mt-1 inline-flex items-center gap-1 text-button text-on-dark">
                   Khám phá <Icon name="arrowRight" size={14} />
@@ -457,7 +462,7 @@ export default function CustomerHome() {
       </section>
 
       {/* QUIET PARTNER CTA */}
-      <section className="border-t border-hairline bg-canvas-soft">
+      <section className="border-t border-hairline bg-canvas-soft" {...sectionProps('partner')}>
         <div className="container-page flex flex-col items-center gap-sm py-xl text-center md:flex-row md:items-center md:justify-between md:text-left">
           <div className="flex items-center gap-sm">
             <span className="grid h-10 w-10 place-items-center rounded-md bg-primary text-on-primary">
