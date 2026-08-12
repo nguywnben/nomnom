@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -15,8 +15,10 @@ import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import {
   fetchFeaturedRestaurantsApi,
+  fetchNearbyDishesApi,
   fetchTrendingDishesApi,
   fetchOrderAgainApi,
+  fetchHomePageConfigApi,
 } from '../../lib/api.js';
 
 const HERO_BG = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1800&q=80';
@@ -29,23 +31,17 @@ const HERO_TRUST_TAGS = [
   { label: 'Hỗ trợ nhanh khi cần', icon: 'chat' },
 ];
 
-const MOODS = [
-  { id: 'comfort', label: 'Món ăn quen thuộc', sub: 'Burger, mì Ý, mì ramen', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'american' },
-  { id: 'healthy', label: 'Món ăn tốt cho sức khỏe', sub: 'Rau xanh, ngũ cốc, protein', image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'healthy' },
-  { id: 'sweet', label: 'Món ngọt', sub: 'Bánh ngọt, bánh donut, kem', image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'bakery' },
-  { id: 'fast', label: 'Ăn nhẹ', sub: 'Sẵn sàng dưới 25 phút', image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80', cuisineSlug: 'mexican' },
-];
-
 export default function CustomerHome() {
   const nav = useNavigate();
   const { deliveryLocalityLine } = useOutletContext() ?? {};
-  const { user, shopAsCustomer } = useApp();
+  const { user, shopAsCustomer, currentLocation } = useApp();
   const canViewOrderAgain = Boolean(user?.id && shopAsCustomer);
-  const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories();
+  const { categories, loading: categoriesLoading, error: categoriesError } = useHomeCategories(currentLocation);
   const { promos, loading: promosLoading, error: promosError } = useHomePromos();
   const { cuisines, loading: cuisinesLoading } = useCuisines();
   const cuisineScroll = useHorizontalDragScroll();
   const exploreScroll = useHorizontalDragScroll();
+  const nearbyScroll = useHorizontalDragScroll();
   const trendingScroll = useHorizontalDragScroll();
 
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
@@ -53,14 +49,30 @@ export default function CustomerHome() {
 
   const [trendingDishes, setTrendingDishes] = useState([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingSource, setTrendingSource] = useState('today');
+
+  const [nearbyDishes, setNearbyDishes] = useState([]);
+  const [nearbyLoading, setNearbyLoading] = useState(true);
+  const nearbySeed = useRef(`${Date.now()}${Math.random().toString(36).slice(2)}`);
 
   const [orderAgainList, setOrderAgainList] = useState([]);
   const [quickViewDish, setQuickViewDish] = useState(null);
+  const [pageConfig, setPageConfig] = useState(null);
+
+  useEffect(() => {
+    fetchHomePageConfigApi().then((response) => setPageConfig(response.config ?? null)).catch(() => {});
+  }, []);
+
+  const sectionProps = (id) => {
+    const section = pageConfig?.sections?.find((item) => item.id === id);
+    return { hidden: section?.isVisible === false, style: section ? { order: section.sortOrder } : undefined };
+  };
+  const hero = pageConfig?.hero;
 
   useEffect(() => {
     let mounted = true;
 
-    fetchFeaturedRestaurantsApi()
+    fetchFeaturedRestaurantsApi(currentLocation)
       .then((res) => {
         if (mounted) setFeaturedRestaurants(res.data ?? []);
       })
@@ -69,13 +81,25 @@ export default function CustomerHome() {
         if (mounted) setFeaturedLoading(false);
       });
 
-    fetchTrendingDishesApi()
+    fetchTrendingDishesApi(currentLocation)
       .then((res) => {
-        if (mounted) setTrendingDishes(res.data ?? []);
+        if (mounted) {
+          setTrendingDishes(res.data ?? []);
+          setTrendingSource(res.source ?? 'today');
+        }
       })
       .catch((err) => console.error('Failed fetching trending dishes:', err))
       .finally(() => {
         if (mounted) setTrendingLoading(false);
+      });
+
+    fetchNearbyDishesApi(currentLocation, nearbySeed.current)
+      .then((res) => {
+        if (mounted) setNearbyDishes(res.data ?? []);
+      })
+      .catch((err) => console.error('Failed fetching nearby dishes:', err))
+      .finally(() => {
+        if (mounted) setNearbyLoading(false);
       });
 
     if (canViewOrderAgain) {
@@ -91,16 +115,16 @@ export default function CustomerHome() {
     return () => {
       mounted = false;
     };
-  }, [canViewOrderAgain]);
+  }, [canViewOrderAgain, currentLocation]);
 
   return (
-    <div className="bg-canvas">
+    <div className="flex flex-col bg-canvas">
       {/* HERO */}
-      <section className="relative isolate">
+      <section className="relative isolate" style={{ order: 0 }}>
         <div
           className="absolute inset-0 -z-10"
           style={{
-            backgroundImage: `url(${HERO_BG})`,
+            backgroundImage: `url(${hero?.imageUrl || HERO_BG})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
@@ -115,13 +139,13 @@ export default function CustomerHome() {
           <div className="mx-auto max-w-2xl text-center">
             <span className="inline-flex max-w-full items-center gap-1 rounded-pill bg-canvas/15 px-2.5 py-0.5 text-caption text-on-dark backdrop-blur">
               <Icon name="pin" size={12} className="shrink-0" />
-              <span className="min-w-0 truncate">Giao hàng đến · {deliveryLocalityLine}</span>
+              <span className="min-w-0 truncate">Khám phá quanh bạn · {deliveryLocalityLine}</span>
             </span>
             <h1 className="mt-base text-display-lg text-on-dark md:text-display-xl lg:text-display-mega">
-              Đói bụng? Đặt món ngay.
+              {hero?.title || 'Đói bụng? Đặt món ngay.'}
             </h1>
             <p className="mt-xs text-body-md text-on-dark-soft">
-              Khám phá món ngon giao siêu tốc từ các quán ăn hàng đầu quanh bạn.
+              {hero?.subtitle || 'Khám phá món ngon giao siêu tốc từ các quán ăn hàng đầu quanh bạn.'}
             </p>
 
             {/* Hero search bar */}
@@ -181,7 +205,7 @@ export default function CustomerHome() {
       </section>
 
       {/* CUISINES */}
-      <section className="container-page pt-xl">
+      <section className="container-page py-xl" {...sectionProps('cuisines')}>
         <SectionHeader
           caption="Khám phá nhanh"
           title="Loại hình ẩm thực"
@@ -190,7 +214,7 @@ export default function CustomerHome() {
           ref={cuisineScroll.ref}
           onMouseDown={cuisineScroll.onMouseDown}
           onClickCapture={cuisineScroll.onClickCapture}
-          className="-mx-base min-w-0 cursor-grab overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          className="-mx-base min-w-0 cursor-default overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           role="region"
           aria-label="Loại hình ẩm thực — cuộn ngang"
         >
@@ -202,7 +226,7 @@ export default function CustomerHome() {
               <Link
                 key={cuisine.id}
                 to={`/app/search?cuisine=${encodeURIComponent(cuisine.slug)}`}
-                className="group w-28 shrink-0"
+                className="group w-28 shrink-0 cursor-pointer"
               >
                 <div className="relative aspect-square overflow-hidden rounded-lg border border-hairline-strong bg-canvas-soft transition-shadow duration-200 ease-out group-hover:shadow-soft">
                   {cuisine.iconUrl ? <img src={cuisine.iconUrl} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-body"><Icon name="grid" size={22} /></div>}
@@ -215,7 +239,7 @@ export default function CustomerHome() {
       </section>
 
       {/* FEATURED DISHES */}
-      <section className="container-page pt-xl">
+      <section className="container-page pb-xl" {...sectionProps('featured-dishes')}>
         <SectionHeader
           caption="Khám phá hôm nay"
           title="Món nổi bật từ nhiều quán"
@@ -229,7 +253,7 @@ export default function CustomerHome() {
           ref={exploreScroll.ref}
           onMouseDown={exploreScroll.onMouseDown}
           onClickCapture={exploreScroll.onClickCapture}
-          className="-mx-base min-w-0 cursor-grab overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          className="-mx-base min-w-0 cursor-default overflow-x-auto overscroll-x-contain px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           role="region"
           aria-label="Món nổi bật từ nhiều quán — cuộn ngang"
         >
@@ -256,8 +280,39 @@ export default function CustomerHome() {
         </div>
       </section>
 
+      {/* NEARBY DISHES */}
+      <section className="container-page" {...sectionProps('nearby-dishes')}>
+        <SectionHeader
+          caption="Theo vị trí hiện tại"
+          title="Các món gần bạn"
+          right={
+            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+              Xem tất cả
+            </Link>
+          }
+        />
+        {nearbyLoading ? (
+          <DishCarouselSkeleton />
+        ) : !currentLocation ? (
+          <p className="text-body-sm text-body">Hãy cho phép truy cập vị trí để xem các món có thể giao đến bạn.</p>
+        ) : nearbyDishes.length === 0 ? (
+          <p className="text-body-sm text-body">Chưa có món nào đang giao đến khu vực của bạn.</p>
+        ) : (
+          <div
+            ref={nearbyScroll.ref}
+            onMouseDown={nearbyScroll.onMouseDown}
+            onClickCapture={nearbyScroll.onClickCapture}
+            className="-mx-base flex cursor-default gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+          >
+            {nearbyDishes.map((dish) => (
+              <DishCard key={dish.id} dish={dish} onPreview={() => setQuickViewDish(dish)} />
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* PROMO STRIP */}
-      <section className="container-page py-xl">
+      <section className="container-page py-xl" {...sectionProps('promos')}>
         <div className="grid gap-base md:grid-cols-3">
           {promosLoading &&
             Array.from({ length: 3 }).map((_, i) => (
@@ -282,11 +337,11 @@ export default function CustomerHome() {
         </div>
       </section>
 
-      {/* TRENDING DISHES */}
-      <section className="container-page pb-xl">
+      {/* TODAY'S TRENDING DISHES */}
+      <section className="container-page pb-xl" {...sectionProps('trending')}>
         <SectionHeader
-          caption="Đang hot"
-          title="Các món thịnh hành"
+          caption={trendingSource === 'today' ? 'Được giao nhiều hôm nay' : 'Đang hot'}
+          title={trendingSource === 'today' ? 'Thịnh hành hôm nay' : 'Các món thịnh hành'}
           right={
             <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
               Xem tất cả
@@ -312,7 +367,7 @@ export default function CustomerHome() {
             ref={trendingScroll.ref}
             onMouseDown={trendingScroll.onMouseDown}
             onClickCapture={trendingScroll.onClickCapture}
-            className="-mx-base flex cursor-grab gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
+            className="-mx-base flex cursor-default gap-base overflow-x-auto px-base pb-1 no-scrollbar active:cursor-grabbing md:mx-0 md:px-0"
           >
             {trendingDishes.map((d) => (
               <DishCard
@@ -327,7 +382,7 @@ export default function CustomerHome() {
 
       {/* ORDER AGAIN (Chỉ hiển thị khi đã đăng nhập và có lịch sử) */}
       {canViewOrderAgain && orderAgainList.length > 0 && (
-        <section className="container-page pb-xl">
+        <section className="container-page pb-xl" {...sectionProps('order-again')}>
           <SectionHeader
             caption="Chào mừng trở lại"
             title="Đặt lại món"
@@ -359,7 +414,7 @@ export default function CustomerHome() {
       )}
 
       {/* FEATURED RESTAURANTS */}
-      <section className="container-page pb-xl">
+      <section className="container-page pb-xl" {...sectionProps('featured-restaurants')}>
         <SectionHeader
           caption="Nổi bật"
           title="Quán ăn nổi bật"
@@ -383,19 +438,19 @@ export default function CustomerHome() {
       </section>
 
       {/* MOOD TILES */}
-      <section className="container-page pb-xxl">
+      <section className="container-page pb-xxl" {...sectionProps('moods')}>
         <SectionHeader caption="Khám phá" title="Theo tâm trạng" />
         <div className="grid grid-cols-2 gap-base lg:grid-cols-4">
-          {MOODS.map((m) => (
+          {(pageConfig?.moods ?? []).filter((m) => m.isVisible).map((m) => (
             <Link
               key={m.id}
-              to={`/app/search?cuisine=${m.cuisineSlug}`}
+              to={m.linkUrl}
               className="group relative aspect-[4/5] overflow-hidden rounded-lg border border-hairline-strong transition-shadow hover:shadow-soft"
             >
-              <Image src={m.image} alt={m.label} ratio="4/5" className="h-full w-full" />
+              <Image src={m.imageUrl} alt={m.label} ratio="4/5" className="h-full w-full" />
               <div className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-transparent" />
               <div className="absolute inset-0 flex flex-col justify-end p-base text-on-dark">
-                <span className="text-caption-uppercase text-on-dark-soft">{m.sub}</span>
+                <span className="text-caption-uppercase text-on-dark-soft">{m.subtitle}</span>
                 <span className="text-display-sm">{m.label}</span>
                 <span className="mt-1 inline-flex items-center gap-1 text-button text-on-dark">
                   Khám phá <Icon name="arrowRight" size={14} />
@@ -407,7 +462,7 @@ export default function CustomerHome() {
       </section>
 
       {/* QUIET PARTNER CTA */}
-      <section className="border-t border-hairline bg-canvas-soft">
+      <section className="border-t border-hairline bg-canvas-soft" {...sectionProps('partner')}>
         <div className="container-page flex flex-col items-center gap-sm py-xl text-center md:flex-row md:items-center md:justify-between md:text-left">
           <div className="flex items-center gap-sm">
             <span className="grid h-10 w-10 place-items-center rounded-md bg-primary text-on-primary">
@@ -471,6 +526,22 @@ function FeaturedRestaurantGridSkeleton() {
   );
 }
 
+function DishCarouselSkeleton() {
+  return (
+    <div className="-mx-base flex gap-base overflow-hidden px-base pb-1 md:mx-0 md:px-0">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="w-[232px] shrink-0 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card md:w-[248px]">
+          <Skeleton className="aspect-[4/3] w-full rounded-none" rounded="none" />
+          <div className="space-y-2 p-sm">
+            <Skeleton className="h-4 w-3/4" rounded="sm" />
+            <Skeleton className="h-3 w-1/2" rounded="sm" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionHeader({ caption, title, right }) {
   return (
     <div className="mb-base flex items-end justify-between gap-base">
@@ -486,6 +557,11 @@ function SectionHeader({ caption, title, right }) {
 function HomeDishCard({ dish, onPreview }) {
   const prepTime = Number(dish.prepTimeMin ?? 0);
   const isOpen = dish.isOpenNow ?? true;
+  const deliveryBadge = dish.isWithinDeliveryRange === false
+    ? 'Ngoài phạm vi'
+    : dish.isWithinDeliveryRange === null
+      ? 'Cần vị trí'
+      : null;
 
   return (
     <button
@@ -497,6 +573,11 @@ function HomeDishCard({ dish, onPreview }) {
       <div className="relative">
         <Image src={dish.imageUrl} alt={dish.name} ratio="4/3" className="w-full" />
         {!isOpen && <Badge tone="error" className="absolute left-sm top-sm">Đóng cửa</Badge>}
+        {deliveryBadge && (
+          <Badge tone="default" className={`absolute left-sm ${!isOpen ? 'top-9' : 'top-sm'}`}>
+            {deliveryBadge}
+          </Badge>
+        )}
       </div>
       <div className="flex min-h-[88px] flex-1 flex-col gap-1 p-sm">
         <div className="flex items-start justify-between gap-2">
@@ -559,10 +640,9 @@ function RestaurantCard({ restaurant: r }) {
   const reviewCount = Number(r.reviewCount ?? 0);
   const cuisine = r.cuisineName || r.cuisine || 'Ẩm thực';
   const eta = r.avgPrepTimeMin ? `${r.avgPrepTimeMin}p` : r.eta || '20p';
-  const fee = Number(r.baseDeliveryFee ?? r.fee ?? 0);
   const isOpen = r.isOpenNow ?? r.open ?? true;
 
-  const promoBadge = fee < 20000 ? 'Phí giao thấp' : rating >= 4.8 ? 'Đánh giá cao' : null;
+  const promoBadge = rating >= 4.8 ? 'Đánh giá cao' : null;
 
   return (
     <Link
@@ -574,6 +654,8 @@ function RestaurantCard({ restaurant: r }) {
         <div className="absolute left-sm top-sm flex gap-1">
           {promoBadge && <Badge tone="default" className="bg-surface-card/95 backdrop-blur">{promoBadge}</Badge>}
           {!isOpen && <Badge tone="error">Đóng cửa</Badge>}
+          {r.isWithinDeliveryRange === false && <Badge tone="default" className="bg-surface-card/95">Ngoài phạm vi</Badge>}
+          {r.isWithinDeliveryRange === null && <Badge tone="default" className="bg-surface-card/95">Cần vị trí</Badge>}
         </div>
         <div className="absolute -bottom-3 right-base">
           <Avatar src={logo} name={r.name} square size="md" className="ring-2 ring-canvas" />
@@ -595,9 +677,6 @@ function RestaurantCard({ restaurant: r }) {
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1">
               <Icon name="clock" size={12} /> <span className="nums">{eta}</span>
-            </span>
-            <span className="inline-flex items-center gap-1 nums">
-              Phí: {formatVnd(fee)}
             </span>
           </div>
         </div>
@@ -624,6 +703,8 @@ function DishCard({ dish, onPreview }) {
           <Image src={image} alt={dish.name} ratio="4/3" className="w-full" />
         </button>
         {!isOpen && <Badge tone="error" className="absolute left-sm top-sm">Đóng cửa</Badge>}
+        {dish.isWithinDeliveryRange === false && <Badge tone="default" className="absolute left-sm top-sm">Ngoài phạm vi</Badge>}
+        {dish.isWithinDeliveryRange === null && <Badge tone="default" className="absolute left-sm top-sm">Cần vị trí</Badge>}
       </div>
       <div className="flex min-h-[88px] flex-1 flex-col gap-1 p-sm">
         <div className="flex items-start justify-between gap-2">

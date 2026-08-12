@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
-import Input, { Textarea } from '../../components/Input.jsx';
+import Input, { Select, Textarea } from '../../components/Input.jsx';
+import Modal from '../../components/Modal.jsx';
 import Switch from '../../components/Switch.jsx';
 import Tabs from '../../components/Tabs.jsx';
-import { fetchMerchantSettingsApi, updateMerchantSettingsApi } from '../../lib/api.js';
+import {
+  cancelMerchantAddressChangeRequest,
+  createMerchantAddressChangeRequest,
+  fetchMerchantSettingsApi,
+  updateMerchantSettingsApi,
+} from '../../lib/api.js';
+import { apiGet } from '../../lib/api.js';
+import { createAdministrativeLocationsApi } from '../../lib/administrativeLocations.js';
 import { useApp } from '../../context/AppContext.jsx';
+
+const locationsApi = createAdministrativeLocationsApi(apiGet);
 
 const EMPTY = {
   name: '',
@@ -16,7 +26,6 @@ const EMPTY = {
   ward: '',
   district: '',
   city: '',
-  baseDeliveryFee: 0,
   minOrderAmount: 0,
   avgPrepTimeMin: 20,
   isOpenNow: false,
@@ -33,6 +42,14 @@ export default function MerchantSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [addressChangeRequest, setAddressChangeRequest] = useState(null);
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [addressForm, setAddressForm] = useState({ addressLine: '', ward: '', district: '', city: '' });
+  const [addressSubmitting, setAddressSubmitting] = useState(false);
+  const [provinces, setProvinces] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [provinceCode, setProvinceCode] = useState('');
+  const [wardCode, setWardCode] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,6 +57,7 @@ export default function MerchantSettings() {
       const response = await fetchMerchantSettingsApi();
       setForm(response.restaurant);
       setSaved(response.restaurant);
+      setAddressChangeRequest(response.addressChangeRequest ?? null);
       setError('');
     } catch (err) {
       setError(err.message || 'Không thể tải cài đặt quán.');
@@ -51,11 +69,57 @@ export default function MerchantSettings() {
   useEffect(() => { load(); }, [load]);
 
   const set = (patch) => setForm((current) => ({ ...current, ...patch }));
+  const setAddress = (patch) => setAddressForm((current) => ({ ...current, ...patch }));
+
+  useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch(() => setProvinces([])); }, []);
+  useEffect(() => { if (!provinceCode) { setWards([]); return; } locationsApi.getWards(provinceCode).then(setWards).catch(() => setWards([])); }, [provinceCode]);
+
+  const openAddressModal = () => {
+    setProvinceCode('');
+    setWardCode('');
+    setAddressForm({
+      addressLine: form.addressLine || '',
+      ward: form.ward || '',
+      district: form.district || '',
+      city: form.city || '',
+    });
+    setAddressModalOpen(true);
+  };
+
+  const submitAddressChange = async () => {
+    setAddressSubmitting(true);
+    try {
+      const response = await createMerchantAddressChangeRequest(addressForm);
+      setAddressChangeRequest(response.request);
+      setAddressModalOpen(false);
+      pushToast({ kind: 'success', title: 'Đã gửi yêu cầu', message: 'Địa chỉ hiện tại vẫn được dùng cho đến khi admin duyệt.' });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể gửi yêu cầu', message: err.message || 'Vui lòng kiểm tra lại thông tin địa chỉ.' });
+    } finally {
+      setAddressSubmitting(false);
+    }
+  };
+
+  const cancelAddressChange = async () => {
+    if (!addressChangeRequest?.id) return;
+    setAddressSubmitting(true);
+    try {
+      const response = await cancelMerchantAddressChangeRequest(addressChangeRequest.id);
+      setAddressChangeRequest(response.request);
+      pushToast({ kind: 'info', title: 'Đã hủy yêu cầu', message: 'Bạn có thể gửi một yêu cầu đổi địa chỉ mới.' });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không thể hủy yêu cầu', message: err.message || 'Vui lòng thử lại sau.' });
+    } finally {
+      setAddressSubmitting(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
     try {
-      const response = await updateMerchantSettingsApi(form);
+      const editableSettings = { ...form };
+      ['addressLine', 'ward', 'district', 'city', 'id', 'slug', 'commissionRate'].forEach((key) => delete editableSettings[key]);
+      const response = await updateMerchantSettingsApi(editableSettings);
       setForm(response.restaurant);
       setSaved(response.restaurant);
       setError('');
@@ -113,16 +177,39 @@ export default function MerchantSettings() {
           <div className="md:col-span-2">
             <Textarea id="merchant-description" label="Giới thiệu" rows={4} value={form.description} onChange={(event) => set({ description: event.target.value })} />
           </div>
-          <Input id="merchant-address" label="Địa chỉ" value={form.addressLine} disabled hint="Liên hệ admin để thay đổi địa chỉ đã xác minh." />
+          <Input id="merchant-address" label="Địa chỉ" value={form.addressLine} disabled hint="Địa chỉ đang áp dụng để vận hành và tính phí giao hàng." />
           <Input id="merchant-ward" label="Phường/Xã" value={form.ward} disabled />
           <Input id="merchant-district" label="Quận/Huyện" value={form.district} disabled />
           <Input id="merchant-city" label="Tỉnh/Thành phố" value={form.city} disabled />
+          <div className="md:col-span-2 rounded-md border border-hairline-strong bg-canvas-soft p-base">
+            {addressChangeRequest?.status === 'pending' ? (
+              <div className="flex flex-wrap items-center justify-between gap-sm">
+                <div>
+                  <div className="text-body-sm font-semibold text-ink">Yêu cầu đổi địa chỉ đang chờ duyệt</div>
+                  <p className="mt-1 text-caption text-body">
+                    Đề xuất: {[addressChangeRequest.proposedAddress.addressLine, addressChangeRequest.proposedAddress.ward, addressChangeRequest.proposedAddress.district, addressChangeRequest.proposedAddress.city].filter(Boolean).join(', ')}
+                  </p>
+                </div>
+                <Button variant="secondary" size="sm" onClick={cancelAddressChange} loading={addressSubmitting}>Hủy yêu cầu</Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-sm">
+                <div>
+                  <div className="text-body-sm font-semibold text-ink">Cần đổi địa chỉ quán?</div>
+                  <p className="mt-1 text-caption text-body">
+                    Admin sẽ kiểm tra và duyệt trước khi địa chỉ mới được áp dụng.
+                    {addressChangeRequest?.status === 'rejected' && addressChangeRequest.rejectionReason ? ` Lý do từ chối gần nhất: ${addressChangeRequest.rejectionReason}` : ''}
+                  </p>
+                </div>
+                <Button variant="secondary" size="sm" onClick={openAddressModal}>Gửi yêu cầu đổi địa chỉ</Button>
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
       {tab === 'operations' && (
-        <Card padded className="grid gap-sm md:grid-cols-3">
-          <Input id="base-delivery-fee" type="number" min="0" step="1000" label="Phí giao cơ bản (VND)" value={form.baseDeliveryFee} onChange={(event) => set({ baseDeliveryFee: Number(event.target.value) })} />
+        <Card padded className="grid gap-sm md:grid-cols-2">
           <Input id="min-order-amount" type="number" min="0" step="1000" label="Đơn tối thiểu (VND)" value={form.minOrderAmount} onChange={(event) => set({ minOrderAmount: Number(event.target.value) })} />
           <Input id="avg-prep-time" type="number" min="1" max="300" label="Chuẩn bị trung bình (phút)" value={form.avgPrepTimeMin} onChange={(event) => set({ avgPrepTimeMin: Number(event.target.value) })} />
           <div className="md:col-span-3 rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body">
@@ -143,6 +230,18 @@ export default function MerchantSettings() {
         <Button variant="secondary" onClick={() => { setForm(saved); setError(''); }} disabled={saving}>Đặt lại</Button>
         <Button leadingIcon="check" onClick={save} loading={saving}>Lưu thay đổi</Button>
       </div>
+      <Modal open={addressModalOpen} onClose={() => setAddressModalOpen(false)} title="Yêu cầu đổi địa chỉ quán" size="lg">
+        <div className="grid gap-sm md:grid-cols-2">
+          <Input id="request-address-line" className="md:col-span-2" label="Địa chỉ cụ thể" required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
+          <Select id="request-city" label="Tỉnh/Thành phố" required value={provinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = provinces.find((value) => value.code === event.target.value); setProvinceCode(event.target.value); setWardCode(''); setAddress({ city: item?.name ?? '', district: '', ward: '' }); }} />
+          <Select id="request-ward" label="Phường/Xã" required value={wardCode} disabled={!provinceCode} options={[{ value: '', label: provinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = wards.find((value) => value.code === event.target.value); setWardCode(event.target.value); setAddress({ ward: item?.name ?? '' }); }} />
+          <p className="md:col-span-2 text-caption text-body">Địa chỉ mới chỉ có hiệu lực sau khi admin duyệt; trong lúc chờ, hệ thống vẫn dùng địa chỉ hiện tại.</p>
+          <div className="flex justify-end gap-2 md:col-span-2">
+            <Button variant="secondary" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>Hủy</Button>
+            <Button onClick={submitAddressChange} loading={addressSubmitting}>Gửi yêu cầu</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

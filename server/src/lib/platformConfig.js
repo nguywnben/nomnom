@@ -1,6 +1,5 @@
 export const PLATFORM_CONFIG_RULES = Object.freeze({
   default_commission_rate: { dataType: 'decimal', min: 0, max: 50 },
-  default_driver_share: { dataType: 'decimal', min: 0, max: 100 },
   max_search_radius_km: { dataType: 'decimal', min: 1, max: 100 },
   min_payout_amount: { dataType: 'int', min: 10000, max: 1000000000 },
   order_auto_cancel_minutes: { dataType: 'int', min: 1, max: 120 },

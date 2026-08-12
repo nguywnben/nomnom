@@ -19,7 +19,6 @@ import { helpers } from '../data/mock.js';
 //   4. Featured restaurants strip
 //   5. Cuisines carousel — round food photos
 //   6. Partner with us — restaurant imagery + merchant CTA
-//   7. Ride with us — driver imagery + driver CTA
 //   8. By the numbers — quiet trust strip
 //   9. Footer — neo liên hệ + liên kết pháp lý
 //

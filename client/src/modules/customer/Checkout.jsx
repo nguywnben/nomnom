@@ -6,11 +6,23 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-import Input, { Textarea } from '../../components/Input.jsx';
+import Input, { Select, Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 // Import formatVnd
 import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet, apiPost } from '../../lib/api.js';
+import { createAdministrativeLocationsApi } from '../../lib/administrativeLocations.js';
+
+const locationsApi = createAdministrativeLocationsApi(apiGet);
+
+function normalizeLocationName(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/^(tinh|thanh pho|phuong|xa)\s+/i, '')
+    .trim()
+    .toLowerCase();
+}
 
 const PAYMENTS = [
   { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', detail: 'Thanh toán khi nhận món', icon: 'cash' },
@@ -22,9 +34,7 @@ export default function CustomerCheckout() {
   const {
     cart,
     cartSubtotal,
-    deliveryFee,
     discount,
-    cartTotal,
     pushToast,
     currentCustomer,
     clearCart,
@@ -36,6 +46,8 @@ export default function CustomerCheckout() {
   const [addresses, setAddresses] = useState([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
   const [addressId, setAddressId] = useState(null);
+  const [shippingQuote, setShippingQuote] = useState(null);
+  const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
@@ -43,15 +55,15 @@ export default function CustomerCheckout() {
   const [newLine1, setNewLine1] = useState('');
   const [makeDefault] = useState(true);
 
-  // Location states
   const [provinces, setProvinces] = useState([]);
   const [wards, setWards] = useState([]);
-
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
-  const [selectedProvinceName, setSelectedProvinceName] = useState('');
-
   const [selectedWardCode, setSelectedWardCode] = useState('');
+
+  const [selectedProvinceName, setSelectedProvinceName] = useState('');
   const [selectedWardName, setSelectedWardName] = useState('');
+  const [newCoordinates, setNewCoordinates] = useState(null);
+  const [locatingAddress, setLocatingAddress] = useState(false);
 
   const [note, setNote] = useState('');
   const [placing, setPlacing] = useState(false);
@@ -87,25 +99,123 @@ export default function CustomerCheckout() {
   }, [currentCustomer]);
 
   const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
+  const quotedDeliveryFee = shippingQuote?.total ?? 0;
+  const quotedCartTotal = Math.max(0, cartSubtotal + quotedDeliveryFee - discount);
+  const cartTotal = quotedCartTotal;
 
+  /* const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Trình duyệt không hỗ trợ vị trí.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setNewLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        setLocationError('');
+      },
+      () => setLocationError('Hãy cho phép quyền vị trí để tính phí giao hàng chính xác.'),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }; */
+
+  useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch((error) => pushToast({ kind: 'error', title: 'Không tải được địa giới', message: error.message })); }, [pushToast]);
   useEffect(() => {
-    fetch('https://provinces.open-api.vn/api/v2/p/')
-      .then(res => res.json())
-      .then(data => setProvinces(data))
+    if (!selectedProvinceCode) { setWards([]); return; }
+    locationsApi.getWards(selectedProvinceCode).then(setWards).catch(() => setWards([]));
+  }, [selectedProvinceCode]);
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      pushToast({ kind: 'error', title: 'Không hỗ trợ vị trí', message: 'Trình duyệt này không hỗ trợ định vị.' });
+      return;
+    }
+    setLocatingAddress(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const { address } = await apiPost('/api/v1/shipping/reverse-address', {
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          });
+          const province = provinces.find((item) => normalizeLocationName(item.name) === normalizeLocationName(address.city));
+          if (!province) throw new Error('Không đối chiếu được Tỉnh/Thành phố từ vị trí hiện tại.');
+          const provinceWards = await locationsApi.getWards(province.code);
+          const ward = provinceWards.find((item) => normalizeLocationName(item.name) === normalizeLocationName(address.ward));
+          if (!ward) throw new Error('Không đối chiếu được Phường/Xã từ vị trí hiện tại.');
+
+          setWards(provinceWards);
+          setSelectedProvinceCode(province.code);
+          setSelectedProvinceName(province.name);
+          setSelectedWardCode(ward.code);
+          setSelectedWardName(ward.name);
+          setNewLine1(address.line1);
+          setNewCoordinates({ latitude: coords.latitude, longitude: coords.longitude });
+          setProvinceError('');
+          setWardError('');
+          setLine1Error('');
+          pushToast({ kind: 'success', title: 'Đã xác định vị trí', message: 'Địa chỉ giao hàng đã được điền tự động.' });
+        } catch (error) {
+          pushToast({ kind: 'error', title: 'Không thể điền địa chỉ', message: error.message });
+        } finally {
+          setLocatingAddress(false);
+        }
+      },
+      (error) => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? 'Hãy cho phép NomNom truy cập vị trí trong trình duyệt.'
+          : 'Không lấy được vị trí hiện tại. Vui lòng thử lại.';
+        pushToast({ kind: 'error', title: 'Không thể lấy vị trí', message });
+        setLocatingAddress(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
+  /* const legacyUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Trình duyệt không hỗ trợ lấy vị trí.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setNewLatitude(String(coords.latitude));
+        setNewLongitude(String(coords.longitude));
+        setLocationError('');
+      },
+      () => setLocationError('Không thể lấy vị trí. Hãy cho phép quyền vị trí hoặc nhập tọa độ.'),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }; */
+
+  /* useEffect(() => {
+    ghnLocationsApi.getProvinces()
+      .then(setProvinces)
       .catch(err => console.error('Failed to load provinces:', err));
   }, []);
 
   useEffect(() => {
     if (!selectedProvinceCode) {
+      setDistricts([]);
+      setSelectedDistrictCode('');
       setWards([]);
       setSelectedWardCode('');
       return;
     }
-    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
-      .then(res => res.json())
-      .then(data => setWards(data.wards || []))
-      .catch(err => console.error('Failed to load wards:', err));
+    ghnLocationsApi.getDistricts(selectedProvinceCode)
+      .then(setDistricts)
+      .catch(err => console.error('Failed to load districts:', err));
   }, [selectedProvinceCode]);
+
+  useEffect(() => {
+    if (!selectedDistrictCode) {
+      setWards([]);
+      setSelectedWardCode('');
+      return;
+    }
+    ghnLocationsApi.getWards(selectedDistrictCode)
+      .then(setWards)
+      .catch(err => console.error('Failed to load wards:', err));
+  }, [selectedDistrictCode]); */
 
   useEffect(() => {
     if (addressId && addresses.length > 0 && !isAddingNewAddress) {
@@ -117,6 +227,54 @@ export default function CustomerCheckout() {
       }
     }
   }, [addressId, addresses, currentCustomer, isAddingNewAddress]);
+
+  useEffect(() => {
+    if (isAddingNewAddress || !addressId) {
+      setShippingQuote(null);
+      return;
+    }
+    const address = addresses.find((item) => item.id === addressId);
+    if (!Number.isFinite(Number(address?.latitude)) || !Number.isFinite(Number(address?.longitude))) {
+      setShippingQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setShippingQuoteLoading(true);
+    apiPost('/api/v1/shipping/quote', { addressId })
+      .then((data) => { if (!cancelled) setShippingQuote(data.quote); })
+      .catch((error) => {
+        if (!cancelled) {
+          setShippingQuote(null);
+          pushToast({ kind: 'error', title: 'Không thể tính phí giao hàng', message: error.message });
+        }
+      })
+      .finally(() => { if (!cancelled) setShippingQuoteLoading(false); });
+    return () => { cancelled = true; };
+  }, [addressId, addresses, isAddingNewAddress, pushToast]);
+
+  useEffect(() => {
+    if (!isAddingNewAddress) return undefined;
+    const draftAddress = { line1: newLine1.trim(), ward: selectedWardName.trim(), district: '', city: selectedProvinceName.trim(), ...newCoordinates };
+    if (![draftAddress.line1, draftAddress.ward, draftAddress.city].every(Boolean)) {
+      setShippingQuote(null);
+      setShippingQuoteLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setShippingQuoteLoading(true);
+      apiPost('/api/v1/shipping/quote-address', draftAddress)
+        .then((data) => { if (!cancelled) setShippingQuote(data.quote); })
+        .catch((error) => {
+          if (!cancelled) {
+            setShippingQuote(null);
+            pushToast({ kind: 'error', title: 'Không thể tính phí giao hàng', message: error.message });
+          }
+        })
+        .finally(() => { if (!cancelled) setShippingQuoteLoading(false); });
+    }, 600);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [isAddingNewAddress, newLine1, selectedWardName, selectedProvinceName, newCoordinates, pushToast]);
 
   if (!cart?.items?.length) {
     return (
@@ -158,11 +316,11 @@ export default function CustomerCheckout() {
         setLine1Error('Vui lòng nhập địa chỉ cụ thể');
         hasError = true;
       }
-      if (!selectedProvinceCode) {
+      if (!selectedProvinceName.trim()) {
         setProvinceError('Vui lòng chọn Tỉnh/Thành phố');
         hasError = true;
       }
-      if (!selectedWardCode) {
+      if (!selectedWardName.trim()) {
         setWardError('Vui lòng chọn Phường/Xã');
         hasError = true;
       }
@@ -170,6 +328,11 @@ export default function CustomerCheckout() {
 
     if (hasError) {
       pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng kiểm tra lại thông tin nhập' });
+      return;
+    }
+
+    if (!shippingQuote) {
+      pushToast({ kind: 'error', title: 'Chưa có phí giao hàng', message: 'Hãy hoàn tất địa chỉ và chờ hệ thống báo giá.' });
       return;
     }
 
@@ -186,11 +349,21 @@ export default function CustomerCheckout() {
           recipientPhone: phone.trim(),
           line1: newLine1.trim(),
           ward: selectedWardName,
+          district: '',
           city: selectedProvinceName,
+          ...newCoordinates,
           deliveryNote: note,
           isDefault: makeDefault
         });
         finalAddressId = newAddr.id;
+        // Giữ địa chỉ vừa tạo làm địa chỉ đã chọn. Nếu đặt đơn lỗi và khách thử lại,
+        // checkout sẽ dùng lại địa chỉ này thay vì tạo thêm bản sao.
+        setAddresses((current) => [
+          { ...newAddr, isDefault: Boolean(newAddr.isDefault) },
+          ...current.map((item) => ({ ...item, isDefault: newAddr.isDefault ? false : item.isDefault })),
+        ]);
+        setAddressId(newAddr.id);
+        setIsAddingNewAddress(false);
       } else if (!finalAddressId) {
         pushToast({ kind: 'error', title: 'Thiếu thông tin', message: 'Vui lòng chọn địa chỉ' });
         setPlacing(false);
@@ -278,6 +451,12 @@ export default function CustomerCheckout() {
                   <div className="text-body-sm text-body px-2">Đang tải địa chỉ...</div>
                 ) : isAddingNewAddress ? (
                   <div className="flex flex-col gap-sm mt-2">
+                    <div className="flex justify-end">
+                      <Button type="button" variant="secondary" size="sm" leadingIcon="pin" loading={locatingAddress} onClick={useCurrentLocation}>
+                        Dùng vị trí hiện tại
+                      </Button>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-sm">
                       <div className="flex flex-col gap-1">
                         <label className="text-body-sm font-medium text-ink">Tên người nhận</label>
@@ -311,40 +490,13 @@ export default function CustomerCheckout() {
                     <div className="grid grid-cols-2 gap-sm">
                       <div className="flex flex-col gap-1">
                         <label className="text-body-sm font-medium text-ink">Tỉnh/Thành phố</label>
-                        <select
-                          className={`flex h-11 w-full items-center rounded-md border ${provinceError ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none`}
-                          value={selectedProvinceCode}
-                          onChange={(e) => {
-                            setSelectedProvinceCode(e.target.value);
-                            setSelectedProvinceName(e.target.options[e.target.selectedIndex].text);
-                            if (provinceError) setProvinceError('');
-                          }}
-                        >
-                          <option value="">Chọn Tỉnh/Thành phố</option>
-                          {provinces.map((p) => (
-                            <option key={p.code} value={p.code}>{p.name}</option>
-                          ))}
-                        </select>
+                        <Select value={selectedProvinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = provinces.find((value) => value.code === e.target.value); setNewCoordinates(null); setSelectedProvinceCode(e.target.value); setSelectedProvinceName(item?.name ?? ''); setSelectedWardCode(''); setSelectedWardName(''); if (provinceError) setProvinceError(''); }} error={provinceError} />
                         {provinceError && <div className="text-xs text-red-500 mt-1">{provinceError}</div>}
                       </div>
 
                       <div className="flex flex-col gap-1">
                         <label className="text-body-sm font-medium text-ink">Phường/Xã</label>
-                        <select
-                          className={`flex h-11 w-full items-center rounded-md border ${wardError ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
-                          value={selectedWardCode}
-                          onChange={(e) => {
-                            setSelectedWardCode(e.target.value);
-                            setSelectedWardName(e.target.options[e.target.selectedIndex].text);
-                            if (wardError) setWardError('');
-                          }}
-                          disabled={!selectedProvinceCode}
-                        >
-                          <option value="">Chọn Phường/Xã</option>
-                          {wards.map((w) => (
-                            <option key={w.code} value={w.code}>{w.name}</option>
-                          ))}
-                        </select>
+                        <Select value={selectedWardCode} disabled={!selectedProvinceCode} options={[{ value: '', label: selectedProvinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = wards.find((value) => value.code === e.target.value); setNewCoordinates(null); setSelectedWardCode(e.target.value); setSelectedWardName(item?.name ?? ''); if (wardError) setWardError(''); }} error={wardError} />
                         {wardError && <div className="text-xs text-red-500 mt-1">{wardError}</div>}
                       </div>
                     </div>
@@ -356,6 +508,7 @@ export default function CustomerCheckout() {
                         placeholder="Ví dụ: 123 Lê Lợi"
                         value={newLine1}
                         onChange={(e) => {
+                          setNewCoordinates(null);
                           setNewLine1(e.target.value);
                           if (line1Error) setLine1Error('');
                         }}
@@ -528,9 +681,12 @@ export default function CustomerCheckout() {
 
               <div className="text-title-md text-ink">Tổng cộng</div>
               <Row label="Tạm tính" value={formatVnd(cartSubtotal)} />
-              <Row label="Phí giao hàng" value={formatVnd(deliveryFee)} />
               {discount > 0 && <Row label="Khuyến mãi" value={`−${formatVnd(discount)}`} tone="success" />}
               <div className="my-2 h-px bg-hairline" />
+              <Row
+                label="Phí giao hàng"
+                value={shippingQuoteLoading ? 'Đang tính...' : shippingQuote ? formatVnd(quotedDeliveryFee) : 'Chọn địa chỉ có vị trí'}
+              />
               <Row label="Tổng cộng" value={formatVnd(cartTotal)} bold />
               {/* Nút đặt hàng trên Desktop — màn hình Mobile sử dụng thanh dưới cùng cố định */}
               <Button onClick={onPlace} loading={placing} className="hidden lg:flex">

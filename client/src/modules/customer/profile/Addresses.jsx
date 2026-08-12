@@ -5,11 +5,14 @@ import Button from '../../../components/Button.jsx';
 import Card from '../../../components/Card.jsx';
 import EmptyState from '../../../components/EmptyState.jsx';
 import Icon from '../../../components/Icon.jsx';
-import Input from '../../../components/Input.jsx';
+import Input, { Select } from '../../../components/Input.jsx';
 import Modal from '../../../components/Modal.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../../lib/api.js';
+import { createAdministrativeLocationsApi } from '../../../lib/administrativeLocations.js';
+
+const locationsApi = createAdministrativeLocationsApi(apiGet);
 
 const EMPTY_FORM = {
   label: '',
@@ -17,9 +20,11 @@ const EMPTY_FORM = {
   recipientPhone: '',
   line1: '',
   ward: '',
+  district: '',
   city: '',
   deliveryNote: '',
 };
+
 
 export default function Addresses() {
   const { pushToast, permittedRoles } = useApp();
@@ -27,31 +32,14 @@ export default function Addresses() {
   const [loading, setLoading] = useState(false);
   const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   const [confirmDelete, setConfirmDelete] = useState(null);
-
   const [provinces, setProvinces] = useState([]);
   const [wards, setWards] = useState([]);
-  
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
   const [selectedWardCode, setSelectedWardCode] = useState('');
 
-  useEffect(() => {
-    fetch('https://provinces.open-api.vn/api/v2/p/')
-      .then(res => res.json())
-      .then(data => setProvinces(data))
-      .catch(err => console.error('Failed to load provinces:', err));
-  }, []);
+  useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch(() => setProvinces([])); }, []);
+  useEffect(() => { if (!selectedProvinceCode) { setWards([]); return; } locationsApi.getWards(selectedProvinceCode).then(setWards).catch(() => setWards([])); }, [selectedProvinceCode]);
 
-  useEffect(() => {
-    if (!selectedProvinceCode) {
-      setWards([]);
-      setSelectedWardCode('');
-      return;
-    }
-    fetch(`https://provinces.open-api.vn/api/v2/p/${selectedProvinceCode}?depth=2`)
-      .then(res => res.json())
-      .then(data => setWards(data.wards || []))
-      .catch(err => console.error('Failed to load wards:', err));
-  }, [selectedProvinceCode]);
 
   const loadAddresses = useCallback(async () => {
     setLoading(true);
@@ -78,15 +66,8 @@ export default function Addresses() {
   };
 
   const openEdit = (addr) => {
-    // Tìm province code từ tên
-    const p = provinces.find((x) => x.name === addr.city);
-    if (p) setSelectedProvinceCode(p.code);
-
-    // Ward sẽ load ở useEffect do dependency selectedProvinceCode
-    // Ta xài setTimeout hoặc giữ addr.ward vào properties tạm để useEffect set lại
-    setTimeout(() => {
-      setEditor(c => ({...c, __initialWard: addr.ward}));
-    }, 0);
+    setSelectedProvinceCode('');
+    setSelectedWardCode('');
 
     setEditor({
       open: true,
@@ -98,6 +79,7 @@ export default function Addresses() {
         recipientPhone: addr.recipientPhone || '',
         line1: addr.line1 || '',
         ward: addr.ward || '',
+        district: addr.district || '',
         city: addr.city || '',
         deliveryNote: addr.deliveryNote || '',
       },
@@ -105,15 +87,6 @@ export default function Addresses() {
       fieldErrors: {}
     });
   };
-
-  useEffect(() => {
-    // Tự set ward code khi load song wards
-    if (editor.__initialWard && wards.length > 0) {
-      const w = wards.find((x) => x.name === editor.__initialWard);
-      if (w) setSelectedWardCode(w.code);
-      setEditor(c => ({...c, __initialWard: null}));
-    }
-  }, [wards, editor.__initialWard]);
 
   const close = () => setEditor((c) => ({ ...c, open: false }));
 
@@ -350,42 +323,13 @@ export default function Addresses() {
           <div className="grid grid-cols-2 gap-sm">
             <div className="flex flex-col gap-1">
               <label className="text-body-sm font-medium text-ink">Tỉnh/Thành phố</label>
-              <select
-                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.city ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none`}
-                value={selectedProvinceCode}
-                onChange={(e) => {
-                  const code = e.target.value;
-                  const name = e.target.options[e.target.selectedIndex].text;
-                  setSelectedProvinceCode(code);
-                  setEditor((c) => ({ ...c, values: { ...c.values, city: code ? name : '' }, fieldErrors: { ...c.fieldErrors, city: undefined } }));
-                }}
-              >
-                <option value="">Chọn Tỉnh/Thành phố</option>
-                {provinces.map((p) => (
-                  <option key={p.code} value={p.code}>{p.name}</option>
-                ))}
-              </select>
+              <Select value={selectedProvinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = provinces.find((value) => value.code === e.target.value); setSelectedProvinceCode(e.target.value); setSelectedWardCode(''); setEditor((c) => ({ ...c, values: { ...c.values, city: item?.name ?? '', district: '', ward: '' }, fieldErrors: { ...c.fieldErrors, city: undefined } })); }} error={editor.fieldErrors?.city} />
               {editor.fieldErrors?.city && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.city}</div>}
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-body-sm font-medium text-ink">Phường/Xã</label>
-              <select
-                className={`flex h-11 w-full items-center rounded-md border ${editor.fieldErrors?.ward ? 'border-red-500' : 'border-hairline-strong'} bg-surface bg-transparent px-3 text-body-base text-ink focus:border-ink hover:border-ink focus:outline-none disabled:opacity-50`}
-                value={selectedWardCode}
-                onChange={(e) => {
-                  const code = e.target.value;
-                  const name = e.target.options[e.target.selectedIndex].text;
-                  setSelectedWardCode(code);
-                  setEditor((c) => ({ ...c, values: { ...c.values, ward: code ? name : '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } }));
-                }}
-                disabled={!selectedProvinceCode}
-              >
-                <option value="">Chọn Phường/Xã</option>
-                {wards.map((w) => (
-                  <option key={w.code} value={w.code}>{w.name}</option>
-                ))}
-              </select>
+              <Select value={selectedWardCode} disabled={!selectedProvinceCode} options={[{ value: '', label: selectedProvinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(e) => { const item = wards.find((value) => value.code === e.target.value); setSelectedWardCode(e.target.value); setEditor((c) => ({ ...c, values: { ...c.values, ward: item?.name ?? '' }, fieldErrors: { ...c.fieldErrors, ward: undefined } })); }} error={editor.fieldErrors?.ward} />
               {editor.fieldErrors?.ward && <div className="text-xs text-red-500 mt-1">{editor.fieldErrors.ward}</div>}
             </div>
           </div>

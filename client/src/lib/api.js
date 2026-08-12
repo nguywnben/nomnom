@@ -107,18 +107,6 @@ export function uploadImageApi(file, folder) {
   });
 }
 
-export function fetchDriverProfile() {
-  return apiGet('/api/v1/driver/me/profile');
-}
-
-export function applyDriverProfile(payload) {
-  return apiPost('/api/v1/driver/apply', payload);
-}
-
-export function updateDriverProfile(payload) {
-  return apiPatch('/api/v1/driver/me/profile', payload);
-}
-
 /** @returns {Promise<{ accessToken, refreshToken, expiresIn, user }>} */
 export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
@@ -213,8 +201,13 @@ export function changePasswordApi({ currentPassword, newPassword }) {
 }
 
 /** Carousel "Khám phá theo món ăn" — GET /api/v1/home/categories */
-export function fetchHomeCategories() {
-  return apiGet(`/api/v1/home/categories?viewer=${encodeURIComponent(getHomeViewerId())}`);
+export function fetchHomeCategories(currentLocation) {
+  const query = new URLSearchParams({ viewer: getHomeViewerId() });
+  if (currentLocation) {
+    query.set('latitude', String(currentLocation.latitude));
+    query.set('longitude', String(currentLocation.longitude));
+  }
+  return apiGet(`/api/v1/home/categories?${query.toString()}`);
 }
 
 /** Banner khuyến mãi 3 cột — GET /api/v1/home/promos */
@@ -304,16 +297,16 @@ export function rejectAdminRestaurant(restaurantId, reason) {
   return apiPost(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/reject`, { reason });
 }
 
-export function fetchAdminPendingDrivers() {
-  return apiGet('/api/v1/admin/drivers/pending');
+export function fetchAdminRestaurantAddressChangeRequests(status = 'pending') {
+  return apiGet(`/api/v1/admin/restaurant-address-change-requests?status=${encodeURIComponent(status)}`);
 }
 
-export function approveAdminDriver(userId) {
-  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/approve`);
+export function approveAdminRestaurantAddressChangeRequest(requestId) {
+  return apiPost(`/api/v1/admin/restaurant-address-change-requests/${encodeURIComponent(requestId)}/approve`);
 }
 
-export function rejectAdminDriver(userId, reason) {
-  return apiPost(`/api/v1/admin/drivers/${encodeURIComponent(userId)}/reject`, { reason });
+export function rejectAdminRestaurantAddressChangeRequest(requestId, reason) {
+  return apiPost(`/api/v1/admin/restaurant-address-change-requests/${encodeURIComponent(requestId)}/reject`, { reason });
 }
 
 export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', page = 1 } = {}) {
@@ -354,9 +347,9 @@ export function fetchCuisines() {
   return apiGet('/api/v1/cuisines');
 }
 
-export function fetchRestaurantDetail(idOrSlug) {
+export function fetchRestaurantDetail(idOrSlug, currentLocation) {
   const id = String(idOrSlug).replace(/^r-/, '');
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}`);
+  return apiGet(withCurrentLocation(`/api/v1/restaurants/${encodeURIComponent(id)}`, currentLocation));
 }
 
 export function fetchRestaurantMenu(idOrSlug) {
@@ -364,17 +357,25 @@ export function fetchRestaurantMenu(idOrSlug) {
   return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/menu`);
 }
 
-export function fetchRestaurantReviews(idOrSlug) {
+export function fetchRestaurantReviews(idOrSlug, { page = 1, limit = 10, rating, sort = 'newest' } = {}) {
   const id = String(idOrSlug).replace(/^r-/, '');
-  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/reviews`);
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), sort });
+  if (rating) params.set('rating', String(rating));
+  return apiGet(`/api/v1/restaurants/${encodeURIComponent(id)}/reviews?${params.toString()}`);
 }
 
 export function fetchCartApi() {
   return apiGet('/api/v1/cart');
 }
 
-export function addCartItemApi({ menuItemId, quantity, note }) {
-  return apiPost('/api/v1/cart/items', { menuItemId, quantity, note });
+export function addCartItemApi({ menuItemId, quantity, note, currentLocation }) {
+  return apiPost('/api/v1/cart/items', {
+    menuItemId,
+    quantity,
+    note,
+    latitude: currentLocation?.latitude,
+    longitude: currentLocation?.longitude,
+  });
 }
 
 export function updateCartItemApi(itemId, { quantity, note }) {
@@ -426,13 +427,30 @@ export function fetchMyVouchersApi() {
 }
 
 /** Top quán nổi bật — GET /api/v1/home/featured-restaurants */
-export function fetchFeaturedRestaurantsApi() {
-  return apiGet('/api/v1/home/featured-restaurants');
+function withCurrentLocation(path, currentLocation) {
+  if (!currentLocation) return path;
+  const query = new URLSearchParams({
+    latitude: String(currentLocation.latitude),
+    longitude: String(currentLocation.longitude),
+  });
+  return `${path}?${query.toString()}`;
+}
+
+export function fetchFeaturedRestaurantsApi(currentLocation) {
+  const path = withCurrentLocation('/api/v1/home/featured-restaurants', currentLocation);
+  const separator = path.includes('?') ? '&' : '?';
+  return apiGet(`${path}${separator}viewer=${encodeURIComponent(getHomeViewerId())}`);
+}
+
+export function fetchNearbyDishesApi(currentLocation, seed) {
+  const path = withCurrentLocation('/api/v1/home/nearby-dishes', currentLocation);
+  const separator = path.includes('?') ? '&' : '?';
+  return apiGet(`${path}${separator}seed=${encodeURIComponent(seed ?? 'nearby')}`);
 }
 
 /** Các món thịnh hành — GET /api/v1/home/trending-dishes */
-export function fetchTrendingDishesApi() {
-  return apiGet('/api/v1/home/trending-dishes');
+export function fetchTrendingDishesApi(currentLocation) {
+  return apiGet(withCurrentLocation('/api/v1/home/trending-dishes', currentLocation));
 }
 
 /** Đặt lại món từ lịch sử — GET /api/v1/home/order-again */
@@ -479,6 +497,26 @@ export function fetchMerchantSettingsApi() {
   return apiGet('/api/v1/merchant/me/settings');
 }
 
+export function createMerchantAddressChangeRequest(body) {
+  return apiPost('/api/v1/merchant/me/address-change-requests', body);
+}
+
+export function fetchMerchantGhnProvinces() {
+  return apiGet('/api/v1/merchant/me/ghn/provinces');
+}
+
+export function fetchMerchantGhnDistricts(provinceId) {
+  return apiGet(`/api/v1/merchant/me/ghn/districts?provinceId=${encodeURIComponent(provinceId)}`);
+}
+
+export function fetchMerchantGhnWards(districtId) {
+  return apiGet(`/api/v1/merchant/me/ghn/wards?districtId=${encodeURIComponent(districtId)}`);
+}
+
+export function cancelMerchantAddressChangeRequest(requestId) {
+  return apiPost(`/api/v1/merchant/me/address-change-requests/${encodeURIComponent(requestId)}/cancel`);
+}
+
 export function updateMerchantSettingsApi(body) {
   return apiPatch('/api/v1/merchant/me/settings', body);
 }
@@ -508,6 +546,10 @@ export function updateAdminConfigApi(key, value) {
   return apiPatch('/api/v1/admin/config/' + encodeURIComponent(key), { value });
 }
 
+export function fetchHomePageConfigApi() { return apiGet('/api/v1/home/page-config'); }
+export function fetchAdminCustomerHomeApi() { return apiGet('/api/v1/admin/customer-home'); }
+export function updateAdminCustomerHomeApi(config) { return apiPatch('/api/v1/admin/customer-home', { config }); }
+
 export function fetchAdminUserDetailApi(id) { return apiGet('/api/v1/admin/users/' + encodeURIComponent(id)); }
 
 export function fetchAdminCuisinesApi() { return apiGet('/api/v1/admin/cuisines'); }
@@ -515,6 +557,11 @@ export function createAdminCuisineApi(body) { return apiPost('/api/v1/admin/cuis
 export function updateAdminCuisineApi(id, body) { return apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body); }
 export function deleteAdminCuisineApi(id) { return apiDelete('/api/v1/admin/cuisines/' + encodeURIComponent(id)); }
 export function reorderAdminCuisinesApi(ids) { return apiPatch('/api/v1/admin/cuisines/reorder', { ids }); }
+export function fetchAdminHomeBannersApi() { return apiGet('/api/v1/admin/home-banners'); }
+export function createAdminHomeBannerApi(body) { return apiPost('/api/v1/admin/home-banners', body); }
+export function updateAdminHomeBannerApi(id, body) { return apiPatch('/api/v1/admin/home-banners/' + encodeURIComponent(id), body); }
+export function deleteAdminHomeBannerApi(id) { return apiDelete('/api/v1/admin/home-banners/' + encodeURIComponent(id)); }
+export function reorderAdminHomeBannersApi(ids) { return apiPatch('/api/v1/admin/home-banners/reorder', { ids }); }
 
 export function fetchChatConversationsApi() {
   return apiGet('/api/v1/chat/conversations');
@@ -547,6 +594,12 @@ export function fetchAdminAuditLogs({ action = 'all', targetType = 'all', q = ''
   return apiGet('/api/v1/admin/audit-logs?' + params.toString());
 }
 
-export function fetchMenuItemDetailApi(id) {
-  return apiGet('/api/v1/menu-items/' + encodeURIComponent(id));
+export function fetchMenuItemDetailApi(id, currentLocation) {
+  return apiGet(withCurrentLocation('/api/v1/menu-items/' + encodeURIComponent(id), currentLocation));
+}
+
+export function fetchMenuItemReviewsApi(id, { page = 1, limit = 10, rating, sort = 'newest' } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), sort });
+  if (rating) params.set('rating', String(rating));
+  return apiGet(`/api/v1/menu-items/${encodeURIComponent(id)}/reviews?${params.toString()}`);
 }

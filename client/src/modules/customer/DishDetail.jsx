@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import { IconButton } from '../../components/Button.jsx';
@@ -7,20 +7,23 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
+import ReviewCard from '../../components/ReviewCard.jsx';
 import NotFoundPage from '../../pages/NotFound.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
-import { fetchMenuItemDetailApi } from '../../lib/api.js';
+import { fetchMenuItemDetailApi, fetchMenuItemReviewsApi } from '../../lib/api.js';
 
 export default function CustomerDishDetail() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { addToCart, setCartOpen, pushToast, shopAsCustomer } = useApp();
+  const { addToCart, setCartOpen, shopAsCustomer, currentLocation } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [reviewData, setReviewData] = useState(null);
 
   useEffect(() => {
     const dishId = Number(id);
@@ -32,12 +35,16 @@ export default function CustomerDishDetail() {
 
     setLoading(true);
     setError(null);
-    fetchMenuItemDetailApi(dishId)
-      .then((res) => {
+    Promise.all([
+      fetchMenuItemDetailApi(dishId, currentLocation),
+      fetchMenuItemReviewsApi(dishId, { limit: 4 }),
+    ])
+      .then(([res, reviews]) => {
         if (!res || !res.item) {
           throw { status: 404, message: 'Không tìm thấy món ăn.' };
         }
         setData(res);
+        setReviewData(reviews);
       })
       .catch((err) => {
         console.error('Error fetching dish details:', err);
@@ -46,7 +53,7 @@ export default function CustomerDishDetail() {
       .finally(() => {
         setLoading(false);
       });
-  }, [id]);
+  }, [currentLocation, id]);
 
   if (loading) {
     return <DishDetailSkeleton />;
@@ -57,6 +64,9 @@ export default function CustomerDishDetail() {
   }
 
   const { item, restaurant } = data;
+  const outsideDeliveryRange = restaurant.isWithinDeliveryRange === false;
+  const needsCurrentLocation = restaurant.isWithinDeliveryRange === null;
+  const cannotOrderHere = outsideDeliveryRange || needsCurrentLocation;
 
   return (
     <div className="bg-canvas min-h-screen">
@@ -106,7 +116,7 @@ export default function CustomerDishDetail() {
             </div>
 
             {/* Quantity control & Add to cart */}
-            {item.inStock && shopAsCustomer && restaurant.isOpenNow && (
+            {item.inStock && shopAsCustomer && restaurant.isOpenNow && !cannotOrderHere && (
               <div className="border-t border-hairline pt-base flex flex-col gap-base">
                 <div className="flex items-center justify-between">
                   <span className="text-body-sm font-medium text-body">Số lượng</span>
@@ -133,8 +143,8 @@ export default function CustomerDishDetail() {
                 </div>
 
                 <Button
-                  onClick={() => {
-                    addToCart(
+                  onClick={async () => {
+                    const updatedCart = await addToCart(
                       restaurant.id,
                       {
                         id: item.id,
@@ -149,14 +159,9 @@ export default function CustomerDishDetail() {
                         restaurantLogo: restaurant.logoUrl,
                       },
                       quantity,
-                      { baseDeliveryFee: restaurant.baseDeliveryFee },
+                      {},
                     );
-                    setCartOpen(true);
-                    pushToast({
-                      kind: 'success',
-                      title: 'Đã thêm vào giỏ hàng',
-                      message: `Đã thêm ${quantity} phần ${item.name} vào giỏ hàng.`,
-                    });
+                    if (updatedCart) setCartOpen(true);
                   }}
                   className="w-full mt-xs"
                 >
@@ -165,9 +170,13 @@ export default function CustomerDishDetail() {
               </div>
             )}
 
-            {(!item.inStock || !shopAsCustomer || !restaurant.isOpenNow) && (
+            {(!item.inStock || !shopAsCustomer || !restaurant.isOpenNow || cannotOrderHere) && (
               <div className="border-t border-hairline pt-base text-center text-body-sm text-body font-medium">
-                {!restaurant.isOpenNow
+                {outsideDeliveryRange
+                  ? 'Quán chưa giao đến vị trí hiện tại của bạn'
+                  : needsCurrentLocation
+                  ? 'Hãy cho phép truy cập vị trí để kiểm tra khu vực giao hàng'
+                  : !restaurant.isOpenNow
                   ? 'Quán hiện đang đóng cửa'
                   : !item.inStock
                   ? 'Món ăn hiện đã hết hàng'
@@ -204,10 +213,6 @@ export default function CustomerDishDetail() {
                     .join(', ')}
                 </span>
               </div>
-              <div className="flex items-center gap-1">
-                <Icon name="bike" size={14} className="shrink-0" />
-                <span>Phí giao hàng: <span className="text-ink font-semibold">{formatVnd(restaurant.baseDeliveryFee)}</span></span>
-              </div>
             </div>
 
             <Button
@@ -220,6 +225,31 @@ export default function CustomerDishDetail() {
           </Card>
         </div>
       </div>
+
+      <section className="container-page pb-xxl">
+        <div className="mb-base flex items-end justify-between gap-base">
+          <div>
+            <div className="text-caption-uppercase text-body">Từ khách đã đặt món</div>
+            <h2 className="text-display-sm text-ink">Đánh giá món ăn</h2>
+          </div>
+          {(reviewData?.stats?.total ?? 0) > 0 && (
+            <Button variant="tertiary" onClick={() => nav(`/app/dish/${item.id}/reviews`)}>
+              Xem tất cả
+            </Button>
+          )}
+        </div>
+        {(reviewData?.data ?? []).length === 0 ? (
+          <EmptyState
+            icon="star"
+            title="Chưa có đánh giá món ăn"
+            message="Đánh giá sẽ xuất hiện sau khi khách nhận món và chia sẻ trải nghiệm."
+          />
+        ) : (
+          <div className="grid gap-base md:grid-cols-2">
+            {reviewData.data.map((review) => <ReviewCard key={review.id} review={review} />)}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

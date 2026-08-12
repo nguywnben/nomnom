@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchRestaurantDetail } from '../lib/api.js';
 
-export function useRestaurantDetail(idOrSlug) {
+export function useRestaurantDetail(idOrSlug, currentLocation) {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -23,7 +23,7 @@ export function useRestaurantDetail(idOrSlug) {
 
     (async () => {
       try {
-        const data = await fetchRestaurantDetail(idOrSlug);
+        const data = await fetchRestaurantDetail(idOrSlug, currentLocation);
         if (!cancelled) {
           setRestaurant(data);
           setError(null);
@@ -41,7 +41,7 @@ export function useRestaurantDetail(idOrSlug) {
     return () => {
       cancelled = true;
     };
-  }, [idOrSlug]);
+  }, [idOrSlug, currentLocation]);
 
   return { restaurant, loading, error };
 }

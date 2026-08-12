@@ -41,7 +41,7 @@ router.get('/payouts', async (req, res, next) => {
     const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const offset = (page - 1) * limit;
     const filters = ['w.owner_type = ?'];
-    const params = [req.query.ownerType === 'driver' ? 'driver' : 'merchant'];
+    const params = ['merchant'];
     if (req.query.status && req.query.status !== 'all') {
       filters.push('pr.status = ?');
       params.push(String(req.query.status));

@@ -1,6 +1,6 @@
 /**
  * Giỏ hàng & đặt món trên /app — guest, customer chưa là đối tác chính thức,
- * hoặc customer đang chờ duyệt merchant/driver.
+ * hoặc customer đang chờ duyệt nhà hàng.
  */
 
 const RESTRICTION_BY_ROLE = {
@@ -14,11 +14,6 @@ const RESTRICTION_BY_ROLE = {
     message:
       'Tài khoản đối tác nhà hàng dùng để quản lý quán trên NomNom, không dùng để đặt đồ ăn. Vui lòng đăng xuất và dùng tài khoản khách hàng.',
   },
-  driver: {
-    title: 'Không thể đặt món',
-    message:
-      'Tài khoản tài xế dùng để nhận và giao đơn, không dùng để đặt đồ ăn. Vui lòng đăng xuất và dùng tài khoản khách hàng.',
-  },
 };
 
 const RESTRICTION_BY_PARTNER = {
@@ -27,7 +22,7 @@ const RESTRICTION_BY_PARTNER = {
     message:
       'Tài khoản đối tác nhà hàng không dùng để đặt đồ ăn trên NomNom. Hãy dùng khu vực quản lý quán hoặc đăng xuất và dùng tài khoản khách hàng khác.',
   },
-  established_driver: {
+  legacy_partner: {
     title: 'Không thể đặt món',
     message:
       'Tài khoản tài xế không dùng để đặt đồ ăn trên NomNom. Hãy dùng khu vực tài xế hoặc đăng xuất và dùng tài khoản khách hàng khác.',
@@ -54,7 +49,6 @@ export function getCustomerCartRestriction(user, permittedRoles) {
 
   if (permittedRoles?.admin) return RESTRICTION_BY_ROLE.admin;
   if (permittedRoles?.merchant) return RESTRICTION_BY_ROLE.merchant;
-  if (permittedRoles?.driver) return RESTRICTION_BY_ROLE.driver;
 
   return {
     title: 'Không thể đặt món',

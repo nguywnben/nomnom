@@ -5,10 +5,13 @@ import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
 import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
 import { logAudit } from '../lib/audit.js';
+import { hasValidCoordinates } from '../lib/geo.js';
+import { serializeAddressChangeRequest } from '../lib/restaurantAddressChanges.js';
+import { DEFAULT_HOME_PAGE_CONFIG, normalizeHomePageConfig, parseHomePageConfig } from '../lib/homePageConfig.js';
+import { refreshReviewStats } from '../lib/reviewSubmission.js';
 import {
   ensureWallet,
   insertNotification,
-  serializeDriverRow,
   serializeRestaurantRow,
 } from '../lib/adminApprovals.js';
 
@@ -103,8 +106,122 @@ function serializeCuisine(row) {
   };
 }
 
+function serializeHomeBanner(row) {
+  return {
+    id: row.id, tag: row.tag, title: row.title, subtitle: row.subtitle,
+    ctaLabel: row.cta_label, imageUrl: row.image_url, linkUrl: row.link_url,
+    sortOrder: Number(row.sort_order), isActive: Boolean(row.is_active),
+  };
+}
+
+function normalizeHomeBannerInput(body, { partial = false } = {}) {
+  const input = body ?? {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(input, key);
+  const result = {};
+  const text = (key, max, label) => {
+    if (partial && !has(key)) return null;
+    const value = String(input[key] ?? '').trim();
+    if (!value || value.length > max) return `${label} phải có từ 1 đến ${max} ký tự.`;
+    result[key] = value;
+    return null;
+  };
+  for (const [key, max, label] of [['tag', 80, 'Nhãn'], ['title', 160, 'Tiêu đề'], ['subtitle', 255, 'Mô tả'], ['ctaLabel', 80, 'Nhãn nút'], ['imageUrl', 500, 'Ảnh']]) {
+    const error = text(key, max, label);
+    if (error) return { error };
+  }
+  if (!partial || has('linkUrl')) {
+    const linkUrl = String(input.linkUrl ?? '').trim();
+    if (!linkUrl.startsWith('/')) return { error: 'Liên kết phải là đường dẫn nội bộ, ví dụ /app/search.' };
+    result.linkUrl = linkUrl;
+  }
+  if (!partial || has('isActive')) {
+    if (typeof input.isActive !== 'boolean') return { error: 'Trạng thái hiển thị không hợp lệ.' };
+    result.isActive = input.isActive;
+  }
+  return { value: result };
+}
+
 router.use(requireAuth);
 router.use(ensureAdmin);
+
+router.get('/customer-home', async (_req, res, next) => {
+  try {
+    const [[row]] = await pool.query('SELECT config_json FROM home_page_settings WHERE id = 1');
+    return res.json({ config: row?.config_json ? parseHomePageConfig(row.config_json) : DEFAULT_HOME_PAGE_CONFIG });
+  } catch (err) { return next(err); }
+});
+
+router.patch('/customer-home', async (req, res, next) => {
+  const config = normalizeHomePageConfig(req.body?.config);
+  if (!config) return res.status(400).json({ error: 'Cấu hình trang chủ không hợp lệ.' });
+  try {
+    await pool.query('UPDATE home_page_settings SET config_json = ?, updated_by_admin_id = ? WHERE id = 1', [JSON.stringify(config), req.auth.userId]);
+    await logAudit(pool, { adminId: req.auth.userId, action: 'cap_nhat_trang_chu_khach_hang', targetType: 'customer_home', targetId: '1' });
+    return res.json({ config });
+  } catch (err) { return next(err); }
+});
+
+router.get('/home-banners', async (_req, res, next) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM home_promo_banners ORDER BY sort_order ASC, id ASC');
+    return res.json({ data: rows.map(serializeHomeBanner) });
+  } catch (err) { return next(err); }
+});
+
+router.post('/home-banners', async (req, res, next) => {
+  const parsed = normalizeHomeBannerInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  try {
+    const { tag, title, subtitle, ctaLabel, imageUrl, linkUrl, isActive } = parsed.value;
+    const [count] = await pool.query('SELECT COUNT(*) AS total FROM home_promo_banners');
+    if (Number(count[0].total) >= 6) return res.status(409).json({ error: 'Chỉ được tạo tối đa 6 banner chiến dịch.' });
+    const id = `banner-${Date.now().toString(36)}`;
+    await pool.query('INSERT INTO home_promo_banners (id, tag, title, subtitle, cta_label, image_url, link_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, tag, title, subtitle, ctaLabel, imageUrl, linkUrl, Number(count[0].total) + 1, isActive ? 1 : 0]);
+    const [[row]] = await pool.query('SELECT * FROM home_promo_banners WHERE id = ?', [id]);
+    await logAudit(pool, { adminId: req.auth.userId, action: 'tao_banner_trang_chu', targetType: 'home_banner', targetId: id, metadata: { title } });
+    return res.status(201).json({ banner: serializeHomeBanner(row) });
+  } catch (err) { return next(err); }
+});
+
+router.patch('/home-banners/reorder', async (req, res, next) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String) : [];
+  if (!ids.length || new Set(ids).size !== ids.length) return res.status(400).json({ error: 'Thứ tự banner không hợp lệ.' });
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query('SELECT id FROM home_promo_banners WHERE id IN (?) FOR UPDATE', [ids]);
+    if (rows.length !== ids.length) { await connection.rollback(); return res.status(400).json({ error: 'Có banner không còn tồn tại.' }); }
+    for (const [index, id] of ids.entries()) await connection.query('UPDATE home_promo_banners SET sort_order = ? WHERE id = ?', [index + 1, id]);
+    await logAudit(connection, { adminId: req.auth.userId, action: 'sap_xep_banner_trang_chu', targetType: 'home_banner', targetId: 'all', metadata: { ids } });
+    await connection.commit();
+    return res.json({ ok: true });
+  } catch (err) { await connection.rollback(); return next(err); } finally { connection.release(); }
+});
+
+router.patch('/home-banners/:id', async (req, res, next) => {
+  const parsed = normalizeHomeBannerInput(req.body, { partial: true });
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const columns = { tag: 'tag', title: 'title', subtitle: 'subtitle', ctaLabel: 'cta_label', imageUrl: 'image_url', linkUrl: 'link_url', isActive: 'is_active' };
+  const updates = Object.keys(parsed.value).map((key) => `${columns[key]} = ?`);
+  if (!updates.length) return res.status(400).json({ error: 'Không có thông tin cần cập nhật.' });
+  try {
+    const values = Object.entries(parsed.value).map(([key, value]) => key === 'isActive' ? (value ? 1 : 0) : value);
+    const [result] = await pool.query(`UPDATE home_promo_banners SET ${updates.join(', ')} WHERE id = ?`, [...values, req.params.id]);
+    if (!result.affectedRows) return res.status(404).json({ error: 'Không tìm thấy banner.' });
+    const [[row]] = await pool.query('SELECT * FROM home_promo_banners WHERE id = ?', [req.params.id]);
+    await logAudit(pool, { adminId: req.auth.userId, action: 'cap_nhat_banner_trang_chu', targetType: 'home_banner', targetId: req.params.id, metadata: { title: row.title } });
+    return res.json({ banner: serializeHomeBanner(row) });
+  } catch (err) { return next(err); }
+});
+
+router.delete('/home-banners/:id', async (req, res, next) => {
+  try {
+    const [result] = await pool.query('DELETE FROM home_promo_banners WHERE id = ?', [req.params.id]);
+    if (!result.affectedRows) return res.status(404).json({ error: 'Không tìm thấy banner.' });
+    await logAudit(pool, { adminId: req.auth.userId, action: 'xoa_banner_trang_chu', targetType: 'home_banner', targetId: req.params.id });
+    return res.status(204).send();
+  } catch (err) { return next(err); }
+});
 
 router.get('/cuisines', async (_req, res, next) => {
   try {
@@ -325,7 +442,6 @@ router.get('/usersQuery', async (req, res, next) => {
 
     const filters = [
       "u.status <> 'pending'",
-      "NOT EXISTS (SELECT 1 FROM user_roles hidden_driver_role WHERE hidden_driver_role.user_id = u.id AND hidden_driver_role.role = 'driver')",
     ];
     const params = [];
 
@@ -384,7 +500,7 @@ router.get('/users/:id', async (req, res, next) => {
       pool.query(`SELECT r.id, r.name, r.status, r.rating_avg, r.review_count, r.is_open_now, c.name AS cuisine_name FROM restaurants r LEFT JOIN cuisines c ON c.id = r.cuisine_id WHERE r.owner_user_id = ? ORDER BY r.created_at DESC`, [id]).then(([rows]) => rows),
       pool.query(`SELECT balance, pending_balance, total_earned, total_withdrawn, is_locked FROM wallets WHERE user_id = ? AND owner_type = 'merchant' LIMIT 1`, [id]).then(([rows]) => rows[0]),
     ]);
-    if (!user || roleRows.some((row) => row.role === 'driver') || user.status === 'pending') return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+    if (!user || user.status === 'pending') return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
     return res.json({
       account: {
         ...serializeUser(user, roleRows.map((row) => row.role)),
@@ -546,6 +662,196 @@ router.get('/restaurants/pending', async (_req, res, next) => {
   }
 });
 
+router.get('/restaurant-address-change-requests', async (req, res, next) => {
+  const status = String(req.query.status ?? 'pending').trim();
+  const allowedStatuses = ['pending', 'approved', 'rejected', 'cancelled'];
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Trạng thái yêu cầu không hợp lệ.' });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT acr.*, r.name AS restaurant_name, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.status = ?
+       ORDER BY acr.created_at ASC, acr.id ASC`,
+      [status],
+    );
+    return res.json({ items: rows.map(serializeAddressChangeRequest) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/restaurant-address-change-requests/:id/approve', async (req, res, next) => {
+  const requestId = Number(req.params.id);
+  if (!Number.isInteger(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'ID yêu cầu không hợp lệ.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, r.owner_user_id, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ?
+       LIMIT 1 FOR UPDATE`,
+      [requestId],
+    );
+    const request = rows[0];
+    if (!request) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu đổi địa chỉ.' });
+    }
+    if (request.status !== 'pending') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Yêu cầu này không còn ở trạng thái chờ duyệt.' });
+    }
+
+    await connection.query(
+      `UPDATE restaurants
+       SET address_line = ?, ward = ?, district = ?, city = ?,
+           latitude = ?, longitude = ?
+       WHERE id = ?`,
+      [
+        request.proposed_address_line,
+        request.proposed_ward,
+        request.proposed_district,
+        request.proposed_city,
+        request.proposed_latitude,
+        request.proposed_longitude,
+        request.restaurant_id,
+      ],
+    );
+    await connection.query(
+      `UPDATE restaurant_address_change_requests
+       SET status = 'approved', reviewed_by_admin_id = ?, reviewed_at = NOW(), rejection_reason = NULL
+       WHERE id = ?`,
+      [req.auth.userId, request.id],
+    );
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: 'duyet_doi_dia_chi_quan',
+      targetType: 'restaurant_address_change_request',
+      targetId: request.id,
+      metadata: {
+        quanId: request.restaurant_id,
+        tenQuan: request.restaurant_name,
+        diaChiCu: {
+          diaChi: request.current_address_line,
+          phuongXa: request.current_ward,
+          quanHuyen: request.current_district,
+          tinhThanh: request.current_city,
+        },
+        diaChiMoi: {
+          diaChi: request.proposed_address_line,
+          phuongXa: request.proposed_ward,
+          quanHuyen: request.proposed_district,
+          tinhThanh: request.proposed_city,
+        },
+      },
+    });
+    await insertNotification(connection, {
+      userId: request.owner_user_id,
+      title: 'Yêu cầu đổi địa chỉ đã được duyệt',
+      body: `Địa chỉ của quán "${request.restaurant_name}" đã được cập nhật theo yêu cầu của bạn.`,
+      linkUrl: '/merchant/settings',
+    });
+    const [updatedRows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ? LIMIT 1`,
+      [request.id],
+    );
+    await connection.commit();
+    return res.json({ request: serializeAddressChangeRequest(updatedRows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
+router.post('/restaurant-address-change-requests/:id/reject', async (req, res, next) => {
+  const requestId = Number(req.params.id);
+  const reason = String(req.body?.reason ?? '').trim();
+  if (!Number.isInteger(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'ID yêu cầu không hợp lệ.' });
+  }
+  if (!reason) {
+    return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối.' });
+  }
+  if (reason.length > 500) {
+    return res.status(400).json({ error: 'Lý do từ chối không được vượt quá 500 ký tự.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, r.owner_user_id, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ?
+       LIMIT 1 FOR UPDATE`,
+      [requestId],
+    );
+    const request = rows[0];
+    if (!request) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu đổi địa chỉ.' });
+    }
+    if (request.status !== 'pending') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Yêu cầu này không còn ở trạng thái chờ duyệt.' });
+    }
+
+    await connection.query(
+      `UPDATE restaurant_address_change_requests
+       SET status = 'rejected', reviewed_by_admin_id = ?, reviewed_at = NOW(), rejection_reason = ?
+       WHERE id = ?`,
+      [req.auth.userId, reason, request.id],
+    );
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: 'tu_choi_doi_dia_chi_quan',
+      targetType: 'restaurant_address_change_request',
+      targetId: request.id,
+      metadata: { quanId: request.restaurant_id, tenQuan: request.restaurant_name, lyDo: reason },
+    });
+    await insertNotification(connection, {
+      userId: request.owner_user_id,
+      title: 'Yêu cầu đổi địa chỉ chưa được duyệt',
+      body: `Yêu cầu đổi địa chỉ của quán "${request.restaurant_name}" chưa được duyệt. Lý do: ${reason}`,
+      linkUrl: '/merchant/settings',
+    });
+    const [updatedRows] = await connection.query(
+      `SELECT acr.*, r.name AS restaurant_name, u.full_name AS owner_name
+       FROM restaurant_address_change_requests acr
+       JOIN restaurants r ON r.id = acr.restaurant_id
+       JOIN users u ON u.id = r.owner_user_id
+       WHERE acr.id = ? LIMIT 1`,
+      [request.id],
+    );
+    await connection.commit();
+    return res.json({ request: serializeAddressChangeRequest(updatedRows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
 router.get('/restaurants/:id', async (req, res, next) => {
   const restaurantId = Number(req.params.id);
   if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
@@ -595,6 +901,10 @@ router.post('/restaurants/:id/approve', async (req, res, next) => {
     if (restaurant.status !== 'pending') {
       await conn.rollback();
       return res.status(400).json({ error: 'Chỉ có thể duyệt nhà hàng đang chờ xét duyệt.' });
+    }
+    if (!hasValidCoordinates(restaurant)) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Không thể duyệt quán khi địa chỉ chưa xác định được tọa độ hợp lệ.' });
     }
 
     await conn.query(
@@ -754,213 +1064,6 @@ router.post('/restaurants/:id/reject', async (req, res, next) => {
     );
 
     res.json({ ok: true, restaurant: serializeRestaurantRow(updated[0]) });
-  } catch (err) {
-    await conn.rollback();
-    next(err);
-  } finally {
-    conn.release();
-  }
-});
-
-router.get('/drivers/pending', async (_req, res, next) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.approval_status = 'pending'
-       ORDER BY dp.created_at ASC`,
-    );
-    res.json({ items: rows.map(serializeDriverRow) });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/drivers/:userId/approve', async (req, res, next) => {
-  const userId = Number(req.params.userId);
-  const adminId = req.auth.userId;
-
-  if (!userId) {
-    return res.status(400).json({ error: 'ID tài xế không hợp lệ.' });
-  }
-
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [rows] = await conn.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-    const profile = rows[0];
-    if (!profile) {
-      await conn.rollback();
-      return res.status(404).json({ error: 'Hồ sơ tài xế không tồn tại.' });
-    }
-    if (profile.approval_status !== 'pending') {
-      await conn.rollback();
-      return res.status(400).json({ error: 'Chỉ có thể duyệt hồ sơ tài xế đang chờ xét duyệt.' });
-    }
-
-    await conn.query(
-      `UPDATE driver_profiles
-       SET approval_status = 'approved', approved_at = NOW(), approved_by_admin_id = ?
-       WHERE user_id = ?`,
-      [adminId, userId],
-    );
-
-    await conn.query(
-      `UPDATE users
-       SET status = 'active', primary_role = 'driver'
-       WHERE id = ?`,
-      [userId]
-    );
-
-    const [existingRole] = await conn.query(
-      'SELECT 1 FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
-      [userId, 'driver'],
-    );
-    if (existingRole.length === 0) {
-      await conn.query(
-        'INSERT INTO user_roles (user_id, role) VALUES (?, ?)',
-        [userId, 'driver'],
-      );
-    }
-
-    await ensureWallet(conn, userId, 'driver');
-
-    await logAudit(conn, {
-      adminId,
-      action: 'duyet_tai_xe',
-      targetType: 'driver',
-      targetId: userId,
-      metadata: {
-        tenTaiXe: profile.full_name,
-        email: profile.email,
-      },
-    });
-
-    const title = 'Hồ sơ tài xế đã được duyệt';
-    const body = 'Hồ sơ tài xế của bạn đã được phê duyệt. Bạn có thể bắt đầu nhận đơn trên portal tài xế.';
-    await insertNotification(conn, {
-      userId,
-      title,
-      body,
-      linkUrl: '/driver',
-    });
-
-    await conn.commit();
-
-    await sendKycApprovedEmailSafe({
-      to: profile.email,
-      fullName: profile.full_name,
-      subjectKind: 'tài xế',
-      portalPath: '/driver',
-    });
-
-    const [updated] = await pool.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-
-    res.json({ ok: true, driver: serializeDriverRow(updated[0]) });
-  } catch (err) {
-    await conn.rollback();
-    next(err);
-  } finally {
-    conn.release();
-  }
-});
-
-router.post('/drivers/:userId/reject', async (req, res, next) => {
-  const userId = Number(req.params.userId);
-  const reason = String(req.body?.reason ?? '').trim();
-
-  if (!userId) {
-    return res.status(400).json({ error: 'ID tài xế không hợp lệ.' });
-  }
-  if (!reason) {
-    return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối.' });
-  }
-  if (reason.length > 500) {
-    return res.status(400).json({ error: 'Lý do từ chối không được vượt quá 500 ký tự.' });
-  }
-
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [rows] = await conn.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-    const profile = rows[0];
-    if (!profile) {
-      await conn.rollback();
-      return res.status(404).json({ error: 'Hồ sơ tài xế không tồn tại.' });
-    }
-    if (profile.approval_status !== 'pending') {
-      await conn.rollback();
-      return res.status(400).json({ error: 'Chỉ có thể từ chối hồ sơ tài xế đang chờ xét duyệt.' });
-    }
-
-    await conn.query(
-      `UPDATE driver_profiles
-       SET approval_status = 'rejected', approved_at = NULL, approved_by_admin_id = NULL
-       WHERE user_id = ?`,
-      [userId],
-    );
-
-    await logAudit(conn, {
-      adminId: req.auth.userId,
-      action: 'tu_choi_tai_xe',
-      targetType: 'driver',
-      targetId: userId,
-      metadata: {
-        tenTaiXe: profile.full_name,
-        email: profile.email,
-        lyDo: reason,
-      },
-    });
-
-    const title = 'Hồ sơ tài xế chưa được chấp nhận';
-    const body = `Hồ sơ tài xế của bạn chưa được chấp nhận. Lý do: ${reason}`;
-    await insertNotification(conn, {
-      userId,
-      title,
-      body,
-      linkUrl: '/driver/pending',
-    });
-
-    await conn.commit();
-
-    await sendKycRejectedEmailSafe({
-      to: profile.email,
-      fullName: profile.full_name,
-      subjectKind: 'tài xế',
-      reason,
-      portalPath: '/driver/onboarding',
-    });
-
-    const [updated] = await pool.query(
-      `SELECT dp.*, u.full_name, u.email, u.phone AS user_phone
-       FROM driver_profiles dp
-       JOIN users u ON u.id = dp.user_id
-       WHERE dp.user_id = ? LIMIT 1`,
-      [userId],
-    );
-
-    res.json({ ok: true, driver: serializeDriverRow(updated[0]) });
   } catch (err) {
     await conn.rollback();
     next(err);
@@ -1390,27 +1493,10 @@ router.patch('/reviews/:id', async (req, res, next) => {
       [isHidden ? 1 : 0, id]
     );
 
-    // 1. Tính toán lại điểm trung bình cho món ăn liên quan (nếu có)
-    if (menu_item_id) {
-      const [itemStats] = await connection.query(
-        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
-        [menu_item_id]
-      );
-      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
-      await connection.query(
-        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
-        [nextItemAvg, menu_item_id]
-      );
-    }
-
-    // 2. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
-    await connection.query(
-      `UPDATE restaurants 
-       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
-           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
-       WHERE id = ?`,
-      [restaurant_id, restaurant_id, restaurant_id]
-    );
+    await refreshReviewStats(connection, {
+      restaurantId: restaurant_id,
+      menuItemIds: menu_item_id ? [menu_item_id] : [],
+    });
 
     await connection.commit();
     res.json({ ok: true, isHidden: Boolean(isHidden) });

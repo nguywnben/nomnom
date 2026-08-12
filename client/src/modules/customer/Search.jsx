@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/Button.jsx';
-import { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
@@ -39,7 +38,7 @@ function parseCuisineSlugsFromParams(searchParams) {
 }
 
 export default function CustomerSearch() {
-  const { addToCart, setCartOpen, shopAsCustomer } = useApp();
+  const { currentLocation } = useApp();
   const [params, setParams] = useSearchParams();
 
   const initialQuery = params.get('q') || '';
@@ -48,6 +47,7 @@ export default function CustomerSearch() {
 
   const [cuisineSlugs, setCuisineSlugs] = useState(() => parseCuisineSlugsFromParams(params));
   const [openOnly, setOpenOnly] = useState(params.get('open') === 'true');
+  const [hideOutsideRange, setHideOutsideRange] = useState(params.get('hideOutsideRange') === 'true');
   const [minPrice, setMinPrice] = useState(params.get('minPrice') || '');
   const [maxPrice, setMaxPrice] = useState(params.get('maxPrice') || '');
   const [rating, setRating] = useState(params.get('rating') || '');
@@ -85,6 +85,7 @@ export default function CustomerSearch() {
         if (debouncedQ) np.set('q', debouncedQ); else np.delete('q');
         if (cuisineSlugs.length) np.set('cuisine', cuisineSlugs.join(',')); else np.delete('cuisine');
         if (openOnly) np.set('open', 'true'); else np.delete('open');
+        if (hideOutsideRange) np.set('hideOutsideRange', 'true'); else np.delete('hideOutsideRange');
         if (minPrice) np.set('minPrice', minPrice); else np.delete('minPrice');
         if (maxPrice) np.set('maxPrice', maxPrice); else np.delete('maxPrice');
         if (rating) np.set('rating', rating); else np.delete('rating');
@@ -95,7 +96,7 @@ export default function CustomerSearch() {
       },
       { replace: true }
     );
-  }, [debouncedQ, cuisineSlugs, openOnly, minPrice, maxPrice, rating, sort, searchTab, page, setParams]);
+  }, [debouncedQ, cuisineSlugs, openOnly, hideOutsideRange, minPrice, maxPrice, rating, sort, searchTab, page, setParams]);
 
   // Perform search query
   useEffect(() => {
@@ -107,12 +108,15 @@ export default function CustomerSearch() {
       q: debouncedQ,
       cuisine: cuisineSlugs.join(','),
       open: openOnly ? '1' : '',
+      hideOutsideRange: hideOutsideRange ? '1' : '',
       minPrice,
       maxPrice,
       rating,
       sort,
       page,
       limit: SEARCH_PAGE_SIZE,
+      latitude: currentLocation?.latitude,
+      longitude: currentLocation?.longitude,
     })
       .then((res) => {
         if (mounted) {
@@ -129,7 +133,7 @@ export default function CustomerSearch() {
     return () => {
       mounted = false;
     };
-  }, [debouncedQ, cuisineSlugs, openOnly, minPrice, maxPrice, rating, sort, page]);
+  }, [debouncedQ, cuisineSlugs, openOnly, hideOutsideRange, minPrice, maxPrice, rating, sort, page, currentLocation?.latitude, currentLocation?.longitude]);
 
   const toggleCuisine = (slug) => {
     setCuisineSlugs((prev) => {
@@ -214,7 +218,6 @@ export default function CustomerSearch() {
                 }}
               >
                 <option value="rating">Đánh giá cao nhất</option>
-                {showRestaurantFilters && <option value="fee">Phí giao thấp nhất</option>}
                 {showRestaurantFilters && <option value="new">Quán mới nhất</option>}
                 {showDishFilters && <option value="popular">Món phổ biến</option>}
                 {showDishFilters && <option value="price_asc">Giá thấp đến cao</option>}
@@ -297,6 +300,20 @@ export default function CustomerSearch() {
               Chỉ quán ăn đang mở
             </label>
 
+            <label className={`flex items-center gap-2 text-body-sm ${currentLocation ? 'cursor-pointer text-ink' : 'cursor-not-allowed text-muted'}`}>
+              <input
+                type="checkbox"
+                className="accent-black"
+                checked={hideOutsideRange}
+                disabled={!currentLocation}
+                onChange={(e) => {
+                  setHideOutsideRange(e.target.checked);
+                  setPage(1);
+                }}
+              />
+              Ẩn kết quả ngoài phạm vi
+            </label>
+
             <Button
               variant="secondary"
               onClick={() => {
@@ -304,6 +321,7 @@ export default function CustomerSearch() {
                 setDebouncedQ('');
                 setCuisineSlugs([]);
                 setOpenOnly(false);
+                setHideOutsideRange(false);
                 setMinPrice('');
                 setMaxPrice('');
                 setRating('');
@@ -377,39 +395,13 @@ export default function CustomerSearch() {
                   {view === 'grid' ? (
                     <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
                       {data.menuItems.map((item) => (
-                        <MenuItemResultCard
-                          key={item.id}
-                          item={item}
-                          onAdd={() => {
-                            if (!shopAsCustomer) return;
-                            addToCart(item.restaurantId, item, 1, {
-                              baseDeliveryFee: item.baseDeliveryFee,
-                              restaurantName: item.restaurantName,
-                              restaurantLogo: item.restaurantLogo,
-                            });
-                            setCartOpen(true);
-                          }}
-                          addDisabled={!shopAsCustomer || !item.isAvailable}
-                        />
+                        <MenuItemResultCard key={item.id} item={item} />
                       ))}
                     </div>
                   ) : (
                     <div className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline-strong bg-surface-card">
                       {data.menuItems.map((item) => (
-                        <MenuItemResultRow
-                          key={item.id}
-                          item={item}
-                          onAdd={() => {
-                            if (!shopAsCustomer) return;
-                            addToCart(item.restaurantId, item, 1, {
-                              baseDeliveryFee: item.baseDeliveryFee,
-                              restaurantName: item.restaurantName,
-                              restaurantLogo: item.restaurantLogo,
-                            });
-                            setCartOpen(true);
-                          }}
-                          addDisabled={!shopAsCustomer || !item.isAvailable}
-                        />
+                        <MenuItemResultRow key={item.id} item={item} />
                       ))}
                     </div>
                   )}
@@ -477,6 +469,7 @@ function RestaurantResultCard({ r }) {
     >
       <div className="relative">
         <Image src={r.bannerUrl} alt={r.name} ratio="16/10" className="w-full" />
+        {r.isWithinDeliveryRange === false && <RangeBadge />}
         {!r.isOpenNow && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="rounded bg-black/80 px-2 py-1 text-caption font-semibold text-white">Đóng cửa</span>
@@ -496,9 +489,6 @@ function RestaurantResultCard({ r }) {
           <span className="inline-flex items-center gap-1">
             <Icon name="clock" size={12} /> {r.avgPrepTimeMin}p
           </span>
-          <span className="inline-flex items-center gap-1 nums">
-            Phí: {formatVnd(r.baseDeliveryFee)}
-          </span>
         </div>
       </div>
     </Link>
@@ -510,6 +500,7 @@ function RestaurantResultRow({ r }) {
     <Link to={`/app/restaurant/${r.id}`} className="flex items-center gap-base p-sm hover:bg-canvas-soft">
       <div className="relative h-16 w-24 shrink-0 rounded-md overflow-hidden">
         <Image src={r.bannerUrl} alt={r.name} className="h-full w-full" ratio="16/10" />
+        {r.isWithinDeliveryRange === false && <RangeBadge compact />}
         {!r.isOpenNow && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="text-[10px] font-semibold text-white">ĐÓNG</span>
@@ -527,7 +518,6 @@ function RestaurantResultRow({ r }) {
         <span className="text-body-sm text-body line-clamp-2">{r.tagline}</span>
         <div className="mt-1 flex items-center gap-x-3 text-caption text-body">
           <span>{r.avgPrepTimeMin}p</span>
-          <span className="nums">Phí: {formatVnd(r.baseDeliveryFee)}</span>
         </div>
       </div>
       <Icon name="arrowRight" size={16} className="shrink-0 text-body" />
@@ -535,7 +525,7 @@ function RestaurantResultRow({ r }) {
   );
 }
 
-function MenuItemResultCard({ item, onAdd, addDisabled }) {
+function MenuItemResultCard({ item }) {
   const navigate = useNavigate();
   const openRestaurant = () => navigate(`/app/restaurant/${item.restaurantId}`);
 
@@ -554,10 +544,11 @@ function MenuItemResultCard({ item, onAdd, addDisabled }) {
     >
       <div className="relative">
         <Image src={item.imageUrl} alt={item.name} ratio="16/10" className="w-full" />
-        {!item.isAvailable && (
+        {item.isWithinDeliveryRange === false && <RangeBadge />}
+        {item.isWithinDeliveryRange !== false && (!item.isAvailable || item.isWithinDeliveryRange === null) && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
             <span className="rounded bg-black/80 px-2.5 py-1 text-caption font-semibold text-white">
-              {!item.inStock ? 'Hết hàng' : 'Quán đóng cửa'}
+              {item.isWithinDeliveryRange === null ? 'Cần vị trí' : !item.inStock ? 'Hết hàng' : 'Quán đóng cửa'}
             </span>
           </div>
         )}
@@ -568,29 +559,17 @@ function MenuItemResultCard({ item, onAdd, addDisabled }) {
           <span className="nums text-title-md font-semibold text-ink shrink-0">{formatVnd(item.price)}</span>
         </div>
         <span className="text-caption text-body line-clamp-2">{item.description}</span>
-        <div className="mt-auto flex items-center justify-between pt-2 border-t border-hairline-soft">
-          <Link to={`/app/restaurant/${item.restaurantId}`} onClick={(event) => event.stopPropagation()} className="text-caption text-body hover:text-ink line-clamp-1">
+        <div className="mt-auto border-t border-hairline-soft pt-2">
+          <Link to={`/app/restaurant/${item.restaurantId}`} onClick={(event) => event.stopPropagation()} className="block text-caption text-body hover:text-ink line-clamp-1">
             {item.restaurantName}
           </Link>
-          {!addDisabled && (
-            <IconButton
-              icon="plus"
-              label={`Thêm ${item.name} vào giỏ`}
-              size="sm"
-              variant="secondary"
-              onClick={(event) => {
-                event.stopPropagation();
-                onAdd();
-              }}
-            />
-          )}
         </div>
       </div>
     </div>
   );
 }
 
-function MenuItemResultRow({ item, onAdd, addDisabled }) {
+function MenuItemResultRow({ item }) {
   const navigate = useNavigate();
   const openRestaurant = () => navigate(`/app/restaurant/${item.restaurantId}`);
 
@@ -609,9 +588,10 @@ function MenuItemResultRow({ item, onAdd, addDisabled }) {
     >
       <div className="relative h-16 w-20 shrink-0 rounded-md overflow-hidden">
         <Image src={item.imageUrl} alt={item.name} className="h-full w-full" ratio="1" />
-        {!item.isAvailable && (
+        {item.isWithinDeliveryRange === false && <RangeBadge compact />}
+        {item.isWithinDeliveryRange !== false && (!item.isAvailable || item.isWithinDeliveryRange === null) && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <span className="text-[10px] font-semibold text-white">HẾT</span>
+            <span className="text-[10px] font-semibold text-white">KHÔNG KHẢ DỤNG</span>
           </div>
         )}
       </div>
@@ -625,19 +605,15 @@ function MenuItemResultRow({ item, onAdd, addDisabled }) {
           {item.restaurantName}
         </Link>
       </div>
-      {!addDisabled && (
-        <IconButton
-          icon="plus"
-          label={`Thêm ${item.name} vào giỏ`}
-          size="sm"
-          variant="secondary"
-          className="shrink-0"
-          onClick={(event) => {
-            event.stopPropagation();
-            onAdd();
-          }}
-        />
-      )}
+      <Icon name="arrowRight" size={16} className="shrink-0 text-body" />
     </div>
+  );
+}
+
+function RangeBadge({ compact = false }) {
+  return (
+    <span className={`absolute left-2 top-2 z-10 rounded-pill bg-surface-card font-semibold text-ink shadow-soft ${compact ? 'px-1.5 py-0.5 text-[9px]' : 'px-2.5 py-1 text-caption'}`}>
+      Ngoài phạm vi
+    </span>
   );
 }

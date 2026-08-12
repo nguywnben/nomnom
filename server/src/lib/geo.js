@@ -10,7 +10,7 @@
  * @returns {number} Distance in kilometers
  */
 export function calculateDistance(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  if (![lat1, lon1, lat2, lon2].every((value) => Number.isFinite(Number(value)))) return 0;
   
   const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -23,4 +23,15 @@ export function calculateDistance(lat1, lon1, lat2, lon2) {
     
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
+}
+
+export function hasValidCoordinates(location) {
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  return Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+    && latitude >= -90
+    && latitude <= 90
+    && longitude >= -180
+    && longitude <= 180;
 }

@@ -2,6 +2,11 @@ import { Router } from 'express';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { maskBankAccount, validatePayoutRequest } from '../lib/payout.js';
+import {
+  serializeAddressChangeRequest,
+  validateAddressChangePayload,
+} from '../lib/restaurantAddressChanges.js';
+import { geocodeVietnamAddress } from '../lib/addressGeocoding.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -14,6 +19,18 @@ async function loadRestaurant(conn, userId, lock = false) {
   const [rows] = await conn.query(
     'SELECT * FROM restaurants WHERE owner_user_id = ? LIMIT 1' + (lock ? ' FOR UPDATE' : ''),
     [userId],
+  );
+  return rows[0] || null;
+}
+
+async function loadLatestAddressChangeRequest(conn, restaurantId) {
+  const [rows] = await conn.query(
+    `SELECT *
+     FROM restaurant_address_change_requests
+     WHERE restaurant_id = ?
+     ORDER BY (status = 'pending') DESC, created_at DESC, id DESC
+     LIMIT 1`,
+    [restaurantId],
   );
   return rows[0] || null;
 }
@@ -59,7 +76,6 @@ function serializeSettings(row) {
     ward: row.ward || '',
     district: row.district || '',
     city: row.city,
-    baseDeliveryFee: Number(row.base_delivery_fee),
     minOrderAmount: Number(row.min_order_amount),
     avgPrepTimeMin: Number(row.avg_prep_time_min),
     commissionRate: Number(row.commission_rate),
@@ -213,9 +229,137 @@ router.get('/settings', async (req, res, next) => {
   try {
     const restaurant = await loadRestaurant(pool, req.auth.userId);
     if (!restaurant) return res.status(404).json({ error: 'Merchant restaurant not found.' });
-    return res.json({ restaurant: serializeSettings(restaurant) });
+    const addressChangeRequest = await loadLatestAddressChangeRequest(pool, restaurant.id);
+    return res.json({
+      restaurant: serializeSettings(restaurant),
+      addressChangeRequest: serializeAddressChangeRequest(addressChangeRequest),
+    });
   } catch (error) {
     return next(error);
+  }
+});
+
+router.post('/address-change-requests', async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const proposedAddress = validateAddressChangePayload(req.body);
+    const proposedCoordinates = await geocodeVietnamAddress({
+      line1: proposedAddress.addressLine,
+      ward: proposedAddress.ward,
+      district: proposedAddress.district,
+      city: proposedAddress.city,
+    });
+    await connection.beginTransaction();
+    const restaurant = await loadRestaurant(connection, req.auth.userId, true);
+    if (!restaurant) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy quán của bạn.' });
+    }
+
+    const currentAddress = {
+      addressLine: restaurant.address_line,
+      ward: restaurant.ward || '',
+      district: restaurant.district || '',
+      city: restaurant.city,
+      latitude: restaurant.latitude,
+      longitude: restaurant.longitude,
+    };
+    const unchanged = Object.keys(proposedAddress).every(
+      (key) => proposedAddress[key] === currentAddress[key],
+    );
+    if (unchanged) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Địa chỉ đề xuất phải khác địa chỉ quán đang áp dụng.' });
+    }
+
+    const [pendingRows] = await connection.query(
+      `SELECT id FROM restaurant_address_change_requests
+       WHERE restaurant_id = ? AND status = 'pending'
+       LIMIT 1 FOR UPDATE`,
+      [restaurant.id],
+    );
+    if (pendingRows.length) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Bạn đang có một yêu cầu đổi địa chỉ chờ admin duyệt.' });
+    }
+
+    const [result] = await connection.query(
+      `INSERT INTO restaurant_address_change_requests (
+        restaurant_id, requested_by_user_id,
+        current_address_line, current_ward, current_district, current_city, current_latitude, current_longitude,
+        proposed_address_line, proposed_ward, proposed_district, proposed_city, proposed_latitude, proposed_longitude
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        restaurant.id, req.auth.userId,
+        currentAddress.addressLine, currentAddress.ward, currentAddress.district, currentAddress.city,
+        currentAddress.latitude, currentAddress.longitude,
+        proposedAddress.addressLine, proposedAddress.ward, proposedAddress.district, proposedAddress.city,
+        proposedCoordinates.latitude, proposedCoordinates.longitude,
+      ],
+    );
+    const [rows] = await connection.query(
+      'SELECT * FROM restaurant_address_change_requests WHERE id = ? LIMIT 1',
+      [result.insertId],
+    );
+    await connection.commit();
+    return res.status(201).json({ request: serializeAddressChangeRequest(rows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Bạn đang có một yêu cầu đổi địa chỉ chờ admin duyệt.' });
+    }
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
+router.post('/address-change-requests/:id/cancel', async (req, res, next) => {
+  const requestId = Number(req.params.id);
+  if (!Number.isInteger(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'ID yêu cầu không hợp lệ.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const restaurant = await loadRestaurant(connection, req.auth.userId, true);
+    if (!restaurant) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy quán của bạn.' });
+    }
+    const [rows] = await connection.query(
+      `SELECT * FROM restaurant_address_change_requests
+       WHERE id = ? AND restaurant_id = ?
+       LIMIT 1 FOR UPDATE`,
+      [requestId, restaurant.id],
+    );
+    const request = rows[0];
+    if (!request) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu đổi địa chỉ.' });
+    }
+    if (request.status !== 'pending') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Chỉ có thể hủy yêu cầu đang chờ duyệt.' });
+    }
+    await connection.query(
+      `UPDATE restaurant_address_change_requests
+       SET status = 'cancelled', reviewed_at = NOW()
+       WHERE id = ?`,
+      [request.id],
+    );
+    const [updatedRows] = await connection.query(
+      'SELECT * FROM restaurant_address_change_requests WHERE id = ? LIMIT 1',
+      [request.id],
+    );
+    await connection.commit();
+    return res.json({ request: serializeAddressChangeRequest(updatedRows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
   }
 });
 
@@ -229,13 +373,19 @@ router.patch('/settings', async (req, res, next) => {
       return res.status(404).json({ error: 'Merchant restaurant not found.' });
     }
     const body = req.body || {};
+    const protectedAddressFields = ['addressLine', 'ward', 'district', 'city'];
+    if (protectedAddressFields.some((key) => body[key] !== undefined)) {
+      await connection.rollback();
+      return res.status(400).json({
+        error: 'Địa chỉ quán chỉ được thay đổi bằng yêu cầu chờ admin duyệt.',
+      });
+    }
     const textRules = {
       name: ['name', 2, 160], phone: ['phone', 0, 20], tagline: ['tagline', 0, 255],
       description: ['description', 0, 5000], bankAccountNo: ['bank_account_no', 0, 40],
       bankName: ['bank_name', 0, 120], bankAccountHolder: ['bank_account_holder', 0, 120],
     };
     const numberRules = {
-      baseDeliveryFee: ['base_delivery_fee', 0, 10000000],
       minOrderAmount: ['min_order_amount', 0, 100000000],
       avgPrepTimeMin: ['avg_prep_time_min', 1, 300],
     };

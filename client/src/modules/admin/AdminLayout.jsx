@@ -10,6 +10,7 @@ import Logo from '../../components/Logo.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 
 const links = [
+  { to: '/admin/customer-home', label: 'Trang chủ', icon: 'image' },
   { to: '/admin/cuisines', label: 'Loại ẩm thực', icon: 'grid' },
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
@@ -24,13 +25,14 @@ const links = [
 
 const sidebarOrder = [
   '/admin',
-  '/admin/accounts',
-  '/admin/restaurants',
-  '/admin/cuisines',
   '/admin/orders',
+  '/admin/restaurants',
+  '/admin/accounts',
   '/admin/reviews',
   '/admin/financial',
   '/admin/payouts',
+  '/admin/customer-home',
+  '/admin/cuisines',
   '/admin/config',
   '/admin/audit-logs',
 ];

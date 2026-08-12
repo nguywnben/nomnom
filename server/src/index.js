@@ -9,7 +9,6 @@ import restaurantRoutes from './routes/restaurants.routes.js';
 import cartRoutes from './routes/cart.routes.js';
 import cuisinesRoutes from './routes/cuisines.routes.js';
 import adminRoutes from './routes/admin.routes.js';
-import driverRoutes from './routes/driver.routes.js';
 import uploadsRoutes from './routes/uploads.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import paymentsRoutes from './routes/payments.routes.js';
@@ -19,7 +18,10 @@ import notificationsRoutes from './routes/notifications.routes.js';
 import merchantFinanceRoutes from './routes/merchant-finance.routes.js';
 import adminFinanceRoutes from './routes/admin-finance.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import shippingRoutes from './routes/shipping.routes.js';
+import locationsRoutes from './routes/locations.routes.js';
 import { ensureWave5Schema } from './lib/wave5Schema.js';
+import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -48,13 +50,14 @@ app.use('/api/v1/me', meRoutes);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/cart', cartRoutes);
 app.use('/api/v1/admin', adminRoutes);
-app.use('/api/v1/driver', driverRoutes);
 app.use('/api/v1/cuisines', cuisinesRoutes);
 app.use('/api/v1/uploads', uploadsRoutes);
 app.use('/api/v1/orders', ordersRoutes);
 app.use('/api/v1/payments', paymentsRoutes);
 app.use('/api/v1/vouchers', vouchersRoutes);
 app.use('/api/v1/menu-items', menuItemsRoutes);
+app.use('/api/v1/shipping', shippingRoutes);
+app.use('/api/v1/locations', locationsRoutes);
 
 app.use((err, _req, res, _next) => {
   if (err?.message === 'Request aborted' || err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') {
@@ -84,6 +87,16 @@ async function ensureSuspensionColumn() {
     console.log('[DB] Thêm cột suspension_expires_at vào bảng users');
     await pool.query("ALTER TABLE users ADD COLUMN suspension_expires_at datetime DEFAULT NULL");
   }
+}
+
+async function ensureHomePageSettings() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS home_page_settings (
+    id tinyint UNSIGNED NOT NULL PRIMARY KEY,
+    config_json json NOT NULL,
+    updated_by_admin_id bigint UNSIGNED DEFAULT NULL,
+    updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  await pool.query('INSERT IGNORE INTO home_page_settings (id, config_json) VALUES (1, ?)', [JSON.stringify(DEFAULT_HOME_PAGE_CONFIG)]);
 }
 
 async function ensureSuspensionReasonColumn() {
@@ -353,6 +366,7 @@ async function start() {
     await ensureOrderPaymentStates();
     await ensureRestaurantBankColumns();
     await ensureWave5Schema(pool);
+    await ensureHomePageSettings();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
     console.error(

@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import pool from '../db/pool.js';
-import { calculateDistance } from '../lib/geo.js';
 import { evaluateVoucher } from '../lib/voucher.js';
+import { buildShippingQuote } from '../lib/shippingQuote.js';
 import crypto from 'crypto';
+import { normalizeReviewSubmission, refreshReviewStats } from '../lib/reviewSubmission.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -91,6 +92,18 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
     const restaurant = rests[0];
 
+    let shippingQuote;
+    try {
+      shippingQuote = await buildShippingQuote({
+        restaurant,
+        address: deliveryAddress,
+      });
+    } catch (error) {
+      await connection.rollback();
+      if (String(error?.code ?? '').startsWith('SHIPPING_')) return res.status(400).json({ error: error.message, code: error.code });
+      throw error;
+    }
+
     let voucher = null;
     let voucherDiscount = 0;
     const normalizedVoucherCode = String(voucherCode ?? '').trim().toUpperCase();
@@ -108,7 +121,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // 4. Tính toán tiền theo công thức đơn giản
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const delivery_fee = restaurant.base_delivery_fee;
+    const delivery_fee = shippingQuote.total;
     if (voucher) {
       const [[voucherUsageRow]] = await connection.query(
         "SELECT COUNT(*) AS totalUsage, COALESCE(SUM(CASE WHEN customer_id = ? THEN 1 ELSE 0 END), 0) AS customerUsage FROM voucher_redemptions WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')",
@@ -132,24 +145,18 @@ router.post('/', requireAuth, async (req, res, next) => {
     const discount_amount = voucherDiscount;
     const total_amount = Math.max(0, subtotal + delivery_fee - discount_amount);
 
-    const driver_earning = Math.floor(delivery_fee * 0.8);
     const platform_commission = Math.floor(subtotal * Number(restaurant.commission_rate) / 100);
     const merchant_earning = subtotal - platform_commission;
-    const platform_fee = platform_commission + Math.floor(delivery_fee * 0.2);
+    // NomNom chưa có luồng đối soát đối tác giao vận; toàn bộ phí giao hàng thuộc nền tảng.
+    const platform_fee = platform_commission + delivery_fee;
 
     // 5. Tính toán khoảng cách và thời gian giao hàng dự kiến
-    let distance_km = 0;
-    if (deliveryAddress.latitude && deliveryAddress.longitude && restaurant.latitude && restaurant.longitude) {
-      distance_km = calculateDistance(
-        Number(deliveryAddress.latitude), Number(deliveryAddress.longitude),
-        Number(restaurant.latitude), Number(restaurant.longitude)
-      );
-    }
+    let distance_km = shippingQuote.distanceKm;
 
     // Tìm thời gian chuẩn bị món lâu nhất
     const max_prep_time = cartItems.reduce((max, i) => Math.max(max, i.prep_time_min), 0);
     // Thời gian chuẩn bị dự kiến + mặc định 15 phút giao hàng
-    const est_time_add = (restaurant.avg_prep_time_min || max_prep_time) + 15;
+    const est_time_add = (restaurant.avg_prep_time_min || max_prep_time) + shippingQuote.durationMin;
 
     const placed_at = new Date();
     const estimated_delivery_at = new Date(placed_at.getTime() + est_time_add * 60000);
@@ -170,7 +177,7 @@ router.post('/', requireAuth, async (req, res, next) => {
         order_code, customer_id, restaurant_id, voucher_id, delivery_address_id, delivery_address_snapshot,
         delivery_lat, delivery_lng, pickup_lat, pickup_lng, distance_km,
         subtotal, delivery_fee, discount_amount, voucher_code_snapshot, total_amount,
-        driver_earning, merchant_earning, platform_fee,
+        merchant_earning, platform_fee,
         status, payment_status, payment_method, customer_note, estimated_delivery_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -180,17 +187,16 @@ router.post('/', requireAuth, async (req, res, next) => {
         voucher ? voucher.id : null,
         deliveryAddress.id,
         snapshotAddress,
-        deliveryAddress.latitude || 0,
-        deliveryAddress.longitude || 0,
-        restaurant.latitude || 0,
-        restaurant.longitude || 0,
+        Number(deliveryAddress.latitude),
+        Number(deliveryAddress.longitude),
+        Number(restaurant.latitude),
+        Number(restaurant.longitude),
         distance_km,
         subtotal,
         delivery_fee,
         discount_amount,
         voucher ? voucher.code : null,
         total_amount,
-        driver_earning,
         merchant_earning,
         platform_fee,
         status,
@@ -288,7 +294,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     const { userId } = req.auth;
     const { restaurantId } = req.query;
 
-    let query = `SELECT o.*, (SELECT id FROM reviews WHERE order_id = o.id LIMIT 1) AS review_id
+    let query = `SELECT o.*
                  FROM orders o
                  WHERE o.customer_id = ? `;
     const params = [userId];
@@ -311,6 +317,10 @@ router.get('/', requireAuth, async (req, res, next) => {
       `SELECT * FROM order_items WHERE order_id IN (?)`,
       [orderIds]
     );
+    const [reviewRows] = await pool.query(
+      'SELECT id, order_id, menu_item_id FROM reviews WHERE order_id IN (?)',
+      [orderIds],
+    );
 
     const restaurantIds = [...new Set(orders.map(o => o.restaurant_id))];
     const [rests] = await pool.query(
@@ -322,12 +332,21 @@ router.get('/', requireAuth, async (req, res, next) => {
     rests.forEach(r => { restMap[r.id] = r; });
 
     const formattedOrders = orders.map(o => {
+      const orderItems = items.filter(i => i.order_id === o.id);
+      const orderReviews = reviewRows.filter((review) => Number(review.order_id) === Number(o.id));
+      const reviewedMenuItemIds = orderReviews
+        .filter((review) => review.menu_item_id !== null)
+        .map((review) => Number(review.menu_item_id));
+      const restaurantReview = orderReviews.find((review) => review.menu_item_id === null);
+      const uniqueOrderItemIds = [...new Set(orderItems.map((item) => Number(item.menu_item_id)))];
       return {
         ...o,
         restaurant: restMap[o.restaurant_id],
-        items: items.filter(i => i.order_id === o.id),
-        reviewId: o.review_id ? Number(o.review_id) : null,
-        isReviewed: Boolean(o.review_id)
+        items: orderItems,
+        reviewId: restaurantReview ? Number(restaurantReview.id) : null,
+        restaurantReviewed: Boolean(restaurantReview),
+        reviewedMenuItemIds,
+        isReviewed: Boolean(restaurantReview) && uniqueOrderItemIds.every((itemId) => reviewedMenuItemIds.includes(itemId)),
       };
     });
 
@@ -342,7 +361,7 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
     const { userId } = req.auth;
     const { idOrCode } = req.params;
 
-    let query = `SELECT o.*, (SELECT id FROM reviews WHERE order_id = o.id LIMIT 1) AS review_id FROM orders o WHERE o.customer_id = ? AND `;
+    let query = `SELECT o.* FROM orders o WHERE o.customer_id = ? AND `;
     let params = [userId];
 
     if (idOrCode.startsWith('ORD-')) {
@@ -360,9 +379,6 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
     }
 
     const order = orders[0];
-    order.reviewId = order.review_id ? Number(order.review_id) : null;
-    order.isReviewed = Boolean(order.review_id);
-
     // Lấy thông tin order items
     const [items] = await pool.query(
       `SELECT
@@ -380,6 +396,20 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
       [order.id]
     );
     order.items = items;
+
+    const [orderReviews] = await pool.query(
+      'SELECT id, menu_item_id FROM reviews WHERE order_id = ?',
+      [order.id],
+    );
+    const restaurantReview = orderReviews.find((review) => review.menu_item_id === null);
+    order.reviewId = restaurantReview ? Number(restaurantReview.id) : null;
+    order.restaurantReviewed = Boolean(restaurantReview);
+    order.reviewedMenuItemIds = orderReviews
+      .filter((review) => review.menu_item_id !== null)
+      .map((review) => Number(review.menu_item_id));
+    const uniqueOrderItemIds = [...new Set(items.map((item) => Number(item.menuItemId)))];
+    order.isReviewed = Boolean(restaurantReview)
+      && uniqueOrderItemIds.every((itemId) => order.reviewedMenuItemIds.includes(itemId));
 
     // Lấy thông tin nhà hàng liên quan
     const [rests] = await pool.query(
@@ -429,100 +459,71 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
       return res.status(403).json({ error: 'Chỉ đơn hàng đã giao thành công mới được đánh giá.' });
     }
 
-    // 3. Phân tách danh sách đánh giá món ăn từ request body
-    let reviewsList = req.body?.reviews;
-    if (!Array.isArray(reviewsList)) {
-      // Fallback cho client cũ gửi đơn lẻ rating & comment
-      const ratingVal = parseInt(req.body?.rating, 10);
-      const commentVal = req.body?.comment ? String(req.body.comment).trim() : null;
+    const [orderItemRows] = await connection.query(
+      'SELECT DISTINCT menu_item_id FROM order_items WHERE order_id = ?',
+      [order.id],
+    );
 
-      if (isNaN(ratingVal) || ratingVal < 1 || ratingVal > 5) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
-      }
-
-      const [orderItems] = await connection.query(
-        `SELECT menu_item_id FROM order_items WHERE order_id = ? LIMIT 1`,
-        [order.id]
+    let submission;
+    try {
+      submission = normalizeReviewSubmission(
+        req.body,
+        orderItemRows.map((item) => item.menu_item_id),
       );
-
-      if (orderItems.length > 0) {
-        reviewsList = [{
-          menuItemId: orderItems[0].menu_item_id,
-          rating: ratingVal,
-          comment: commentVal,
-        }];
-      } else {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Không thể xác định món ăn trong đơn hàng để đánh giá.' });
-      }
+    } catch (validationError) {
+      await connection.rollback();
+      return res.status(400).json({ error: validationError.message });
     }
 
-    // 4. Kiểm tra hợp lệ các đánh giá trong danh sách và kiểm tra trùng lặp (chống spam)
-    for (const r of reviewsList) {
-      const ratingVal = parseInt(r.rating, 10);
-      if (isNaN(ratingVal) || ratingVal < 1 || ratingVal > 5) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
-      }
-
-      if (!r.menuItemId) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Thiếu thông tin món ăn (menuItemId) cần đánh giá.' });
-      }
-
-      const [dup] = await connection.query(
-        `SELECT id FROM reviews WHERE order_id = ? AND menu_item_id = ? LIMIT 1`,
-        [order.id, r.menuItemId]
-      );
-      if (dup.length > 0) {
-        await connection.rollback();
-        return res.status(400).json({ error: 'Sản phẩm này trong đơn hàng đã được đánh giá rồi.' });
-      }
+    const [existingReviews] = await connection.query(
+      'SELECT menu_item_id FROM reviews WHERE order_id = ? FOR UPDATE',
+      [order.id],
+    );
+    const hasExistingRestaurantReview = existingReviews.some((review) => review.menu_item_id === null);
+    const existingDishIds = new Set(existingReviews.filter((review) => review.menu_item_id !== null).map((review) => Number(review.menu_item_id)));
+    if (
+      (submission.restaurantReview && hasExistingRestaurantReview)
+      || submission.dishReviews.some((review) => existingDishIds.has(review.menuItemId))
+    ) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Một nội dung trong đơn hàng này đã được đánh giá trước đó.' });
     }
 
-    // 5. Thêm các đánh giá mới vào cơ sở dữ liệu
     const insertedIds = [];
-    for (const r of reviewsList) {
-      const commentVal = r.comment ? String(r.comment).trim() : null;
+    if (submission.restaurantReview) {
       const [insertRes] = await connection.query(
-        `INSERT INTO reviews (order_id, customer_id, restaurant_id, menu_item_id, rating, comment, is_edited) VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        [order.id, userId, order.restaurant_id, r.menuItemId, r.rating, commentVal]
+        `INSERT INTO reviews (order_id, customer_id, restaurant_id, menu_item_id, rating, comment, is_edited)
+         VALUES (?, ?, ?, NULL, ?, ?, 0)`,
+        [order.id, userId, order.restaurant_id, submission.restaurantReview.rating, submission.restaurantReview.comment],
       );
       insertedIds.push(insertRes.insertId);
     }
 
-    // 6. Tính toán lại điểm trung bình cho từng món ăn (menu_items) có đánh giá
-    for (const r of reviewsList) {
-      const [itemStats] = await connection.query(
-        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
-        [r.menuItemId]
+    for (const review of submission.dishReviews) {
+      const [insertRes] = await connection.query(
+        `INSERT INTO reviews (order_id, customer_id, restaurant_id, menu_item_id, rating, comment, is_edited)
+         VALUES (?, ?, ?, ?, ?, ?, 0)`,
+        [order.id, userId, order.restaurant_id, review.menuItemId, review.rating, review.comment],
       );
-      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
-      await connection.query(
-        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
-        [nextItemAvg, r.menuItemId]
-      );
+      insertedIds.push(insertRes.insertId);
     }
 
-    // 7. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
-    await connection.query(
-      `UPDATE restaurants 
-       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
-           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
-       WHERE id = ?`,
-      [order.restaurant_id, order.restaurant_id, order.restaurant_id]
-    );
+    await refreshReviewStats(connection, {
+      restaurantId: order.restaurant_id,
+      menuItemIds: submission.dishReviews.map((review) => review.menuItemId),
+    });
 
     await connection.commit();
 
-    // 8. Lấy thông tin các reviews vừa tạo để phản hồi
     const [inserted] = await pool.query(
       `SELECT id, order_id as orderId, customer_id as customerId, restaurant_id as restaurantId, menu_item_id as menuItemId, rating, comment, is_hidden as isHidden, reply_text as replyText, reply_at as replyAt, created_at as createdAt FROM reviews WHERE id IN (?)`,
       [insertedIds]
     );
 
-    res.status(201).json({ reviews: inserted });
+    res.status(201).json({
+      restaurantReview: inserted.find((review) => review.menuItemId === null) ?? null,
+      dishReviews: inserted.filter((review) => review.menuItemId !== null),
+    });
 
   } catch (err) {
     await connection.rollback();
@@ -589,27 +590,10 @@ router.patch('/reviews/:id', requireAuth, async (req, res, next) => {
       [rating, comment, reviewId]
     );
 
-    // 6. Tính toán lại điểm trung bình cho món ăn liên quan (nếu có)
-    if (review.menu_item_id) {
-      const [itemStats] = await connection.query(
-        `SELECT AVG(rating) AS avg_rating FROM reviews WHERE menu_item_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL`,
-        [review.menu_item_id]
-      );
-      const nextItemAvg = Number(itemStats[0].avg_rating || 0).toFixed(2);
-      await connection.query(
-        `UPDATE menu_items SET rating_avg = ? WHERE id = ?`,
-        [nextItemAvg, review.menu_item_id]
-      );
-    }
-
-    // 7. Tính toán lại điểm trung bình cho quán ăn trực tiếp từ bảng reviews (chống lệch trọng số)
-    await connection.query(
-      `UPDATE restaurants 
-       SET rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL), 0),
-           review_count = (SELECT COUNT(id) FROM reviews WHERE restaurant_id = ? AND is_hidden = 0 AND menu_item_id IS NOT NULL)
-       WHERE id = ?`,
-      [review.restaurant_id, review.restaurant_id, review.restaurant_id]
-    );
+    await refreshReviewStats(connection, {
+      restaurantId: review.restaurant_id,
+      menuItemIds: review.menu_item_id ? [review.menu_item_id] : [],
+    });
 
     await connection.commit();
 

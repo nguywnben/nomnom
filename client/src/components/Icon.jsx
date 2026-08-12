@@ -125,12 +125,6 @@ const paths = {
       <path d="M4 9c0 2 1.5 3 3 3s3-1 3-3c0 2 1.5 3 3 3s3-1 3-3c0 2 1.5 3 3 3" />
     </g>
   ),
-  driverHelmet: (
-    <g {...stroke}>
-      <path d="M4 14c0-5 3.5-9 8-9s8 4 8 9v3H4v-3z" />
-      <path d="M9 10h6" />
-    </g>
-  ),
   shield: <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" {...stroke} />,
   eye: (
     <g {...stroke}>
@@ -156,6 +150,13 @@ const paths = {
     <g {...stroke}>
       <path d="M4 8h3l2-2h6l2 2h3v11H4V8z" />
       <circle cx="12" cy="13" r="3.5" />
+    </g>
+  ),
+  image: (
+    <g {...stroke}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9" r="1.5" />
+      <path d="M3 16l5-5 3.5 3.5 2.5-2.5 4 4" />
     </g>
   ),
   edit: (

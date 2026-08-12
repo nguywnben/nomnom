@@ -498,17 +498,6 @@ export const currentMerchant = {
   restaurantId: 'r-1',
 };
 
-export const currentDriver = {
-  id: 'drv-1',
-  name: 'Owen Reyes',
-  email: 'owen.r@example.com',
-  phone: '+1 (555) 020-7711',
-  avatar: avatar('Owen Reyes'),
-  vehicle: 'Honda CB300R',
-  rating: 4.92,
-  trips: 1840,
-};
-
 export const currentAdmin = {
   id: 'adm-1',
   name: 'Avery Park',
@@ -535,7 +524,6 @@ export const initialOrders = [
     payment: 'card',
     status: 'delivering',
     placedAt: Date.now() - 1000 * 60 * 12,
-    driverId: 'drv-1',
     eta: 8,
   },
   {
@@ -552,7 +540,6 @@ export const initialOrders = [
     payment: 'wallet',
     status: 'delivered',
     placedAt: Date.now() - 1000 * 60 * 60 * 26,
-    driverId: 'drv-1',
     eta: 0,
   },
 ];
@@ -630,64 +617,6 @@ export const initialMerchantOrders = {
 };
 
 // ---------------------------------------------------------------------------
-// Driver — available jobs
-// ---------------------------------------------------------------------------
-export const initialDriverJobs = [
-  {
-    id: 'job-1',
-    restaurantId: 'r-1',
-    restaurantName: 'Cinque Pizzeria',
-    restaurantAvatar: logo('Cinque'),
-    customerName: 'Mara C.',
-    pickupAddress: '12 Linden Ave',
-    dropoffAddress: '120 Wythe Ave',
-    distanceKm: 2.1,
-    earnings: 47000,
-    estMin: 18,
-    items: 3,
-  },
-  {
-    id: 'job-2',
-    restaurantId: 'r-2',
-    restaurantName: 'Junebug Burgers',
-    restaurantAvatar: logo('Junebug'),
-    customerName: 'Daniel L.',
-    pickupAddress: '88 Holloway St',
-    dropoffAddress: '301 Carroll St',
-    distanceKm: 1.4,
-    earnings: 38500,
-    estMin: 14,
-    items: 2,
-  },
-  {
-    id: 'job-3',
-    restaurantId: 'r-5',
-    restaurantName: 'Hachi Ramen',
-    restaurantAvatar: logo('Hachi'),
-    customerName: 'Jamie P.',
-    pickupAddress: '101 Mott St',
-    dropoffAddress: '14 W 10th St',
-    distanceKm: 3.4,
-    earnings: 67500,
-    estMin: 26,
-    items: 4,
-  },
-  {
-    id: 'job-4',
-    restaurantId: 'r-6',
-    restaurantName: 'La Carreta',
-    restaurantAvatar: logo('LaCarreta'),
-    customerName: 'Sky R.',
-    pickupAddress: '209 Avenue B',
-    dropoffAddress: '88 W 4th St',
-    distanceKm: 2.7,
-    earnings: 51000,
-    estMin: 20,
-    items: 5,
-  },
-];
-
-// ---------------------------------------------------------------------------
 // Admin accounts + payouts
 // ---------------------------------------------------------------------------
 export const initialAdminAccounts = [
@@ -697,19 +626,11 @@ export const initialAdminAccounts = [
   { id: 'a-4', type: 'merchant', name: 'Verdant Bowls', owner: 'Naomi K.', email: 'naomi@verdant.example', status: 'pending', joined: '2025-04-19', avatar: logo('Verdant') },
   { id: 'a-5', type: 'merchant', name: 'Hachi Ramen', owner: 'Ren O.', email: 'ren@hachi.example', status: 'active', joined: '2024-02-08', avatar: logo('Hachi') },
   { id: 'a-6', type: 'merchant', name: 'La Carreta', owner: 'Lupe M.', email: 'lupe@carreta.example', status: 'suspended', joined: '2023-12-21', avatar: logo('LaCarreta') },
-
-  { id: 'a-7', type: 'driver', name: 'Owen Reyes', owner: '', email: 'owen.r@example.com', status: 'active', joined: '2024-01-04', avatar: avatar('Owen Reyes') },
-  { id: 'a-8', type: 'driver', name: 'Iris Mendez', owner: '', email: 'iris.m@example.com', status: 'active', joined: '2024-03-18', avatar: avatar('Iris Mendez') },
-  { id: 'a-9', type: 'driver', name: 'Felix Tao', owner: '', email: 'felix.t@example.com', status: 'pending', joined: '2025-05-01', avatar: avatar('Felix Tao') },
-  { id: 'a-10', type: 'driver', name: 'Sasha Park', owner: '', email: 'sasha.p@example.com', status: 'active', joined: '2024-09-22', avatar: avatar('Sasha Park') },
 ];
 
 export const initialPayouts = [
-  { id: 'p-1', accountId: 'a-7', name: 'Owen Reyes', type: 'driver', amount: 10313000, requestedAt: '2026-05-13', status: 'pending' },
   { id: 'p-2', accountId: 'a-2', name: 'Junebug Burgers', type: 'merchant', amount: 54710000, requestedAt: '2026-05-12', status: 'pending' },
-  { id: 'p-3', accountId: 'a-8', name: 'Iris Mendez', type: 'driver', amount: 7705000, requestedAt: '2026-05-11', status: 'approved' },
   { id: 'p-4', accountId: 'a-1', name: 'Cinque Pizzeria', type: 'merchant', amount: 48550000, requestedAt: '2026-05-09', status: 'approved' },
-  { id: 'p-5', accountId: 'a-10', name: 'Sasha Park', type: 'driver', amount: 3120000, requestedAt: '2026-05-14', status: 'pending' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -725,21 +646,6 @@ export const promoCodes = [
 // Chats
 // ---------------------------------------------------------------------------
 export const initialChats = [
-  {
-    id: 'chat-driver',
-    title: 'Owen R. — Tài xế',
-    subtitle: 'Đơn hàng #ord-A1B2C',
-    participants: [
-      { id: 'me', name: 'Bạn', role: 'customer', avatar: avatar('Mara Chen') },
-      { id: 'drv-1', name: 'Owen R.', role: 'driver', avatar: avatar('Owen Reyes') },
-    ],
-    channel: 'customer-driver',
-    messages: [
-      { id: 'm1', senderId: 'drv-1', text: 'Đã lấy đơn hàng của bạn, tôi đang giao đến đây.', at: Date.now() - 1000 * 60 * 6 },
-      { id: 'm2', senderId: 'me', text: 'Cảm ơn! Căn hộ 3B, vui lòng bấm chuông hai lần nhé.', at: Date.now() - 1000 * 60 * 5 },
-      { id: 'm3', senderId: 'drv-1', text: "Đã rõ. Dự kiến 7 phút nữa tới.", at: Date.now() - 1000 * 60 * 4 },
-    ],
-  },
   {
     id: 'chat-merchant',
     title: 'Cinque Pizzeria',
@@ -786,16 +692,6 @@ export const merchantTopItems = [
   { name: 'Funghi', sold: 96, revenue: 38400000 },
   { name: 'Salsiccia', sold: 71, revenue: 31050000 },
   { name: 'Burrata Salad', sold: 58, revenue: 17400000 },
-];
-
-export const driverDailyEarnings = [
-  { day: 'Mon', earnings: 1600000 },
-  { day: 'Tue', earnings: 1450000 },
-  { day: 'Wed', earnings: 2050000 },
-  { day: 'Thu', earnings: 1775000 },
-  { day: 'Fri', earnings: 2800000 },
-  { day: 'Sat', earnings: 3450000 },
-  { day: 'Sun', earnings: 2400000 },
 ];
 
 export const adminGmvWeekly = [
