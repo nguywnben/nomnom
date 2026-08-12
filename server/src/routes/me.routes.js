@@ -4,6 +4,7 @@ import { requireAuth, ensureCustomer } from '../middleware/auth.js';
 import db from '../db/pool.js';
 import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
+import { validateGhnAddressCodes } from '../lib/addressGhn.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -156,7 +157,9 @@ router.get('/addresses', ensureCustomer, async (req, res, next) => {
     const { userId } = req.auth;
     const [rows] = await db.query(
       `SELECT id, label, recipient_name AS recipientName, recipient_phone AS recipientPhone, 
-              line1, ward, district, city, latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
+              line1, ward, district, city, ghn_province_id AS ghnProvinceId,
+              ghn_district_id AS ghnDistrictId, ghn_ward_code AS ghnWardCode,
+              latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
        FROM customer_addresses 
        WHERE customer_id = ?
        ORDER BY is_default DESC, created_at DESC`,
@@ -178,14 +181,19 @@ router.get('/addresses', ensureCustomer, async (req, res, next) => {
 router.post('/addresses', ensureCustomer, async (req, res, next) => {
   const connection = await db.getConnection();
   try {
-    await connection.beginTransaction();
-
     const { userId } = req.auth;
     let { 
       label, recipientName, recipientPhone, line1, 
       ward, district, city, latitude, longitude, 
       deliveryNote, isDefault 
     } = req.body;
+    const ghnValidation = validateGhnAddressCodes(req.body);
+    if (!ghnValidation.ok) {
+      return res.status(400).json({ error: ghnValidation.error });
+    }
+    const { ghnProvinceId, ghnDistrictId, ghnWardCode } = ghnValidation.codes;
+
+    await connection.beginTransaction();
 
     // Check if this is the first address
     const [existing] = await connection.query(
@@ -205,11 +213,12 @@ router.post('/addresses', ensureCustomer, async (req, res, next) => {
 
     const [result] = await connection.query(
       `INSERT INTO customer_addresses 
-        (customer_id, label, recipient_name, recipient_phone, line1, ward, district, city, latitude, longitude, delivery_note, is_default) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (customer_id, label, recipient_name, recipient_phone, line1, ward, district, city, ghn_province_id, ghn_district_id, ghn_ward_code, latitude, longitude, delivery_note, is_default)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId, label || '', recipientName || '', recipientPhone || '', line1 || '',
-        ward || null, district || null, city || '', latitude || null, longitude || null,
+        ward || null, district || null, city || '', ghnProvinceId, ghnDistrictId, ghnWardCode,
+        latitude || null, longitude || null,
         deliveryNote || null, isDefault ? 1 : 0
       ]
     );
@@ -228,7 +237,9 @@ router.post('/addresses', ensureCustomer, async (req, res, next) => {
     // Return the newly created address
     const [newAddr] = await connection.query(
       `SELECT id, label, recipient_name AS recipientName, recipient_phone AS recipientPhone, 
-              line1, ward, district, city, latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
+              line1, ward, district, city, ghn_province_id AS ghnProvinceId,
+              ghn_district_id AS ghnDistrictId, ghn_ward_code AS ghnWardCode,
+              latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
        FROM customer_addresses WHERE id = ?`,
       [newId]
     );
@@ -252,6 +263,10 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
     const { userId } = req.auth;
     const { id } = req.params;
     const data = req.body;
+    const ghnValidation = validateGhnAddressCodes(data, { required: false });
+    if (!ghnValidation.ok) {
+      return res.status(400).json({ error: ghnValidation.error });
+    }
 
     await connection.beginTransaction();
 
@@ -286,6 +301,9 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
       ward: 'ward',
       district: 'district',
       city: 'city',
+      ghnProvinceId: 'ghn_province_id',
+      ghnDistrictId: 'ghn_district_id',
+      ghnWardCode: 'ghn_ward_code',
       latitude: 'latitude',
       longitude: 'longitude',
       deliveryNote: 'delivery_note',
@@ -312,7 +330,9 @@ router.patch('/addresses/:id', ensureCustomer, async (req, res, next) => {
 
     const [updatedRow] = await connection.query(
       `SELECT id, label, recipient_name AS recipientName, recipient_phone AS recipientPhone, 
-              line1, ward, district, city, latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
+              line1, ward, district, city, ghn_province_id AS ghnProvinceId,
+              ghn_district_id AS ghnDistrictId, ghn_ward_code AS ghnWardCode,
+              latitude, longitude, delivery_note AS deliveryNote, is_default AS isDefault
        FROM customer_addresses WHERE id = ?`,
       [id]
     );
