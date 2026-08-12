@@ -6,14 +6,18 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
+import Tabs from '../../components/Tabs.jsx';
 import { Textarea } from '../../components/Input.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import {
   approveAdminRestaurant,
+  approveAdminRestaurantAddressChangeRequest,
+  fetchAdminRestaurantAddressChangeRequests,
   fetchAdminRestaurantDetail,
   fetchAdminPendingRestaurants,
+  rejectAdminRestaurantAddressChangeRequest,
   rejectAdminRestaurant,
 } from '../../lib/api.js';
 
@@ -27,6 +31,12 @@ export default function AdminRestaurantApprovals() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actingId, setActingId] = useState(null);
+  const [approvalTab, setApprovalTab] = useState('restaurants');
+  const [addressItems, setAddressItems] = useState([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressRejectOpen, setAddressRejectOpen] = useState(false);
+  const [addressRejectReason, setAddressRejectReason] = useState('');
+  const [selectedAddressRequest, setSelectedAddressRequest] = useState(null);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -47,6 +57,22 @@ export default function AdminRestaurantApprovals() {
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  const loadAddressItems = useCallback(async () => {
+    setAddressLoading(true);
+    try {
+      const response = await fetchAdminRestaurantAddressChangeRequests();
+      setAddressItems(response.items ?? []);
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Không tải được yêu cầu đổi địa chỉ', message: err.message || 'Vui lòng thử lại sau.' });
+    } finally {
+      setAddressLoading(false);
+    }
+  }, [pushToast]);
+
+  useEffect(() => {
+    if (approvalTab === 'addresses') loadAddressItems();
+  }, [approvalTab, loadAddressItems]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -122,6 +148,36 @@ export default function AdminRestaurantApprovals() {
     }
   };
 
+  const approveAddressChange = async (requestId) => {
+    setActingId(`address-${requestId}`);
+    try {
+      await approveAdminRestaurantAddressChangeRequest(requestId);
+      setAddressItems((current) => current.filter((item) => item.id !== requestId));
+      pushToast({ kind: 'success', title: 'Đã duyệt đổi địa chỉ', message: 'Địa chỉ quán đã được cập nhật và chủ quán đã nhận thông báo.' });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Duyệt thất bại', message: err.message || 'Không thể duyệt yêu cầu này.' });
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const rejectAddressChange = async () => {
+    if (!selectedAddressRequest || !addressRejectReason.trim()) return;
+    setActingId(`address-${selectedAddressRequest.id}`);
+    try {
+      await rejectAdminRestaurantAddressChangeRequest(selectedAddressRequest.id, addressRejectReason.trim());
+      setAddressItems((current) => current.filter((item) => item.id !== selectedAddressRequest.id));
+      setAddressRejectOpen(false);
+      setAddressRejectReason('');
+      setSelectedAddressRequest(null);
+      pushToast({ kind: 'info', title: 'Đã từ chối yêu cầu đổi địa chỉ', message: 'Lý do từ chối đã được gửi cho chủ quán.' });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Từ chối thất bại', message: err.message || 'Không thể từ chối yêu cầu này.' });
+    } finally {
+      setActingId(null);
+    }
+  };
+
   return (
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-sm">
@@ -141,7 +197,51 @@ export default function AdminRestaurantApprovals() {
         />
       </div>
 
-      {loading ? (
+      <Tabs
+        className="w-fit max-w-full"
+        items={[
+          { value: 'restaurants', label: 'Duyệt quán mới' },
+          { value: 'addresses', label: 'Đổi địa chỉ' },
+        ]}
+        value={approvalTab}
+        onChange={setApprovalTab}
+      />
+
+      {approvalTab === 'addresses' ? (
+        addressLoading ? (
+          <div className="flex min-h-[30vh] items-center justify-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : addressItems.length === 0 ? (
+          <EmptyState icon="store" title="Không có yêu cầu đổi địa chỉ" message="Các yêu cầu đang chờ duyệt sẽ xuất hiện tại đây." />
+        ) : (
+          <Card padded={false} className="overflow-hidden">
+            <ul className="divide-y divide-hairline">
+              {addressItems.map((request) => {
+                const busy = actingId === `address-${request.id}`;
+                const oldAddress = Object.values(request.currentAddress).filter(Boolean).join(', ');
+                const newAddress = Object.values(request.proposedAddress).filter(Boolean).join(', ');
+                return (
+                  <li key={request.id} className="grid gap-sm p-base md:grid-cols-[1fr_auto] md:items-center">
+                    <div>
+                      <div className="text-body-sm font-semibold text-ink">{request.restaurantName}</div>
+                      <div className="mt-1 text-caption text-body">Chủ quán: {request.ownerName || '—'} · Gửi {new Date(request.createdAt).toLocaleString('vi-VN')}</div>
+                      <div className="mt-sm grid gap-xs text-body-sm md:grid-cols-2">
+                        <div className="rounded-md bg-canvas-soft p-sm"><div className="text-caption-uppercase text-body">Địa chỉ đang dùng</div><div className="mt-1 text-ink">{oldAddress}</div></div>
+                        <div className="rounded-md border border-primary/30 bg-primary/5 p-sm"><div className="text-caption-uppercase text-body">Địa chỉ đề xuất</div><div className="mt-1 text-ink">{newAddress}</div></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 md:justify-end">
+                      <Button variant="secondary" size="sm" onClick={() => { setSelectedAddressRequest(request); setAddressRejectReason(''); setAddressRejectOpen(true); }} disabled={busy}>Từ chối</Button>
+                      <Button size="sm" leadingIcon="check" onClick={() => approveAddressChange(request.id)} disabled={busy}>{busy ? 'Đang xử lý…' : 'Duyệt'}</Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )
+      ) : loading ? (
         <div className="flex min-h-[30vh] items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
@@ -192,6 +292,23 @@ export default function AdminRestaurantApprovals() {
           </ul>
         </Card>
       )}
+
+      <Modal open={addressRejectOpen} onClose={() => setAddressRejectOpen(false)} title="Từ chối yêu cầu đổi địa chỉ" size="sm">
+        <div className="flex flex-col gap-sm">
+          <Textarea
+            rows={4}
+            label="Lý do từ chối"
+            required
+            placeholder="Nhập lý do từ chối để gửi cho chủ quán"
+            value={addressRejectReason}
+            onChange={(event) => setAddressRejectReason(event.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setAddressRejectOpen(false)} disabled={Boolean(actingId)}>Hủy</Button>
+            <Button onClick={rejectAddressChange} disabled={!addressRejectReason.trim() || Boolean(actingId)}>Xác nhận từ chối</Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={!!active} onClose={() => setActive(null)} title={active?.name || ''} size="lg">
         {profileLoading ? (

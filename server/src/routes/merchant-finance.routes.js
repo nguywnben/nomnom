@@ -2,6 +2,11 @@ import { Router } from 'express';
 import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { maskBankAccount, validatePayoutRequest } from '../lib/payout.js';
+import { createGhnClient, GhnProviderError } from '../lib/ghn.js';
+import {
+  serializeAddressChangeRequest,
+  validateAddressChangePayload,
+} from '../lib/restaurantAddressChanges.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -16,6 +21,66 @@ async function loadRestaurant(conn, userId, lock = false) {
     [userId],
   );
   return rows[0] || null;
+}
+
+async function loadLatestAddressChangeRequest(conn, restaurantId) {
+  const [rows] = await conn.query(
+    `SELECT *
+     FROM restaurant_address_change_requests
+     WHERE restaurant_id = ?
+     ORDER BY (status = 'pending') DESC, created_at DESC, id DESC
+     LIMIT 1`,
+    [restaurantId],
+  );
+  return rows[0] || null;
+}
+
+function getGhnClient() {
+  return createGhnClient({
+    token: process.env.GHN_TOKEN,
+    shopId: process.env.GHN_SHOP_ID,
+    baseUrl: process.env.GHN_API_BASE_URL ?? 'https://online-gateway.ghn.vn/shiip/public-api',
+  });
+}
+
+function positiveInteger(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+function respondGhnError(res, error) {
+  if (error instanceof GhnProviderError || String(error?.code ?? '').startsWith('GHN_')) {
+    return res.status(502).json({ error: error.message, code: error.code ?? 'GHN_PROVIDER_ERROR' });
+  }
+  throw error;
+}
+
+function invalidGhnAddressError() {
+  const error = new Error('Địa bàn GHN không hợp lệ hoặc không thuộc cùng một tuyến địa chỉ.');
+  error.status = 400;
+  return error;
+}
+
+async function validateGhnAddressSelection(address) {
+  const ghnClient = getGhnClient();
+  const [provinces, districts, wards] = await Promise.all([
+    ghnClient.getProvinces(),
+    ghnClient.getDistricts(address.ghnProvinceId),
+    ghnClient.getWards(address.ghnDistrictId),
+  ]);
+  const province = (provinces ?? []).find((item) => Number(item.ProvinceID) === address.ghnProvinceId);
+  const district = (districts ?? []).find((item) => Number(item.DistrictID) === address.ghnDistrictId);
+  const ward = (wards ?? []).find((item) => String(item.WardCode) === address.ghnWardCode);
+  if (!province || !district || !ward || Number(district.ProvinceID) !== address.ghnProvinceId
+    || Number(ward.DistrictID) !== address.ghnDistrictId) {
+    throw invalidGhnAddressError();
+  }
+  return {
+    ...address,
+    city: province.ProvinceName,
+    district: district.DistrictName,
+    ward: ward.WardName,
+  };
 }
 
 async function ensureMerchantWallet(conn, userId) {
@@ -59,6 +124,9 @@ function serializeSettings(row) {
     ward: row.ward || '',
     district: row.district || '',
     city: row.city,
+    ghnProvinceId: row.ghn_province_id === null ? null : Number(row.ghn_province_id),
+    ghnDistrictId: row.ghn_district_id === null ? null : Number(row.ghn_district_id),
+    ghnWardCode: row.ghn_ward_code ?? null,
     baseDeliveryFee: Number(row.base_delivery_fee),
     minOrderAmount: Number(row.min_order_amount),
     avgPrepTimeMin: Number(row.avg_prep_time_min),
@@ -213,9 +281,165 @@ router.get('/settings', async (req, res, next) => {
   try {
     const restaurant = await loadRestaurant(pool, req.auth.userId);
     if (!restaurant) return res.status(404).json({ error: 'Merchant restaurant not found.' });
-    return res.json({ restaurant: serializeSettings(restaurant) });
+    const addressChangeRequest = await loadLatestAddressChangeRequest(pool, restaurant.id);
+    return res.json({
+      restaurant: serializeSettings(restaurant),
+      addressChangeRequest: serializeAddressChangeRequest(addressChangeRequest),
+    });
   } catch (error) {
     return next(error);
+  }
+});
+
+router.get('/ghn/provinces', async (_req, res, next) => {
+  try {
+    const rows = await getGhnClient().getProvinces();
+    return res.json((rows ?? []).map((item) => ({ id: item.ProvinceID, name: item.ProvinceName })));
+  } catch (error) {
+    try { return respondGhnError(res, error); } catch (unexpected) { return next(unexpected); }
+  }
+});
+
+router.get('/ghn/districts', async (req, res, next) => {
+  const provinceId = positiveInteger(req.query.provinceId);
+  if (!provinceId) return res.status(400).json({ error: 'provinceId phải là số dương.' });
+  try {
+    const rows = await getGhnClient().getDistricts(provinceId);
+    return res.json((rows ?? []).map((item) => ({ id: item.DistrictID, name: item.DistrictName, provinceId: item.ProvinceID })));
+  } catch (error) {
+    try { return respondGhnError(res, error); } catch (unexpected) { return next(unexpected); }
+  }
+});
+
+router.get('/ghn/wards', async (req, res, next) => {
+  const districtId = positiveInteger(req.query.districtId);
+  if (!districtId) return res.status(400).json({ error: 'districtId phải là số dương.' });
+  try {
+    const rows = await getGhnClient().getWards(districtId);
+    return res.json((rows ?? []).map((item) => ({ code: item.WardCode, name: item.WardName, districtId: item.DistrictID })));
+  } catch (error) {
+    try { return respondGhnError(res, error); } catch (unexpected) { return next(unexpected); }
+  }
+});
+
+router.post('/address-change-requests', async (req, res, next) => {
+  const connection = await pool.getConnection();
+  try {
+    const proposedAddress = await validateGhnAddressSelection(validateAddressChangePayload(req.body));
+    await connection.beginTransaction();
+    const restaurant = await loadRestaurant(connection, req.auth.userId, true);
+    if (!restaurant) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy quán của bạn.' });
+    }
+
+    const currentAddress = {
+      addressLine: restaurant.address_line,
+      ward: restaurant.ward || '',
+      district: restaurant.district || '',
+      city: restaurant.city,
+      ghnProvinceId: restaurant.ghn_province_id === null ? null : Number(restaurant.ghn_province_id),
+      ghnDistrictId: restaurant.ghn_district_id === null ? null : Number(restaurant.ghn_district_id),
+      ghnWardCode: restaurant.ghn_ward_code ?? null,
+    };
+    const unchanged = Object.keys(proposedAddress).every(
+      (key) => proposedAddress[key] === currentAddress[key],
+    );
+    if (unchanged) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Địa chỉ đề xuất phải khác địa chỉ quán đang áp dụng.' });
+    }
+
+    const [pendingRows] = await connection.query(
+      `SELECT id FROM restaurant_address_change_requests
+       WHERE restaurant_id = ? AND status = 'pending'
+       LIMIT 1 FOR UPDATE`,
+      [restaurant.id],
+    );
+    if (pendingRows.length) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Bạn đang có một yêu cầu đổi địa chỉ chờ admin duyệt.' });
+    }
+
+    const [result] = await connection.query(
+      `INSERT INTO restaurant_address_change_requests (
+        restaurant_id, requested_by_user_id,
+        current_address_line, current_ward, current_district, current_city,
+        current_ghn_province_id, current_ghn_district_id, current_ghn_ward_code,
+        proposed_address_line, proposed_ward, proposed_district, proposed_city,
+        proposed_ghn_province_id, proposed_ghn_district_id, proposed_ghn_ward_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        restaurant.id, req.auth.userId,
+        currentAddress.addressLine, currentAddress.ward, currentAddress.district, currentAddress.city,
+        currentAddress.ghnProvinceId, currentAddress.ghnDistrictId, currentAddress.ghnWardCode,
+        proposedAddress.addressLine, proposedAddress.ward, proposedAddress.district, proposedAddress.city,
+        proposedAddress.ghnProvinceId, proposedAddress.ghnDistrictId, proposedAddress.ghnWardCode,
+      ],
+    );
+    const [rows] = await connection.query(
+      'SELECT * FROM restaurant_address_change_requests WHERE id = ? LIMIT 1',
+      [result.insertId],
+    );
+    await connection.commit();
+    return res.status(201).json({ request: serializeAddressChangeRequest(rows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Bạn đang có một yêu cầu đổi địa chỉ chờ admin duyệt.' });
+    }
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
+router.post('/address-change-requests/:id/cancel', async (req, res, next) => {
+  const requestId = Number(req.params.id);
+  if (!Number.isInteger(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'ID yêu cầu không hợp lệ.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const restaurant = await loadRestaurant(connection, req.auth.userId, true);
+    if (!restaurant) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy quán của bạn.' });
+    }
+    const [rows] = await connection.query(
+      `SELECT * FROM restaurant_address_change_requests
+       WHERE id = ? AND restaurant_id = ?
+       LIMIT 1 FOR UPDATE`,
+      [requestId, restaurant.id],
+    );
+    const request = rows[0];
+    if (!request) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy yêu cầu đổi địa chỉ.' });
+    }
+    if (request.status !== 'pending') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Chỉ có thể hủy yêu cầu đang chờ duyệt.' });
+    }
+    await connection.query(
+      `UPDATE restaurant_address_change_requests
+       SET status = 'cancelled', reviewed_at = NOW()
+       WHERE id = ?`,
+      [request.id],
+    );
+    const [updatedRows] = await connection.query(
+      'SELECT * FROM restaurant_address_change_requests WHERE id = ? LIMIT 1',
+      [request.id],
+    );
+    await connection.commit();
+    return res.json({ request: serializeAddressChangeRequest(updatedRows[0]) });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
   }
 });
 
@@ -229,6 +453,13 @@ router.patch('/settings', async (req, res, next) => {
       return res.status(404).json({ error: 'Merchant restaurant not found.' });
     }
     const body = req.body || {};
+    const protectedAddressFields = ['addressLine', 'ward', 'district', 'city'];
+    if (protectedAddressFields.some((key) => body[key] !== undefined)) {
+      await connection.rollback();
+      return res.status(400).json({
+        error: 'Địa chỉ quán chỉ được thay đổi bằng yêu cầu chờ admin duyệt.',
+      });
+    }
     const textRules = {
       name: ['name', 2, 160], phone: ['phone', 0, 20], tagline: ['tagline', 0, 255],
       description: ['description', 0, 5000], bankAccountNo: ['bank_account_no', 0, 40],
