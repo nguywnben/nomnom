@@ -401,6 +401,23 @@ async function ensureDeliveryNotificationType() {
   }
 }
 
+async function ensureRestaurantAddressChangeCoordinates() {
+  const [columns] = await pool.query('SHOW COLUMNS FROM restaurant_address_change_requests');
+  const existing = new Set(columns.map((column) => column.Field));
+  const requiredColumns = {
+    current_latitude: 'DECIMAL(10,7) NULL',
+    current_longitude: 'DECIMAL(10,7) NULL',
+    proposed_latitude: 'DECIMAL(10,7) NULL',
+    proposed_longitude: 'DECIMAL(10,7) NULL',
+  };
+  for (const [name, definition] of Object.entries(requiredColumns)) {
+    if (!existing.has(name)) {
+      await pool.query(`ALTER TABLE restaurant_address_change_requests ADD COLUMN ${name} ${definition}`);
+      console.log(`[DB] Bổ sung cột ${name} cho yêu cầu đổi địa chỉ quán`);
+    }
+  }
+}
+
 async function start() {
   try {
     await verifyDbConnection();
@@ -413,6 +430,7 @@ async function start() {
     await ensureOrderPaymentStates();
     await ensureRestaurantBankColumns();
     await ensureWave5Schema(pool);
+    await ensureRestaurantAddressChangeCoordinates();
     await ensureHomePageSettings();
   } catch (err) {
     console.error('[DB] Kết nối MySQL THẤT BẠI:', err.message);
