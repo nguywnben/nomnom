@@ -121,11 +121,15 @@ export default function MerchantPending() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [restaurant, setRestaurant] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function loadData() {
+      setLoading(true);
+      setLoadError(false);
       try {
         const data = await fetchMerchantRestaurantApi();
         if (!active) return;
@@ -147,6 +151,7 @@ export default function MerchantPending() {
 
         setRestaurant(data.restaurant);
       } catch (err) {
+        if (active) setLoadError(true);
         console.error('Lỗi khi tải thông tin quán ăn:', err);
       } finally {
         if (active) setLoading(false);
@@ -157,7 +162,7 @@ export default function MerchantPending() {
     return () => {
       active = false;
     };
-  }, [navigate]);
+  }, [navigate, loadAttempt]);
 
   const view = useMemo(() => (restaurant ? resolveView(restaurant) : null), [restaurant]);
 
@@ -170,7 +175,40 @@ export default function MerchantPending() {
     );
   }
 
-  if (!restaurant || !view) return null;
+  if (loadError) {
+    return (
+      <div className="container-page flex min-h-[60vh] items-center justify-center py-xl">
+        <Card padded className="w-full max-w-lg text-center">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-md border border-hairline bg-[#fbeaea] text-error">
+            <Icon name="alert" size={24} />
+          </span>
+          <h1 className="mt-base text-display-sm text-ink">Không thể tải hồ sơ quán</h1>
+          <p className="mt-xs text-body-md text-body">
+            Kết nối đến hệ thống đang gián đoạn. Vui lòng thử lại sau ít phút.
+          </p>
+          <div className="mt-base flex justify-center">
+            <Button onClick={() => setLoadAttempt((attempt) => attempt + 1)} leadingIcon="refresh">
+              Thử lại
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!restaurant || !view) {
+    return (
+      <div className="container-page flex min-h-[60vh] items-center justify-center py-xl">
+        <Card padded className="w-full max-w-lg text-center">
+          <h1 className="text-display-sm text-ink">Chưa tìm thấy hồ sơ quán</h1>
+          <p className="mt-xs text-body-md text-body">Vui lòng gửi hồ sơ đăng ký quán để tiếp tục.</p>
+          <div className="mt-base flex justify-center">
+            <Button as={Link} to="/merchant/onboarding">Đăng ký quán</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   const showReason = view.key === 'rejected';
 

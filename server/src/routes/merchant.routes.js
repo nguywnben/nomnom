@@ -284,12 +284,17 @@ router.post('/apply', requireAuth, async (req, res, next) => {
   const bankNameValue = String(bankName).trim();
   const bankAccountNoValue = String(bankAccountNo).trim();
   const bankAccountHolderValue = String(bankAccountHolder).trim().toUpperCase();
-  const coordinates = await geocodeVietnamAddress({
-    line1: addressLine.trim(),
-    ward: ward.trim(),
-    district: districtValue,
-    city: city.trim(),
-  });
+  let coordinates;
+  try {
+    coordinates = await geocodeVietnamAddress({
+      line1: addressLine.trim(),
+      ward: ward.trim(),
+      district: districtValue,
+      city: city.trim(),
+    });
+  } catch (err) {
+    return next(err);
+  }
 
   const conn = await pool.getConnection();
   try {
@@ -400,7 +405,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
           address_line, ward, district, city, latitude, longitude,
           min_order_amount, avg_prep_time_min,
           bank_name, bank_account_no, bank_account_holder, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
         [
           userId,
           cuisineIdValue,

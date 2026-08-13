@@ -5,7 +5,7 @@ import Badge from '../../components/Badge.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
-import { apiGet, apiPost } from '../../lib/api.js';
+import { apiGet, apiPost, confirmOrderDeliveryApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 
 const STEPS = [
@@ -64,6 +64,7 @@ export default function CustomerTracking() {
   const nav = useNavigate();
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
@@ -161,6 +162,19 @@ export default function CustomerTracking() {
   const discountAmount = Number(order?.discount_amount ?? order?.discountAmount ?? 0);
   const totalAmount = Number(order?.total_amount ?? order?.totalAmount ?? 0);
 
+  const confirmDelivery = async () => {
+    setConfirmingDelivery(true);
+    try {
+      await confirmOrderDeliveryApi(order.order_code ?? order.orderCode ?? order.id);
+      setOrder((current) => ({ ...current, status: 'delivered', delivered_at: new Date().toISOString() }));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không thể xác nhận đã nhận hàng.');
+    } finally {
+      setConfirmingDelivery(false);
+    }
+  };
+
   const timelineByStatus = useMemo(() => {
     const map = new Map();
     timeline.forEach((item) => {
@@ -207,6 +221,19 @@ export default function CustomerTracking() {
             <Card padded hover={false}>
               <div className="text-title-md text-ink">{orderNotice.title}</div>
               <p className="mt-1 text-body-sm text-body">{orderNotice.message}</p>
+            </Card>
+          )}
+          {activeStatus === 'delivering' && (
+            <Card padded hover={false}>
+              <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-title-md text-ink">Bạn đã nhận được đơn hàng?</div>
+                  <p className="mt-1 text-body-sm text-body">Hãy xác nhận khi đã nhận đủ món. Đơn sẽ tự hoàn tất sau 2 giờ nếu bạn không phản hồi.</p>
+                </div>
+                <Button onClick={confirmDelivery} loading={confirmingDelivery} leadingIcon="check">
+                  Xác nhận đã nhận hàng
+                </Button>
+              </div>
             </Card>
           )}
           {((order.payment_method === 'vnpay' || order.paymentMethod === 'vnpay') && 

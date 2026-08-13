@@ -1194,6 +1194,68 @@ router.get('/orders/:id', async (req, res, next) => {
   }
 });
 
+router.post('/orders/:id/shipping-status', async (req, res, next) => {
+  const orderId = Number(req.params.id);
+  const action = String(req.body?.action ?? '').trim();
+  const transitions = {
+    picked_up: { from: 'ready_for_pickup', note: 'Quản trị viên xác nhận tài xế đã lấy hàng.' },
+    delivering: { from: 'picked_up', note: 'Quản trị viên cập nhật đơn đang giao.' },
+  };
+  const transition = transitions[action];
+
+  if (!Number.isInteger(orderId) || orderId <= 0 || !transition) {
+    return res.status(400).json({ error: 'Trạng thái giao hàng không hợp lệ.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query('SELECT * FROM orders WHERE id = ? FOR UPDATE', [orderId]);
+    const order = rows[0];
+    if (!order) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
+    }
+    if (order.status !== transition.from) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Đơn hàng chưa ở trạng thái phù hợp để cập nhật bước giao vận này.' });
+    }
+
+    const timestampColumn = action === 'picked_up' ? 'picked_up_at' : 'delivering_at';
+    await connection.query(
+      `UPDATE orders SET status = ?, ${timestampColumn} = NOW(), updated_at = NOW() WHERE id = ?`,
+      [action, order.id],
+    );
+    await connection.query(
+      `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note)
+       VALUES (?, ?, ?, 'admin', ?, ?)`,
+      [order.id, order.status, action, req.auth.userId, transition.note],
+    );
+    const message = action === 'picked_up'
+      ? 'Tài xế đã lấy đơn ' + order.order_code + ' và sẽ giao đến bạn sớm.'
+      : 'Đơn ' + order.order_code + ' đang được giao đến bạn.';
+    await connection.query(
+      `INSERT INTO notifications (user_id, type, title, body, link_url)
+       VALUES (?, ?, ?, ?, ?)`,
+      [order.customer_id, action === 'picked_up' ? 'order_picked_up' : 'order_delivering', action === 'picked_up' ? 'Tài xế đã lấy hàng' : 'Đơn hàng đang giao', message, '/app/track/' + order.order_code],
+    );
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: action === 'picked_up' ? 'xac_nhan_lay_hang' : 'cap_nhat_dang_giao',
+      targetType: 'order',
+      targetId: order.id,
+      metadata: { maDonHang: order.order_code, tuTrangThai: order.status, denTrangThai: action },
+    });
+    await connection.commit();
+    return res.json({ ok: true, status: action });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
+  }
+});
+
 router.post('/orders/:id/cancel', async (req, res, next) => {
   const orderId = Number(req.params.id);
   const reason = String(req.body?.reason ?? '').trim().slice(0, 500)

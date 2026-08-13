@@ -41,11 +41,11 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/me/notifications', notificationsRoutes);
-app.use('/api/v1/merchant/me', merchantFinanceRoutes);
-app.use('/api/v1/admin', adminFinanceRoutes);
-app.use('/api/v1/chat', chatRoutes);
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/merchant', merchantRoutes);
+  app.use('/api/v1/admin', adminFinanceRoutes);
+  app.use('/api/v1/chat', chatRoutes);
+  app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/merchant', merchantRoutes);
+  app.use('/api/v1/merchant/me', merchantFinanceRoutes);
 app.use('/api/v1/me', meRoutes);
 app.use('/api/v1/restaurants', restaurantRoutes);
 app.use('/api/v1/cart', cartRoutes);
@@ -289,7 +289,7 @@ async function startOrderExpiryWorker() {
            FOR UPDATE`
         );
 
-        for (const order of expiredOrders) {
+          for (const order of expiredOrders) {
           console.log(`[Expiry Worker] Đơn hàng ID ${order.id} hết hạn (trạng thái hiện tại: ${order.status})`);
           
           // Cập nhật trạng thái đơn sang expired, payment_status sang failed
@@ -316,7 +316,31 @@ async function startOrderExpiryWorker() {
              VALUES (?, ?, 'expired', 'system', 'Tự động hủy do hết hạn thanh toán (quá 30 phút)')`,
             [order.id, order.status]
           );
-        }
+          }
+
+          const [deliveringOrders] = await connection.query(
+            `SELECT id, order_code, customer_id, restaurant_id
+             FROM orders
+             WHERE status = 'delivering'
+               AND delivering_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)
+             FOR UPDATE`,
+          );
+          for (const order of deliveringOrders) {
+            await connection.query(
+              "UPDATE orders SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = ?",
+              [order.id],
+            );
+            await connection.query(
+              `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, note)
+               VALUES (?, 'delivering', 'delivered', 'system', 'Hệ thống tự động hoàn tất sau 2 giờ đang giao.')`,
+              [order.id],
+            );
+            await connection.query(
+              `INSERT INTO notifications (user_id, type, title, body, link_url)
+               VALUES (?, 'order_delivered', 'Đơn hàng đã hoàn tất', ?, ?)`,
+              [order.customer_id, 'Đơn ' + order.order_code + ' đã được hệ thống tự động hoàn tất sau 2 giờ đang giao.', '/app/track/' + order.order_code],
+            );
+          }
 
         await connection.commit();
       } catch (err) {
@@ -356,9 +380,32 @@ async function ensureOrderPaymentStates() {
   ) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending_payment'`);
 }
 
+async function ensureOrderDeliveryTimestamp() {
+  const [columns] = await pool.query("SHOW COLUMNS FROM orders LIKE 'delivering_at'");
+  if (!columns.length) {
+    await pool.query('ALTER TABLE orders ADD COLUMN delivering_at DATETIME NULL AFTER picked_up_at');
+    console.log('[DB] Bổ sung cột delivering_at cho orders');
+  }
+}
+
+async function ensureDeliveryNotificationType() {
+  const [columns] = await pool.query("SHOW COLUMNS FROM notifications LIKE 'type'");
+  const type = String(columns[0]?.Type ?? '');
+  if (!type.includes("'order_delivering'")) {
+    await pool.query(`ALTER TABLE notifications MODIFY COLUMN type ENUM(
+      'order_placed', 'order_accepted', 'order_ready', 'order_picked_up', 'order_delivering',
+      'order_delivered', 'order_cancelled', 'payment_succeeded', 'payment_failed',
+      'payout_status', 'kyc_status', 'system'
+    ) NOT NULL`);
+    console.log('[DB] Bổ sung loại thông báo order_delivering');
+  }
+}
+
 async function start() {
   try {
     await verifyDbConnection();
+    await ensureOrderDeliveryTimestamp();
+    await ensureDeliveryNotificationType();
     await ensureSuspensionColumn();
     await ensureSuspensionReasonColumn();
     await ensureVoucherSchema();

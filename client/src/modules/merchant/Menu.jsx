@@ -545,7 +545,7 @@ function CategoryEditor({ open, onClose, onSave, category }) {
 }
 
 function ItemEditor({ open, onClose, onSave, item, categories }) {
-  const empty = {
+  const createEmptyItem = () => ({
     id: 'new',
     categoryId: categories[0]?.id ? String(categories[0].id) : '',
     name: '',
@@ -557,13 +557,13 @@ function ItemEditor({ open, onClose, onSave, item, categories }) {
     inStock: true,
     sortOrder: 0,
     status: 'active',
-  };
-  const initial = item ?? empty;
-  const [draft, setDraft] = useState(initial);
+  });
+  const [draft, setDraft] = useState(createEmptyItem);
 
-  if (open && draft.id !== (item?.id ?? 'new')) {
-    setDraft(initial);
-  }
+  useEffect(() => {
+    if (!open) return;
+    setDraft(item ? { ...item, categoryId: String(item.categoryId ?? '') } : createEmptyItem());
+  }, [open, item, categories]);
 
   const setField = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
 

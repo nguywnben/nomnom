@@ -179,7 +179,7 @@ router.post('/', requireAuth, async (req, res, next) => {
         subtotal, delivery_fee, discount_amount, voucher_code_snapshot, total_amount,
         merchant_earning, platform_fee,
         status, payment_status, payment_method, customer_note, estimated_delivery_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         orderCode,
         customerId,
@@ -421,6 +421,53 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
     res.json(order);
   } catch (err) {
     next(err);
+  }
+});
+
+router.post('/:idOrCode/confirm-delivery', requireAuth, ensureCustomer, async (req, res, next) => {
+  const { userId } = req.auth;
+  const idOrCode = String(req.params.idOrCode ?? '');
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const isCode = idOrCode.startsWith('ORD-');
+    const [rows] = await connection.query(
+      `SELECT * FROM orders WHERE customer_id = ? AND ${isCode ? 'order_code' : 'id'} = ? FOR UPDATE`,
+      [userId, idOrCode],
+    );
+    const order = rows[0];
+    if (!order) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
+    }
+    if (order.status !== 'delivering') {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Chỉ có thể xác nhận khi đơn hàng đang giao.' });
+    }
+    await connection.query(
+      "UPDATE orders SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = ?",
+      [order.id],
+    );
+    await connection.query(
+      `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note)
+       VALUES (?, 'delivering', 'delivered', 'customer', ?, 'Khách hàng xác nhận đã nhận hàng.')`,
+      [order.id, userId],
+    );
+    const [restaurantRows] = await connection.query('SELECT owner_user_id, name FROM restaurants WHERE id = ? LIMIT 1', [order.restaurant_id]);
+    if (restaurantRows[0]) {
+      await connection.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url)
+         VALUES (?, 'order_delivered', 'Khách đã nhận hàng', ?, '/merchant/orders')`,
+        [restaurantRows[0].owner_user_id, 'Khách hàng đã xác nhận nhận đơn ' + order.order_code + '.',],
+      );
+    }
+    await connection.commit();
+    return res.json({ ok: true, status: 'delivered' });
+  } catch (error) {
+    await connection.rollback();
+    return next(error);
+  } finally {
+    connection.release();
   }
 });
 
