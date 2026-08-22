@@ -543,17 +543,20 @@ export function AppProvider({ children }) {
         const base = cur.restaurantId && String(cur.restaurantId) !== String(nextRestaurantId) && cur.items.length
           ? { id: null, restaurantId: nextRestaurantId, restaurantName, restaurantLogo, items: [] }
           : { ...cur, restaurantId: nextRestaurantId, restaurantName, restaurantLogo };
-        const next = { ...base, items: [...base.items] };
+        let items = [...base.items];
         for (const item of validItems) {
           const nextItem = normalizeCartItem({ ...item, restaurantId: nextRestaurantId });
-          const existing = next.items.find((e) => String(e.menuItemId ?? e.id) === String(nextItem.menuItemId ?? nextItem.id));
-          if (existing) {
-            existing.quantity = Number(existing.quantity ?? 0) + Number(nextItem.quantity ?? 1);
-          } else {
-            next.items.push(nextItem);
-          }
+          const key = String(nextItem.menuItemId ?? nextItem.id);
+          const exists = items.some((e) => String(e.menuItemId ?? e.id) === key);
+          items = exists
+            ? items.map((e) =>
+                String(e.menuItemId ?? e.id) === key
+                  ? { ...e, quantity: Number(e.quantity ?? 0) + Number(nextItem.quantity ?? 1) }
+                  : e,
+              )
+            : [...items, nextItem];
         }
-        return next;
+        return { ...base, items };
       });
       return true;
     },

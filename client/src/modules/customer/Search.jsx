@@ -185,7 +185,10 @@ export default function CustomerSearch() {
             onFocus={() => setInputFocused(true)}
             onBlur={() => window.setTimeout(() => setInputFocused(false), 150)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') addRecentSearch(q);
+              if (e.key === 'Enter') {
+                addRecentSearch(q);
+                setRecent(getRecentSearches());
+              }
             }}
           />
           {inputFocused && !debouncedQ && recent.length > 0 && (
@@ -211,6 +214,7 @@ export default function CustomerSearch() {
                   onClick={() => {
                     setQ(term);
                     addRecentSearch(term);
+                    setRecent(getRecentSearches());
                     setInputFocused(false);
                   }}
                 >
@@ -230,7 +234,7 @@ export default function CustomerSearch() {
                     <Link
                       key={`m-${item.id}`}
                       to={`/app/dish/${item.id}`}
-                      onClick={() => addRecentSearch(debouncedQ)}
+                      onClick={() => { addRecentSearch(debouncedQ); setRecent(getRecentSearches()); }}
                       className="flex items-center gap-sm px-sm py-2 hover:bg-canvas-soft"
                     >
                       <Icon name="search" size={14} className="shrink-0 text-body" />
@@ -244,7 +248,7 @@ export default function CustomerSearch() {
                     <Link
                       key={`r-${r.id}`}
                       to={`/app/restaurant/${r.id}`}
-                      onClick={() => addRecentSearch(debouncedQ)}
+                      onClick={() => { addRecentSearch(debouncedQ); setRecent(getRecentSearches()); }}
                       className="flex items-center gap-sm px-sm py-2 hover:bg-canvas-soft"
                     >
                       <Icon name="store" size={14} className="shrink-0 text-body" />
