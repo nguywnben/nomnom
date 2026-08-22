@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import Avatar from '../../components/Avatar.jsx';
@@ -42,6 +42,7 @@ export default function MerchantLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [newCount, setNewCount] = useState(0);
+  const prevNewCount = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -64,7 +65,12 @@ export default function MerchantLayout() {
             : Array.isArray(ordersResponse)
               ? ordersResponse
               : [];
-        setNewCount(ordersArray.filter((order) => order.status === 'placed').length);
+        const nextCount = ordersArray.filter((order) => order.status === 'placed').length;
+        if (nextCount > prevNewCount.current && prevNewCount.current > 0) {
+          playNewOrderBeep();
+        }
+        prevNewCount.current = nextCount;
+        setNewCount(nextCount);
         setRestaurantOpen(Boolean(data.restaurant.is_open_now));
         if (data.restaurant.status !== 'active') {
           nav('/merchant/pending', { replace: true });
@@ -249,6 +255,28 @@ export default function MerchantLayout() {
       </div>
     </div>
   );
+}
+
+function playNewOrderBeep() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.22);
+    osc.onended = () => ctx.close().catch(() => {});
+  } catch {
+    // Trình duyệt không hỗ trợ audio — bỏ qua
+  }
 }
 
 function DesktopSidebar({ currentMerchant, newCount, collapsed, onToggleCollapse, onSwitchRole, onLogout }) {

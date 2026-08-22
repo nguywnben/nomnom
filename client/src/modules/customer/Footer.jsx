@@ -5,19 +5,27 @@ import Logo from '../../components/Logo.jsx';
 const groups = [
   {
     title: 'Thưởng thức',
-    links: ['Quán ăn', 'Danh mục', 'Khuyến mãi', 'Thẻ quà tặng'],
+    links: [
+      { label: 'Quán ăn', to: '/app' },
+      { label: 'Tìm kiếm', to: '/app/search' },
+      { label: 'Khuyến mãi & voucher', to: '/app/profile/promotions' },
+      { label: 'Đơn hàng của bạn', to: '/app/orders' },
+    ],
   },
   {
     title: 'Đối tác',
-    links: ['Trở thành quán ăn', 'Lái xe cùng NomNom', 'Tiếp thị liên kết'],
-  },
-  {
-    title: 'Công ty',
-    links: ['Giới thiệu', 'Báo chí', 'Tuyển dụng', 'Bền vững'],
+    links: [
+      { label: 'Đăng ký quán ăn', to: '/merchant/onboarding' },
+      { label: 'FAQ đối tác', to: '/faq' },
+    ],
   },
   {
     title: 'Hỗ trợ',
-    links: ['Trung tâm trợ giúp', 'Liên hệ', 'Đồ thất lạc', 'Trạng thái'],
+    links: [
+      { label: 'Câu hỏi thường gặp', to: '/faq' },
+      { label: 'Điều khoản sử dụng', to: '/terms-of-service' },
+      { label: 'Chính sách bảo mật', to: '/privacy-policy' },
+    ],
   },
 ];
 
@@ -25,7 +33,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-hairline bg-canvas">
       <div className="container-page py-12">
-        <div className="grid grid-cols-2 gap-base md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-base md:grid-cols-4">
           <div className="col-span-2 md:col-span-1">
             <Logo />
             <p className="mt-xs text-body-sm text-body max-w-xs">
@@ -37,9 +45,9 @@ export default function Footer() {
               <div className="text-caption-uppercase text-ink mb-2">{g.title}</div>
               <ul className="space-y-1.5">
                 {g.links.map((l) => (
-                  <li key={l}>
-                    <Link to="#" className="text-body-sm text-body hover:text-ink">
-                      {l}
+                  <li key={l.label}>
+                    <Link to={l.to} className="text-body-sm text-body hover:text-ink">
+                      {l.label}
                     </Link>
                   </li>
                 ))}
@@ -59,7 +67,6 @@ export default function Footer() {
             <Link to="/privacy-policy" className="text-body hover:text-ink">
               Bảo mật
             </Link>
-            <Link to="#" className="text-body hover:text-ink">Cookie</Link>
           </div>
         </div>
       </div>

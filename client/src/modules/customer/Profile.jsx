@@ -7,6 +7,7 @@ import Icon from '../../components/Icon.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { loginHref } from '../../lib/auth.js';
 import { apiGet } from '../../lib/api.js';
+import { formatVnd } from '../../lib/formatVnd.js';
 
 // Customer profile — reached from the mobile bottom nav (and surfaced on
 // desktop via the avatar menu in the top nav).
@@ -62,6 +63,9 @@ export default function CustomerProfile() {
 
   const deliveredCount = orders.filter((o) => o.status === 'delivered').length;
   const activeCount = orders.filter((o) => !['delivered', 'cancelled', 'failed'].includes(o.status)).length;
+  const totalSpent = orders
+    .filter((o) => o.status === 'delivered')
+    .reduce((sum, o) => sum + Number(o.totalAmount ?? 0), 0);
 
   const profile = user
     ? {
@@ -113,9 +117,10 @@ export default function CustomerProfile() {
       </Card>
 
       {/* Order stats */}
-      {user && shopAsCustomer && <div className="grid grid-cols-2 gap-2">
-        <Stat label="Đơn hàng đang hoạt động" value={activeCount} icon="package" link="/app/orders" />
+      {user && shopAsCustomer && <div className="grid grid-cols-3 gap-2">
+        <Stat label="Đơn đang giao" value={activeCount} icon="package" link="/app/orders" />
         <Stat label="Đã giao" value={deliveredCount} icon="check" link="/app/orders" />
+        <Stat label="Tổng chi tiêu" value={formatVnd(totalSpent)} icon="cash" link="/app/orders" />
       </div>}
 
       {/* Address card */}

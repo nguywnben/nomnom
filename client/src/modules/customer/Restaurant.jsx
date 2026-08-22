@@ -19,8 +19,9 @@ import { useRestaurantReviews } from '../../hooks/useRestaurantReviews.js';
 export default function CustomerRestaurant() {
   const { id } = useParams();
   const nav = useNavigate();
-  const { addToCart, setCartOpen, pushToast, shopAsCustomer, customerCartRestriction, currentLocation } = useApp();
+  const { addToCart, setCartOpen, pushToast, shopAsCustomer, customerCartRestriction, currentLocation, cart, setItemQty } = useApp();
   const [cat, setCat] = useState('Tất cả');
+  const [menuQuery, setMenuQuery] = useState('');
 
   const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantDetail(id, currentLocation);
   const { categories, loading: menuLoading, error: menuError } = useRestaurantMenu(id);
@@ -32,9 +33,22 @@ export default function CustomerRestaurant() {
     [categories],
   );
   const filteredItems = useMemo(
-    () => (cat === 'Tất cả' ? menuItems : menuItems.filter((item) => item.categoryName === cat)),
-    [cat, menuItems],
+    () => {
+      const needle = menuQuery.trim().toLowerCase();
+      return (cat === 'Tất cả' ? menuItems : menuItems.filter((item) => item.categoryName === cat)).filter((item) =>
+        needle
+          ? item.name.toLowerCase().includes(needle) || (item.description ?? '').toLowerCase().includes(needle)
+          : true,
+      );
+    },
+    [cat, menuItems, menuQuery],
   );
+
+  const qtyFor = (id) => {
+    const it = cart.items.find((i) => String(i.menuItemId) === String(id));
+    return it ? it.quantity : 0;
+  };
+  const cartItemFor = (id) => cart.items.find((i) => String(i.menuItemId) === String(id));
 
   if (restaurantError?.status === 404) {
     return (
@@ -216,21 +230,35 @@ export default function CustomerRestaurant() {
               </div>
             </div>
           )}
-          <div className="mb-base flex items-center gap-xs overflow-x-auto no-scrollbar">
-            {activeCategories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCat(c)}
-                className={
-                  'h-9 whitespace-nowrap rounded-md px-sm text-button transition-colors ' +
-                  (cat === c
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-surface-card border border-hairline-strong text-ink hover:bg-canvas-soft')
-                }
-              >
-                {c}
-              </button>
-            ))}
+          <div className="sticky top-14 z-20 -mx-base mb-base bg-canvas/95 px-base py-2 backdrop-blur md:top-16 md:mx-0 md:px-0 md:py-0">
+            <div className="mb-2 flex items-center gap-xs">
+              <div className="relative flex-1 md:max-w-xs">
+                <Icon name="search" size={16} className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body" />
+                <input
+                  value={menuQuery}
+                  onChange={(e) => setMenuQuery(e.target.value)}
+                  placeholder="Tìm trong thực đơn…"
+                  aria-label="Tìm trong thực đơn"
+                  className="h-10 w-full rounded-md border border-hairline-strong bg-surface-card pl-10 pr-base text-body-sm text-ink outline-none placeholder:text-muted"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-xs overflow-x-auto no-scrollbar">
+              {activeCategories.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCat(c)}
+                  className={
+                    'h-9 whitespace-nowrap rounded-md px-sm text-button transition-colors ' +
+                    (cat === c
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-card border border-hairline-strong text-ink hover:bg-canvas-soft')
+                  }
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
 
           {menuLoading ? (
@@ -253,12 +281,19 @@ export default function CustomerRestaurant() {
               title="Không tải được thực đơn"
               message={menuError.message ?? 'Vui lòng thử lại sau.'}
             />
+          ) : filteredItems.length === 0 ? (
+            <EmptyState
+              icon="search"
+              title="Không tìm thấy món"
+              message="Thử từ khóa khác hoặc chọn danh mục khác."
+            />
           ) : (
             <div className="grid gap-base sm:grid-cols-2">
               {filteredItems.map((item) => (
                 <MenuCard
                   key={item.id}
                   item={item}
+                  qty={qtyFor(item.id)}
                   disabled={!isOpen || !shopAsCustomer || !currentLocation || outsideDeliveryRange}
                   restaurantClosed={!isOpen}
                   onClick={() => nav('/app/dish/' + item.id)}
@@ -292,6 +327,10 @@ export default function CustomerRestaurant() {
                       {},
                     );
                     if (cart) setCartOpen(true);
+                  }}
+                  onDec={() => {
+                    const it = cartItemFor(item.id);
+                    if (it) setItemQty(it.id, it.quantity - 1);
                   }}
                 />
               ))}
@@ -388,7 +427,7 @@ export default function CustomerRestaurant() {
   );
 }
 
-function MenuCard({ item, onAdd, onClick, disabled, restaurantClosed }) {
+function MenuCard({ item, onAdd, onDec, qty = 0, onClick, disabled, restaurantClosed }) {
   const isOutOfStock = !item.inStock;
   const isDisabled = disabled || isOutOfStock;
 
@@ -413,18 +452,38 @@ function MenuCard({ item, onAdd, onClick, disabled, restaurantClosed }) {
           </div>
         </div>
         <div className="mt-sm">
-          <IconButton
-            icon={isOutOfStock ? 'close' : 'plus'}
-            label={isOutOfStock ? `${item.name} đã hết hàng` : restaurantClosed ? `Quán đang đóng cửa, chưa thể thêm ${item.name}` : `Thêm ${item.name} vào giỏ`}
-            variant={isDisabled ? 'secondary' : 'primary'}
-            size="sm"
-            disabled={isDisabled}
-            className={isDisabled ? 'cursor-not-allowed opacity-40' : ''}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd();
-            }}
-          />
+          {qty > 0 && !isDisabled ? (
+            <div className="inline-flex items-center gap-1 rounded-md border border-hairline-strong bg-surface-card p-1" onClick={(e) => e.stopPropagation()}>
+              <IconButton
+                icon="minus"
+                size="sm"
+                variant="secondary"
+                label={`Giảm số lượng ${item.name}`}
+                onClick={onDec}
+              />
+              <span className="w-8 text-center nums text-button text-ink" aria-live="polite">{qty}</span>
+              <IconButton
+                icon="plus"
+                size="sm"
+                variant="primary"
+                label={`Tăng số lượng ${item.name}`}
+                onClick={onAdd}
+              />
+            </div>
+          ) : (
+            <IconButton
+              icon={isOutOfStock ? 'close' : 'plus'}
+              label={isOutOfStock ? `${item.name} đã hết hàng` : restaurantClosed ? `Quán đang đóng cửa, chưa thể thêm ${item.name}` : `Thêm ${item.name} vào giỏ`}
+              variant={isDisabled ? 'secondary' : 'primary'}
+              size="sm"
+              disabled={isDisabled}
+              className={isDisabled ? 'cursor-not-allowed opacity-40' : ''}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd();
+              }}
+            />
+          )}
         </div>
       </div>
       <div className="w-32 shrink-0">

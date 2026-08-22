@@ -171,7 +171,7 @@ export default function ImageUploader({
               <div className="flex flex-col items-center gap-xs text-body hover:text-ink">
                 <Icon name="upload" size={20} className="text-muted" />
                 <span className="text-caption font-semibold">Chọn ảnh</span>
-                <span className="text-[10px] text-muted-soft">JPG, PNG, WEBP tối đa 5MB</span>
+                <span className="text-[10px] text-body">JPG, PNG, WEBP tối đa 5MB</span>
               </div>
             )}
           </div>

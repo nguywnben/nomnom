@@ -268,7 +268,7 @@ export default function Landing() {
                 <span className="grid h-10 w-10 place-items-center rounded-md bg-primary text-on-primary">
                   <Icon name={step.icon} size={18} />
                 </span>
-                <span className="text-display-md text-muted-soft nums">0{i + 1}</span>
+                <span className="text-display-md text-body nums">0{i + 1}</span>
               </div>
               <div className="text-title-md text-ink">{step.title}</div>
               <p className="text-body-sm text-body">{step.desc}</p>
@@ -466,23 +466,26 @@ export default function Landing() {
             Khám phá quán ăn
           </Button>
         </div>
-        <div className="mt-md inline-flex items-center gap-2 text-caption text-body">
-          <Icon name="apple" size={14} /> Có sẵn trên iOS &nbsp;·&nbsp;
-          <Icon name="google" size={14} /> Có sẵn trên Android
-        </div>
       </section>
 
       {/* ---- Footer ------------------------------------------------------ */}
       <footer id="lien-he" className="border-t border-hairline bg-canvas">
         <div className="container-page py-12">
-          <div className="grid grid-cols-2 gap-base md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-base md:grid-cols-4">
             <div className="col-span-2 md:col-span-1">
               <Logo />
               <p className="mt-xs text-body-sm text-body max-w-xs">
                 Đồ ăn thực, giao hàng nhanh. Xây dựng bằng sự tận tâm.
               </p>
             </div>
-            <FooterGroup title="Thưởng thức" links={['Quán ăn', 'Danh mục', 'Khuyến mãi', 'Thẻ quà tặng']} />
+            <FooterGroup
+              title="Thưởng thức"
+              links={[
+                { label: 'Quán ăn', to: '/app' },
+                { label: 'Tìm kiếm', to: '/app/search' },
+                { label: 'Khuyến mãi & voucher', to: '/app/profile/promotions' },
+              ]}
+            />
             <FooterGroup
               title="Đối tác"
               links={[
@@ -490,8 +493,14 @@ export default function Landing() {
                 { label: 'FAQ đối tác', to: '/faq' },
               ]}
             />
-            <FooterGroup title="Công ty" links={['Giới thiệu', 'Báo chí', 'Tuyển dụng', 'Blog']} />
-            <FooterGroup title="Hỗ trợ" links={['Trung tâm trợ giúp', 'Liên hệ', 'Đồ thất lạc', 'Trạng thái']} />
+            <FooterGroup
+              title="Hỗ trợ"
+              links={[
+                { label: 'Câu hỏi thường gặp', to: '/faq' },
+                { label: 'Điều khoản sử dụng', to: '/terms-of-service' },
+                { label: 'Chính sách bảo mật', to: '/privacy-policy' },
+              ]}
+            />
           </div>
           <div className="mt-12 flex flex-col gap-xs border-t border-hairline pt-base md:flex-row md:items-center md:justify-between">
             <div className="text-body-sm text-body">© {new Date().getFullYear()} NomNom</div>

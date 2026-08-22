@@ -29,6 +29,8 @@ export default function ToastViewport() {
     // Mobile: top, below safe-area + ~12px breathing room from the mobile top
     // bar. Desktop (md+): original bottom-right anchored stack.
     <div
+      role="status"
+      aria-live="polite"
       className={clsx(
         'pointer-events-none fixed z-50 flex flex-col gap-xs',
         // mobile (default)
@@ -57,6 +59,18 @@ export default function ToastViewport() {
               <div className="mt-1 inline-flex items-center gap-1 text-caption text-body">
                 <Icon name="bell" size={12} /> Thông báo âm thanh
               </div>
+            )}
+            {t.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  t.action.onClick?.();
+                  dismissToast(t.id);
+                }}
+                className="mt-1 text-button font-semibold text-text-link underline-offset-2 hover:underline"
+              >
+                {t.action.label}
+              </button>
             )}
           </div>
           <button

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import clsx from 'clsx';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -13,6 +14,7 @@ import { useCuisines } from '../../hooks/useCuisines.js';
 import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { useSearchSuggestions } from '../../hooks/useSearchSuggestions.js';
 import {
   fetchFeaturedRestaurantsApi,
   fetchNearbyDishesApi,
@@ -30,6 +32,10 @@ const HERO_TRUST_TAGS = [
   { label: 'Rõ giá trước khi thanh toán', icon: 'shield' },
   { label: 'Hỗ trợ nhanh khi cần', icon: 'chat' },
 ];
+
+// Prefetch chunk lazy (trang quán / món) khi người dùng hover card — giảm thời gian chờ chuyển trang.
+const prefetchRestaurantChunk = () => import('../../modules/customer/Restaurant.jsx').catch(() => {});
+const prefetchDishChunk = () => import('../../modules/customer/DishDetail.jsx').catch(() => {});
 
 export default function CustomerHome() {
   const nav = useNavigate();
@@ -58,6 +64,8 @@ export default function CustomerHome() {
   const [orderAgainList, setOrderAgainList] = useState([]);
   const [quickViewDish, setQuickViewDish] = useState(null);
   const [pageConfig, setPageConfig] = useState(null);
+  const [heroQuery, setHeroQuery] = useState('');
+  const heroSuggestions = useSearchSuggestions(heroQuery, { limit: 4 });
 
   useEffect(() => {
     fetchHomePageConfigApi().then((response) => setPageConfig(response.config ?? null)).catch(() => {});
@@ -149,33 +157,85 @@ export default function CustomerHome() {
             </p>
 
             {/* Hero search bar */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const q = new FormData(e.currentTarget).get('q');
-                nav('/app/search' + (q ? `?q=${encodeURIComponent(q)}` : ''));
-              }}
-              className="mt-lg flex items-stretch gap-0.5 rounded-lg border border-hairline-strong bg-surface-card p-0.5 shadow-soft-lg sm:gap-xs sm:p-1 md:gap-1"
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 sm:gap-2 sm:px-sm">
-                <Icon name="search" size={14} className="text-body md:hidden" />
-                <Icon name="search" size={16} className="hidden text-body md:block" />
-                <input
-                  name="q"
-                  type="search"
-                  placeholder="Tìm kiếm quán ăn hoặc món ăn…"
-                  className="h-9 w-full min-w-0 bg-transparent text-body-sm text-ink placeholder:text-muted outline-none sm:h-10 md:h-11 md:text-body-md"
-                />
-              </div>
-              <Button
-                type="submit"
-                size="lg"
-                className="shrink-0 !h-9 !px-3 !text-caption sm:!h-10 sm:!px-sm sm:!text-button md:!h-12 md:!px-md"
+            <div className="relative">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const q = heroQuery.trim();
+                  nav('/app/search' + (q ? `?q=${encodeURIComponent(q)}` : ''));
+                }}
+                className="mt-lg flex items-stretch gap-0.5 rounded-lg border border-hairline-strong bg-surface-card p-0.5 shadow-soft-lg sm:gap-xs sm:p-1 md:gap-1"
               >
-                <span className="md:hidden">Tìm</span>
-                <span className="hidden md:inline">Tìm món & quán</span>
-              </Button>
-            </form>
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2 sm:gap-2 sm:px-sm">
+                  <Icon name="search" size={14} className="text-body md:hidden" />
+                  <Icon name="search" size={16} className="hidden text-body md:block" />
+                  <input
+                    name="q"
+                    type="search"
+                    value={heroQuery}
+                    onChange={(e) => setHeroQuery(e.target.value)}
+                    placeholder="Tìm kiếm quán ăn hoặc món ăn…"
+                    autoComplete="off"
+                    className="h-9 w-full min-w-0 bg-transparent text-body-sm text-ink placeholder:text-muted outline-none sm:h-10 md:h-11 md:text-body-md"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="shrink-0 !h-9 !px-3 !text-caption sm:!h-10 sm:!px-sm sm:!text-button md:!h-12 md:!px-md"
+                >
+                  <span className="md:hidden">Tìm</span>
+                  <span className="hidden md:inline">Tìm món & quán</span>
+                </Button>
+              </form>
+
+              {/* Gợi ý khi gõ */}
+              {heroQuery.trim().length > 0 && heroSuggestions && (
+                <div className="absolute inset-x-0 top-[calc(100%-0.25rem)] z-20 mt-xs overflow-hidden rounded-lg border border-hairline-strong bg-surface-card py-1 text-left shadow-soft-md">
+                  {heroSuggestions.restaurants?.length === 0 && heroSuggestions.menuItems?.length === 0 ? (
+                    <div className="px-sm py-2 text-caption text-body">Không tìm thấy kết quả.</div>
+                  ) : (
+                    <>
+                      {(heroSuggestions.menuItems ?? []).slice(0, 4).map((item) => (
+                        <Link
+                          key={`m-${item.id}`}
+                          to={`/app/dish/${item.id}`}
+                          onClick={() => setHeroQuery('')}
+                          className="flex items-center gap-sm px-sm py-2 hover:bg-canvas-soft"
+                        >
+                          <Icon name="search" size={14} className="shrink-0 text-body" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-body-sm text-ink">{item.name}</span>
+                            <span className="block truncate text-caption text-body">{item.restaurantName}</span>
+                          </span>
+                        </Link>
+                      ))}
+                      {(heroSuggestions.restaurants ?? []).slice(0, 3).map((r) => (
+                        <Link
+                          key={`r-${r.id}`}
+                          to={`/app/restaurant/${r.id}`}
+                          onClick={() => setHeroQuery('')}
+                          className="flex items-center gap-sm px-sm py-2 hover:bg-canvas-soft"
+                        >
+                          <Icon name="store" size={14} className="shrink-0 text-body" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-body-sm text-ink">{r.name}</span>
+                            <span className="block truncate text-caption text-body">{r.cuisineName ?? 'Quán ăn'}</span>
+                          </span>
+                        </Link>
+                      ))}
+                      <Link
+                        to={`/app/search?q=${encodeURIComponent(heroQuery.trim())}`}
+                        onClick={() => setHeroQuery('')}
+                        className="flex items-center gap-sm border-t border-hairline px-sm py-2 text-button text-text-link hover:bg-canvas-soft"
+                      >
+                        Xem tất cả kết quả cho "{heroQuery.trim()}"
+                      </Link>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Trust tags */}
             <div className="mt-base -mx-base overflow-x-auto px-base pb-1 no-scrollbar md:mx-0 md:overflow-visible md:px-0 md:pb-0">
@@ -209,6 +269,7 @@ export default function CustomerHome() {
         <SectionHeader
           caption="Khám phá nhanh"
           title="Loại hình ẩm thực"
+          right={<CarouselArrows scrollRef={cuisineScroll.ref} />}
         />
         <div
           ref={cuisineScroll.ref}
@@ -244,9 +305,12 @@ export default function CustomerHome() {
           caption="Khám phá hôm nay"
           title="Món nổi bật từ nhiều quán"
           right={
-            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
-              Xem tất cả
-            </Link>
+            <div className="flex items-center gap-sm">
+              <CarouselArrows scrollRef={exploreScroll.ref} />
+              <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+                Xem tất cả
+              </Link>
+            </div>
           }
         />
         <div
@@ -286,9 +350,12 @@ export default function CustomerHome() {
           caption="Theo vị trí hiện tại"
           title="Các món gần bạn"
           right={
-            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
-              Xem tất cả
-            </Link>
+            <div className="flex items-center gap-sm">
+              <CarouselArrows scrollRef={nearbyScroll.ref} />
+              <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+                Xem tất cả
+              </Link>
+            </div>
           }
         />
         {nearbyLoading ? (
@@ -343,9 +410,12 @@ export default function CustomerHome() {
           caption={trendingSource === 'today' ? 'Được giao nhiều hôm nay' : 'Đang hot'}
           title={trendingSource === 'today' ? 'Thịnh hành hôm nay' : 'Các món thịnh hành'}
           right={
-            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
-              Xem tất cả
-            </Link>
+            <div className="flex items-center gap-sm">
+              <CarouselArrows scrollRef={trendingScroll.ref} />
+              <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+                Xem tất cả
+              </Link>
+            </div>
           }
         />
         {trendingLoading ? (
@@ -554,6 +624,32 @@ function SectionHeader({ caption, title, right }) {
   );
 }
 
+function CarouselArrows({ scrollRef, className }) {
+  const onScroll = (dir) => {
+    scrollRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' });
+  };
+  return (
+    <div className={clsx('hidden items-center gap-1 md:flex', className)}>
+      <button
+        type="button"
+        onClick={() => onScroll(-1)}
+        aria-label="Cuộn sang trước"
+        className="grid h-9 w-9 place-items-center rounded-md border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft"
+      >
+        <Icon name="chevronLeft" size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onScroll(1)}
+        aria-label="Cuộn tiếp theo"
+        className="grid h-9 w-9 place-items-center rounded-md border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft"
+      >
+        <Icon name="chevronRight" size={16} />
+      </button>
+    </div>
+  );
+}
+
 function HomeDishCard({ dish, onPreview }) {
   const prepTime = Number(dish.prepTimeMin ?? 0);
   const isOpen = dish.isOpenNow ?? true;
@@ -567,6 +663,7 @@ function HomeDishCard({ dish, onPreview }) {
     <button
       type="button"
       onClick={onPreview}
+      onMouseEnter={prefetchDishChunk}
       className="group flex w-[232px] shrink-0 cursor-pointer flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card text-left transition-shadow hover:shadow-soft md:w-[248px]"
       aria-label={`Xem nhanh ${dish.name} từ ${dish.restaurantName}`}
     >
@@ -647,6 +744,7 @@ function RestaurantCard({ restaurant: r }) {
   return (
     <Link
       to={`/app/restaurant/${r.id}`}
+      onMouseEnter={prefetchRestaurantChunk}
       className="group flex flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card transition-shadow hover:shadow-soft"
     >
       <div className="relative">
@@ -694,12 +792,13 @@ function DishCard({ dish, onPreview }) {
   return (
     <div className="group flex w-[232px] shrink-0 flex-col overflow-hidden rounded-lg border border-hairline-strong bg-surface-card text-left transition-shadow hover:shadow-soft md:w-[248px]">
       <div className="relative">
-        <button
-          type="button"
-          onClick={onPreview}
-          className="block w-full cursor-pointer text-left"
-          aria-label={`Xem nhanh ${dish.name}`}
-        >
+<button
+      type="button"
+      onClick={onPreview}
+      onMouseEnter={prefetchDishChunk}
+      className="block w-full cursor-pointer text-left"
+      aria-label={`Xem nhanh ${dish.name}`}
+    >
           <Image src={image} alt={dish.name} ratio="4/3" className="w-full" />
         </button>
         {!isOpen && <Badge tone="error" className="absolute left-sm top-sm">Đóng cửa</Badge>}

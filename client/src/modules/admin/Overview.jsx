@@ -12,9 +12,11 @@ import {
   YAxis,
 } from 'recharts';
 import Badge from '../../components/Badge.jsx';
+import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import { fetchAdminOverview } from '../../lib/api.js';
+import { downloadCsv } from '../../lib/csv.js';
 import { formatVnd, formatVndAxisBillions } from '../../lib/formatVnd.js';
 
 const RANGE_OPTIONS = [
@@ -75,6 +77,21 @@ export default function AdminOverview() {
   const chart = data?.chart ?? [];
   const pendingTotal = pending?.restaurants ?? 0;
 
+  const exportCsv = () => {
+    if (!data) return;
+    const rows = (data.chart ?? []).map((d) => ({
+      Ngay: d.date,
+      'Doanh thu (VND)': d.gmv ?? '',
+      'Số đơn': d.orders ?? '',
+    }));
+    rows.push({
+      Ngay: 'TỔNG KỲ',
+      'Doanh thu (VND)': totals?.gmv ?? '',
+      'Số đơn': totals?.orderCount ?? '',
+    });
+    downloadCsv(`nomnom-admin-overview-${range}.csv`, rows);
+  };
+
   return (
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-base">
@@ -98,6 +115,9 @@ export default function AdminOverview() {
               {opt.label}
             </button>
           ))}
+          <Button variant="secondary" size="sm" leadingIcon="download" onClick={exportCsv} disabled={!data}>
+            Xuất CSV
+          </Button>
         </div>
       </div>
 

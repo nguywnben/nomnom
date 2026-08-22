@@ -44,6 +44,24 @@ export function AppProvider({ children }) {
   const [merchantRestaurant, setMerchantRestaurant] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('loading');
+  const [deliveryAddress, setDeliveryAddressState] = useState(() => {
+    try {
+      const raw = localStorage.getItem('nomnom-delivery-address');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const setDeliveryAddress = useCallback((address) => {
+    setDeliveryAddressState(address);
+    try {
+      if (address) localStorage.setItem('nomnom-delivery-address', JSON.stringify(address));
+      else localStorage.removeItem('nomnom-delivery-address');
+    } catch {
+      // localStorage không khả dụng — bỏ qua
+    }
+  }, []);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -487,6 +505,61 @@ export function AppProvider({ children }) {
     }
   }, [permittedRoles.customer, resetCartState, user]);
 
+  /** Thêm lại danh sách món vào giỏ (reorder / undo / resume). Bỏ qua món thiếu mã. */
+  const restoreItemsToCart = useCallback(
+    async ({ restaurantId, restaurantName = null, restaurantLogo = null, items = [] }) => {
+      const nextRestaurantId = Number.isNaN(Number(restaurantId)) ? restaurantId : Number(restaurantId);
+      const validItems = items.filter((i) => Number(i.menuItemId ?? i.id) > 0);
+
+      if (permittedRoles.customer && user) {
+        if (!validItems.length) return false;
+        setSyncing(true);
+        try {
+          for (const item of validItems) {
+            await addCartItemApi({
+              menuItemId: Number(item.menuItemId ?? item.id),
+              quantity: Math.max(1, Number(item.quantity ?? 1)),
+              note: item.note ?? undefined,
+              currentLocation,
+            });
+          }
+          const data = await fetchCartApi();
+          setCart(normalizeCart(data.cart));
+          setAppliedPromo(null);
+          return Boolean(data.cart);
+        } catch (error) {
+          pushToast({
+            kind: 'error',
+            title: 'Không thể thêm vào giỏ hàng',
+            message: error.message ?? 'Vui lòng thử lại sau.',
+          });
+          return false;
+        } finally {
+          setSyncing(false);
+        }
+      }
+
+      setCart((cur) => {
+        const base = cur.restaurantId && String(cur.restaurantId) !== String(nextRestaurantId) && cur.items.length
+          ? { id: null, restaurantId: nextRestaurantId, restaurantName, restaurantLogo, items: [] }
+          : { ...cur, restaurantId: nextRestaurantId, restaurantName, restaurantLogo };
+        const next = { ...base, items: [...base.items] };
+        for (const item of validItems) {
+          const nextItem = normalizeCartItem({ ...item, restaurantId: nextRestaurantId });
+          const existing = next.items.find((e) => String(e.menuItemId ?? e.id) === String(nextItem.menuItemId ?? nextItem.id));
+          if (existing) {
+            existing.quantity = Number(existing.quantity ?? 0) + Number(nextItem.quantity ?? 1);
+          } else {
+            next.items.push(nextItem);
+          }
+        }
+        return next;
+      });
+      return true;
+    },
+    [currentLocation, normalizeCart, normalizeCartItem, permittedRoles.customer, pushToast, user],
+  );
+
   const applyPromo = useCallback(
     async (code) => {
       if (user && !permittedRoles.customer) return false;
@@ -913,6 +986,7 @@ export function AppProvider({ children }) {
     setItemQty,
     removeFromCart,
     clearCart,
+    restoreItemsToCart,
 
     toasts,
     pushToast,
@@ -943,6 +1017,8 @@ export function AppProvider({ children }) {
     currentMerchant,
     currentLocation,
     locationStatus,
+    deliveryAddress,
+    setDeliveryAddress,
     currentAdmin,
     merchantRestaurant,
   };

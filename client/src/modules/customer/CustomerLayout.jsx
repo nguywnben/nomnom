@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 
+import { useApp } from '../../context/AppContext.jsx';
 import { useGeolocationLocalityLabel } from '../../hooks/useGeolocationLocalityLabel.js';
 import TopNav from './TopNav.jsx';
 import MobileTopBar from './MobileTopBar.jsx';
@@ -29,7 +30,14 @@ import ChatWidget from '../chat/ChatWidget.jsx';
 // ---------------------------------------------------------------------------
 export default function CustomerLayout() {
   const { pathname } = useLocation();
-  const deliveryLocalityLine = useGeolocationLocalityLabel();
+  const geoLocalityLine = useGeolocationLocalityLabel();
+  const { deliveryAddress } = useApp();
+
+  const deliveryLocalityLine = deliveryAddress
+    ? [deliveryAddress.line1, deliveryAddress.ward, deliveryAddress.district, deliveryAddress.city]
+        .filter(Boolean)
+        .join(', ')
+    : geoLocalityLine;
 
   // Routes where the mobile bottom nav steps aside so the page's own sticky
   // action bar (e.g. "Place order" on checkout) owns the bottom safe area.

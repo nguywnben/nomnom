@@ -11,6 +11,7 @@ import Tabs from '../../components/Tabs.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { searchExploreApi, fetchCuisinesApi } from '../../lib/api.js';
 import { useApp } from '../../context/AppContext.jsx';
+import { useSearchSuggestions, getRecentSearches, addRecentSearch, clearRecentSearches } from '../../hooks/useSearchSuggestions.js';
 
 const LEGACY_CAT_TO_CUISINE_SLUG = {
   pizza: 'italian',
@@ -55,6 +56,9 @@ export default function CustomerSearch() {
   const [page, setPage] = useState(() => Math.max(1, parseInt(params.get('page') || '1', 10) || 1));
   const [view, setView] = useState('grid');
   const [searchTab, setSearchTab] = useState(() => (params.get('tab') === 'restaurants' ? 'restaurants' : 'dishes'));
+  const [inputFocused, setInputFocused] = useState(false);
+  const [recent, setRecent] = useState(() => getRecentSearches());
+  const suggestions = useSearchSuggestions(debouncedQ, { limit: 4, enabled: Boolean(debouncedQ) });
 
   const [cuisines, setCuisines] = useState([]);
   const [data, setData] = useState({ restaurants: [], menuItems: [], pagination: { totalRestaurants: 0, totalMenuItems: 0 } });
@@ -170,14 +174,91 @@ export default function CustomerSearch() {
 
       {/* Search Input Bar & View options */}
       <div className="mb-base flex flex-col gap-xs md:flex-row md:items-center">
-        <Input
-          leadingIcon="search"
-          placeholder="Tìm quán ăn hoặc món ăn"
-          aria-label="Tìm kiếm quán ăn và món ăn"
-          className="flex-1"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <div className="relative flex-1">
+          <Input
+            leadingIcon="search"
+            placeholder="Tìm quán ăn hoặc món ăn"
+            aria-label="Tìm kiếm quán ăn và món ăn"
+            className="flex-1"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => window.setTimeout(() => setInputFocused(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addRecentSearch(q);
+            }}
+          />
+          {inputFocused && !debouncedQ && recent.length > 0 && (
+            <div className="absolute inset-x-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card py-1 text-left shadow-soft-md">
+              <div className="flex items-center justify-between px-sm py-1.5">
+                <span className="text-caption-uppercase text-body">Tìm gần đây</span>
+                <button
+                  type="button"
+                  className="text-caption text-text-link hover:underline"
+                  onClick={() => {
+                    clearRecentSearches();
+                    setRecent([]);
+                  }}
+                >
+                  Xóa hết
+                </button>
+              </div>
+              {recent.map((term) => (
+                <button
+                  key={term}
+                  type="button"
+                  className="flex w-full items-center gap-sm px-sm py-2 text-left hover:bg-canvas-soft"
+                  onClick={() => {
+                    setQ(term);
+                    addRecentSearch(term);
+                    setInputFocused(false);
+                  }}
+                >
+                  <Icon name="clock" size={14} className="shrink-0 text-body" />
+                  <span className="truncate text-body-sm text-ink">{term}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {inputFocused && debouncedQ && suggestions && (
+            <div className="absolute inset-x-0 top-[calc(100%+4px)] z-20 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card py-1 text-left shadow-soft-md">
+              {(suggestions.restaurants?.length === 0 && suggestions.menuItems?.length === 0) ? (
+                <div className="px-sm py-2 text-caption text-body">Không tìm thấy kết quả.</div>
+              ) : (
+                <>
+                  {(suggestions.menuItems ?? []).slice(0, 4).map((item) => (
+                    <Link
+                      key={`m-${item.id}`}
+                      to={`/app/dish/${item.id}`}
+                      onClick={() => addRecentSearch(debouncedQ)}
+                      className="flex items-center gap-sm px-sm py-2 hover:bg-canvas-soft"
+                    >
+                      <Icon name="search" size={14} className="shrink-0 text-body" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-body-sm text-ink">{item.name}</span>
+                        <span className="block truncate text-caption text-body">{item.restaurantName}</span>
+                      </span>
+                    </Link>
+                  ))}
+                  {(suggestions.restaurants ?? []).slice(0, 3).map((r) => (
+                    <Link
+                      key={`r-${r.id}`}
+                      to={`/app/restaurant/${r.id}`}
+                      onClick={() => addRecentSearch(debouncedQ)}
+                      className="flex items-center gap-sm px-sm py-2 hover:bg-canvas-soft"
+                    >
+                      <Icon name="store" size={14} className="shrink-0 text-body" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-body-sm text-ink">{r.name}</span>
+                        <span className="block truncate text-caption text-body">{r.cuisineName ?? 'Quán ăn'}</span>
+                      </span>
+                    </Link>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Tabs
             items={[

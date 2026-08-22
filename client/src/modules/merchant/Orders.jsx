@@ -35,6 +35,43 @@ function todayIsoDate() {
   return `${y}-${m}-${d}`;
 }
 
+function printOrderReceipt(order) {
+  const w = window.open('', '_blank', 'width=420,height=640');
+  if (!w) return;
+  const itemsHtml = (order.items ?? [])
+    .map(
+      (item) =>
+        `<tr>
+          <td style="padding:4px 0;">${item.quantity}× ${item.name}</td>
+          <td style="padding:4px 0; text-align:right; white-space:nowrap;">${formatVnd(item.lineSubtotal)}</td>
+        </tr>`,
+    )
+    .join('');
+  const address = order.deliveryAddress || order.customerAddress;
+  w.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8" />
+  <title>Phiếu chế biến ${order.orderCode}</title>
+  <style>
+    body{font-family:system-ui,Inter,sans-serif;color:#111;padding:24px;font-size:13px;}
+    h1{font-size:16px;margin:0 0 4px;}
+    .muted{color:#666;}
+    table{width:100%;border-collapse:collapse;margin-top:8px;}
+    .row{display:flex;justify-content:space-between;margin-top:4px;}
+    hr{border:0;border-top:1px dashed #999;margin:12px 0;}
+    @media print{ body{padding:0;} }
+  </style></head><body>
+    <h1>Phiếu chế biến — ${order.orderCode}</h1>
+    <div class="muted">${new Date(order.placedAt).toLocaleString('vi-VN')}</div>
+    <div class="muted">Khách: ${order.customerName}${order.customerPhone ? ' · ' + order.customerPhone : ''}</div>
+    ${address ? `<div class="muted">Giao đến: ${address}</div>` : ''}
+    <table><tbody>${itemsHtml}</tbody></table>
+    <hr />
+    <div class="row"><strong>Tổng cộng</strong><strong>${formatVnd(order.totalAmount)}</strong></div>
+    ${order.customerNote ? `<div class="muted" style="margin-top:8px;">Ghi chú: ${order.customerNote}</div>` : ''}
+    <script>window.onload=function(){window.print();}</script>
+  </body></html>`);
+  w.document.close();
+}
+
 function groupOrders(orders) {
   const buckets = Object.fromEntries(COLUMNS.map((col) => [col.key, []]));
   for (const order of orders) {
@@ -266,6 +303,7 @@ export default function MerchantOrders() {
                           setCancelError('');
                         }}
                         onChat={() => openCustomerChat(order)}
+                        onPrint={() => printOrderReceipt(order)}
                       />
                     ))}
                   </ul>
@@ -309,7 +347,7 @@ export default function MerchantOrders() {
   );
 }
 
-function OrderCard({ order, busy, onAction, onCancel, onChat }) {
+function OrderCard({ order, busy, onAction, onCancel, onChat, onPrint }) {
   const minutesAgo = useMinutesAgo(order.placedAt);
   const next = ACTIONS[order.status];
   const canCancel = ['placed', 'accepted', 'preparing', 'ready_for_pickup'].includes(order.status);
@@ -347,6 +385,7 @@ function OrderCard({ order, busy, onAction, onCancel, onChat }) {
       </div>
       <div className="flex items-center gap-1 border-t border-hairline p-sm">
           <Button variant="secondary" size="sm" leadingIcon="chat" onClick={onChat}>Nhắn khách</Button>
+          <Button variant="secondary" size="sm" leadingIcon="package" onClick={onPrint}>In phiếu</Button>
 
           {canCancel ? (
             <Button variant="secondary" size="sm" disabled={busy} onClick={onCancel}>
