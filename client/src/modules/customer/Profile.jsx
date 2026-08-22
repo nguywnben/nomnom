@@ -13,7 +13,7 @@ import { apiGet } from '../../lib/api.js';
 const SETTINGS = [
   { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin', link: '/app/profile/addresses', customerOnly: true },
   { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap', link: '/app/profile/promotions', customerOnly: true },
-  { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/profile/notifications', customerOnly: true },
+  { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/notifications', customerOnly: true },
   { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/inbox', customerOnly: true },
   { id: 'settings', label: 'Cài đặt ứng dụng', icon: 'cog', link: '/app/profile/settings' },
 ];

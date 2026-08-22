@@ -33,7 +33,6 @@ import CustomerProfile from './modules/customer/Profile.jsx';
 import CustomerProfileEdit from './modules/customer/profile/EditProfile.jsx';
 import CustomerProfileAddresses from './modules/customer/profile/Addresses.jsx';
 import CustomerProfilePromotions from './modules/customer/profile/Promotions.jsx';
-import CustomerProfileNotifications from './modules/customer/profile/Notifications.jsx';
 import CustomerProfileSettings from './modules/customer/profile/Settings.jsx';
 import CustomerNotifications from './modules/customer/Notifications.jsx';
 import VnpayReturn from './modules/customer/VnpayReturn.jsx';
@@ -104,7 +103,6 @@ export default function App() {
             <Route path="orders" element={<CustomerOrders />} />
             <Route path="track/:id" element={<CustomerTracking />} />
             <Route path="profile/addresses" element={<CustomerProfileAddresses />} />
-            <Route path="profile/notifications" element={<CustomerProfileNotifications />} />
             <Route path="profile/promotions" element={<CustomerProfilePromotions />} />
             <Route path="reviews/write/:id" element={<CustomerReviews />} />
           </Route>
