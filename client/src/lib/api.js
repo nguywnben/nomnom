@@ -328,6 +328,19 @@ export function cancelAdminOrder(orderId, reason) {
   return apiPost(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/cancel`, { reason });
 }
 
+export function updateAdminOrderShippingStatus(orderId, action) {
+  return apiPost(`/api/v1/admin/orders/${encodeURIComponent(orderId)}/shipping-status`, { action });
+}
+
+export function confirmOrderDeliveryApi(orderIdOrCode) {
+  return apiPost(`/api/v1/orders/${encodeURIComponent(orderIdOrCode)}/confirm-delivery`);
+}
+
+/** Hủy đơn của khách — POST /api/v1/me/orders/:id/cancel */
+export function cancelMyOrderApi(orderId) {
+  return apiPost(`/api/v1/me/orders/${encodeURIComponent(orderId)}/cancel`, {});
+}
+
 export function fetchAdminReviews({ hidden = 'all', page = 1, q = '', ratingMax } = {}) {
   const params = new URLSearchParams({ hidden, page: String(page), q });
   if (ratingMax) params.set('ratingMax', String(ratingMax));

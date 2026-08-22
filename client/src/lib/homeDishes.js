@@ -19,6 +19,7 @@ export function buildTrendingDishes(items, limit = 10) {
         restaurantId: Number(item.restaurantId),
         restaurantName: item.restaurantName,
         restaurantLogo: item.restaurantLogo ?? null,
+        fee: Number(item.baseDeliveryFee ?? item.deliveryFee ?? 0) || null,
         eta: `${prepTimeMin} phút`,
       };
     });

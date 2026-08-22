@@ -5,7 +5,9 @@ function geocodingError(message, status = 400) {
 }
 
 export async function geocodeVietnamAddress({ line1, ward, district, city }) {
-  if (!process.env.ORS_API_KEY) throw geocodingError('Hệ thống chưa cấu hình dịch vụ xác định vị trí.', 503);
+  if (!process.env.ORS_API_KEY) {
+    throw geocodingError('Hệ thống chưa cấu hình dịch vụ xác định vị trí. Vui lòng liên hệ quản trị viên.', 503);
+  }
 
   const url = new URL('https://api.heigit.org/pelias/v1/search');
   url.searchParams.set('text', [line1, ward, district, city, 'Vietnam'].filter(Boolean).join(', '));
@@ -43,17 +45,17 @@ export async function reverseGeocodeVietnamLocation({ latitude, longitude }) {
   });
   const data = response.ok ? await response.json() : null;
   const address = data?.address ?? {};
-  const city = address.city || address.province || address.state;
-  const ward = address.county || address.suburb || address.quarter || address.municipality || address.village || address.town;
+  const resolvedCity = address.city || address.province || address.state;
+  const resolvedWard = address.county || address.suburb || address.quarter || address.municipality || address.village || address.town;
   const street = address.road || address.pedestrian || address.residential;
-  const line1 = [address.house_number, street].filter(Boolean).join(' ')
+  const resolvedLine1 = [address.house_number, street].filter(Boolean).join(' ')
     || address.hamlet
     || address.neighbourhood
     || address.village
     || address.town
     || data?.name;
-  if (!city || !ward || !line1) {
+  if (!resolvedCity || !resolvedWard || !resolvedLine1) {
     throw geocodingError('Không xác định được địa chỉ hành chính từ vị trí hiện tại. Vui lòng nhập địa chỉ thủ công.');
   }
-  return { line1, ward, city, latitude: lat, longitude: lon };
+  return { line1: resolvedLine1, ward: resolvedWard, city: resolvedCity, latitude: lat, longitude: lon };
 }

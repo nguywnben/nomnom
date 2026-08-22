@@ -50,10 +50,10 @@
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
   .h-safe-bottom { height: env(safe-area-inset-bottom, 0px); }
 
-  /* Focus ring — editorial (không áp dụng cho ô nhập — tránh vòng xám khi focus) */
+  /* Focus ring — editorial, đủ tương phản (2:1 so với nền) */
   :focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.16);
     border-radius: 8px;
   }
 

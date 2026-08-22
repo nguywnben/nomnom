@@ -7,9 +7,7 @@ import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
 import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
-import Badge from '../../components/Badge.jsx';
 import { useApp } from '../../context/AppContext.jsx';
-import { restaurants } from '../../data/mock.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 
 export default function CartDrawer() {
@@ -28,6 +26,8 @@ export default function CartDrawer() {
     applyPromo,
     appliedPromo,
     setAppliedPromo,
+    restoreItemsToCart,
+    pushToast,
     user,
     shopAsCustomer,
     customerCartRestriction,
@@ -40,11 +40,40 @@ export default function CartDrawer() {
     onCancel: null,
   });
 
-  const restaurant = cart.restaurantName ? null : restaurants.find((r) => String(r.id) === String(cart.restaurantId));
-  const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
-  const restaurantLogo = cart.restaurantLogo ?? restaurant?.logo ?? null;
-  const restaurantStatusTone = restaurant ? (restaurant.open ? 'success' : 'error') : 'default';
-  const restaurantStatusLabel = restaurant ? (restaurant.open ? 'Mở cửa' : 'Đóng cửa') : 'Đã đồng bộ';
+  const restaurantName = cart.restaurantName ?? 'Quán ăn';
+  const restaurantLogo = cart.restaurantLogo ?? null;
+
+  const removeWithUndo = async (item) => {
+    const snapshot = { ...item };
+    try {
+      await removeFromCart(item.id);
+      pushToast({
+        kind: 'info',
+        title: 'Đã xóa món',
+        message: item.name,
+        duration: 6000,
+        action: {
+          label: 'Hoàn tác',
+          onClick: async () => {
+            await restoreItemsToCart({
+              restaurantId: cart.restaurantId,
+              restaurantName: cart.restaurantName,
+              restaurantLogo: cart.restaurantLogo,
+              items: [{
+                menuItemId: snapshot.menuItemId ?? snapshot.id,
+                name: snapshot.name,
+                price: snapshot.price,
+                quantity: snapshot.quantity,
+              }],
+            });
+            setCartOpen(true);
+          },
+        },
+      });
+    } catch {
+      // removeFromCart đã tự báo lỗi
+    }
+  };
 
   return (
     <>
@@ -152,19 +181,18 @@ export default function CartDrawer() {
 
         {cart.items.length > 0 && restaurantName && (
           <div className="flex items-center gap-sm rounded-md border border-hairline p-sm">
-            <Image
-              src={restaurantLogo}
-              alt={restaurantName}
-              className="h-10 w-10 rounded-md"
-              ratio="1"
-            />
+            {restaurantLogo && (
+              <Image
+                src={restaurantLogo}
+                alt={restaurantName}
+                className="h-10 w-10 rounded-md"
+                ratio="1"
+              />
+            )}
             <div className="flex-1 min-w-0">
               <div className="text-body-sm font-semibold text-ink truncate">{restaurantName}</div>
-              <div className="text-caption text-body">
-                {restaurant?.eta ? `${restaurant.eta} · ` : ''}phí giao {formatVnd(deliveryFee)}
-              </div>
+              <div className="text-caption text-body">phí giao {formatVnd(deliveryFee)}</div>
             </div>
-            <Badge tone={restaurantStatusTone} dot>{restaurantStatusLabel}</Badge>
           </div>
         )}
 
@@ -188,7 +216,7 @@ export default function CartDrawer() {
                         setConfirmDelete({
                           open: true,
                           itemName: i.name,
-                          onConfirm: () => setItemQty(i.id, 0),
+                          onConfirm: () => removeWithUndo(i),
                         });
                       } else {
                         setItemQty(i.id, i.quantity - 1);
@@ -223,7 +251,7 @@ export default function CartDrawer() {
                     setConfirmDelete({
                       open: true,
                       itemName: i.name,
-                      onConfirm: () => removeFromCart(i.id),
+                      onConfirm: () => removeWithUndo(i),
                     });
                   }}
                   aria-label="Xóa"
@@ -295,7 +323,7 @@ export default function CartDrawer() {
   );
 }
 
-function CartItemQtyInput({ quantity, onZero, onChange }) {
+function CartItemQtyInput({ quantity, itemName, onZero, onChange }) {
   const [val, setVal] = useState(String(quantity));
 
   useEffect(() => {
@@ -331,6 +359,7 @@ function CartItemQtyInput({ quantity, onZero, onChange }) {
       type="number"
       min="0"
       value={val}
+      aria-label={`Số lượng ${itemName}`}
       onChange={(e) => setVal(e.target.value)}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}

@@ -8,7 +8,7 @@ import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { useApp } from '../../context/AppContext.jsx';
-import { fetchAdminOrderDetail, fetchAdminOrders, cancelAdminOrder } from '../../lib/api.js';
+import { fetchAdminOrderDetail, fetchAdminOrders, cancelAdminOrder, updateAdminOrderShippingStatus } from '../../lib/api.js';
 
 const ORDER_STATUS = {
   pending_payment: { label: 'Chờ thanh toán', tone: 'warning' },
@@ -130,6 +130,21 @@ export default function AdminOrders() {
     setCancelTarget({ id: o.id, code: o.order_code, isPaid: o.payment_status === 'paid' });
     setCancelReason('');
     setCancelError('');
+  };
+
+  const handleShippingStatus = async (order, action) => {
+    try {
+      await updateAdminOrderShippingStatus(order.id, action);
+      pushToast({
+        kind: 'success',
+        title: action === 'picked_up' ? 'Đã xác nhận lấy hàng' : 'Đã cập nhật đang giao',
+        message: `Đơn ${order.order_code} đã được cập nhật.`,
+      });
+      loadOrders();
+      if (selectedOrder?.id === order.id) handleOpenDetail(order);
+    } catch (error) {
+      pushToast({ kind: 'error', title: 'Không thể cập nhật giao vận', message: error.message });
+    }
   };
 
   const handleConfirmCancel = async () => {
@@ -276,6 +291,16 @@ export default function AdminOrders() {
                           Hủy đơn
                         </Button>
                       )}
+                      {o.status === 'ready_for_pickup' && (
+                        <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'picked_up')}>
+                          Đã lấy hàng
+                        </Button>
+                      )}
+                      {o.status === 'picked_up' && (
+                        <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'delivering')}>
+                          Đang giao
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -316,6 +341,16 @@ export default function AdminOrders() {
                   {CANCELLABLE_ORDER_STATUSES.has(o.status) && (
                     <Button variant="secondary" size="sm" onClick={() => handleCancelClick(o)}>
                       Hủy đơn
+                    </Button>
+                  )}
+                  {o.status === 'ready_for_pickup' && (
+                    <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'picked_up')}>
+                      Đã lấy hàng
+                    </Button>
+                  )}
+                  {o.status === 'picked_up' && (
+                    <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'delivering')}>
+                      Đang giao
                     </Button>
                   )}
                 </div>

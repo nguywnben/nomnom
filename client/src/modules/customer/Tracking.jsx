@@ -5,8 +5,9 @@ import Badge from '../../components/Badge.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
-import { apiGet, apiPost } from '../../lib/api.js';
+import { apiGet, apiPost, confirmOrderDeliveryApi, createOrderConversationApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { orderStatusLabel, orderStatusTone } from '../../lib/orderStatus.js';
 
 const STEPS = [
   { id: 'placed', label: 'Đã đặt', icon: 'check' },
@@ -64,7 +65,10 @@ export default function CustomerTracking() {
   const nav = useNavigate();
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [etaLeft, setEtaLeft] = useState(0);
+  const [chatting, setChatting] = useState(false);
 
   useEffect(() => {
     if (!order) return;
@@ -91,6 +95,45 @@ export default function CustomerTracking() {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    if (!order) return undefined;
+    const etaStr = order.estimated_delivery_at ?? order.estimatedDeliveryAt;
+    if (!etaStr || ['delivered', 'cancelled', 'failed', 'expired'].includes(order.status)) {
+      setEtaLeft(0);
+      return undefined;
+    }
+    const target = new Date(etaStr).getTime();
+    if (Number.isNaN(target)) return undefined;
+    const tick = () => setEtaLeft(Math.max(0, target - Date.now()));
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [order]);
+
+  const formatEtaCountdown = (ms) => {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  };
+
+  const openChat = async () => {
+    if (!order || chatting) return;
+    setChatting(true);
+    try {
+      const res = await createOrderConversationApi(order.id, 'merchant');
+      const conversationId = res?.conversation?.id ?? res?.id;
+      nav(`/chat/${conversationId}`);
+    } catch (err) {
+      setError(err.message || 'Không thể mở trò chuyện với quán.');
+    } finally {
+      setChatting(false);
+    }
   };
 
   useEffect(() => {
@@ -161,6 +204,19 @@ export default function CustomerTracking() {
   const discountAmount = Number(order?.discount_amount ?? order?.discountAmount ?? 0);
   const totalAmount = Number(order?.total_amount ?? order?.totalAmount ?? 0);
 
+  const confirmDelivery = async () => {
+    setConfirmingDelivery(true);
+    try {
+      await confirmOrderDeliveryApi(order.order_code ?? order.orderCode ?? order.id);
+      setOrder((current) => ({ ...current, status: 'delivered', delivered_at: new Date().toISOString() }));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Không thể xác nhận đã nhận hàng.');
+    } finally {
+      setConfirmingDelivery(false);
+    }
+  };
+
   const timelineByStatus = useMemo(() => {
     const map = new Map();
     timeline.forEach((item) => {
@@ -196,9 +252,17 @@ export default function CustomerTracking() {
           <h1 className="text-display-lg text-ink">{isTerminal ? 'Chi tiết đơn hàng' : 'Theo dõi đơn hàng'}</h1>
           {error && <p className="mt-1 text-caption text-warning">{error}</p>}
         </div>
-        <Badge tone={['cancelled', 'expired', 'failed', 'payment_failed'].includes(activeStatus) ? 'critical' : 'live'} dot>
-          {isDelivered ? 'Đã giao' : activeStatus === 'cancelled' ? 'Đã hủy' : activeStatus === 'expired' ? 'Hết hạn' : activeStatus === 'payment_failed' ? 'Thanh toán chưa thành công' : activeStatus === 'failed' ? 'Thất bại' : 'Đang xử lý'}
+        <Badge tone={orderStatusTone(activeStatus)} dot>
+          {orderStatusLabel(activeStatus)}
         </Badge>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-xs">
+        {!isTerminal && (
+          <Button size="sm" variant="secondary" leadingIcon="chat" loading={chatting} onClick={openChat}>
+            Chat với quán
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
@@ -207,6 +271,19 @@ export default function CustomerTracking() {
             <Card padded hover={false}>
               <div className="text-title-md text-ink">{orderNotice.title}</div>
               <p className="mt-1 text-body-sm text-body">{orderNotice.message}</p>
+            </Card>
+          )}
+          {activeStatus === 'delivering' && (
+            <Card padded hover={false}>
+              <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="text-title-md text-ink">Bạn đã nhận được đơn hàng?</div>
+                  <p className="mt-1 text-body-sm text-body">Hãy xác nhận khi đã nhận đủ món. Đơn sẽ tự hoàn tất sau 2 giờ nếu bạn không phản hồi.</p>
+                </div>
+                <Button onClick={confirmDelivery} loading={confirmingDelivery} leadingIcon="check">
+                  Xác nhận đã nhận hàng
+                </Button>
+              </div>
             </Card>
           )}
           {((order.payment_method === 'vnpay' || order.paymentMethod === 'vnpay') && 
@@ -267,6 +344,11 @@ export default function CustomerTracking() {
                 <p className="text-caption text-body">
                   Dự kiến giao lúc {formatTime(order.estimated_delivery_at ?? order.estimatedDeliveryAt)}
                 </p>
+                {etaLeft > 0 && (
+                  <p className="mt-1 inline-flex items-center gap-1 text-caption font-semibold text-ink">
+                    <Icon name="clock" size={12} /> Còn {formatEtaCountdown(etaLeft)}
+                  </p>
+                )}
               </div>
               <span className="text-caption text-body">
                 Cập nhật gần nhất: {formatDateTime(timelineByStatus.get(activeStatus) ?? order.updated_at ?? order.updatedAt)}

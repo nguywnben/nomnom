@@ -29,6 +29,8 @@ const variantStyles = {
     'bg-transparent text-ink border border-transparent hover:bg-canvas-soft active:bg-surface-strong disabled:text-muted-soft',
   dark:
     'bg-surface-dark text-on-dark border border-surface-dark hover:bg-surface-dark-elevated disabled:opacity-50',
+  critical:
+    'bg-error text-white border border-error hover:bg-[#b91c1c] active:bg-[#b91c1c] disabled:bg-muted-soft disabled:border-muted-soft disabled:text-canvas',
 };
 
 const Button = forwardRef(function Button(

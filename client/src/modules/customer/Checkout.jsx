@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
-import Button from '../../components/Button.jsx';
+import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
+import Stepper from '../../components/Stepper.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 // Import formatVnd
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -29,6 +30,12 @@ const PAYMENTS = [
   { id: 'vnpay', label: 'VNPay', detail: 'Thanh toán qua cổng VNPay', icon: 'card' },
 ];
 
+const CHECKOUT_STEPS = [
+  { label: 'Giỏ hàng' },
+  { label: 'Thanh toán' },
+  { label: 'Hoàn tất' },
+];
+
 export default function CustomerCheckout() {
   const nav = useNavigate();
   const {
@@ -41,6 +48,8 @@ export default function CustomerCheckout() {
     appliedPromo,
     applyPromo,
     setAppliedPromo,
+    deliveryAddress,
+    setItemQty,
   } = useApp();
   const [payment, setPayment] = useState('cod');
   const [addresses, setAddresses] = useState([]);
@@ -74,20 +83,19 @@ export default function CustomerCheckout() {
   const [provinceError, setProvinceError] = useState('');
   const [wardError, setWardError] = useState('');
 
-  // Dữ liệu nhà hàng tạm cho giao diện nếu giỏ hàng có `restaurantId`
-  // Ứng dụng thực tế nên lấy từ API /cart hoặc /orders
-  const [restaurant] = useState({ name: 'Quán ăn' });
-
   useEffect(() => {
     setLoadingAddresses(true);
     apiGet('/api/v1/me/addresses')
       .then((data) => {
         setAddresses(data || []);
         if (data && data.length > 0) {
-          const defaultAddr = data.find((a) => a.isDefault) || data[0];
-          setAddressId(defaultAddr.id);
-          setPhone(defaultAddr.recipientPhone || currentCustomer?.phone || '');
-          setNote(defaultAddr.deliveryNote || '');
+          const preferred =
+            (deliveryAddress?.id != null && data.find((a) => String(a.id) === String(deliveryAddress.id))) ||
+            data.find((a) => a.isDefault) ||
+            data[0];
+          setAddressId(preferred.id);
+          setPhone(preferred.recipientPhone || currentCustomer?.phone || '');
+          setNote(preferred.deliveryNote || '');
         } else {
           // Bật số điện thoại mặc định cho form tạo địa chỉ mới nếu giỏ address bị trống
           setPhone(currentCustomer?.phone || '');
@@ -96,9 +104,9 @@ export default function CustomerCheckout() {
       })
       .catch((err) => console.error('Failed to load addresses:', err))
       .finally(() => setLoadingAddresses(false));
-  }, [currentCustomer]);
+  }, [currentCustomer, deliveryAddress]);
 
-  const restaurantName = cart.restaurantName ?? restaurant?.name ?? 'Quán ăn';
+  const restaurantName = cart.restaurantName ?? 'Quán ăn';
   const quotedDeliveryFee = shippingQuote?.total ?? 0;
   const quotedCartTotal = Math.max(0, cartSubtotal + quotedDeliveryFee - discount);
   const cartTotal = quotedCartTotal;
@@ -414,7 +422,7 @@ export default function CustomerCheckout() {
             <div className="text-title-md text-ink">Thanh toán</div>
             <div className="text-caption text-body">Xác nhận đơn hàng của bạn</div>
           </div>
-          <Badge tone="default" dot>Bước 2 trên 3</Badge>
+          <Stepper steps={CHECKOUT_STEPS} current={2} className="lg:hidden" />
         </div>
 
         {/* Header trên Desktop */}
@@ -427,7 +435,7 @@ export default function CustomerCheckout() {
               <div className="text-caption-uppercase text-body">Thanh toán</div>
               <h1 className="text-display-lg text-ink">Xác nhận đơn hàng của bạn</h1>
             </div>
-            <Badge tone="default" dot>Bước 2 trên 3</Badge>
+            <Stepper steps={CHECKOUT_STEPS} current={2} className="hidden lg:flex" />
           </div>
         </div>
 
@@ -628,9 +636,26 @@ export default function CustomerCheckout() {
                     <Image src={i.imageUrl ?? i.image} alt={i.name} className="h-14 w-14 rounded-md" ratio="1" />
                     <div className="flex-1">
                       <div className="text-body-sm font-semibold text-ink">{i.name}</div>
-                      <div className="text-caption text-body">SL {i.quantity}</div>
+                      <div className="text-caption text-body">{formatVnd(i.price)} / món</div>
                     </div>
-                    <span className="nums text-body-sm text-ink">{formatVnd(i.price * i.quantity)}</span>
+                    <div className="flex items-center gap-1">
+                      <IconButton
+                        icon="minus"
+                        size="sm"
+                        variant="secondary"
+                        label={`Giảm số lượng ${i.name}`}
+                        onClick={() => setItemQty(i.id, i.quantity - 1)}
+                      />
+                      <span className="w-8 text-center nums text-button text-ink" aria-live="polite">{i.quantity}</span>
+                      <IconButton
+                        icon="plus"
+                        size="sm"
+                        variant="secondary"
+                        label={`Tăng số lượng ${i.name}`}
+                        onClick={() => setItemQty(i.id, i.quantity + 1)}
+                      />
+                    </div>
+                    <span className="nums text-body-sm text-ink w-20 text-right">{formatVnd(i.price * i.quantity)}</span>
                   </div>
                 ))}
               </div>

@@ -10,13 +10,38 @@ import { apiGet } from '../../lib/api.js';
 export default function OrderSuccess() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
+  const [error, setError] = useState('');
   const nav = useNavigate();
 
   useEffect(() => {
+    let active = true;
     apiGet('/api/v1/orders/' + id)
-      .then(data => setOrder(data))
-      .catch(err => console.error(err));
+      .then((data) => {
+        if (active) setOrder(data);
+      })
+      .catch((err) => {
+        if (active) setError(err.message || 'Không tìm thấy đơn hàng.');
+      });
+    return () => { active = false; };
   }, [id]);
+
+  if (error) {
+    return (
+      <div className="container-page py-xl">
+        <Card padded className="mx-auto max-w-md text-center">
+          <span className="mx-auto grid h-14 w-14 place-items-center rounded-pill bg-[#fbeaea] text-error">
+            <Icon name="alert" size={22} />
+          </span>
+          <h1 className="mt-base text-display-sm text-ink">Không tìm thấy đơn hàng</h1>
+          <p className="mt-xs text-body-sm text-body">{error}</p>
+          <div className="mt-base flex flex-wrap items-center justify-center gap-xs">
+            <Button onClick={() => nav('/app/orders')}>Xem đơn hàng của tôi</Button>
+            <Button as={Link} to="/app" variant="secondary">Về trang chủ</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   if (!order) {
     return <div className="container-page py-xxl text-center">Đang tải...</div>;

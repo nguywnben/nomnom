@@ -24,7 +24,7 @@ export default function StarRating({
           className={clsx(
             'p-0.5 -m-0.5',
             !readOnly && 'cursor-pointer',
-            display >= n ? 'text-ink' : 'text-muted-soft',
+            display >= n ? 'text-ink' : 'text-muted',
           )}
         >
           <Icon name={display >= n ? 'starFilled' : 'star'} size={size} />

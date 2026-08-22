@@ -1,21 +1,71 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import Icon from './Icon.jsx';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // Responsive overlay:
 //   • Mobile (<768px): bottom-sheet — anchored to bottom, slides up,
 //     rounded-t-xxl (24px), grab handle, max-h 88vh.
 //   • Desktop (>=768px): centered card, rounded-lg (12px).
 // Touch targets: close button is 44px square.
+//
+// Accessibility: Escape đóng, scroll lock, focus trap trong dialog,
+// restore focus về phần tử kích hoạt khi đóng.
 export default function Modal({ open, onClose, title, children, footer, size = 'md', hideHeader = false }) {
   useBodyScrollLock(open);
+  const dialogRef = useRef(null);
+  const restoreFocusRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => e.key === 'Escape' && onClose?.();
+    restoreFocusRef.current = document.activeElement;
+    return () => {
+      restoreFocusRef.current?.focus?.();
+      restoreFocusRef.current = null;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const dialog = dialogRef.current;
+
+    const focusFirst = () => {
+      const el = dialog?.querySelector(FOCUSABLE);
+      (el || dialog)?.focus();
+    };
+    const timer = window.setTimeout(focusFirst, 0);
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        onClose?.();
+        return;
+      }
+      if (e.key !== 'Tab' || !dialog) return;
+      const focusables = Array.from(dialog.querySelectorAll(FOCUSABLE)).filter(
+        (el) => el.offsetParent !== null || el === document.activeElement,
+      );
+      if (focusables.length === 0) {
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === dialog)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener('keydown', onKey);
     return () => {
+      window.clearTimeout(timer);
       document.removeEventListener('keydown', onKey);
     };
   }, [open, onClose]);
@@ -32,8 +82,11 @@ export default function Modal({ open, onClose, title, children, footer, size = '
 
       {/* Sheet / Modal — same component, responsive shape */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         className={clsx(
           'relative z-10 flex w-full flex-col overflow-hidden bg-surface-card slide-in-up shadow-soft-lg',
           // Mobile: full-width sheet at the bottom

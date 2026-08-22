@@ -1,20 +1,29 @@
 import { verifyAccessToken } from '../lib/auth.js';
 import { normalizeRoles } from '../lib/roles.js';
+import pool from '../db/pool.js';
 
-export function requireAuth(req, res, next) {
+export async function requireAuth(req, res, next) {
   const hdr = req.headers.authorization;
   if (!hdr?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
     const payload = verifyAccessToken(hdr.slice(7));
+    const userId = Number(payload.sub);
+    const [roleRows] = await pool.query(
+      'SELECT role FROM user_roles WHERE user_id = ? ORDER BY role',
+      [userId],
+    );
     req.auth = {
-      userId: Number(payload.sub),
+      userId,
       primaryRole: payload.primaryRole,
-      roles: normalizeRoles(payload.roles ?? []),
+      // Quyền có thể thay đổi khi admin duyệt quán, nên không dùng quyền đã
+      // được đóng băng trong access token lúc người dùng đăng nhập.
+      roles: normalizeRoles(roleRows.map((row) => row.role)),
     };
     next();
-  } catch {
+  } catch (error) {
+    if (error?.code) return next(error);
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }

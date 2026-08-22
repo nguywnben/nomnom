@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import Button from '../../components/Button.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -12,14 +12,17 @@ import {
 
 const PURPOSE_TITLE = {
   register: 'Xác minh email',
-  login: 'Đăng nhập bằng OTP',
   reset_password: 'Đặt lại mật khẩu',
 };
 
 const PURPOSE_SUB = {
   register: 'Nhập mã 6 chữ số trong email để hoàn tất tạo tài khoản NomNom.',
-  login: 'Nhập mã 6 chữ số để hoàn tất đăng nhập.',
   reset_password: 'Nhập mã 6 chữ số để xác minh và đặt mật khẩu mới.',
+};
+
+const PURPOSE_SOURCE = {
+  register: '/register',
+  reset_password: '/forgot-password',
 };
 
 export default function VerifyOtpPage() {
@@ -27,9 +30,8 @@ export default function VerifyOtpPage() {
   const [params] = useSearchParams();
   const { pushToast, completeRegistration } = useApp();
 
-  const purpose = params.get('purpose') || 'register';
+  const purpose = params.get('purpose') || '';
   const dest = params.get('dest') || '';
-  const next = params.get('next') || '/app';
 
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [seconds, setSeconds] = useState(60);
@@ -77,15 +79,6 @@ export default function VerifyOtpPage() {
     e.preventDefault();
     if (!canSubmit) return;
 
-    if ((purpose === 'register' || purpose === 'reset_password') && !dest) {
-      setError(
-        purpose === 'register'
-          ? 'Thiếu email đăng ký. Vui lòng quay lại form đăng ký.'
-          : 'Thiếu email. Vui lòng quay lại trang quên mật khẩu.',
-      );
-      return;
-    }
-
     setError('');
     setLoading(true);
     try {
@@ -105,9 +98,6 @@ export default function VerifyOtpPage() {
         nav(`/reset-password?token=${encodeURIComponent(resetToken)}`, { replace: true });
         return;
       }
-
-      pushToast({ kind: 'success', title: 'Xác minh thành công', message: 'Mã hợp lệ.' });
-      nav(next, { replace: true });
     } catch (err) {
       setError(err.message ?? 'Mã không hợp lệ.');
     } finally {
@@ -116,10 +106,6 @@ export default function VerifyOtpPage() {
   };
 
   const resend = async () => {
-    if ((purpose !== 'register' && purpose !== 'reset_password') || !dest) {
-      pushToast({ kind: 'info', title: 'Sắp ra mắt', message: 'Chức năng gửi lại mã chưa khả dụng.' });
-      return;
-    }
     if (seconds > 0 || resending || loading) return;
 
     setResending(true);
@@ -143,8 +129,17 @@ export default function VerifyOtpPage() {
 
   const resendDisabled = seconds > 0 || loading || resending;
 
-  const backLink =
-    purpose === 'register' ? '/register' : purpose === 'reset_password' ? '/forgot-password' : '/login';
+  // Phân cấp: /verify-otp chỉ truy cập được sau khi hệ thống đã gửi mã
+  // (register → có dest=email, reset_password → có dest=email).
+  // Vào thẳng hoặc thiếu context sẽ quay về trang nguồn.
+  if (!PURPOSE_SOURCE[purpose]) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!dest) {
+    return <Navigate to={PURPOSE_SOURCE[purpose]} replace />;
+  }
+
+  const backLink = PURPOSE_SOURCE[purpose];
 
   return (
     <AuthLayout

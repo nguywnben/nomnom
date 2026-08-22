@@ -9,6 +9,7 @@ import {
   BarChart,
 } from 'recharts';
 import Badge from '../../components/Badge.jsx';
+import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
@@ -16,6 +17,8 @@ import StatCard from '../../components/StatCard.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { orderStatusTone } from '../../lib/orderStatus.js';
+import { downloadCsv } from '../../lib/csv.js';
 import { fetchMerchantDashboardApi } from '../../lib/api.js';
 
 let dashboardApiMissing = false;
@@ -82,35 +85,39 @@ export default function MerchantDashboard() {
   const restaurantName = currentMerchant?.restaurantName ?? currentMerchant?.name ?? 'Nhà hàng của bạn';
   const restaurantOpen = currentMerchant?.restaurantOpen;
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'placed':
-        return { tone: 'info', label: 'Mới nhận' };
-      case 'accepted':
-        return { tone: 'info', label: 'Đã xác nhận' };
-      case 'preparing':
-        return { tone: 'warning', label: 'Đang chuẩn bị' };
-      case 'ready_for_pickup':
-        return { tone: 'warning', label: 'Sẵn sàng giao' };
-      case 'picked_up':
-      case 'delivering':
-        return { tone: 'warning', label: 'Đang giao' };
-      case 'delivered':
-        return { tone: 'success', label: 'Thành công' };
-      case 'cancelled':
-        return { tone: 'error', label: 'Đã hủy' };
-      case 'failed':
-        return { tone: 'error', label: 'Thất bại' };
-      default:
-        return { tone: 'outline', label: status };
-    }
+  const DASHBOARD_STATUS_LABEL = {
+    placed: 'Mới nhận',
+    accepted: 'Đã xác nhận',
+    preparing: 'Đang chuẩn bị',
+    ready_for_pickup: 'Sẵn sàng giao',
+    picked_up: 'Đang giao',
+    delivering: 'Đang giao',
+    delivered: 'Thành công',
+    cancelled: 'Đã hủy',
+    failed: 'Thất bại',
   };
+
+  const getStatusBadge = (status) => ({
+    tone: orderStatusTone(status),
+    label: DASHBOARD_STATUS_LABEL[status] ?? status,
+  });
 
   const formatDateLabel = (dateStr) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
     if (parts.length < 3) return dateStr;
     return `${parts[2]}/${parts[1]}`; // 'DD/MM'
+  };
+
+  const exportCsv = () => {
+    if (dashboardData.recentOrders.length === 0) return;
+    downloadCsv(`nomnom-dashboard-${range}.csv`, dashboardData.recentOrders.map((o) => ({
+      'Mã đơn': o.orderCode,
+      'Khách hàng': o.customerName,
+      'Tổng thanh toán (VND)': o.totalAmount,
+      'Trạng thái': o.status,
+      'Thời điểm đặt': new Date(o.placedAt).toLocaleString('vi-VN'),
+    })));
   };
 
   const formattedChartData = dashboardData.chart.map((item) => ({
@@ -205,6 +212,9 @@ export default function MerchantDashboard() {
             <option value="week">Tuần này</option>
             <option value="month">Tháng này</option>
           </select>
+          <Button variant="secondary" size="sm" leadingIcon="download" onClick={exportCsv} disabled={!dashboardData.recentOrders.length}>
+            Xuất CSV
+          </Button>
           {restaurantOpen !== null && restaurantOpen !== undefined && (
             <Badge tone={restaurantOpen ? 'success' : 'error'} dot>
               {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}

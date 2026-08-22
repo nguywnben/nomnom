@@ -12,6 +12,9 @@ const tones = {
   warning: 'bg-[#fbf1de] text-accent-warning',
   preview: 'bg-[#f1e8f7] text-accent-preview',
   live: 'bg-[#e6f4ea] text-success',
+  info: 'bg-[#e8f1fb] text-[#0d74ce]',
+  critical: 'bg-[#fdecec] text-[#b91c1c]',
+  delivering: 'bg-[#fdf0e6] text-[#ea580c]',
 };
 
 export default function Badge({ children, tone = 'default', upper = true, dot = false, className }) {
@@ -34,7 +37,13 @@ export default function Badge({ children, tone = 'default', upper = true, dot = 
                 ? 'bg-error'
                 : tone === 'warning'
                   ? 'bg-accent-warning'
-                  : 'bg-ink',
+                  : tone === 'info'
+                    ? 'bg-[#0d74ce]'
+                    : tone === 'critical'
+                      ? 'bg-[#b91c1c]'
+                      : tone === 'delivering'
+                        ? 'bg-[#ea580c]'
+                        : 'bg-ink',
             tone === 'live' && 'pulse-dot',
           )}
         />
