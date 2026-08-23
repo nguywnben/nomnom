@@ -69,27 +69,13 @@ function escapeHtml(value) {
  * Gmail chặn data: URI → dùng cid inline (file nhỏ) hoặc URL HTTPS công khai.
  */
 function buildLogoParts() {
-  const publicUrl = process.env.EMAIL_LOGO_URL?.trim();
-  if (publicUrl) {
-    return {
-      html: `<img src="${escapeHtml(publicUrl)}" alt="" width="28" height="28" style="display:block;border-radius:6px;" />`,
-      attachments: [],
-    };
-  }
-
-  const path = resolveLogoPath();
-  if (!path) return { html: '', attachments: [] };
+  const publicUrl =
+    process.env.EMAIL_LOGO_URL?.trim() ||
+    'https://nomnom-beta-five.vercel.app/assets/logo-DGuF4LAN.png';
 
   return {
-    html: `<img src="cid:${LOGO_CID}" alt="" width="28" height="28" style="display:block;border-radius:6px;" />`,
-    attachments: [
-      {
-        path,
-        cid: LOGO_CID,
-        contentType: 'image/png',
-        contentDisposition: 'inline',
-      },
-    ],
+    html: `<img src="${escapeHtml(publicUrl)}" alt="NomNom" width="28" height="28" style="display:block;border-radius:6px;object-fit:contain;" />`,
+    attachments: [],
   };
 }
 
@@ -135,7 +121,7 @@ function buildRegisterOtpHtml({ fullName, code }) {
           </tr>
           <tr>
             <td style="padding-top:20px;text-align:center;font-size:12px;line-height:1.5;color:#999999;">
-              © NomNom · Giao đồ ăn, editorial &amp; tối giản
+              © NomNom · Nền tảng đặt &amp; giao đồ ăn trực tuyến
             </td>
           </tr>
         </table>
@@ -175,7 +161,7 @@ function buildResetOtpHtml({ fullName, code }) {
           </tr></table>
           <p style="margin:24px 0 0;font-size:13px;color:#666;">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email.</p>
         </td></tr>
-        <tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Giao đồ ăn tận nơi</td></tr>
+        <tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Nền tảng đặt &amp; giao đồ ăn trực tuyến</td></tr>
       </table>
     </td></tr>
   </table>
@@ -248,7 +234,7 @@ export async function sendAdminResetPasswordEmail({ to, fullName, newPassword })
     to,
     subject: 'Mật khẩu mới NomNom',
     text: `Xin chào ${fullName},\n\nMật khẩu mới NomNom của bạn là: ${newPassword}\n\nVui lòng đăng nhập và thay đổi mật khẩu nếu cần.\n\n— NomNom`,
-    html: `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head><body style="margin:0;padding:0;background:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#000000;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;padding:32px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;"><tr><td style="padding-bottom:20px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>${logo.html ? `<td style="padding-right:10px;vertical-align:middle;">${logo.html}</td>` : ''}<td style="vertical-align:middle;font-size:22px;font-weight:600;color:#000;">nomnom<span style="color:#0d74ce;">.</span></td></tr></table></td></tr><tr><td style="background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;padding:28px 24px;"><p style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Đặt lại mật khẩu</p><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;line-height:1.3;color:#000;">Xin chào, ${safeName}</h1><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">Mật khẩu mới của bạn là:</p><table role="presentation" width="100%"><tr><td align="center" style="background:#fafafa;border:1px solid #e5e5e5;border-radius:8px;padding:20px 16px;"><span style="font-size:20px;font-weight:600;letter-spacing:0.1em;">${safePassword}</span></td></tr></table><p style="margin:24px 0 0;font-size:13px;color:#666;">Hãy đăng nhập và cập nhật mật khẩu nếu cần.</p></td></tr><tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Giao đồ ăn tận nơi</td></tr></table></td></tr></table></body></html>`,
+    html: `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head><body style="margin:0;padding:0;background:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#000000;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;padding:32px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;"><tr><td style="padding-bottom:20px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>${logo.html ? `<td style="padding-right:10px;vertical-align:middle;">${logo.html}</td>` : ''}<td style="vertical-align:middle;font-size:22px;font-weight:600;color:#000;">nomnom<span style="color:#0d74ce;">.</span></td></tr></table></td></tr><tr><td style="background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;padding:28px 24px;"><p style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Đặt lại mật khẩu</p><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;line-height:1.3;color:#000;">Xin chào, ${safeName}</h1><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">Mật khẩu mới của bạn là:</p><table role="presentation" width="100%"><tr><td align="center" style="background:#fafafa;border:1px solid #e5e5e5;border-radius:8px;padding:20px 16px;"><span style="font-size:20px;font-weight:600;letter-spacing:0.1em;">${safePassword}</span></td></tr></table><p style="margin:24px 0 0;font-size:13px;color:#666;">Hãy đăng nhập và cập nhật mật khẩu nếu cần.</p></td></tr><tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Nền tảng đặt &amp; giao đồ ăn trực tuyến</td></tr></table></td></tr></table></body></html>`,
     attachments: logo.attachments,
   });
 }
@@ -263,7 +249,7 @@ export async function sendAccountSuspensionEmail({ to, fullName, reason, expires
     to,
     subject: 'Tài khoản NomNom đã bị đình chỉ',
     text: `Xin chào ${fullName},\n\nTài khoản NomNom của bạn đã bị đình chỉ${expiresText ? ` đến ${expiresText}` : ''}.\nLý do: ${reason}\n\nNếu bạn cần hỗ trợ, vui lòng liên hệ bộ phận quản trị.\n\n— NomNom`,
-    html: `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head><body style="margin:0;padding:0;background:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#000000;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;padding:32px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;"><tr><td style="padding-bottom:20px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>${logo.html ? `<td style="padding-right:10px;vertical-align:middle;">${logo.html}</td>` : ''}<td style="vertical-align:middle;font-size:22px;font-weight:600;color:#000;">nomnom<span style="color:#0d74ce;">.</span></td></tr></table></td></tr><tr><td style="background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;padding:28px 24px;"><p style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Thông báo đình chỉ tài khoản</p><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;line-height:1.3;color:#000;">Xin chào, ${safeName}</h1><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">Tài khoản của bạn đã bị đình chỉ${expiresText ? ` đến ${escapeHtml(expiresText)}` : ''}.</p><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;"><strong>Lý do:</strong> ${safeReason}</p><p style="margin:0 0 0;font-size:13px;line-height:1.5;color:#666;">Nếu bạn cần hỗ trợ thêm, vui lòng liên hệ bộ phận quản trị NomNom.</p></td></tr><tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Giao đồ ăn tận nơi</td></tr></table></td></tr></table></body></html>`,
+    html: `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head><body style="margin:0;padding:0;background:#fafafa;font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#000000;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fafafa;padding:32px 16px;"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;"><tr><td style="padding-bottom:20px;text-align:center;"><table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto;"><tr>${logo.html ? `<td style="padding-right:10px;vertical-align:middle;">${logo.html}</td>` : ''}<td style="vertical-align:middle;font-size:22px;font-weight:600;color:#000;">nomnom<span style="color:#0d74ce;">.</span></td></tr></table></td></tr><tr><td style="background:#ffffff;border:1px solid #e5e5e5;border-radius:12px;padding:28px 24px;"><p style="margin:0 0 8px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">Thông báo đình chỉ tài khoản</p><h1 style="margin:0 0 16px;font-size:22px;font-weight:600;line-height:1.3;color:#000;">Xin chào, ${safeName}</h1><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">Tài khoản của bạn đã bị đình chỉ${expiresText ? ` đến ${escapeHtml(expiresText)}` : ''}.</p><p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;"><strong>Lý do:</strong> ${safeReason}</p><p style="margin:0 0 0;font-size:13px;line-height:1.5;color:#666;">Nếu bạn cần hỗ trợ thêm, vui lòng liên hệ bộ phận quản trị NomNom.</p></td></tr><tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Nền tảng đặt &amp; giao đồ ăn trực tuyến</td></tr></table></td></tr></table></body></html>`,
     attachments: logo.attachments,
   });
 }
@@ -294,7 +280,7 @@ function buildKycStatusHtml({ fullName, headline, message, ctaLabel, ctaPath }) 
           <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#333;">${safeMessage}</p>
           ${ctaPath ? `<p style="margin:0;"><a href="${escapeHtml(ctaHref)}" style="display:inline-block;background:#000;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;">${safeCta}</a></p>` : ''}
         </td></tr>
-        <tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom</td></tr>
+        <tr><td style="padding-top:20px;text-align:center;font-size:12px;color:#999;">© NomNom · Nền tảng đặt &amp; giao đồ ăn trực tuyến</td></tr>
       </table>
     </td></tr>
   </table>
