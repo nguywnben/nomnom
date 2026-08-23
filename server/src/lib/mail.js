@@ -17,11 +17,17 @@ function getTransporter() {
   const pass = process.env.SMTP_PASS;
   if (!user || !pass) return null;
 
+  const port = Number(process.env.SMTP_PORT ?? 587);
+  const isSecure = port === 465 || String(process.env.SMTP_SECURE) === 'true';
+
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST ?? 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: false,
+    port,
+    secure: isSecure,
     auth: { user, pass },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
   return transporter;
 }
@@ -90,7 +96,6 @@ function buildLogoParts() {
 function buildRegisterOtpHtml({ fullName, code }) {
   const safeName = escapeHtml(fullName);
   const safeCode = escapeHtml(code);
-  const digits = safeCode.split('').join('<span style="display:inline-block;width:8px"></span>');
   const { html: logoBlock } = buildLogoParts();
 
   return `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head>
@@ -118,8 +123,8 @@ function buildRegisterOtpHtml({ fullName, code }) {
               </p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                 <tr>
-                  <td align="center" style="background:#fafafa;border:1px solid #e5e5e5;border-radius:8px;padding:20px 16px;">
-                    <span style="font-size:32px;font-weight:600;letter-spacing:0.35em;color:#000000;font-variant-numeric:tabular-nums;">${digits}</span>
+                  <td align="center" style="background:#fafafa;border:1px solid #e5e5e5;border-radius:8px;padding:16px 12px;">
+                    <span style="font-size:28px;font-weight:700;letter-spacing:0.25em;color:#000000;font-variant-numeric:tabular-nums;white-space:nowrap;display:inline-block;padding-left:0.25em;">${safeCode}</span>
                   </td>
                 </tr>
               </table>
@@ -144,7 +149,6 @@ function buildRegisterOtpHtml({ fullName, code }) {
 function buildResetOtpHtml({ fullName, code }) {
   const safeName = escapeHtml(fullName);
   const safeCode = escapeHtml(code);
-  const digits = safeCode.split('').join('<span style="display:inline-block;width:8px"></span>');
   const { html: logoBlock } = buildLogoParts();
 
   return `<!DOCTYPE html><html lang="vi"><head><meta charset="utf-8"/></head>
@@ -165,8 +169,8 @@ function buildResetOtpHtml({ fullName, code }) {
             Mã bên dưới dùng để đặt lại mật khẩu NomNom. Mã có hiệu lực <strong>10 phút</strong>.
           </p>
           <table role="presentation" width="100%"><tr>
-            <td align="center" style="background:#fafafa;border:1px solid #e5e5e5;border-radius:8px;padding:20px 16px;">
-              <span style="font-size:32px;font-weight:600;letter-spacing:0.35em;">${digits}</span>
+            <td align="center" style="background:#fafafa;border:1px solid #e5e5e5;border-radius:8px;padding:16px 12px;">
+              <span style="font-size:28px;font-weight:700;letter-spacing:0.25em;color:#000000;font-variant-numeric:tabular-nums;white-space:nowrap;display:inline-block;padding-left:0.25em;">${safeCode}</span>
             </td>
           </tr></table>
           <p style="margin:24px 0 0;font-size:13px;color:#666;">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email.</p>
