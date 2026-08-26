@@ -8,8 +8,6 @@ import Avatar from '../../components/Avatar.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { loginHref, ROLE_HOME } from '../../lib/auth.js';
 import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
-import { useGeolocationLocalityLabel } from '../../hooks/useGeolocationLocalityLabel.js';
-import { apiGet } from '../../lib/api.js';
 
 const PORTAL_LINKS = [
   { role: 'admin', label: 'Quản trị hệ thống', icon: 'shield', to: ROLE_HOME.admin },
@@ -38,14 +36,10 @@ export default function TopNav() {
   const { pathname, search } = useLocation();
   const nav = useNavigate();
   const returnTo = pathname + search;
-  const { cartCount, setCartOpen, shopAsCustomer, user, logout, deliveryAddress, setDeliveryAddress } = useApp();
+  const { cartCount, setCartOpen, shopAsCustomer, user, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const menuRef = useRef(null);
-  const [addressOpen, setAddressOpen] = useState(false);
-  const [savedAddresses, setSavedAddresses] = useState([]);
-  const addressRef = useRef(null);
-  const locality = useGeolocationLocalityLabel();
 
   const isAppHome = pathname === '/app';
   const heroOverlay = isAppHome;
@@ -77,27 +71,6 @@ export default function TopNav() {
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [menuOpen]);
-
-  useEffect(() => {
-    if (!addressOpen) return undefined;
-    if (user && shopAsCustomer && savedAddresses.length === 0) {
-      apiGet('/api/v1/me/addresses')
-        .then((data) => setSavedAddresses(Array.isArray(data) ? data : []))
-        .catch(() => {});
-    }
-    const onPointerDown = (e) => {
-      if (addressRef.current && !addressRef.current.contains(e.target)) setAddressOpen(false);
-    };
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') setAddressOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [addressOpen, savedAddresses.length, shopAsCustomer, user]);
 
   const onHeroDark = heroOverlay && !headerElevated;
 
@@ -151,93 +124,6 @@ export default function TopNav() {
         </div>
 
         <div className="flex items-center gap-base">
-          {/* Địa chỉ giao hàng — picker */}
-          <div className="relative" ref={addressRef}>
-            <button
-              type="button"
-              onClick={() => setAddressOpen((v) => !v)}
-              aria-label="Địa chỉ giao hàng"
-              aria-haspopup="menu"
-              aria-expanded={addressOpen}
-              className={clsx(
-                'inline-flex h-10 max-w-[220px] items-center gap-2 rounded-md border px-sm text-button transition-[background-color,border-color,color] duration-300 ease-out',
-                onHeroDark
-                  ? 'border-canvas/30 bg-canvas/15 text-on-dark hover:bg-canvas/20'
-                  : 'border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft',
-              )}
-            >
-              <Icon name="pin" size={16} className="shrink-0" />
-              <span className="truncate">
-                {deliveryAddress
-                  ? [deliveryAddress.ward, deliveryAddress.district].filter(Boolean).join(', ') || deliveryAddress.line1
-                  : locality}
-              </span>
-              <Icon name="chevronDown" size={14} className="shrink-0" />
-            </button>
-            {addressOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-[calc(100%+8px)] z-50 w-80 overflow-hidden rounded-lg border border-hairline-strong bg-surface-card py-1 shadow-soft-md"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setDeliveryAddress(null);
-                    setAddressOpen(false);
-                  }}
-                  className={MENU_ITEM}
-                >
-                  <Icon name="pin" size={16} className="shrink-0 text-body" />
-                  Dùng vị trí hiện tại
-                </button>
-                {user && shopAsCustomer && (
-                  <>
-                    <div className="border-t border-hairline px-3 py-2 text-caption-uppercase text-body">
-                      Địa chỉ đã lưu
-                    </div>
-                    {savedAddresses.length === 0 ? (
-                      <div className="px-3 py-2 text-caption text-body">Chưa có địa chỉ lưu.</div>
-                    ) : (
-                      savedAddresses.map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setDeliveryAddress(a);
-                            setAddressOpen(false);
-                          }}
-                          className={clsx(MENU_ITEM, deliveryAddress?.id === a.id && 'font-semibold')}
-                        >
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate">{a.line1}</span>
-                            <span className="block truncate text-caption text-body">
-                              {[a.ward, a.district, a.city].filter(Boolean).join(', ')}
-                            </span>
-                          </span>
-                          {deliveryAddress?.id === a.id && <Icon name="check" size={14} className="shrink-0 text-ink" />}
-                        </button>
-                      ))
-                    )}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setAddressOpen(false);
-                        nav('/app/profile/addresses');
-                      }}
-                      className={MENU_ITEM}
-                    >
-                      <Icon name="edit" size={16} className="shrink-0 text-body" />
-                      Quản lý địa chỉ
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
           <Link
             to="/app/notifications"
             className={clsx(

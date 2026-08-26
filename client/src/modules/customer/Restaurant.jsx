@@ -44,6 +44,32 @@ export default function CustomerRestaurant() {
     [cat, menuItems, menuQuery],
   );
 
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: restaurant?.name || 'NomNom',
+          text: restaurant?.tagline || 'Khám phá quán ăn trên NomNom',
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        pushToast({
+          kind: 'success',
+          title: 'Đã sao chép liên kết',
+          message: 'Đã sao chép liên kết quán ăn vào bộ nhớ tạm!',
+        });
+      }
+    } catch {
+      await navigator.clipboard.writeText(window.location.href);
+      pushToast({
+        kind: 'success',
+        title: 'Đã sao chép liên kết',
+        message: 'Đã sao chép liên kết quán ăn vào bộ nhớ tạm!',
+      });
+    }
+  };
+
   const qtyFor = (id) => {
     const it = cart.items.find((i) => String(i.menuItemId) === String(id));
     return it ? it.quantity : 0;
@@ -85,14 +111,28 @@ export default function CustomerRestaurant() {
   }
 
   if (restaurantLoading) {
-    return <RestaurantSkeleton />;
+    return (
+      <div className="bg-canvas min-h-screen">
+        <div className="relative h-52 w-full bg-canvas-soft animate-pulse md:h-64 lg:h-72" />
+        <div className="container-page py-xl">
+          <div className="flex gap-base">
+            <div className="flex-1 space-y-4">
+              <div className="h-8 w-48 rounded bg-hairline animate-pulse" />
+              <div className="grid grid-cols-1 gap-base sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-48 rounded-lg bg-surface-card border border-hairline animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  if (!restaurant) {
-    return <RestaurantSkeleton />;
-  }
+  if (!restaurant) return null;
+
   const outsideDeliveryRange = restaurant.isWithinDeliveryRange === false;
-
   const isOpen = Boolean(restaurant.isOpenNow);
   const addressLine = [restaurant.addressLine, restaurant.ward, restaurant.district, restaurant.city]
     .filter(Boolean)
@@ -100,33 +140,34 @@ export default function CustomerRestaurant() {
   const activeCategories = categoryNames.length > 1 ? categoryNames : ['Tất cả'];
 
   return (
-    <div className="bg-canvas">
-      <div className="relative">
+    <div className="bg-canvas min-h-screen">
+      {/* RESTAURANT HERO */}
+      <div className="relative h-52 w-full overflow-hidden bg-ink md:h-64 lg:h-72">
         <Image
           src={restaurant.bannerUrl}
           alt={restaurant.name}
-          ratio="21/9"
-          className="w-full max-h-[420px]"
+          className="h-full w-full object-cover"
+          ratio="16/6"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/40 to-transparent" />
         <div className="absolute inset-x-0 top-0">
           <div className="container-page pt-base">
             <button
               type="button"
               onClick={() => nav(-1)}
-              className="inline-flex h-10 items-center gap-1 rounded-md bg-surface-card/95 px-3 text-button text-ink shadow-soft transition-colors hover:bg-surface-card"
+              className="inline-flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-button text-white backdrop-blur-sm transition-colors hover:bg-black/70"
             >
-              <Icon name="arrowLeft" size={16} /> Quay lại
+              <Icon name="chevronLeft" size={14} /> Quay lại
             </button>
           </div>
         </div>
         <div className="absolute inset-x-0 bottom-0">
-          <div className="container-page pb-lg">
+          <div className="container-page pb-base md:pb-md">
             <div className="flex items-end gap-base">
               <Image
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
-                className="h-20 w-20 rounded-lg border border-hairline-strong"
+                className="h-16 w-16 md:h-20 md:w-20 rounded-lg border border-hairline-strong shrink-0 shadow-soft"
                 ratio="1"
               />
               <div className="flex-1 text-on-dark">
@@ -142,8 +183,9 @@ export default function CustomerRestaurant() {
                 <div className="text-body-sm text-on-dark-soft">{restaurant.tagline}</div>
               </div>
               <div className="hidden md:flex items-center gap-2">
-                <Button variant="dark">Lưu</Button>
-                <Button variant="primary">Chia sẻ</Button>
+                <Button variant="primary" onClick={handleShare}>
+                  Chia sẻ
+                </Button>
               </div>
             </div>
           </div>

@@ -74,9 +74,9 @@ export default function CustomerDishDetail() {
         <button
           type="button"
           onClick={() => nav(-1)}
-          className="inline-flex h-10 items-center gap-1 rounded-md bg-surface-card border border-hairline-strong px-3 text-button text-ink shadow-soft transition-colors hover:bg-canvas-soft"
+          className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
         >
-          <Icon name="chevronLeft" size={16} /> Quay lại
+          <Icon name="chevronLeft" size={14} /> Quay lại
         </button>
       </div>
 

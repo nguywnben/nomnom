@@ -37,7 +37,7 @@ export default function LoginPage() {
     <AuthLayout
       title="Đăng nhập"
       subtitle="Dùng email và mật khẩu đã đăng ký trong hệ thống NomNom."
-      footer={<span>Chưa có tài khoản? <Link to="/register" className="text-text-link hover:underline">Tạo tài khoản khách hàng</Link></span>}
+      footer={<span>Chưa có tài khoản? <Link to="/register" className="text-text-link hover:underline font-medium">Đăng ký tài khoản</Link></span>}
     >
       <form onSubmit={submit} className="flex flex-col gap-sm">
         <Input type="email" leadingIcon="mail" placeholder="Email" aria-label="Email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
@@ -52,17 +52,18 @@ export default function LoginPage() {
           onChange={(event) => setPassword(event.target.value)}
           trailingButton={password ? { icon: showPassword ? 'eyeOff' : 'eye', onClick: () => setShowPassword((shown) => !shown), 'aria-label': showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu' } : undefined}
         />
-        <label className="inline-flex cursor-pointer items-center gap-2 text-caption text-body">
-          <input type="checkbox" className="accent-black" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
-          Ghi nhớ đăng nhập
-        </label>
+        <div className="flex items-center justify-between text-caption">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-body">
+            <input type="checkbox" className="accent-black" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} />
+            Ghi nhớ đăng nhập
+          </label>
+          <Link to="/forgot-password" className="text-text-link hover:underline">
+            Quên mật khẩu?
+          </Link>
+        </div>
         {error && <p className="text-caption text-error" role="alert">{error}</p>}
         <Button type="submit" loading={loading} className="mt-xs">Đăng nhập</Button>
-        <Link to="/forgot-password" className="text-center text-button text-text-link hover:underline">Quên mật khẩu?</Link>
       </form>
-      <p className="mt-md text-caption leading-snug text-body">
-        Bạn là chủ quán? <Link to="/login?next=/merchant" className="text-text-link hover:underline">Đăng nhập nhà hàng</Link>. Khách mới có thể <Link to="/register" className="text-text-link hover:underline">tạo tài khoản</Link> miễn phí.
-      </p>
     </AuthLayout>
   );
 }

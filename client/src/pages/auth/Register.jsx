@@ -51,12 +51,12 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout
-      title="Tạo tài khoản khách hàng"
-      subtitle="Nhập thông tin — chúng tôi sẽ gửi mã 6 số qua email để hoàn tất đăng ký."
+      title="Tạo tài khoản"
+      subtitle="Nhập thông tin để nhận mã xác minh 6 chữ số qua email."
       footer={
         <span>
           Đã có tài khoản?{' '}
-          <Link to="/login" className="text-text-link hover:underline">
+          <Link to="/login" className="text-text-link hover:underline font-medium">
             Đăng nhập
           </Link>
         </span>
@@ -144,15 +144,14 @@ export default function RegisterPage() {
         </label>
 
         <Button type="submit" loading={loading} className="mt-xs">
-          Tạo tài khoản khách hàng
+          Tạo tài khoản
         </Button>
       </form>
-      <p className="mt-md rounded-md border border-hairline bg-canvas-soft p-sm text-caption text-body">
-        Bạn là chủ quán?{' '}
-        <Link to="/merchant/onboarding" className="text-text-link hover:underline">
-          Đăng ký hợp tác nhà hàng
-        </Link>{' '}
-        bằng luồng dành riêng cho đối tác.
+      <p className="mt-md text-center text-caption text-body">
+        Bạn muốn kinh doanh cùng NomNom?{' '}
+        <Link to="/merchant/onboarding" className="font-medium text-text-link hover:underline">
+          Đăng ký mở quán
+        </Link>
       </p>
     </AuthLayout>
   );

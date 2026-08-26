@@ -269,7 +269,6 @@ export default function CustomerHome() {
         <SectionHeader
           caption="Khám phá nhanh"
           title="Loại hình ẩm thực"
-          right={<CarouselArrows scrollRef={cuisineScroll.ref} />}
         />
         <div
           ref={cuisineScroll.ref}
@@ -305,12 +304,9 @@ export default function CustomerHome() {
           caption="Khám phá hôm nay"
           title="Món nổi bật từ nhiều quán"
           right={
-            <div className="flex items-center gap-sm">
-              <CarouselArrows scrollRef={exploreScroll.ref} />
-              <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
-                Xem tất cả
-              </Link>
-            </div>
+            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+              Xem tất cả
+            </Link>
           }
         />
         <div
@@ -350,12 +346,9 @@ export default function CustomerHome() {
           caption="Theo vị trí hiện tại"
           title="Các món gần bạn"
           right={
-            <div className="flex items-center gap-sm">
-              <CarouselArrows scrollRef={nearbyScroll.ref} />
-              <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
-                Xem tất cả
-              </Link>
-            </div>
+            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+              Xem tất cả
+            </Link>
           }
         />
         {nearbyLoading ? (
@@ -410,12 +403,9 @@ export default function CustomerHome() {
           caption={trendingSource === 'today' ? 'Được giao nhiều hôm nay' : 'Đang hot'}
           title={trendingSource === 'today' ? 'Thịnh hành hôm nay' : 'Các món thịnh hành'}
           right={
-            <div className="flex items-center gap-sm">
-              <CarouselArrows scrollRef={trendingScroll.ref} />
-              <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
-                Xem tất cả
-              </Link>
-            </div>
+            <Link to="/app/search?tab=food" className="text-button text-text-link hover:underline">
+              Xem tất cả
+            </Link>
           }
         />
         {trendingLoading ? (
@@ -620,32 +610,6 @@ function SectionHeader({ caption, title, right }) {
         <h2 className="text-display-md text-ink">{title}</h2>
       </div>
       {right}
-    </div>
-  );
-}
-
-function CarouselArrows({ scrollRef, className }) {
-  const onScroll = (dir) => {
-    scrollRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' });
-  };
-  return (
-    <div className={clsx('hidden items-center gap-1 md:flex', className)}>
-      <button
-        type="button"
-        onClick={() => onScroll(-1)}
-        aria-label="Cuộn sang trước"
-        className="grid h-9 w-9 place-items-center rounded-md border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft"
-      >
-        <Icon name="chevronLeft" size={16} />
-      </button>
-      <button
-        type="button"
-        onClick={() => onScroll(1)}
-        aria-label="Cuộn tiếp theo"
-        className="grid h-9 w-9 place-items-center rounded-md border border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft"
-      >
-        <Icon name="chevronRight" size={16} />
-      </button>
     </div>
   );
 }

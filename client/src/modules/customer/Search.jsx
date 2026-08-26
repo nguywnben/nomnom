@@ -352,8 +352,26 @@ export default function CustomerSearch() {
               </select>
             </FilterGroup>
 
-            <FilterGroup title="Loại ẩm thực">
-              <div className="flex flex-wrap gap-1">
+            <FilterGroup
+              title={
+                <div className="flex items-center justify-between">
+                  <span>Loại ẩm thực</span>
+                  {cuisineSlugs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCuisineSlugs([]);
+                        setPage(1);
+                      }}
+                      className="text-caption text-text-link hover:underline font-normal"
+                    >
+                      Bỏ chọn ({cuisineSlugs.length})
+                    </button>
+                  )}
+                </div>
+              }
+            >
+              <div className="flex max-h-48 flex-wrap gap-1 overflow-y-auto pr-1">
                 {cuisines.map((c) => (
                   <button
                     key={c.slug}
@@ -362,7 +380,7 @@ export default function CustomerSearch() {
                     className={
                       'rounded-pill border px-2.5 py-1 text-caption transition-colors ' +
                       (cuisineSlugs.includes(c.slug)
-                        ? 'border-ink bg-primary text-on-primary'
+                        ? 'border-ink bg-primary text-on-primary font-medium'
                         : 'border-hairline-strong bg-surface-card text-ink hover:bg-canvas-soft')
                     }
                   >
