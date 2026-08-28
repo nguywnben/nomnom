@@ -76,7 +76,7 @@ export default function Addresses() {
       values: {
         label: addr.label || '',
         recipientName: addr.recipientName || '',
-        recipientPhone: addr.recipientPhone || '',
+        recipientPhone: addr.recipientPhone && addr.recipientPhone !== 'null' ? addr.recipientPhone : '',
         line1: addr.line1 || '',
         ward: addr.ward || '',
         district: addr.district || '',
@@ -235,7 +235,7 @@ export default function Addresses() {
                     {a.isDefault && <Badge tone="success" dot>Mặc định</Badge>}
                   </div>
                   <div className="mt-0.5 text-body-sm text-ink truncate">
-                    {a.recipientName} - {a.recipientPhone}
+                    {a.recipientName}{a.recipientPhone && a.recipientPhone !== 'null' ? ` - ${a.recipientPhone}` : ''}
                   </div>
                   <div className="text-caption text-body truncate">
                     {a.line1}{a.ward ? `, ${a.ward}` : ''}{a.district ? `, ${a.district}` : ''}, {a.city}

@@ -362,13 +362,12 @@ export default function CustomerRestaurant() {
                       return;
                     }
 
-                    const cart = await addToCart(
+                    addToCart(
                       restaurant.id,
                       { ...item, restaurantName: restaurant.name, restaurantLogo: restaurant.logoUrl },
                       1,
                       {},
                     );
-                    if (cart) setCartOpen(true);
                   }}
                   onDec={() => {
                     const it = cartItemFor(item.id);

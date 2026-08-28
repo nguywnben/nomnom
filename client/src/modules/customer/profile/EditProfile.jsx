@@ -25,7 +25,8 @@ export default function EditProfile() {
     const src = currentCustomer ?? user;
     setName(src.name ?? user.fullName);
     setEmail(src.email ?? user.email ?? '');
-    setPhone(src.phone ?? user.phone ?? '');
+    const rawPhone = src.phone ?? user.phone ?? '';
+    setPhone(rawPhone && rawPhone !== 'null' ? rawPhone : '');
     setAvatarUrl(src.avatar ?? user.avatarUrl ?? '');
   }, [user, currentCustomer]);
 
@@ -148,7 +149,7 @@ export default function EditProfile() {
       </Card>
 
       <div className="flex items-center justify-end gap-xs">
-        <Button variant="secondary" type="button" onClick={() => nav('/app/profile')}>
+        <Button variant="secondary" type="button" onClick={() => nav(-1)}>
           Hủy
         </Button>
         <Button type="submit" loading={saving}>

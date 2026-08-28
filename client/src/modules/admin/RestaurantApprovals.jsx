@@ -319,11 +319,11 @@ export default function AdminRestaurantApprovals() {
               <Row label="Chủ quán" value={active.ownerName} />
               <Row label="Email" value={active.ownerEmail} />
               <Row label="Loại ẩm thực" value={active.cuisine || '—'} />
-              <Row label="Số điện thoại" value={active.phone || '—'} />
+              <Row label="Số điện thoại" value={active.phone && active.phone !== 'null' ? active.phone : '—'} />
               <Row label="Slogan" value={active.tagline || '—'} />
               <Row
                 label="Địa chỉ"
-                value={[active.addressLine, active.ward, active.district, active.city].filter(Boolean).join(', ')}
+                value={[active.addressLine, active.ward, active.district, active.city].filter((x) => x && x !== 'null').join(', ') || '—'}
               />
               <Row label="Thời điểm nộp" value={new Date(active.submittedAt).toLocaleString('vi-VN')} />
             </div>

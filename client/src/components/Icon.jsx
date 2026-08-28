@@ -74,6 +74,12 @@ const paths = {
       <path d="M12 10v4M12 17h.01" />
     </g>
   ),
+  info: (
+    <g {...stroke}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8h.01M12 12v4" />
+    </g>
+  ),
   wallet: (
     <g {...stroke}>
       <path d="M3 7a2 2 0 0 1 2-2h14v4H5a2 2 0 0 1-2-2z" />

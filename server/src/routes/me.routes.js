@@ -527,25 +527,45 @@ router.get('/vouchers', ensureCustomer, async (req, res, next) => {
   try {
     const now = new Date();
     const [rows] = await db.query(
-      `SELECT id, code, kind, amount, min_order, max_discount, valid_from, valid_to, usage_limit, usage_count, is_active, created_at
-       FROM vouchers
-       WHERE is_active = 1 AND valid_from <= ? AND valid_to >= ? AND (usage_limit IS NULL OR usage_count < usage_limit)
-       ORDER BY created_at DESC`,
+      `SELECT v.id, v.restaurant_id, v.code, v.name, v.description,
+              v.discount_type AS kind,
+              v.discount_value AS amount,
+              v.min_order_amount AS min_order,
+              v.max_discount_amount AS max_discount,
+              v.starts_at AS valid_from,
+              v.ends_at AS valid_to,
+              v.usage_limit,
+              v.per_user_limit,
+              v.status,
+              v.created_at,
+              COALESCE((
+                SELECT COUNT(*)
+                FROM voucher_redemptions vr
+                WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
+              ), 0) AS used_count
+       FROM vouchers v
+       WHERE v.status = 'active'
+         AND v.starts_at <= ? AND v.ends_at >= ?
+       ORDER BY v.created_at DESC`,
       [now, now]
     );
 
     const formattedVouchers = rows.map((v) => ({
       id: v.id,
+      restaurantId: v.restaurant_id,
       code: v.code,
+      name: v.name,
+      description: v.description,
       kind: v.kind,
       amount: Number(v.amount),
       min_order: Number(v.min_order),
       max_discount: v.max_discount !== null ? Number(v.max_discount) : null,
       valid_from: v.valid_from,
       valid_to: v.valid_to,
-      usage_limit: v.usage_limit,
-      usage_count: v.usage_count,
-      is_active: Boolean(v.is_active),
+      usage_limit: v.usage_limit !== null ? Number(v.usage_limit) : null,
+      used_count: Number(v.used_count || 0),
+      per_user_limit: Number(v.per_user_limit || 1),
+      is_active: v.status === 'active',
       created_at: v.created_at,
     }));
 

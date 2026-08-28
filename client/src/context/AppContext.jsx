@@ -102,7 +102,7 @@ export function AppProvider({ children }) {
       id: String(user.id),
       name: user.fullName,
       email: user.email ?? '',
-      phone: user.phone ?? '',
+      phone: user.phone && user.phone !== 'null' && user.phone !== 'undefined' ? user.phone : '',
       avatar: user.avatarUrl,
       address: '',
     };
@@ -300,6 +300,21 @@ export function AppProvider({ children }) {
       const itemId = Number.isFinite(fallbackMenuItemId) && fallbackMenuItemId > 0 ? fallbackMenuItemId : item.id;
       const quantity = Math.max(1, Math.trunc(Number(qty) || 1));
 
+      const nextItem = {
+        ...item,
+        id: itemId,
+        menuItemId: resolvedMenuItemId ?? item.menuItemId ?? itemId,
+        restaurantId: nextRestaurantId,
+        restaurantName: nextRestaurantName,
+        restaurantLogo: nextRestaurantLogo,
+        imageUrl: item.imageUrl ?? item.image ?? null,
+        image: item.image ?? item.imageUrl ?? null,
+        price: Number(item.price ?? 0),
+        quantity,
+        note: item.note ?? null,
+        lineSubtotal: Number(item.price ?? 0) * quantity,
+      };
+
       if (permittedRoles.customer && user) {
         const sameRestaurant = cart.restaurantId === null || String(cart.restaurantId) === String(nextRestaurantId);
         if (!sameRestaurant && cart.items.length > 0) {
@@ -320,6 +335,43 @@ export function AppProvider({ children }) {
           return null;
         }
 
+        // 1. Phản hồi tức thì trên UI (Optimistic Update - 0ms)
+        const prevCart = cart;
+        setCart((cur) => {
+          if (cur.restaurantId && String(cur.restaurantId) !== String(nextRestaurantId)) {
+            return {
+              id: cur.id,
+              restaurantId: nextRestaurantId,
+              restaurantName: nextRestaurantName,
+              restaurantLogo: nextRestaurantLogo,
+              items: [nextItem],
+            };
+          }
+
+          const existing = cur.items.find((i) => String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id));
+          const items = existing
+            ? cur.items.map((i) =>
+              String(i.menuItemId ?? i.id) === String(nextItem.menuItemId ?? nextItem.id)
+                ? {
+                  ...i,
+                  quantity: Number(i.quantity ?? 0) + quantity,
+                  lineSubtotal: Number(i.price ?? 0) * (Number(i.quantity ?? 0) + quantity),
+                }
+                : i,
+            )
+            : [...cur.items, nextItem];
+          return {
+            ...cur,
+            restaurantId: nextRestaurantId,
+            restaurantName: nextRestaurantName,
+            restaurantLogo: nextRestaurantLogo,
+            items,
+          };
+        });
+
+        pushToast({ kind: 'success', title: 'Đã thêm vào giỏ hàng', message: item.name, duration: 2000 });
+
+        // 2. Đồng bộ ngầm với Database
         setSyncing(true);
         try {
           const data = await addCartItemApi({
@@ -330,11 +382,10 @@ export function AppProvider({ children }) {
           });
           setCart(normalizeCart(data.cart));
           setAppliedPromo(null);
-          if (data.cart) {
-            pushToast({ kind: 'success', title: 'Đã thêm vào giỏ hàng', message: item.name, duration: 2200 });
-          }
           return data.cart;
         } catch (error) {
+          // Hoàn tác nếu Server trả về lỗi (quán đóng cửa, vượt khoảng cách, v.v.)
+          setCart(prevCart);
           pushToast({
             kind: 'error',
             title: 'Không thể thêm vào giỏ hàng',
@@ -346,22 +397,8 @@ export function AppProvider({ children }) {
         }
       }
 
+      // Khách vãng lai (chưa đăng nhập)
       setCart((cur) => {
-        const nextItem = {
-          ...item,
-          id: itemId,
-          menuItemId: resolvedMenuItemId ?? item.menuItemId ?? itemId,
-          restaurantId: nextRestaurantId,
-          restaurantName: nextRestaurantName,
-          restaurantLogo: nextRestaurantLogo,
-          imageUrl: item.imageUrl ?? item.image ?? null,
-          image: item.image ?? item.imageUrl ?? null,
-          price: Number(item.price ?? 0),
-          quantity,
-          note: item.note ?? null,
-          lineSubtotal: Number(item.price ?? 0) * quantity,
-        };
-
         if (cur.restaurantId && String(cur.restaurantId) !== String(nextRestaurantId)) {
           return {
             id: null,
@@ -404,7 +441,7 @@ export function AppProvider({ children }) {
       }
       return null;
     },
-    [cart.items.length, cart.restaurantId, currentLocation, normalizeCart, permittedRoles, pushToast, user],
+    [cart, currentLocation, normalizeCart, permittedRoles, pushToast, user],
   );
 
   const setItemQty = useCallback(
@@ -413,6 +450,29 @@ export function AppProvider({ children }) {
 
       const quantity = Math.max(0, Math.trunc(Number(qty) || 0));
       if (permittedRoles.customer && user) {
+        // Optimistic UI update tức thì
+        const prevCart = cart;
+        setCart((cur) => {
+          const items = cur.items
+            .map((i) => {
+              if (String(i.id) !== String(itemId)) return i;
+              if (quantity <= 0) return null;
+              return {
+                ...i,
+                quantity,
+                note: note === undefined ? i.note : note,
+                lineSubtotal: Number(i.price ?? 0) * quantity,
+              };
+            })
+            .filter(Boolean);
+          return items.length
+            ? {
+              ...cur,
+              items,
+            }
+            : emptyCart();
+        });
+
         setSyncing(true);
         try {
           const data = await updateCartItemApi(itemId, { quantity, note });
@@ -420,6 +480,7 @@ export function AppProvider({ children }) {
           if (!data.cart) setAppliedPromo(null);
           return data.cart;
         } catch (error) {
+          setCart(prevCart);
           pushToast({
             kind: 'error',
             title: 'Không thể cập nhật giỏ hàng',

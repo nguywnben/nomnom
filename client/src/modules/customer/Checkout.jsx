@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
@@ -7,11 +7,12 @@ import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
+import Modal from '../../components/Modal.jsx';
 import Stepper from '../../components/Stepper.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 // Import formatVnd
 import { formatVnd } from '../../lib/formatVnd.js';
-import { apiGet, apiPost } from '../../lib/api.js';
+import { apiGet, apiPost, fetchMyVouchersApi } from '../../lib/api.js';
 import { createAdministrativeLocationsApi } from '../../lib/administrativeLocations.js';
 
 const locationsApi = createAdministrativeLocationsApi(apiGet);
@@ -23,6 +24,11 @@ function normalizeLocationName(value) {
     .replace(/^(tinh|thanh pho|phuong|xa)\s+/i, '')
     .trim()
     .toLowerCase();
+}
+
+function getCleanPhone(val) {
+  if (!val || val === 'null' || val === 'undefined') return '';
+  return String(val).trim();
 }
 
 const PAYMENTS = [
@@ -58,7 +64,14 @@ export default function CustomerCheckout() {
   const [shippingQuote, setShippingQuote] = useState(null);
   const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
+
+  // Voucher picker state
+  const [voucherModalOpen, setVoucherModalOpen] = useState(false);
+  const [availableVouchers, setAvailableVouchers] = useState([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
+  const [manualPromoCode, setManualPromoCode] = useState('');
+  const [applyingManual, setApplyingManual] = useState(false);
+
   // Trạng thái cho địa chỉ mới nếu người dùng chưa lưu địa chỉ nào hoặc bấm thêm mới
   const [newRecipientName, setNewRecipientName] = useState('');
   const [newLine1, setNewLine1] = useState('');
@@ -83,6 +96,125 @@ export default function CustomerCheckout() {
   const [provinceError, setProvinceError] = useState('');
   const [wardError, setWardError] = useState('');
 
+  // Tải danh sách voucher khả dụng của người dùng
+  useEffect(() => {
+    setLoadingVouchers(true);
+    fetchMyVouchersApi()
+      .then((data) => {
+        setAvailableVouchers(data || []);
+      })
+      .catch((err) => console.error('Failed to load vouchers:', err))
+      .finally(() => setLoadingVouchers(false));
+  }, []);
+
+  // Xử lý tự động gỡ mã khi giỏ hàng giảm xuống dưới mức tối thiểu
+  useEffect(() => {
+    if (!appliedPromo) return;
+    if (appliedPromo.minOrder > 0 && cartSubtotal < appliedPromo.minOrder) {
+      const removedCode = appliedPromo.code;
+      const minRequired = appliedPromo.minOrder;
+      setAppliedPromo(null);
+      pushToast({
+        kind: 'warning',
+        title: 'Mã giảm giá đã được gỡ',
+        message: `Đơn hàng (${formatVnd(cartSubtotal)}) chưa đạt mức tối thiểu ${formatVnd(minRequired)} để dùng mã ${removedCode}.`,
+      });
+    }
+  }, [cartSubtotal, appliedPromo, pushToast, setAppliedPromo]);
+
+  // Phân loại voucher: Thỏa điều kiện vs Chưa thỏa & Đề xuất mã tốt nhất
+  const voucherCalculations = useMemo(() => {
+    if (!availableVouchers.length) return { eligible: [], ineligible: [], bestCode: null };
+
+    let maxSavings = 0;
+    let bestCode = null;
+
+    const processed = availableVouchers.map((v) => {
+      const meetsMinOrder = cartSubtotal >= v.min_order;
+      const meetsRestaurant = !v.restaurantId || v.restaurantId === cart.restaurantId;
+      const isEligible = meetsMinOrder && meetsRestaurant;
+
+      let potentialDiscount = 0;
+      if (isEligible) {
+        if (v.kind === 'percent') {
+          potentialDiscount = Math.min(
+            cartSubtotal * (v.amount / 100),
+            v.max_discount || Infinity,
+          );
+        } else {
+          potentialDiscount = Math.min(v.amount, cartSubtotal);
+        }
+
+        if (potentialDiscount > maxSavings) {
+          maxSavings = potentialDiscount;
+          bestCode = v.code;
+        }
+      }
+
+      let reason = '';
+      if (!meetsRestaurant) {
+        reason = 'Chỉ áp dụng cho quán ăn chỉ định';
+      } else if (!meetsMinOrder) {
+        const needed = v.min_order - cartSubtotal;
+        reason = `Mua thêm ${formatVnd(needed)} để dùng mã`;
+      }
+
+      return {
+        ...v,
+        isEligible,
+        potentialDiscount,
+        reason,
+      };
+    });
+
+    // Sắp xếp mã đủ điều kiện: mã giảm nhiều nhất lên đầu
+    const eligible = processed
+      .filter((v) => v.isEligible)
+      .sort((a, b) => b.potentialDiscount - a.potentialDiscount);
+    const ineligible = processed.filter((v) => !v.isEligible);
+
+    return { eligible, ineligible, bestCode };
+  }, [availableVouchers, cartSubtotal, cart.restaurantId]);
+
+  const selectVoucher = (v) => {
+    const maxDiscount = v.max_discount ?? v.cap;
+    const label = v.kind === 'percent'
+      ? `Giảm ${v.amount}%${maxDiscount ? ` (tối đa ${formatVnd(maxDiscount)})` : ''}`
+      : `Giảm ${formatVnd(v.amount)}`;
+
+    setAppliedPromo({
+      code: v.code,
+      label,
+      kind: v.kind,
+      amount: v.amount,
+      cap: maxDiscount,
+      minOrder: v.min_order,
+      source: 'voucher',
+    });
+    setVoucherModalOpen(false);
+    pushToast({
+      kind: 'success',
+      title: 'Đã áp dụng mã',
+      message: `${v.code} — ${label}`,
+    });
+  };
+
+  const handleApplyManualVoucher = async (e) => {
+    e?.preventDefault();
+    const trimmed = manualPromoCode.trim().toUpperCase();
+    if (!trimmed) return;
+    setApplyingManual(true);
+    try {
+      const ok = await applyPromo(trimmed);
+      if (ok) {
+        setManualPromoCode('');
+        setVoucherModalOpen(false);
+      }
+    } finally {
+      setApplyingManual(false);
+    }
+  };
+
   useEffect(() => {
     setLoadingAddresses(true);
     apiGet('/api/v1/me/addresses')
@@ -94,11 +226,11 @@ export default function CustomerCheckout() {
             data.find((a) => a.isDefault) ||
             data[0];
           setAddressId(preferred.id);
-          setPhone(preferred.recipientPhone || currentCustomer?.phone || '');
+          setPhone(getCleanPhone(preferred.recipientPhone) || getCleanPhone(currentCustomer?.phone));
           setNote(preferred.deliveryNote || '');
         } else {
           // Bật số điện thoại mặc định cho form tạo địa chỉ mới nếu giỏ address bị trống
-          setPhone(currentCustomer?.phone || '');
+          setPhone(getCleanPhone(currentCustomer?.phone));
           setIsAddingNewAddress(true);
         }
       })
@@ -229,7 +361,7 @@ export default function CustomerCheckout() {
     if (addressId && addresses.length > 0 && !isAddingNewAddress) {
       const addr = addresses.find((a) => a.id === addressId);
       if (addr) {
-        setPhone(addr.recipientPhone || currentCustomer?.phone || '');
+        setPhone(getCleanPhone(addr.recipientPhone) || getCleanPhone(currentCustomer?.phone));
         setNote(addr.deliveryNote || '');
         setPhoneError('');
       }
@@ -664,43 +796,53 @@ export default function CustomerCheckout() {
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <Card padded className="flex flex-col gap-sm">
-              {/* Promo Code Input */}
+              {/* Promo Code Trigger Row */}
               <div className="flex flex-col gap-xs border-b border-hairline pb-sm mb-xs">
-                <div className="text-caption-uppercase text-body">Mã giảm giá</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-caption-uppercase text-body">Mã giảm giá</div>
+                  {appliedPromo && (
+                    <button
+                      type="button"
+                      onClick={() => setVoucherModalOpen(true)}
+                      className="text-caption font-semibold text-text-link hover:underline"
+                    >
+                      Đổi mã
+                    </button>
+                  )}
+                </div>
+
                 {appliedPromo ? (
-                  <div className="flex items-center justify-between rounded-md border border-success/30 bg-[#e6f4ea] px-sm py-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-body-sm font-semibold text-success font-mono">{appliedPromo.code}</div>
-                      <div className="text-caption text-success truncate">{appliedPromo.label}</div>
+                  <div className="flex items-center justify-between rounded-md border border-success/30 bg-[#e6f4ea] p-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="grid h-8 w-8 place-items-center rounded bg-success/20 text-success shrink-0">
+                        <Icon name="zap" size={16} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-body-sm font-semibold text-success font-mono">{appliedPromo.code}</div>
+                        <div className="text-caption text-success truncate">{appliedPromo.label}</div>
+                      </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => setAppliedPromo(null)}
-                      className="text-body hover:text-ink shrink-0 ml-2"
-                      aria-label="Xóa"
+                      className="text-body hover:text-ink shrink-0 p-1 ml-2"
+                      aria-label="Gỡ mã"
                     >
                       <Icon name="close" size={14} />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-xs">
-                    <Input
-                      className="flex-1"
-                      placeholder="Ví dụ: NOMNOM15"
-                      aria-label="Mã giảm giá"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                    />
-                    <Button
-                      variant="secondary"
-                      disabled={!promoCode.trim()}
-                      onClick={async () => {
-                        const ok = await applyPromo(promoCode);
-                        if (ok) setPromoCode('');
-                      }}
-                    >
-                      Áp dụng
-                    </Button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVoucherModalOpen(true)}
+                    className="flex items-center justify-between rounded-md border border-dashed border-hairline-strong bg-surface-card p-sm text-left hover:bg-canvas-soft transition-colors"
+                  >
+                    <div className="flex items-center gap-2 text-body-sm text-body">
+                      <Icon name="zap" size={16} className="text-primary" />
+                      <span>Chọn mã giảm giá hoặc nhập mã</span>
+                    </div>
+                    <Icon name="chevronRight" size={14} className="text-body" />
+                  </button>
                 )}
               </div>
 
@@ -724,6 +866,149 @@ export default function CustomerCheckout() {
           </aside>
         </div>
       </div>
+
+      {/* Modal Chọn Voucher NomNom */}
+      <Modal
+        open={voucherModalOpen}
+        onClose={() => setVoucherModalOpen(false)}
+        title="Ưu đãi & Mã giảm giá"
+        size="lg"
+      >
+        <div className="flex flex-col gap-base">
+          {/* Form nhập mã thủ công */}
+          <form onSubmit={handleApplyManualVoucher} className="flex items-stretch gap-xs">
+            <Input
+              className="flex-1"
+              leadingIcon="zap"
+              placeholder="Nhập mã khuyến mãi (VD: FREESHIP)"
+              value={manualPromoCode}
+              onChange={(e) => setManualPromoCode(e.target.value.toUpperCase())}
+            />
+            <Button
+              type="submit"
+              disabled={!manualPromoCode.trim() || applyingManual}
+              loading={applyingManual}
+            >
+              Áp dụng
+            </Button>
+          </form>
+
+          {/* Danh sách mã thỏa điều kiện */}
+          <div>
+            <div className="text-caption-uppercase text-body mb-sm flex items-center justify-between">
+              <span>Mã giảm giá khả dụng ({voucherCalculations.eligible.length})</span>
+              {appliedPromo && (
+                <button
+                  type="button"
+                  onClick={() => setAppliedPromo(null)}
+                  className="text-caption font-semibold text-error hover:underline"
+                >
+                  Bỏ chọn mã
+                </button>
+              )}
+            </div>
+
+            {loadingVouchers ? (
+              <div className="py-8 text-center text-body-sm text-body animate-pulse">
+                Đang tải danh sách ưu đãi...
+              </div>
+            ) : voucherCalculations.eligible.length === 0 ? (
+              <div className="py-4 text-center text-caption text-body bg-surface-card rounded-md border border-hairline">
+                Chưa có mã nào thỏa điều kiện giỏ hàng hiện tại ({formatVnd(cartSubtotal)}).
+              </div>
+            ) : (
+              <div className="flex flex-col gap-xs">
+                {voucherCalculations.eligible.map((v) => {
+                  const isSelected = appliedPromo?.code === v.code;
+                  const isBest = v.code === voucherCalculations.bestCode;
+                  const maxDiscount = v.max_discount ?? v.cap;
+
+                  return (
+                    <div
+                      key={v.code}
+                      onClick={() => selectVoucher(v)}
+                      className={`relative flex items-center justify-between gap-sm p-sm rounded-lg border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-hairline-strong bg-surface-card hover:border-ink/30 hover:bg-canvas-soft'
+                      }`}
+                    >
+                      <div className="flex items-start gap-sm min-w-0 flex-1">
+                        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md ${
+                          isSelected ? 'bg-primary text-white' : 'bg-surface-strong text-ink'
+                        }`}>
+                          <Icon name="zap" size={18} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-body-sm font-bold text-ink font-mono">{v.code}</span>
+                            <Badge tone={v.kind === 'percent' ? 'preview' : 'success'}>
+                              {v.kind === 'percent'
+                                ? `Giảm ${v.amount}%${maxDiscount ? ` (tối đa ${formatVnd(maxDiscount)})` : ''}`
+                                : `Giảm ${formatVnd(v.amount)}`}
+                            </Badge>
+                            {isBest && (
+                              <Badge tone="success" dot>Tiết kiệm nhất</Badge>
+                            )}
+                          </div>
+                          <div className="mt-1 text-caption text-body truncate">
+                            {v.name || v.description}
+                          </div>
+                          <div className="mt-0.5 text-caption font-medium text-success">
+                            Tiết kiệm ước tính: {formatVnd(v.potentialDiscount)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 flex items-center">
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                          isSelected ? 'border-primary bg-primary text-white' : 'border-hairline-strong'
+                        }`}>
+                          {isSelected && <Icon name="check" size={12} />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Danh sách mã chưa đủ điều kiện */}
+          {voucherCalculations.ineligible.length > 0 && (
+            <div>
+              <div className="text-caption-uppercase text-body mb-sm">
+                Chưa đủ điều kiện ({voucherCalculations.ineligible.length})
+              </div>
+              <div className="flex flex-col gap-xs opacity-60">
+                {voucherCalculations.ineligible.map((v) => (
+                  <div
+                    key={v.code}
+                    className="flex items-start justify-between gap-sm p-sm rounded-lg border border-hairline bg-surface-card"
+                  >
+                    <div className="flex items-start gap-sm min-w-0 flex-1">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface-strong text-body">
+                        <Icon name="zap" size={18} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-body-sm font-bold text-body font-mono">{v.code}</span>
+                          <span className="text-caption text-body">
+                            {v.kind === 'percent' ? `Giảm ${v.amount}%` : `Giảm ${formatVnd(v.amount)}`}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-caption text-error font-medium">
+                          ⚠ {v.reason}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Thanh thanh toán cố định trên Mobile — gắn chặt dưới cùng, ở trên safe area */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-hairline-strong bg-surface-card shadow-soft-lg lg:hidden">

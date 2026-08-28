@@ -278,7 +278,7 @@ export default function MerchantPending() {
             </div>
             <dl className="space-y-0">
               <InfoRow label="Tên quán" value={restaurant.name} />
-              <InfoRow label="Số điện thoại" value={restaurant.phone} />
+              <InfoRow label="Số điện thoại" value={restaurant.phone && restaurant.phone !== 'null' ? restaurant.phone : 'Chưa cập nhật'} />
               <InfoRow label="Địa chỉ" value={formatAddress(restaurant)} />
               <InfoRow label="Ngày gửi hồ sơ" value={formatSubmittedAt(restaurant.created_at)} />
               {restaurant.bank_name && (

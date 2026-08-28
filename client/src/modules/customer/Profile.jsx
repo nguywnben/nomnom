@@ -12,7 +12,6 @@ import { formatVnd } from '../../lib/formatVnd.js';
 // Customer profile — reached from the mobile bottom nav (and surfaced on
 // desktop via the avatar menu in the top nav).
 const SETTINGS = [
-  { id: 'addresses', label: 'Địa chỉ đã lưu', icon: 'pin', link: '/app/profile/addresses', customerOnly: true },
   { id: 'promotions', label: 'Khuyến mãi & voucher', icon: 'zap', link: '/app/profile/promotions', customerOnly: true },
   { id: 'notifications', label: 'Thông báo', icon: 'bell', link: '/app/notifications', customerOnly: true },
   { id: 'help', label: 'Trợ giúp & hỗ trợ', icon: 'chat', link: '/chat/inbox', customerOnly: true },
@@ -71,7 +70,7 @@ export default function CustomerProfile() {
     ? {
         name: user.fullName,
         email: user.email ?? '',
-        phone: user.phone ?? '',
+        phone: user.phone && user.phone !== 'null' ? user.phone : '',
         avatar: user.avatarUrl,
         address: defaultAddress
           ? `${defaultAddress.line1}${defaultAddress.ward ? `, ${defaultAddress.ward}` : ''}${defaultAddress.district ? `, ${defaultAddress.district}` : ''}, ${defaultAddress.city}`
@@ -95,7 +94,9 @@ export default function CustomerProfile() {
             <div className="flex-1 min-w-0">
               <div className="text-title-md text-ink truncate">{profile.name}</div>
               <div className="text-caption text-body truncate">{profile.email}</div>
-              <div className="text-caption text-body truncate">{profile.phone}</div>
+              {profile.phone && (
+                <div className="text-caption text-body truncate">{profile.phone}</div>
+              )}
             </div>
             <Link to="/app/profile/edit" aria-label="Chỉnh sửa hồ sơ">
               <Button size="sm" variant="secondary" leadingIcon="edit">
@@ -180,17 +181,6 @@ export default function CustomerProfile() {
           </div>
         </Card>
       )}
-
-      {user && (
-        <Button
-          variant="secondary"
-          className="!border-[#dc2626] !bg-white !font-normal !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
-          onClick={() => logout()}
-        >
-          Đăng xuất
-        </Button>
-      )}
-
     </div>
   );
 }

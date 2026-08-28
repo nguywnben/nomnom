@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import Icon from './Icon.jsx';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
@@ -19,15 +19,17 @@ export default function Drawer({
   footer,
 }) {
   useBodyScrollLock(open);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => e.key === 'Escape' && onClose?.();
+    const onKey = (e) => e.key === 'Escape' && onCloseRef.current?.();
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -48,6 +50,7 @@ export default function Drawer({
           {footer && <footer className="border-t border-hairline px-lg py-base">{footer}</footer>}
         </aside>
         <button
+          type="button"
           aria-label="Dismiss"
           onClick={onClose}
           className="flex-1 bg-ink/30 backdrop-blur-[1px] fade-in"
@@ -61,6 +64,7 @@ export default function Drawer({
     return (
       <div className="fixed inset-0 z-50 flex flex-col">
         <button
+          type="button"
           aria-label="Dismiss"
           onClick={onClose}
           className="flex-1 bg-ink/30 backdrop-blur-[1px] fade-in"
@@ -82,6 +86,7 @@ export default function Drawer({
   return (
     <div className="fixed inset-0 z-50 flex flex-col md:flex-row md:items-stretch md:justify-end">
       <button
+        type="button"
         aria-label="Dismiss"
         onClick={onClose}
         className="flex-1 bg-ink/30 backdrop-blur-[1px] fade-in md:flex-1"
@@ -116,8 +121,9 @@ function DrawerHeader({ title, onClose }) {
     <header className="flex items-center justify-between border-b border-hairline px-lg py-base">
       <h2 className="text-display-sm text-ink">{title}</h2>
       <button
+        type="button"
         onClick={onClose}
-        className="grid h-11 w-11 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink md:h-9 md:w-9"
+        className="grid h-11 w-11 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-primary md:h-9 md:w-9"
         aria-label="Close"
       >
         <Icon name="close" size={18} />

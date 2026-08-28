@@ -143,8 +143,8 @@ export default function CustomerDishDetail() {
                 </div>
 
                 <Button
-                  onClick={async () => {
-                    const updatedCart = await addToCart(
+                  onClick={() => {
+                    addToCart(
                       restaurant.id,
                       {
                         id: item.id,
@@ -161,7 +161,6 @@ export default function CustomerDishDetail() {
                       quantity,
                       {},
                     );
-                    if (updatedCart) setCartOpen(true);
                   }}
                   className="w-full mt-xs"
                 >

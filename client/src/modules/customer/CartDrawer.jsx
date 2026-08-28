@@ -4,7 +4,6 @@ import Drawer from '../../components/Drawer.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Modal from '../../components/Modal.jsx';
 import Icon from '../../components/Icon.jsx';
-import Input from '../../components/Input.jsx';
 import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
@@ -23,7 +22,6 @@ export default function CartDrawer() {
     discount,
     cartTotal,
     syncing,
-    applyPromo,
     appliedPromo,
     setAppliedPromo,
     restoreItemsToCart,
@@ -32,7 +30,6 @@ export default function CartDrawer() {
     shopAsCustomer,
     customerCartRestriction,
   } = useApp();
-  const [promoCode, setPromoCode] = useState('');
   const [confirmDelete, setConfirmDelete] = useState({
     open: false,
     itemName: '',
@@ -84,47 +81,24 @@ export default function CartDrawer() {
       footer={
         cart.items.length ? (
           <div className="flex flex-col gap-sm">
-            {/* Promo */}
-            <div className="flex flex-col gap-xs border-b border-hairline pb-sm mb-xs">
-              <div className="text-caption-uppercase text-body">Mã khuyến mãi</div>
-              {appliedPromo ? (
-                <div className="flex items-center justify-between rounded-md border border-success bg-[#e6f4ea] px-sm py-2">
-                  <div>
-                    <div className="text-body-sm font-semibold text-ink">{appliedPromo.code}</div>
-                    <div className="text-caption text-body">{appliedPromo.label}</div>
-                  </div>
-                  <button
-                    onClick={() => setAppliedPromo(null)}
-                    className="text-body hover:text-ink"
-                    aria-label="Xóa"
-                  >
-                    <Icon name="close" size={14} />
-                  </button>
+            {/* Promo Chip nếu đã áp dụng mã */}
+            {appliedPromo && (
+              <div className="flex items-center justify-between rounded-md border border-success/30 bg-[#e6f4ea] px-sm py-2 text-caption text-success mb-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Icon name="zap" size={14} />
+                  <span className="font-bold font-mono text-ink">{appliedPromo.code}</span>
+                  <span className="truncate text-body">({appliedPromo.label})</span>
                 </div>
-              ) : (
-                <div className="flex gap-xs">
-                  <Input
-                    className="flex-1"
-                    placeholder="NOMNOM15"
-                    aria-label="Mã khuyến mãi"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      applyPromo(promoCode);
-                      setPromoCode('');
-                    }}
-                  >
-                    Áp dụng
-                  </Button>
-                </div>
-              )}
-              <div className="text-caption text-body">
-                Thử dùng <span className="font-mono text-ink">NOMNOM15</span>, <span className="font-mono text-ink">WELCOME5</span>, hoặc <span className="font-mono text-ink">FREEFEE</span>.
+                <button
+                  type="button"
+                  onClick={() => setAppliedPromo(null)}
+                  className="text-body hover:text-ink ml-1 p-0.5"
+                  aria-label="Xóa mã"
+                >
+                  <Icon name="close" size={12} />
+                </button>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center justify-between text-body-sm">
               <span className="text-body">Tạm tính</span>

@@ -61,7 +61,7 @@ function printOrderReceipt(order) {
   </style></head><body>
     <h1>Phiếu chế biến — ${order.orderCode}</h1>
     <div class="muted">${new Date(order.placedAt).toLocaleString('vi-VN')}</div>
-    <div class="muted">Khách: ${order.customerName}${order.customerPhone ? ' · ' + order.customerPhone : ''}</div>
+    <div class="muted">Khách: ${order.customerName}${order.customerPhone && order.customerPhone !== 'null' ? ' · ' + order.customerPhone : ''}</div>
     ${address ? `<div class="muted">Giao đến: ${address}</div>` : ''}
     <table><tbody>${itemsHtml}</tbody></table>
     <hr />
@@ -360,7 +360,7 @@ function OrderCard({ order, busy, onAction, onCancel, onChat, onPrint }) {
       </div>
       <div className="px-sm py-sm">
         <div className="text-title-sm text-ink">{order.customerName}</div>
-        {order.customerPhone ? (
+        {order.customerPhone && order.customerPhone !== 'null' ? (
           <div className="text-caption text-body">{order.customerPhone}</div>
         ) : null}
         <ul className="mt-1 space-y-0.5 text-body-sm text-body">
