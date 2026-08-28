@@ -40,10 +40,8 @@ export default function EditProfile() {
       newErrors.name = 'Họ và tên không được để trống.';
     }
     const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/;
-    if (!trimmedPhone) {
-      newErrors.phone = 'Số điện thoại không được để trống.';
-    } else if (!phoneRegex.test(trimmedPhone)) {
-      newErrors.phone = 'Vui lòng nhập đúng định dạng số điện thoại.';
+    if (trimmedPhone && !phoneRegex.test(trimmedPhone)) {
+      newErrors.phone = 'Vui lòng nhập đúng định dạng số điện thoại (10 chữ số).';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -60,7 +58,7 @@ export default function EditProfile() {
     try {
       const data = await updateMeProfile({
         fullName: trimmedName,
-        phone: trimmedPhone,
+        phone: trimmedPhone || null,
         avatarUrl: avatarUrl || null,
       });
       updateUser(data.user);
@@ -134,7 +132,7 @@ export default function EditProfile() {
             />
           </Field>
 
-          <Field label="Số điện thoại" hint="Tài xế sẽ liên hệ qua số này khi giao hàng.">
+          <Field label="Số điện thoại" hint="Dùng để bảo mật tài khoản và tự động điền khi đặt hàng (không bắt buộc).">
             <Input
               leadingIcon="phone"
               placeholder="+84 ..."
@@ -143,7 +141,6 @@ export default function EditProfile() {
                 setPhone(e.target.value);
                 if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
               }}
-              required
               error={errors.phone}
             />
           </Field>

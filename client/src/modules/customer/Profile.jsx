@@ -171,14 +171,15 @@ export default function CustomerProfile() {
       </Card>
 
       {/* Other roles */}
-      <Card padded>
-        <div className="text-caption-uppercase text-body mb-sm">Các nền tảng khác</div>
-        <div className="grid grid-cols-3 gap-xs">
-          {permittedRoles.merchant && <RoleTile to="/merchant" icon="store" label="Quán ăn" />}
-
-          {permittedRoles.admin && <RoleTile to="/admin" icon="shield" label="Quản trị" />}
-        </div>
-      </Card>
+      {(permittedRoles.merchant || permittedRoles.admin) && (
+        <Card padded>
+          <div className="text-caption-uppercase text-body mb-sm">Các nền tảng khác</div>
+          <div className="grid grid-cols-3 gap-xs">
+            {permittedRoles.merchant && <RoleTile to="/merchant" icon="store" label="Quán ăn" />}
+            {permittedRoles.admin && <RoleTile to="/admin" icon="shield" label="Quản trị" />}
+          </div>
+        </Card>
+      )}
 
       {user && (
         <Button

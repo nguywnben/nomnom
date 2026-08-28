@@ -24,7 +24,7 @@ const LEGACY_CAT_TO_CUISINE_SLUG = {
   desserts: 'bakery',
 };
 
-const SEARCH_PAGE_SIZE = 6;
+const SEARCH_PAGE_SIZE = 12;
 
 function parseCuisineSlugsFromParams(searchParams) {
   const raw = searchParams.get('cuisine');
@@ -266,8 +266,8 @@ export default function CustomerSearch() {
         <div className="flex flex-wrap items-center gap-xs">
           <Tabs
             items={[
-              { value: 'dishes', label: `Món ăn (${data.pagination?.totalMenuItems ?? 0})` },
-              { value: 'restaurants', label: `Quán ăn (${data.pagination?.totalRestaurants ?? 0})` },
+              { value: 'dishes', label: 'Món ăn' },
+              { value: 'restaurants', label: 'Quán ăn' },
             ]}
             value={searchTab}
             onChange={(val) => {
@@ -471,7 +471,9 @@ export default function CustomerSearch() {
               {searchTab === 'restaurants' && data.restaurants?.length > 0 && (
                 <section>
                   <div className="mb-sm flex items-center justify-between">
-                    <h2 className="text-title-lg text-ink font-semibold">Quán ăn ({data.restaurants.length})</h2>
+                    <h2 className="text-title-lg text-ink font-semibold">
+                      {debouncedQ ? `Kết quả quán ăn cho "${debouncedQ}"` : 'Danh sách quán ăn nổi bật'}
+                    </h2>
                   </div>
                   {view === 'grid' ? (
                     <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
@@ -493,7 +495,9 @@ export default function CustomerSearch() {
               {searchTab === 'dishes' && data.menuItems?.length > 0 && (
                 <section>
                   <div className="mb-sm flex items-center justify-between">
-                    <h2 className="text-title-lg text-ink font-semibold">Món ăn ({data.menuItems.length})</h2>
+                    <h2 className="text-title-lg text-ink font-semibold">
+                      {debouncedQ ? `Kết quả món ăn cho "${debouncedQ}"` : 'Gợi ý món ăn ngon'}
+                    </h2>
                   </div>
                   {view === 'grid' ? (
                     <div className="grid grid-cols-2 gap-base xl:grid-cols-3">

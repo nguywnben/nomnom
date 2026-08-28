@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
@@ -13,6 +13,7 @@ const PAGE_SIZE = 10;
 
 export default function DishReviews() {
   const { id } = useParams();
+  const nav = useNavigate();
   const [page, setPage] = useState(1);
   const [rating, setRating] = useState('');
   const [sort, setSort] = useState('newest');
@@ -43,9 +44,13 @@ export default function DishReviews() {
 
   return (
     <div className="container-page py-xl">
-      <Link to={`/app/dish/${id}`} className="inline-flex items-center gap-1 text-button text-body hover:text-ink">
+      <button
+        type="button"
+        onClick={() => nav(-1)}
+        className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
+      >
         <Icon name="chevronLeft" size={14} /> Quay lại món ăn
-      </Link>
+      </button>
 
       {item && (
         <div className="mt-base flex items-center gap-base border-b border-hairline pb-base">

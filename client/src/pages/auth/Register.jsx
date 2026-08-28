@@ -147,12 +147,6 @@ export default function RegisterPage() {
           Tạo tài khoản
         </Button>
       </form>
-      <p className="mt-md text-center text-caption text-body">
-        Bạn muốn kinh doanh cùng NomNom?{' '}
-        <Link to="/merchant/onboarding" className="font-medium text-text-link hover:underline">
-          Đăng ký mở quán
-        </Link>
-      </p>
     </AuthLayout>
   );
 }

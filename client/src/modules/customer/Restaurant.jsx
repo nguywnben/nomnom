@@ -272,7 +272,7 @@ export default function CustomerRestaurant() {
               </div>
             </div>
           )}
-          <div className="sticky top-14 z-20 -mx-base mb-base bg-canvas/95 px-base py-2 backdrop-blur md:top-16 md:mx-0 md:px-0 md:py-0">
+          <div className="mb-base">
             <div className="mb-2 flex items-center gap-xs">
               <div className="relative flex-1 md:max-w-xs">
                 <Icon name="search" size={16} className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body" />
@@ -439,8 +439,8 @@ export default function CustomerRestaurant() {
         <aside className="hidden md:block">
           <Card padded className="sticky top-24 flex flex-col gap-base">
             <div>
-              <div className="text-caption-uppercase text-body">Giờ hoạt động hôm nay</div>
-              <div className="text-body-sm text-ink">{restaurant.avgPrepTimeMin + 5} phút</div>
+              <div className="text-caption-uppercase text-body">Thời gian chuẩn bị món</div>
+              <div className="text-body-sm text-ink">{restaurant.avgPrepTimeMin} phút</div>
             </div>
             <div>
               <div className="text-caption-uppercase text-body">Ẩm thực</div>

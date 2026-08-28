@@ -73,7 +73,7 @@ export default function CustomerDishDetail() {
       <div className="container-page pt-base">
         <button
           type="button"
-          onClick={() => nav(-1)}
+          onClick={() => (restaurant?.id ? nav(`/app/restaurant/${restaurant.id}`) : nav(-1))}
           className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
         >
           <Icon name="chevronLeft" size={14} /> Quay lại
