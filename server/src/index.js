@@ -180,6 +180,23 @@ async function ensureVoucherSchema() {
     `);
   }
 
+  const [dismissedTables] = await pool.query("SHOW TABLES LIKE 'customer_dismissed_vouchers'");
+  if (!dismissedTables.length) {
+    console.log('[DB] Tạo bảng customer_dismissed_vouchers');
+    await pool.query(`
+      CREATE TABLE customer_dismissed_vouchers (
+        id bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+        customer_id bigint UNSIGNED NOT NULL,
+        voucher_id bigint UNSIGNED NOT NULL,
+        dismissed_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_customer_dismissed (customer_id, voucher_id),
+        KEY idx_customer (customer_id),
+        KEY idx_voucher (voucher_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  }
+
   const [redemptionTables] = await pool.query("SHOW TABLES LIKE 'voucher_redemptions'");
   if (!redemptionTables.length) {
     console.log('[DB] Tạo bảng voucher_redemptions');

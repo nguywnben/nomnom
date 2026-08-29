@@ -555,13 +555,15 @@ router.get('/vouchers', ensureCustomer, async (req, res, next) => {
        FROM vouchers v
        LEFT JOIN restaurants r ON r.id = v.restaurant_id
        LEFT JOIN customer_saved_vouchers csv ON csv.voucher_id = v.id AND csv.customer_id = ?
+       LEFT JOIN customer_dismissed_vouchers cdv ON cdv.voucher_id = v.id AND cdv.customer_id = ?
        WHERE v.status = 'active'
+         AND cdv.id IS NULL
          AND (
            (v.is_public = 1 AND v.restaurant_id IS NULL)
            OR csv.id IS NOT NULL
          )
        ORDER BY v.created_at DESC`,
-      [customerId, customerId]
+      [customerId, customerId, customerId]
     );
 
     const now = new Date();
@@ -645,6 +647,12 @@ router.post('/vouchers/save', ensureCustomer, async (req, res, next) => {
       return res.status(400).json({ error: 'Mã giảm giá đã hết lượt sử dụng sớm.' });
     }
 
+    // Re-enable if dismissed
+    await db.query(
+      'DELETE FROM customer_dismissed_vouchers WHERE customer_id = ? AND voucher_id = ?',
+      [customerId, voucher.id]
+    );
+
     // Check if already saved
     const [savedRows] = await db.query(
       'SELECT id FROM customer_saved_vouchers WHERE customer_id = ? AND voucher_id = ? LIMIT 1',
@@ -668,6 +676,7 @@ router.post('/vouchers/save', ensureCustomer, async (req, res, next) => {
 router.delete('/vouchers/expired', ensureCustomer, async (req, res, next) => {
   try {
     const customerId = req.auth.userId;
+    // 1) Xóa khỏi customer_saved_vouchers
     const [result] = await db.query(
       `DELETE csv FROM customer_saved_vouchers csv
        JOIN vouchers v ON v.id = csv.voucher_id
@@ -684,6 +693,32 @@ router.delete('/vouchers/expired', ensureCustomer, async (req, res, next) => {
       [customerId, customerId]
     );
 
+    // 2) Đưa tất cả các voucher hết hiệu lực (kể cả voucher toàn sàn) vào danh sách ẩn của user
+    const [expiredVouchers] = await db.query(
+      `SELECT v.id
+       FROM vouchers v
+       WHERE v.status = 'active'
+         AND (
+           v.ends_at < NOW()
+           OR (v.usage_limit IS NOT NULL AND (
+             SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
+           ) >= v.usage_limit)
+           OR (
+             (SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.customer_id = ? AND vr.status IN ('reserved', 'redeemed')) >= COALESCE(v.per_user_limit, 1)
+           )
+         )`,
+      [customerId]
+    );
+
+    for (const v of expiredVouchers) {
+      await db.query(
+        `INSERT INTO customer_dismissed_vouchers (customer_id, voucher_id, dismissed_at)
+         VALUES (?, ?, NOW())
+         ON DUPLICATE KEY UPDATE dismissed_at = NOW()`,
+        [customerId, v.id]
+      );
+    }
+
     res.json({ success: true, message: 'Đã dọn dẹp các mã voucher hết hiệu lực.', deletedCount: result.affectedRows });
   } catch (err) {
     next(err);
@@ -697,6 +732,13 @@ router.delete('/vouchers/:voucherId', ensureCustomer, async (req, res, next) => 
 
     await db.query(
       'DELETE FROM customer_saved_vouchers WHERE customer_id = ? AND voucher_id = ?',
+      [customerId, Number(voucherId)]
+    );
+
+    await db.query(
+      `INSERT INTO customer_dismissed_vouchers (customer_id, voucher_id, dismissed_at)
+       VALUES (?, ?, NOW())
+       ON DUPLICATE KEY UPDATE dismissed_at = NOW()`,
       [customerId, Number(voucherId)]
     );
 

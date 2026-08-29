@@ -187,7 +187,13 @@ export default function Promotions() {
                 )}
                 {!isUsable && (
                   <Badge tone="error">
-                    {p.is_expired ? 'Hết hạn' : p.is_out_of_quota ? 'Hết lượt dùng' : 'Đã đạt giới hạn'}
+                    {p.is_limit_reached
+                      ? (p.per_user_limit > 1 ? `Đã dùng ${p.customer_used_count}/${p.per_user_limit} lượt` : 'Bạn đã sử dụng')
+                      : p.is_out_of_quota
+                        ? (p.restaurantId ? 'Quán hết lượt tặng' : 'Hết lượt toàn sàn')
+                        : p.is_expired
+                          ? 'Hết hạn sử dụng'
+                          : 'Hết hiệu lực'}
                   </Badge>
                 )}
               </div>
