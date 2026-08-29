@@ -408,8 +408,10 @@ router.get('/orders', ensureCustomer, async (req, res, next) => {
     let queryConds = ['o.customer_id = ?'];
     let queryParams = [userId];
 
-    if (status === 'active') {
-      queryConds.push("o.status IN ('pending_payment', 'payment_failed', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
+    if (status === 'pending' || status === 'unpaid') {
+      queryConds.push("o.status IN ('pending_payment', 'payment_failed')");
+    } else if (status === 'active') {
+      queryConds.push("o.status IN ('placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
     } else if (status === 'delivered') {
       queryConds.push("o.status = 'delivered'");
     } else if (status === 'cancelled') {
@@ -658,6 +660,47 @@ router.post('/vouchers/save', ensureCustomer, async (req, res, next) => {
     );
 
     res.json({ success: true, message: `Đã lưu mã ${voucher.code} vào kho voucher của bạn!`, voucherId: voucher.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/vouchers/expired', ensureCustomer, async (req, res, next) => {
+  try {
+    const customerId = req.auth.userId;
+    const [result] = await db.query(
+      `DELETE csv FROM customer_saved_vouchers csv
+       JOIN vouchers v ON v.id = csv.voucher_id
+       WHERE csv.customer_id = ?
+         AND (
+           v.ends_at < NOW()
+           OR (v.usage_limit IS NOT NULL AND (
+             SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
+           ) >= v.usage_limit)
+           OR (
+             (SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.customer_id = ? AND vr.status IN ('reserved', 'redeemed')) >= COALESCE(v.per_user_limit, 1)
+           )
+         )`,
+      [customerId, customerId]
+    );
+
+    res.json({ success: true, message: 'Đã dọn dẹp các mã voucher hết hiệu lực.', deletedCount: result.affectedRows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/vouchers/:voucherId', ensureCustomer, async (req, res, next) => {
+  try {
+    const customerId = req.auth.userId;
+    const { voucherId } = req.params;
+
+    await db.query(
+      'DELETE FROM customer_saved_vouchers WHERE customer_id = ? AND voucher_id = ?',
+      [customerId, Number(voucherId)]
+    );
+
+    res.json({ success: true, message: 'Đã xóa mã voucher khỏi kho của bạn.' });
   } catch (err) {
     next(err);
   }

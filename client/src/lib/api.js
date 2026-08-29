@@ -448,6 +448,14 @@ export function saveVoucherApi(payload) {
   return apiPost('/api/v1/me/vouchers/save', payload);
 }
 
+export function deleteExpiredVouchersApi() {
+  return apiDelete('/api/v1/me/vouchers/expired');
+}
+
+export function deleteSavedVoucherApi(voucherId) {
+  return apiDelete(`/api/v1/me/vouchers/${encodeURIComponent(voucherId)}`);
+}
+
 export function fetchAdminVouchersApi(params = {}) {
   const query = new URLSearchParams();
   if (params.q) query.set('q', params.q);

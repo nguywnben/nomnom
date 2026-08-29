@@ -101,6 +101,7 @@ export default function CustomerOrders() {
           <Tabs
             items={[
               { value: 'all', label: 'Tất cả' },
+              { value: 'pending', label: 'Chờ thanh toán' },
               { value: 'active', label: 'Đang giao' },
               { value: 'delivered', label: 'Đã giao' },
               { value: 'cancelled', label: 'Đã huỷ' },
@@ -152,70 +153,122 @@ export default function CustomerOrders() {
           {filtered.map((order) => {
             const cancellable = CANCELLABLE_ORDER_STATUSES.includes(order.status);
             const isDelivered = order.status === 'delivered';
+            const isUnpaid = order.status === 'pending_payment' || order.status === 'payment_failed';
             return (
-              <Card key={order.id} padded={false} hover={false} className="overflow-hidden">
-                <div className="flex items-center gap-base p-base">
-                  <button
-                    type="button"
-                    onClick={() => nav(`/app/track/${order.orderCode}`)}
-                    className="flex min-w-0 flex-1 items-center gap-base text-left"
-                    aria-label={`Theo dõi đơn ${order.orderCode}`}
-                  >
-                    <Image
-                      src={order.restaurantBanner}
-                      alt={order.restaurantName}
-                      className="h-20 w-24 shrink-0 rounded-md object-cover"
-                      ratio="4/3"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-title-md text-ink">{order.restaurantName || 'Quán ăn'}</span>
+              <Card key={order.id} padded className="flex flex-col md:flex-row md:items-stretch justify-between gap-base transition-shadow hover:shadow-soft">
+                <div
+                  onClick={() => nav(`/app/track/${order.orderCode}`)}
+                  className="flex min-w-0 flex-1 items-start sm:items-center gap-base cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      nav(`/app/track/${order.orderCode}`);
+                    }
+                  }}
+                  aria-label={`Theo dõi đơn ${order.orderCode}`}
+                >
+                  <Image
+                    src={order.restaurantBanner}
+                    alt={order.restaurantName}
+                    className="h-18 w-22 sm:h-20 sm:w-24 shrink-0 rounded-md object-cover"
+                    ratio="4/3"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-title-md font-semibold text-ink">{order.restaurantName || 'Quán ăn'}</span>
+                      <div className="md:hidden">
                         <Badge tone={orderStatusTone(order.status)} dot>
                           {orderStatusLabel(order.status)}
                         </Badge>
-                      </span>
-                      <span className="mt-1 block truncate text-body-sm text-body">
-                        {(order.items ?? []).map((item) => `${item.quantity}x ${item.name}`).join(', ')}
-                      </span>
-                      <span className="mt-2 flex flex-wrap items-center gap-x-base gap-y-1 text-caption text-body">
-                        <span>#{order.orderCode}</span>
-                        <span>{new Date(order.placedAt).toLocaleString('vi-VN')}</span>
-                        <span className="nums font-semibold text-ink">{formatVnd(Number(order.totalAmount))}</span>
-                      </span>
-                    </span>
-                  </button>
-                  <Icon name="chevronRight" size={18} className="shrink-0 text-body" />
+                      </div>
+                    </div>
+                    <div className="mt-1 truncate text-body-sm text-body">
+                      {(order.items ?? []).map((item) => `${item.quantity}x ${item.name}`).join(', ')}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-base gap-y-1 text-caption text-body">
+                      <span className="font-mono font-medium">#{order.orderCode}</span>
+                      <span>{new Date(order.placedAt).toLocaleString('vi-VN')}</span>
+                      <span className="nums font-bold text-ink">{formatVnd(Number(order.totalAmount))}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-xs border-t border-hairline bg-canvas-soft px-base py-sm">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    leadingIcon="refresh"
-                    loading={reorderingId === order.id}
-                    disabled={reorderingId !== null}
-                    onClick={() => reorder(order)}
-                  >
-                    Đặt lại
-                  </Button>
-                  {isDelivered && (
-                    <Button size="sm" variant="secondary" leadingIcon="starFilled" onClick={() => nav(`/app/reviews/write/${order.id}`)}>
-                      Đánh giá
-                    </Button>
-                  )}
-                  <Button size="sm" variant="secondary" onClick={() => nav(`/app/track/${order.orderCode}`)}>
-                    Theo dõi
-                  </Button>
-                  {cancellable && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      leadingIcon="x"
-                      className="!border-error/40 !text-error hover:!bg-[#fbeaea]"
-                      onClick={() => setCancelling(order)}
-                    >
-                      Hủy đơn
-                    </Button>
-                  )}
+
+                <div className="flex flex-col md:items-end md:justify-between gap-sm shrink-0 border-t border-hairline pt-sm md:border-t-0 md:pt-0">
+                  <div className="hidden md:block">
+                    <Badge tone={orderStatusTone(order.status)} dot>
+                      {orderStatusLabel(order.status)}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-xs">
+                    {isUnpaid ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        leadingIcon="wallet"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/app/track/${order.orderCode}`);
+                        }}
+                      >
+                        Thanh toán ngay
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leadingIcon="refresh"
+                        loading={reorderingId === order.id}
+                        disabled={reorderingId !== null}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reorder(order);
+                        }}
+                      >
+                        Đặt lại
+                      </Button>
+                    )}
+                    {isDelivered && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leadingIcon="starFilled"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/app/reviews/write/${order.id}`);
+                        }}
+                      >
+                        Đánh giá
+                      </Button>
+                    )}
+                    {!isUnpaid && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/app/track/${order.orderCode}`);
+                        }}
+                      >
+                        Theo dõi
+                      </Button>
+                    )}
+                    {cancellable && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leadingIcon="x"
+                        className="!border-error/40 !text-error hover:!bg-[#fbeaea]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCancelling(order);
+                        }}
+                      >
+                        Hủy đơn
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
             );

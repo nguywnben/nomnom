@@ -28,7 +28,6 @@ export function orderStatusLabel(status) {
 /** Các trạng thái "đang hoạt động" (chưa kết thúc). */
 export const ACTIVE_ORDER_STATUSES = [
   'pending_payment',
-  'payment_failed',
   'placed',
   'accepted',
   'preparing',

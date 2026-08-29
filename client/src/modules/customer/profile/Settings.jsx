@@ -21,6 +21,7 @@ export default function Settings() {
   const [passwordError, setPasswordError] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [loggingOutAll, setLoggingOutAll] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   const closePassword = () => {
     setPasswordOpen(false);
@@ -123,7 +124,11 @@ export default function Settings() {
         <Button variant="secondary" className="mt-base" onClick={() => setLogoutAllOpen(true)}>Đăng xuất mọi thiết bị</Button>
       </Card>
 
-      <Button variant="secondary" className="!border-[#dc2626] !bg-white !font-normal !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]" onClick={() => logout()}>
+      <Button
+        variant="secondary"
+        className="!border-[#dc2626] !bg-white !font-normal !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+        onClick={() => setLogoutConfirmOpen(true)}
+      >
         Đăng xuất
       </Button>
 
@@ -138,6 +143,33 @@ export default function Settings() {
 
       <Modal open={logoutAllOpen} onClose={() => setLogoutAllOpen(false)} title="Đăng xuất mọi thiết bị" footer={<><Button variant="secondary" onClick={() => setLogoutAllOpen(false)} disabled={loggingOutAll}>Hủy</Button><Button variant="critical" onClick={logoutAll} disabled={loggingOutAll}>{loggingOutAll ? 'Đang đăng xuất...' : 'Xác nhận'}</Button></>}>
         <p className="text-body-sm text-body">Phiên hiện tại và các thiết bị khác sẽ cần đăng nhập lại để tiếp tục sử dụng NomNom.</p>
+      </Modal>
+
+      <Modal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setLogoutConfirmOpen(false)}>
+              Ở lại
+            </Button>
+            <Button
+              variant="critical"
+              onClick={async () => {
+                setLogoutConfirmOpen(false);
+                await logout();
+              }}
+            >
+              Đăng xuất
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi tài khoản NomNom không?
+        </p>
       </Modal>
     </div>
   );
