@@ -940,7 +940,7 @@ export default function CustomerCheckout() {
                         <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border ${
                           isSelected ? 'bg-ink text-on-dark border-ink' : 'bg-canvas-soft text-ink border-hairline-strong'
                         }`}>
-                          <Icon name="zap" size={18} />
+                          <Icon name={(v.code?.includes('SHIP') || v.name?.toLowerCase().includes('giao')) ? 'bike' : v.kind === 'percent' ? 'percent' : 'ticket'} size={18} />
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -990,8 +990,8 @@ export default function CustomerCheckout() {
                     className="flex items-start justify-between gap-sm p-sm rounded-lg border border-hairline bg-surface-card"
                   >
                     <div className="flex items-start gap-sm min-w-0 flex-1">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface-strong text-body">
-                        <Icon name="zap" size={18} />
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-hairline-strong bg-canvas-soft text-body">
+                        <Icon name={(v.code?.includes('SHIP') || v.name?.toLowerCase().includes('giao')) ? 'bike' : v.kind === 'percent' ? 'percent' : 'ticket'} size={18} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">

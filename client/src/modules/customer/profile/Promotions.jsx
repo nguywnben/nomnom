@@ -84,9 +84,9 @@ export default function Promotions() {
   }, [activeTab, merchantVouchers, platformVouchers, vouchers]);
 
   const tabItems = [
-    { key: 'all', label: `Tất cả (${vouchers.length})` },
-    { key: 'platform', label: `Mã toàn sàn (${platformVouchers.length})` },
-    { key: 'merchant', label: `Mã quán ăn (${merchantVouchers.length})` },
+    { value: 'all', label: `Tất cả (${vouchers.length})` },
+    { value: 'platform', label: `Mã toàn sàn (${platformVouchers.length})` },
+    { value: 'merchant', label: `Mã quán ăn (${merchantVouchers.length})` },
   ];
 
   return (
@@ -125,13 +125,12 @@ export default function Promotions() {
 
       {/* Danh sách kho mã giảm giá */}
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-sm">
+        <div className="mb-sm">
           <div className="text-caption-uppercase text-body">Kho Voucher của bạn ({filteredVouchers.length})</div>
-          <span className="text-caption text-body">Cập nhật theo thời gian thực</span>
         </div>
 
         <div className="mb-base">
-          <Tabs items={tabItems} active={activeTab} onChange={setActiveTab} />
+          <Tabs items={tabItems} value={activeTab} onChange={setActiveTab} />
         </div>
 
         <div className="flex flex-col gap-sm">
@@ -158,6 +157,11 @@ export default function Promotions() {
                 ? Math.min(100, Math.round((usedCount / p.usage_limit) * 100))
                 : 0;
               const isUsable = p.is_usable !== false;
+              const voucherIcon = (p.code?.includes('SHIP') || p.name?.toLowerCase().includes('giao') || p.description?.toLowerCase().includes('vận chuyển') || p.description?.toLowerCase().includes('giao hàng'))
+                ? 'bike'
+                : p.kind === 'percent'
+                  ? 'percent'
+                  : 'ticket';
 
               return (
                 <Card
@@ -171,7 +175,7 @@ export default function Promotions() {
                     {/* Left: Icon & Core Details */}
                     <div className="flex items-start gap-sm min-w-0 flex-1">
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-hairline-strong bg-canvas-soft text-ink">
-                        <Icon name="zap" size={18} />
+                        <Icon name={voucherIcon} size={18} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">

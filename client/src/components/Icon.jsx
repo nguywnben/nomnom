@@ -189,6 +189,25 @@ const paths = {
     </g>
   ),
   zap: <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" {...stroke} />,
+  ticket: (
+    <g {...stroke}>
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+      <path d="M13 5v2M13 11v2M13 17v2" />
+    </g>
+  ),
+  tag: (
+    <g {...stroke}>
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <circle cx="7" cy="7" r="1.5" />
+    </g>
+  ),
+  percent: (
+    <g {...stroke}>
+      <line x1="19" y1="5" x2="5" y2="19" />
+      <circle cx="6.5" cy="6.5" r="2.5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+    </g>
+  ),
   refresh: (
     <g {...stroke}>
       <path d="M21 12a9 9 0 0 1-15 6.7L3 17M3 12a9 9 0 0 1 15-6.7L21 7" />

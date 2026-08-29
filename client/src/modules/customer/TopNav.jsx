@@ -209,26 +209,29 @@ export default function TopNav() {
                         >
                           <Icon name="user" size={16} className="shrink-0 text-body" />
                           Hồ sơ tài khoản
-                        </Link>                        {shopAsCustomer && (
-                          <Link
-                            to="/app/orders"
-                            role="menuitem"
-                            className={MENU_ITEM}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            <Icon name="package" size={16} className="shrink-0 text-body" />
-                            Đơn hàng của tôi
-                          </Link>
-                        )}
-                        <Link
-                          to="/app/profile/settings"
-                          role="menuitem"
-                          className={MENU_ITEM}
-                          onClick={() => setMenuOpen(false)}
-                        >
-                          <Icon name="cog" size={16} className="shrink-0 text-body" />
-                          Cài đặt
                         </Link>
+                        {shopAsCustomer && (
+                          <>
+                            <Link
+                              to="/app/orders"
+                              role="menuitem"
+                              className={MENU_ITEM}
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              <Icon name="package" size={16} className="shrink-0 text-body" />
+                              Đơn hàng của tôi
+                            </Link>
+                            <Link
+                              to="/app/profile/promotions"
+                              role="menuitem"
+                              className={MENU_ITEM}
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              <Icon name="zap" size={16} className="shrink-0 text-body" />
+                              Kho voucher của tôi
+                            </Link>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
