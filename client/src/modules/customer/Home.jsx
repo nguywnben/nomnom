@@ -66,6 +66,7 @@ export default function CustomerHome() {
   const [pageConfig, setPageConfig] = useState(null);
   const [heroQuery, setHeroQuery] = useState('');
   const heroSuggestions = useSearchSuggestions(heroQuery, { limit: 4 });
+  const { pushToast } = useApp();
 
   useEffect(() => {
     fetchHomePageConfigApi().then((response) => setPageConfig(response.config ?? null)).catch(() => {});

@@ -157,6 +157,29 @@ async function ensureVoucherSchema() {
     }
   }
 
+  const [isPublicRows] = await pool.query("SHOW COLUMNS FROM vouchers LIKE 'is_public'");
+  if (!isPublicRows.length) {
+    console.log('[DB] Thêm cột is_public vào bảng vouchers');
+    await pool.query("ALTER TABLE vouchers ADD COLUMN is_public tinyint(1) NOT NULL DEFAULT 1 AFTER status");
+  }
+
+  const [savedTables] = await pool.query("SHOW TABLES LIKE 'customer_saved_vouchers'");
+  if (!savedTables.length) {
+    console.log('[DB] Tạo bảng customer_saved_vouchers');
+    await pool.query(`
+      CREATE TABLE customer_saved_vouchers (
+        id bigint UNSIGNED NOT NULL AUTO_INCREMENT,
+        customer_id bigint UNSIGNED NOT NULL,
+        voucher_id bigint UNSIGNED NOT NULL,
+        saved_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_customer_voucher (customer_id, voucher_id),
+        KEY idx_customer (customer_id),
+        KEY idx_voucher (voucher_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+  }
+
   const [redemptionTables] = await pool.query("SHOW TABLES LIKE 'voucher_redemptions'");
   if (!redemptionTables.length) {
     console.log('[DB] Tạo bảng voucher_redemptions');

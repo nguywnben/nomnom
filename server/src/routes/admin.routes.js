@@ -1637,4 +1637,235 @@ router.get('/audit-logs', async (req, res, next) => {
   }
 });
 
+// --- QUAN LY VOUCHER / KHUYEN MAI CHO ADMIN ---
+
+router.get('/vouchers', async (req, res, next) => {
+  try {
+    const { q, status, scope } = req.query;
+    let whereConditions = ['1=1'];
+    let params = [];
+
+    if (q) {
+      whereConditions.push('(v.code LIKE ? OR v.name LIKE ? OR r.name LIKE ?)');
+      const pattern = `%${q.trim()}%`;
+      params.push(pattern, pattern, pattern);
+    }
+    if (status && status !== 'all') {
+      whereConditions.push('v.status = ?');
+      params.push(status);
+    }
+    if (scope === 'platform') {
+      whereConditions.push('v.restaurant_id IS NULL');
+    } else if (scope === 'merchant') {
+      whereConditions.push('v.restaurant_id IS NOT NULL');
+    }
+
+    const where = whereConditions.join(' AND ');
+    const [rows] = await pool.query(
+      `SELECT v.*, r.name AS restaurant_name, u.full_name AS creator_name,
+              COALESCE((
+                SELECT COUNT(*)
+                FROM voucher_redemptions vr
+                WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
+              ), 0) AS used_count
+       FROM vouchers v
+       LEFT JOIN restaurants r ON r.id = v.restaurant_id
+       LEFT JOIN users u ON u.id = v.created_by_user_id
+       WHERE ${where}
+       ORDER BY v.created_at DESC, v.id DESC`,
+      params
+    );
+
+    const now = new Date();
+    res.json({
+      vouchers: rows.map((v) => ({
+        id: Number(v.id),
+        restaurantId: v.restaurant_id === null ? null : Number(v.restaurant_id),
+        restaurantName: v.restaurant_name ?? null,
+        createdByUserId: Number(v.created_by_user_id),
+        creatorName: v.creator_name ?? null,
+        code: v.code,
+        name: v.name,
+        description: v.description ?? null,
+        discountType: v.discount_type,
+        discountValue: Number(v.discount_value),
+        maxDiscountAmount: v.max_discount_amount === null ? null : Number(v.max_discount_amount),
+        minOrderAmount: Number(v.min_order_amount ?? 0),
+        usageLimit: v.usage_limit === null ? null : Number(v.usage_limit),
+        usedCount: Number(v.used_count || 0),
+        perUserLimit: Number(v.per_user_limit ?? 1),
+        isPublic: Boolean(v.is_public ?? 1),
+        startsAt: v.starts_at,
+        endsAt: v.ends_at,
+        status: v.status,
+        isExpired: new Date(v.ends_at) < now,
+        createdAt: v.created_at,
+        updatedAt: v.updated_at,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/vouchers', async (req, res, next) => {
+  try {
+    const {
+      code,
+      name,
+      description,
+      discountType,
+      discountValue,
+      maxDiscountAmount,
+      minOrderAmount,
+      usageLimit,
+      perUserLimit,
+      isPublic,
+      restaurantId,
+      startsAt,
+      endsAt,
+      status,
+    } = req.body || {};
+
+    const normalizedCode = String(code ?? '').trim().toUpperCase();
+    if (!normalizedCode || normalizedCode.length < 3 || normalizedCode.length > 40) {
+      return res.status(400).json({ error: 'Mã voucher phải từ 3 đến 40 ký tự.' });
+    }
+    if (!name || String(name).trim().length < 3) {
+      return res.status(400).json({ error: 'Tên voucher phải từ 3 ký tự trở lên.' });
+    }
+
+    const [duplicateRows] = await pool.query(
+      'SELECT id FROM vouchers WHERE code = ? LIMIT 1',
+      [normalizedCode]
+    );
+    if (duplicateRows.length > 0) {
+      return res.status(409).json({ error: 'Mã voucher đã tồn tại trên hệ thống.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO vouchers (
+        restaurant_id, created_by_user_id, code, name, description,
+        discount_type, discount_value, max_discount_amount, min_order_amount,
+        usage_limit, per_user_limit, is_public, starts_at, ends_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        restaurantId ? Number(restaurantId) : null,
+        req.auth.userId,
+        normalizedCode,
+        String(name).trim(),
+        description ? String(description).trim() : null,
+        discountType === 'fixed' ? 'fixed' : 'percent',
+        Number(discountValue) || 0,
+        maxDiscountAmount ? Number(maxDiscountAmount) : null,
+        Number(minOrderAmount) || 0,
+        usageLimit ? Number(usageLimit) : null,
+        Number(perUserLimit) || 1,
+        isPublic === false || isPublic === 0 ? 0 : 1,
+        startsAt ? new Date(startsAt) : new Date(),
+        endsAt ? new Date(endsAt) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        status || 'active',
+      ]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM vouchers WHERE id = ? LIMIT 1', [result.insertId]);
+    res.status(201).json({ voucher: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/vouchers/:id', async (req, res, next) => {
+  try {
+    const voucherId = Number(req.params.id);
+    if (!voucherId) return res.status(400).json({ error: 'ID voucher không hợp lệ.' });
+
+    const [existingRows] = await pool.query('SELECT * FROM vouchers WHERE id = ? LIMIT 1', [voucherId]);
+    const current = existingRows[0];
+    if (!current) return res.status(404).json({ error: 'Không tìm thấy voucher.' });
+
+    const {
+      code,
+      name,
+      description,
+      discountType,
+      discountValue,
+      maxDiscountAmount,
+      minOrderAmount,
+      usageLimit,
+      perUserLimit,
+      isPublic,
+      restaurantId,
+      startsAt,
+      endsAt,
+      status,
+    } = req.body || {};
+
+    const nextCode = code ? String(code).trim().toUpperCase() : current.code;
+    if (nextCode !== current.code) {
+      const [duplicateRows] = await pool.query(
+        'SELECT id FROM vouchers WHERE code = ? AND id <> ? LIMIT 1',
+        [nextCode, voucherId]
+      );
+      if (duplicateRows.length > 0) {
+        return res.status(409).json({ error: 'Mã voucher đã tồn tại.' });
+      }
+    }
+
+    await pool.query(
+      `UPDATE vouchers SET
+        code = ?, name = ?, description = ?, discount_type = ?, discount_value = ?,
+        max_discount_amount = ?, min_order_amount = ?, usage_limit = ?, per_user_limit = ?,
+        is_public = ?, restaurant_id = ?, starts_at = ?, ends_at = ?, status = ?
+       WHERE id = ?`,
+      [
+        nextCode,
+        name !== undefined ? String(name).trim() : current.name,
+        description !== undefined ? (description ? String(description).trim() : null) : current.description,
+        discountType !== undefined ? discountType : current.discount_type,
+        discountValue !== undefined ? Number(discountValue) : current.discount_value,
+        maxDiscountAmount !== undefined ? (maxDiscountAmount ? Number(maxDiscountAmount) : null) : current.max_discount_amount,
+        minOrderAmount !== undefined ? Number(minOrderAmount) : current.min_order_amount,
+        usageLimit !== undefined ? (usageLimit ? Number(usageLimit) : null) : current.usage_limit,
+        perUserLimit !== undefined ? Number(perUserLimit) : current.per_user_limit,
+        isPublic !== undefined ? (isPublic === false || isPublic === 0 ? 0 : 1) : current.is_public,
+        restaurantId !== undefined ? (restaurantId ? Number(restaurantId) : null) : current.restaurant_id,
+        startsAt ? new Date(startsAt) : current.starts_at,
+        endsAt ? new Date(endsAt) : current.ends_at,
+        status !== undefined ? status : current.status,
+        voucherId,
+      ]
+    );
+
+    const [rows] = await pool.query('SELECT * FROM vouchers WHERE id = ? LIMIT 1', [voucherId]);
+    res.json({ voucher: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/vouchers/:id', async (req, res, next) => {
+  try {
+    const voucherId = Number(req.params.id);
+    if (!voucherId) return res.status(400).json({ error: 'ID voucher không hợp lệ.' });
+
+    const [[redemptionCount]] = await pool.query(
+      'SELECT COUNT(*) AS total FROM voucher_redemptions WHERE voucher_id = ?',
+      [voucherId]
+    );
+
+    if (Number(redemptionCount?.total) > 0) {
+      // Đã có đơn hàng sử dụng -> Tạm dừng thay vì xóa cứng để bảo toàn báo cáo
+      await pool.query("UPDATE vouchers SET status = 'paused' WHERE id = ?", [voucherId]);
+      return res.json({ success: true, message: 'Voucher đã được chuyển sang trạng thái Tạm dừng do đã phát sinh đơn hàng.' });
+    }
+
+    await pool.query('DELETE FROM customer_saved_vouchers WHERE voucher_id = ?', [voucherId]);
+    await pool.query('DELETE FROM vouchers WHERE id = ?', [voucherId]);
+    res.json({ success: true, message: 'Đã xóa voucher thành công.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

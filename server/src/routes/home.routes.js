@@ -132,6 +132,51 @@ router.get('/promos', async (_req, res, next) => {
 });
 
 /**
+ * GET /api/v1/home/vouchers
+ * Danh sách mã khuyến mãi nổi bật công khai trên trang chủ.
+ */
+router.get('/vouchers', async (req, res, next) => {
+  try {
+    const userId = req.auth?.userId || null;
+    const [rows] = await pool.query(
+      `SELECT v.*, r.name AS restaurant_name, COALESCE(r.banner_url, r.logo_url) AS restaurant_image,
+              (csv.id IS NOT NULL) AS is_saved
+       FROM vouchers v
+       LEFT JOIN restaurants r ON r.id = v.restaurant_id
+       LEFT JOIN customer_saved_vouchers csv ON csv.voucher_id = v.id AND csv.customer_id = ?
+       WHERE v.status = 'active'
+         AND (v.is_public = 1 OR v.is_public IS NULL)
+         AND v.starts_at <= NOW()
+         AND v.ends_at >= NOW()
+       ORDER BY (v.restaurant_id IS NULL) DESC, v.ends_at ASC, v.created_at DESC
+       LIMIT 10`,
+      [userId]
+    );
+
+    res.json({
+      data: rows.map((row) => ({
+        id: Number(row.id),
+        restaurantId: row.restaurant_id === null ? null : Number(row.restaurant_id),
+        restaurantName: row.restaurant_name ?? null,
+        restaurantImage: row.restaurant_image ?? null,
+        code: row.code,
+        name: row.name,
+        description: row.description ?? null,
+        discountType: row.discount_type,
+        discountValue: Number(row.discount_value),
+        maxDiscountAmount: row.max_discount_amount === null ? null : Number(row.max_discount_amount),
+        minOrderAmount: Number(row.min_order_amount ?? 0),
+        isSaved: Boolean(row.is_saved),
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/v1/home/cuisines
  * Danh sách toàn bộ loại hình ẩm thực từ bảng cuisines.
  */

@@ -34,6 +34,7 @@ function defaultForm() {
     minOrderAmount: '0',
     usageLimit: '',
     perUserLimit: '1',
+    isPublic: true,
     startsAt: toDatetimeLocal(now),
     endsAt: toDatetimeLocal(ends),
     status: 'draft',
@@ -93,6 +94,7 @@ export default function MerchantPromotions() {
       minOrderAmount: String(voucher.minOrderAmount ?? 0),
       usageLimit: voucher.usageLimit === null ? '' : String(voucher.usageLimit),
       perUserLimit: String(voucher.perUserLimit ?? 1),
+      isPublic: voucher.isPublic !== false,
       startsAt: toDatetimeLocal(voucher.startsAt),
       endsAt: toDatetimeLocal(voucher.endsAt),
       status: voucher.status,
@@ -109,6 +111,7 @@ export default function MerchantPromotions() {
         minOrderAmount: Number(form.minOrderAmount),
         usageLimit: form.usageLimit === '' ? null : Number(form.usageLimit),
         perUserLimit: Number(form.perUserLimit),
+        isPublic: Boolean(form.isPublic),
       };
       if (editing) {
         await updateMerchantVoucherApi(editing.id, payload);
@@ -183,8 +186,13 @@ export default function MerchantPromotions() {
             <Card key={voucher.id} padded className="flex flex-col gap-sm">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="font-mono text-title-sm text-ink">{voucher.code}</div>
-                  <div className="text-body-sm font-semibold text-ink">{voucher.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-title-sm text-ink">{voucher.code}</span>
+                    <Badge tone={voucher.isPublic ? 'outline' : 'default'}>
+                      {voucher.isPublic ? '🌐 Công khai' : '🔒 Bí mật'}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 text-body-sm font-semibold text-ink">{voucher.name}</div>
                 </div>
                 <Badge tone={voucher.status === 'active' ? 'success' : voucher.status === 'paused' ? 'warning' : 'outline'} dot>
                   {voucher.status}
@@ -252,6 +260,16 @@ export default function MerchantPromotions() {
         <form className="grid gap-sm md:grid-cols-2" onSubmit={submitVoucher}>
           <Input label="Mã voucher" required value={form.code} onChange={(e) => setForm((cur) => ({ ...cur, code: e.target.value }))} />
           <Input label="Tên voucher" required value={form.name} onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))} />
+          <Select
+            label="Kênh phát hành"
+            required
+            value={form.isPublic ? 'public' : 'private'}
+            onChange={(e) => setForm((cur) => ({ ...cur, isPublic: e.target.value === 'public' }))}
+            options={[
+              { value: 'public', label: '🌐 Công khai (Treo trên thực đơn quán)' },
+              { value: 'private', label: '🔒 Riêng tư / Bí mật (Chỉ nhập mã tay mới dùng được)' },
+            ]}
+          />
           <Select
             label="Loại giảm giá"
             required

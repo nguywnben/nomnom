@@ -13,6 +13,7 @@ const links = [
   { to: '/admin/customer-home', label: 'Trang chủ', icon: 'image' },
   { to: '/admin/cuisines', label: 'Loại ẩm thực', icon: 'grid' },
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
+  { to: '/admin/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
   { to: '/admin/restaurants', label: 'Duyệt quán', icon: 'store' },
   { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
@@ -26,6 +27,7 @@ const links = [
 const sidebarOrder = [
   '/admin',
   '/admin/orders',
+  '/admin/promotions',
   '/admin/restaurants',
   '/admin/accounts',
   '/admin/reviews',

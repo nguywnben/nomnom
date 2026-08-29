@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -12,9 +12,11 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { fetchRestaurantVouchersApi, saveVoucherApi } from '../../lib/api.js';
 import { useRestaurantDetail } from '../../hooks/useRestaurantDetail.js';
 import { useRestaurantMenu } from '../../hooks/useRestaurantMenu.js';
 import { useRestaurantReviews } from '../../hooks/useRestaurantReviews.js';
+import { useHorizontalDragScroll } from '../../hooks/useHorizontalDragScroll.js';
 
 export default function CustomerRestaurant() {
   const { id } = useParams();
@@ -22,6 +24,35 @@ export default function CustomerRestaurant() {
   const { addToCart, setCartOpen, pushToast, shopAsCustomer, customerCartRestriction, currentLocation, cart, setItemQty } = useApp();
   const [cat, setCat] = useState('Tất cả');
   const [menuQuery, setMenuQuery] = useState('');
+  const [vouchers, setVouchers] = useState([]);
+  const voucherScroll = useHorizontalDragScroll();
+
+  useEffect(() => {
+    if (!id) return;
+    fetchRestaurantVouchersApi(id)
+      .then((data) => setVouchers(data?.items ?? []))
+      .catch((err) => console.error('Failed to load restaurant vouchers:', err));
+  }, [id]);
+
+  const handleSaveVoucher = async (v) => {
+    try {
+      const res = await saveVoucherApi({ voucherId: v.id });
+      pushToast({
+        kind: 'success',
+        title: 'Đã lưu mã',
+        message: res.message || `Đã lưu mã ${v.code} vào kho ưu đãi của bạn!`,
+      });
+      setVouchers((prev) =>
+        prev.map((item) => (item.id === v.id ? { ...item, isSaved: true } : item))
+      );
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Không thể lưu mã',
+        message: err.message || 'Mã giảm giá không hợp lệ hoặc đã hết lượt.',
+      });
+    }
+  };
 
   const { restaurant, loading: restaurantLoading, error: restaurantError } = useRestaurantDetail(id, currentLocation);
   const { categories, loading: menuLoading, error: menuError } = useRestaurantMenu(id);
@@ -261,8 +292,8 @@ export default function CustomerRestaurant() {
         </div>
       </section>
 
-      <div className="container-page grid gap-xl py-xl md:grid-cols-[1fr_320px]">
-        <div>
+      <div className="container-page grid min-w-0 gap-xl py-xl md:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="min-w-0">
           {!isOpen && (
             <div className="mb-base flex items-start gap-sm rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body" role="status">
               <Icon name="clock" size={18} className="mt-0.5 shrink-0 text-ink" />
@@ -272,6 +303,66 @@ export default function CustomerRestaurant() {
               </div>
             </div>
           )}
+          {/* Băng chuyền Voucher Ưu đãi Quán */}
+          {vouchers.length > 0 && (
+            <div className="mb-base overflow-hidden rounded-lg border border-hairline-strong bg-canvas-soft p-base">
+              <div className="mb-sm flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-body-sm font-semibold text-ink">
+                  <Icon name="zap" size={16} className="text-ink" />
+                  <span>Ưu đãi từ quán ({vouchers.length})</span>
+                </div>
+                <Link to="/app/profile/promotions" className="text-caption font-medium text-text-link hover:underline">
+                  Kho voucher ›
+                </Link>
+              </div>
+              <div
+                ref={voucherScroll.ref}
+                onMouseDown={voucherScroll.onMouseDown}
+                onClickCapture={voucherScroll.onClickCapture}
+                className="flex max-w-full cursor-default gap-sm overflow-x-auto no-scrollbar pb-1 active:cursor-grabbing select-none"
+                role="region"
+                aria-label="Ưu đãi từ quán — kéo cuộn ngang"
+              >
+                {vouchers.map((v) => {
+                  const maxDiscount = v.maxDiscountAmount;
+                  const discountLabel = v.discountType === 'percent'
+                    ? `Giảm ${v.discountValue}%${maxDiscount ? ` (tối đa ${formatVnd(maxDiscount)})` : ''}`
+                    : `Giảm ${formatVnd(v.discountValue)}`;
+                  const isSaved = v.isSaved;
+
+                  return (
+                    <div
+                      key={v.id}
+                      className="flex min-w-[280px] shrink-0 items-center justify-between gap-3 rounded-lg border border-hairline-strong bg-surface-card p-sm transition-shadow hover:shadow-soft"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-body-sm font-bold text-ink">{v.code}</span>
+                          <Badge tone="preview">{discountLabel}</Badge>
+                        </div>
+                        <div className="mt-1 text-caption text-body truncate">
+                          {v.minOrderAmount > 0 ? `Đơn từ ${formatVnd(v.minOrderAmount)}` : 'Mọi đơn hàng'}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant={isSaved ? 'secondary' : 'primary'}
+                        disabled={isSaved}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSaveVoucher(v);
+                        }}
+                        className="!h-8 !px-3 !text-caption shrink-0"
+                      >
+                        {isSaved ? 'Đã lưu ✓' : 'Lưu'}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="mb-base">
             <div className="mb-2 flex items-center gap-xs">
               <div className="relative flex-1 md:max-w-xs">
@@ -285,7 +376,7 @@ export default function CustomerRestaurant() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-xs overflow-x-auto no-scrollbar">
+            <div className="flex max-w-full items-center gap-xs overflow-x-auto no-scrollbar">
               {activeCategories.map((c) => (
                 <button
                   key={c}

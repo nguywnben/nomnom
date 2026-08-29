@@ -47,7 +47,7 @@ export default function CustomerLayout() {
     pathname.startsWith('/app/track/');
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
+    <div className="flex min-h-screen flex-col bg-canvas overflow-x-clip">
       {/* Desktop top nav — hidden on mobile */}
       <TopNav />
 
@@ -56,7 +56,7 @@ export default function CustomerLayout() {
 
       <main
         className={clsx(
-          'flex-1',
+          'flex-1 min-w-0',
           // Add headroom on mobile so content doesn't sit under the fixed
           // bottom nav (16 + safe-area).
           !isFocusedFlow && 'pb-20 md:pb-0',

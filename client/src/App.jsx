@@ -59,6 +59,7 @@ const AdminRestaurantApprovals = lazy(() => import('./modules/admin/RestaurantAp
 const AdminPayouts = lazy(() => import('./modules/admin/Payouts.jsx'));
 const AdminOrders = lazy(() => import('./modules/admin/Orders.jsx'));
 const AdminReviewsModeration = lazy(() => import('./modules/admin/ReviewsModeration.jsx'));
+const AdminPromotions = lazy(() => import('./modules/admin/Promotions.jsx'));
 const AdminConfig = lazy(() => import('./modules/admin/Config.jsx'));
 const AdminCuisines = lazy(() => import('./modules/admin/Cuisines.jsx'));
 const AdminCustomerHome = lazy(() => import('./modules/admin/CustomerHomeManagement.jsx'));
@@ -145,6 +146,7 @@ export default function App() {
           <Route path="/admin" element={<SuspenseRoute><AdminLayout /></SuspenseRoute>}>
             <Route index element={<SuspenseRoute><AdminOverview /></SuspenseRoute>} />
             <Route path="accounts" element={<SuspenseRoute><AdminAccounts /></SuspenseRoute>} />
+            <Route path="promotions" element={<SuspenseRoute><AdminPromotions /></SuspenseRoute>} />
             <Route path="financial" element={<SuspenseRoute><AdminFinancial /></SuspenseRoute>} />
             <Route path="restaurants" element={<SuspenseRoute><AdminRestaurantApprovals /></SuspenseRoute>} />
             <Route path="payouts" element={<SuspenseRoute><AdminPayouts /></SuspenseRoute>} />

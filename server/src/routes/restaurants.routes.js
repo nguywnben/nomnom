@@ -340,15 +340,24 @@ router.get('/:id/vouchers', async (req, res, next) => {
       return res.status(404).json({ error: 'Không tìm thấy quán ăn' });
     }
 
+    const userId = req.auth?.userId || null;
     const [rows] = await pool.query(
-      `SELECT *
-         FROM vouchers
-        WHERE status = 'active'
-          AND starts_at <= NOW()
-          AND ends_at >= NOW()
-          AND (restaurant_id IS NULL OR restaurant_id = ?)
-        ORDER BY ends_at ASC, created_at DESC`,
-      [restaurant.id],
+      `SELECT v.*,
+              (csv.id IS NOT NULL) AS is_saved,
+              COALESCE((
+                SELECT COUNT(*)
+                FROM voucher_redemptions vr
+                WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
+              ), 0) AS used_count
+         FROM vouchers v
+         LEFT JOIN customer_saved_vouchers csv ON csv.voucher_id = v.id AND csv.customer_id = ?
+        WHERE v.status = 'active'
+          AND (v.is_public = 1 OR v.is_public IS NULL)
+          AND v.starts_at <= NOW()
+          AND v.ends_at >= NOW()
+          AND (v.restaurant_id IS NULL OR v.restaurant_id = ?)
+        ORDER BY (v.restaurant_id IS NOT NULL) DESC, v.ends_at ASC, v.created_at DESC`,
+      [userId, restaurant.id],
     );
 
     res.json({
@@ -362,7 +371,10 @@ router.get('/:id/vouchers', async (req, res, next) => {
         discountValue: Number(row.discount_value),
         maxDiscountAmount: row.max_discount_amount === null ? null : Number(row.max_discount_amount),
         minOrderAmount: Number(row.min_order_amount ?? 0),
+        usageLimit: row.usage_limit === null ? null : Number(row.usage_limit),
+        usedCount: Number(row.used_count || 0),
         perUserLimit: Number(row.per_user_limit ?? 1),
+        isSaved: Boolean(row.is_saved),
         startsAt: row.starts_at,
         endsAt: row.ends_at,
       })),

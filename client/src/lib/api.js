@@ -215,6 +215,11 @@ export function fetchHomePromos() {
   return apiGet('/api/v1/home/promos');
 }
 
+/** Danh sách voucher công khai trên trang chủ — GET /api/v1/home/vouchers */
+export function fetchHomeVouchersApi() {
+  return apiGet('/api/v1/home/vouchers');
+}
+
 /** Đăng ký đối tác nhà hàng mới — POST /api/v1/merchant/apply */
 export function applyMerchantApi(data) {
   return apiPost('/api/v1/merchant/apply', data);
@@ -437,6 +442,31 @@ export function validateVoucherApi(code, subtotal) {
 
 export function fetchMyVouchersApi() {
   return apiGet('/api/v1/me/vouchers');
+}
+
+export function saveVoucherApi(payload) {
+  return apiPost('/api/v1/me/vouchers/save', payload);
+}
+
+export function fetchAdminVouchersApi(params = {}) {
+  const query = new URLSearchParams();
+  if (params.q) query.set('q', params.q);
+  if (params.status) query.set('status', params.status);
+  if (params.scope) query.set('scope', params.scope);
+  const qStr = query.toString();
+  return apiGet(`/api/v1/admin/vouchers${qStr ? `?${qStr}` : ''}`);
+}
+
+export function createAdminVoucherApi(body) {
+  return apiPost('/api/v1/admin/vouchers', body);
+}
+
+export function updateAdminVoucherApi(id, body) {
+  return apiPatch(`/api/v1/admin/vouchers/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteAdminVoucherApi(id) {
+  return apiDelete(`/api/v1/admin/vouchers/${encodeURIComponent(id)}`);
 }
 
 /** Top quán nổi bật — GET /api/v1/home/featured-restaurants */

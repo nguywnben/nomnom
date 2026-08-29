@@ -145,9 +145,16 @@ router.post('/', requireAuth, async (req, res, next) => {
     const discount_amount = voucherDiscount;
     const total_amount = Math.max(0, subtotal + delivery_fee - discount_amount);
 
-    const platform_commission = Math.floor(subtotal * Number(restaurant.commission_rate) / 100);
-    const merchant_earning = subtotal - platform_commission;
-    // NomNom chưa có luồng đối soát đối tác giao vận; toàn bộ phí giao hàng thuộc nền tảng.
+    // HẠCH TOÁN DOANH THU & DÒNG TIỀN CHUẨN:
+    // Nếu mã do Quán ăn tạo (voucher.restaurant_id !== null) -> Quán tự chịu phần giảm giá.
+    // Nếu mã do Sàn tài trợ (voucher.restaurant_id === null) -> Sàn chi trả khuyến mãi, Quán hưởng trọn giá gốc món.
+    const isMerchantVoucher = voucher && voucher.restaurant_id !== null;
+    const merchantBillableSubtotal = isMerchantVoucher
+      ? Math.max(0, subtotal - discount_amount)
+      : subtotal;
+    const platform_commission = Math.floor(merchantBillableSubtotal * Number(restaurant.commission_rate) / 100);
+    const merchant_earning = merchantBillableSubtotal - platform_commission;
+    // Phí dịch vụ nền tảng (hoa hồng sàn + phí giao hàng)
     const platform_fee = platform_commission + delivery_fee;
 
     // 5. Tính toán khoảng cách và thời gian giao hàng dự kiến

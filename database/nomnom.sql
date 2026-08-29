@@ -212,6 +212,27 @@ LOCK TABLES `customer_profiles` WRITE;
 INSERT INTO `customer_profiles` VALUES (2,1,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(3,NULL,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(4,NULL,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(6,NULL,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(7,NULL,'vi',0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(8,NULL,'vi',0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(15,3,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(16,4,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(17,5,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(18,6,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(19,7,'vi',0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(20,8,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(21,9,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(22,10,'vi',1,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(100,NULL,'vi',1,'2026-05-21 21:55:26','2026-05-21 21:55:26'),(102,NULL,'vi',1,'2026-05-21 22:31:26','2026-05-21 22:31:26'),(103,NULL,'vi',1,'2026-05-22 20:41:26','2026-05-22 20:41:26');
 /*!40000 ALTER TABLE `customer_profiles` ENABLE KEYS */;
 UNLOCK TABLES;
+DROP TABLE IF EXISTS `customer_saved_vouchers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `customer_saved_vouchers` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `customer_id` bigint unsigned NOT NULL,
+  `voucher_id` bigint unsigned NOT NULL,
+  `saved_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_customer_voucher` (`customer_id`,`voucher_id`),
+  KEY `idx_customer` (`customer_id`),
+  KEY `idx_voucher` (`voucher_id`),
+  CONSTRAINT `fk_saved_vouchers_customer` FOREIGN KEY (`customer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_saved_vouchers_voucher` FOREIGN KEY (`voucher_id`) REFERENCES `vouchers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+LOCK TABLES `customer_saved_vouchers` WRITE;
+/*!40000 ALTER TABLE `customer_saved_vouchers` DISABLE KEYS */;
+/*!40000 ALTER TABLE `customer_saved_vouchers` ENABLE KEYS */;
+UNLOCK TABLES;
 DROP TABLE IF EXISTS `driver_assignments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -941,6 +962,7 @@ CREATE TABLE `vouchers` (
   `starts_at` datetime NOT NULL,
   `ends_at` datetime NOT NULL,
   `status` enum('draft','active','paused') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',
+  `is_public` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -957,7 +979,7 @@ CREATE TABLE `vouchers` (
 
 LOCK TABLES `vouchers` WRITE;
 /*!40000 ALTER TABLE `vouchers` DISABLE KEYS */;
-INSERT INTO `vouchers` VALUES (1,NULL,1,'NOMNOM15','NOMNOM15','Giảm 15% cho đơn hàng trên NomNom.','percent',15,250000,0,NULL,1,'2026-01-01 00:00:00','2027-12-31 23:59:59','active','2026-08-12 13:18:47','2026-08-12 13:18:47'),(2,NULL,1,'NEW50K','NEW50K','Giảm 50.000 đ cho đơn hàng đầu tiên.','fixed',50000,NULL,200000,NULL,1,'2026-01-01 00:00:00','2027-12-31 23:59:59','active','2026-08-12 13:18:47','2026-08-12 13:18:47');
+INSERT INTO `vouchers` VALUES (1,NULL,1,'NOMNOM15','NOMNOM15','Giảm 15% cho đơn hàng trên NomNom.','percent',15,250000,0,NULL,1,'2026-01-01 00:00:00','2027-12-31 23:59:59','active',1,'2026-08-12 13:18:47','2026-08-12 13:18:47'),(2,NULL,1,'NEW50K','NEW50K','Giảm 50.000 đ cho đơn hàng đầu tiên.','fixed',50000,NULL,200000,NULL,1,'2026-01-01 00:00:00','2027-12-31 23:59:59','active',1,'2026-08-12 13:18:47','2026-08-12 13:18:47');
 /*!40000 ALTER TABLE `vouchers` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `wallet_transactions`;

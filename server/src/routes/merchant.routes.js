@@ -75,6 +75,7 @@ function serializeVoucher(row) {
     minOrderAmount: Number(row.min_order_amount ?? 0),
     usageLimit: row.usage_limit === null ? null : Number(row.usage_limit),
     perUserLimit: Number(row.per_user_limit ?? 1),
+    isPublic: Boolean(row.is_public ?? 1),
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     status: row.status,
@@ -93,6 +94,7 @@ function validateVoucherPayload(body) {
   const minOrderAmount = Number(body?.minOrderAmount ?? 0);
   const usageLimit = parseNullableNumber(body?.usageLimit);
   const perUserLimit = Number(body?.perUserLimit ?? 1);
+  const isPublic = body?.isPublic === false || body?.isPublic === 0 || body?.isPublic === 'false' ? 0 : 1;
   const startsAt = String(body?.startsAt ?? '').trim();
   const endsAt = String(body?.endsAt ?? '').trim();
   const status = String(body?.status ?? 'draft').trim().toLowerCase();
@@ -1256,8 +1258,8 @@ router.post('/me/vouchers', requireAuth, ensureMerchant, async (req, res, next) 
       `INSERT INTO vouchers (
         restaurant_id, created_by_user_id, code, name, description,
         discount_type, discount_value, max_discount_amount, min_order_amount,
-        usage_limit, per_user_limit, starts_at, ends_at, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        usage_limit, per_user_limit, is_public, starts_at, ends_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
         restaurant.id,
         req.auth.userId,
@@ -1270,6 +1272,7 @@ router.post('/me/vouchers', requireAuth, ensureMerchant, async (req, res, next) 
         payload.minOrderAmount,
         payload.usageLimit,
         payload.perUserLimit,
+        payload.isPublic,
         payload.startsAt,
         payload.endsAt,
         payload.status,
@@ -1310,6 +1313,7 @@ router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, n
       minOrderAmount: current.min_order_amount,
       usageLimit: current.usage_limit,
       perUserLimit: current.per_user_limit,
+      isPublic: current.is_public,
       startsAt: current.starts_at,
       endsAt: current.ends_at,
       status: current.status,
@@ -1330,7 +1334,7 @@ router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, n
       `UPDATE vouchers SET
         code = ?, name = ?, description = ?, discount_type = ?, discount_value = ?,
         max_discount_amount = ?, min_order_amount = ?, usage_limit = ?, per_user_limit = ?,
-        starts_at = ?, ends_at = ?, status = ?
+        is_public = ?, starts_at = ?, ends_at = ?, status = ?
        WHERE id = ? AND restaurant_id = ?`,
       [
         payload.code,
@@ -1342,6 +1346,7 @@ router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, n
         payload.minOrderAmount,
         payload.usageLimit,
         payload.perUserLimit,
+        payload.isPublic,
         payload.startsAt,
         payload.endsAt,
         payload.status,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import Badge from '../../../components/Badge.jsx';
@@ -6,8 +6,9 @@ import Button from '../../../components/Button.jsx';
 import Card from '../../../components/Card.jsx';
 import Icon from '../../../components/Icon.jsx';
 import Input from '../../../components/Input.jsx';
+import Tabs from '../../../components/Tabs.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
-import { fetchMyVouchersApi } from '../../../lib/api.js';
+import { fetchMyVouchersApi, saveVoucherApi } from '../../../lib/api.js';
 import { formatVnd } from '../../../lib/formatVnd.js';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 
@@ -27,23 +28,26 @@ function formatDate(dateStr) {
 
 export default function Promotions() {
   const nav = useNavigate();
-  const { pushToast, applyPromo } = useApp();
+  const { pushToast } = useApp();
   const [code, setCode] = useState('');
   const [checkingCode, setCheckingCode] = useState(false);
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+
+  const loadVouchers = async () => {
+    try {
+      const data = await fetchMyVouchersApi();
+      setVouchers(data || []);
+    } catch (err) {
+      console.error('Failed to fetch vouchers:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetchMyVouchersApi()
-      .then((data) => {
-        setVouchers(data || []);
-      })
-      .catch((err) => {
-        console.error('Failed to fetch vouchers:', err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    loadVouchers();
   }, []);
 
   const handleCheckCode = async () => {
@@ -51,19 +55,39 @@ export default function Promotions() {
     if (!trimmed) return;
     setCheckingCode(true);
     try {
-      const ok = await applyPromo(trimmed);
-      if (ok) {
-        setCode('');
-        pushToast({
-          kind: 'success',
-          title: 'Mã hợp lệ',
-          message: `Mã ${trimmed} đã sẵn sàng cho đơn hàng tiếp theo của bạn!`,
-        });
-      }
+      const res = await saveVoucherApi({ code: trimmed });
+      setCode('');
+      pushToast({
+        kind: 'success',
+        title: 'Thành công',
+        message: res.message || `Đã lưu mã ${trimmed} vào kho voucher của bạn!`,
+      });
+      await loadVouchers();
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Không thể lưu mã',
+        message: err.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn.',
+      });
     } finally {
       setCheckingCode(false);
     }
   };
+
+  const platformVouchers = useMemo(() => vouchers.filter((v) => !v.restaurantId), [vouchers]);
+  const merchantVouchers = useMemo(() => vouchers.filter((v) => Boolean(v.restaurantId)), [vouchers]);
+
+  const filteredVouchers = useMemo(() => {
+    if (activeTab === 'platform') return platformVouchers;
+    if (activeTab === 'merchant') return merchantVouchers;
+    return vouchers;
+  }, [activeTab, merchantVouchers, platformVouchers, vouchers]);
+
+  const tabItems = [
+    { key: 'all', label: `Tất cả (${vouchers.length})` },
+    { key: 'platform', label: `Mã toàn sàn (${platformVouchers.length})` },
+    { key: 'merchant', label: `Mã quán ăn (${merchantVouchers.length})` },
+  ];
 
   return (
     <div className="flex flex-col gap-base p-base md:container-page md:py-xl">
@@ -76,7 +100,7 @@ export default function Promotions() {
           <Input
             className="flex-1"
             leadingIcon="zap"
-            placeholder="Ví dụ: NOMNOM15, FREESHIP"
+            placeholder="Ví dụ: NOMNOM15, VIPKHACH50, FREESHIP"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             onKeyDown={(e) => {
@@ -95,15 +119,19 @@ export default function Promotions() {
           </Button>
         </div>
         <p className="mt-2 text-caption text-body">
-          Nhập mã voucher bạn nhận được qua Email, SMS hoặc sự kiện để lưu vào kho ưu đãi.
+          Nhập mã voucher bạn nhận được qua tin nhắn, email hoặc quà tặng độc quyền để lưu vào kho ưu đãi.
         </p>
       </Card>
 
       {/* Danh sách kho mã giảm giá */}
       <div>
-        <div className="flex items-center justify-between mb-sm">
-          <div className="text-caption-uppercase text-body">Kho Voucher của bạn ({vouchers.length})</div>
-          <span className="text-caption text-body">Cập nhật liên tục</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-sm">
+          <div className="text-caption-uppercase text-body">Kho Voucher của bạn ({filteredVouchers.length})</div>
+          <span className="text-caption text-body">Cập nhật theo thời gian thực</span>
+        </div>
+
+        <div className="mb-base">
+          <Tabs items={tabItems} active={activeTab} onChange={setActiveTab} />
         </div>
 
         <div className="flex flex-col gap-sm">
@@ -113,39 +141,58 @@ export default function Promotions() {
                 Đang tải danh sách khuyến mãi...
               </div>
             </Card>
-          ) : vouchers.length === 0 ? (
+          ) : filteredVouchers.length === 0 ? (
             <Card padded>
               <div className="text-body-sm text-body py-8 text-center">
-                Hiện tại chưa có mã khuyến mãi nào. Hãy quay lại sau nhé!
+                {activeTab === 'merchant'
+                  ? 'Bạn chưa lưu mã khuyến mãi nào của quán ăn. Hãy khám phá thực đơn quán yêu thích để lưu mã nhé!'
+                  : 'Hiện tại chưa có mã khuyến mãi nào trong mục này.'}
               </div>
             </Card>
           ) : (
-            vouchers.map((p) => {
+            filteredVouchers.map((p) => {
               const maxDiscount = p.max_discount ?? p.cap;
               const hasLimit = p.usage_limit && p.usage_limit > 0;
               const usedCount = p.used_count || 0;
               const percentUsed = hasLimit
                 ? Math.min(100, Math.round((usedCount / p.usage_limit) * 100))
                 : 0;
+              const isUsable = p.is_usable !== false;
 
               return (
-                <Card key={p.code} padded className="relative overflow-hidden hover:shadow-soft transition-shadow">
+                <Card
+                  key={p.code}
+                  padded
+                  className={`relative overflow-hidden transition-shadow ${
+                    isUsable ? 'hover:shadow-soft' : 'opacity-60 bg-canvas-soft border-hairline'
+                  }`}
+                >
                   <div className="flex flex-col gap-base sm:flex-row sm:items-center sm:justify-between">
                     {/* Left: Icon & Core Details */}
                     <div className="flex items-start gap-sm min-w-0 flex-1">
-                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary border border-primary/20">
-                        <Icon name="zap" size={20} />
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-hairline-strong bg-canvas-soft text-ink">
+                        <Icon name="zap" size={18} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-title-sm font-bold text-ink font-mono tracking-wide">
+                          <span className="text-body-sm font-bold text-ink font-mono tracking-wide">
                             {p.code}
                           </span>
-                          <Badge tone={p.kind === 'percent' ? 'preview' : 'success'}>
+                          <Badge tone={!isUsable ? 'default' : p.kind === 'percent' ? 'preview' : 'success'}>
                             {p.kind === 'percent'
                               ? `Giảm ${p.amount}%${maxDiscount ? ` (tối đa ${formatVnd(maxDiscount)})` : ''}`
                               : `Giảm ${formatVnd(p.amount)}`}
                           </Badge>
+                          {p.restaurantId ? (
+                            <Badge tone="default">Quán: {p.restaurantName || 'Riêng quán'}</Badge>
+                          ) : (
+                            <Badge tone="outline">Toàn sàn</Badge>
+                          )}
+                          {!isUsable && (
+                            <Badge tone="error">
+                              {p.is_expired ? 'Hết hạn' : p.is_out_of_quota ? 'Hết lượt dùng' : 'Đã đạt giới hạn'}
+                            </Badge>
+                          )}
                         </div>
 
                         <div className="mt-1 text-body-sm font-semibold text-ink">
@@ -168,7 +215,7 @@ export default function Promotions() {
                           <div className="mt-2 flex items-center gap-2 max-w-xs">
                             <div className="flex-1 h-1.5 rounded-full bg-surface-strong overflow-hidden">
                               <div
-                                className="h-full rounded-full bg-primary"
+                                className={`h-full rounded-full ${isUsable ? 'bg-ink' : 'bg-muted'}`}
                                 style={{ width: `${percentUsed}%` }}
                               />
                             </div>
@@ -177,8 +224,8 @@ export default function Promotions() {
                             </span>
                           </div>
                         ) : (
-                          <div className="mt-1 text-caption text-success font-medium">
-                            ✓ Số lượng không giới hạn
+                          <div className="mt-1 text-caption text-body">
+                            Số lượng không giới hạn
                           </div>
                         )}
                       </div>
@@ -188,11 +235,12 @@ export default function Promotions() {
                     <div className="flex items-center gap-xs sm:flex-col sm:items-end shrink-0 border-t border-hairline pt-sm sm:border-t-0 sm:pt-0">
                       <Button
                         size="sm"
-                        variant="primary"
-                        onClick={() => nav('/app')}
+                        variant={isUsable ? 'primary' : 'secondary'}
+                        disabled={!isUsable}
+                        onClick={() => nav(p.restaurantId ? `/app/restaurant/${p.restaurantId}` : '/app')}
                         className="flex-1 sm:flex-none"
                       >
-                        Dùng ngay
+                        {isUsable ? 'Dùng ngay' : 'Hết hiệu lực'}
                       </Button>
                       <button
                         type="button"
