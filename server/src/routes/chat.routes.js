@@ -5,7 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 router.use(requireAuth);
 
-const CONVERSATION_SELECT = "SELECT c.*, o.order_code, r.name AS restaurant_name, u1.full_name AS participant_one_name, u1.avatar_url AS participant_one_avatar, u2.full_name AS participant_two_name, u2.avatar_url AS participant_two_avatar, (SELECT body FROM chat_messages lm WHERE lm.conversation_id = c.id ORDER BY lm.id DESC LIMIT 1) AS last_message, (SELECT created_at FROM chat_messages lm WHERE lm.conversation_id = c.id ORDER BY lm.id DESC LIMIT 1) AS last_message_created_at";
+const CONVERSATION_SELECT = "SELECT c.*, o.order_code, o.status AS order_status, r.name AS restaurant_name, u1.full_name AS participant_one_name, u1.avatar_url AS participant_one_avatar, u2.full_name AS participant_two_name, u2.avatar_url AS participant_two_avatar, (SELECT body FROM chat_messages lm WHERE lm.conversation_id = c.id ORDER BY lm.id DESC LIMIT 1) AS last_message, (SELECT created_at FROM chat_messages lm WHERE lm.conversation_id = c.id ORDER BY lm.id DESC LIMIT 1) AS last_message_created_at";
 const CONVERSATION_JOINS = ' FROM conversations c JOIN orders o ON o.id = c.order_id JOIN restaurants r ON r.id = c.restaurant_id JOIN users u1 ON u1.id = c.participant_one_user_id JOIN users u2 ON u2.id = c.participant_two_user_id';
 
 function isParticipant(row, userId) {
@@ -18,6 +18,7 @@ function serializeConversation(row, userId) {
     id: Number(row.id),
     orderId: Number(row.order_id),
     orderCode: row.order_code,
+    orderStatus: row.order_status || null,
     restaurantId: Number(row.restaurant_id),
     restaurantName: row.restaurant_name,
     subject: row.subject,

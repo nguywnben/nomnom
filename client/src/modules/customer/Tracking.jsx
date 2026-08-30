@@ -246,23 +246,29 @@ export default function CustomerTracking() {
         <Icon name="chevronLeft" size={14} /> Đơn hàng của tôi
       </Link>
 
-      <div className="mt-2 mb-base flex items-end justify-between">
+      <div className="mt-3 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="text-caption-uppercase text-body">Đơn hàng #{order.order_code ?? order.orderCode ?? id}</div>
-          <h1 className="text-display-lg text-ink">{isTerminal ? 'Chi tiết đơn hàng' : 'Theo dõi đơn hàng'}</h1>
+          <div className="text-caption-uppercase text-body font-medium">Đơn hàng #{order.order_code ?? order.orderCode ?? id}</div>
+          <h1 className="text-display-md sm:text-display-lg font-bold text-ink">{isTerminal ? 'Chi tiết đơn hàng' : 'Theo dõi đơn hàng'}</h1>
           {error && <p className="mt-1 text-caption text-warning">{error}</p>}
         </div>
-        <Badge tone={orderStatusTone(activeStatus)} dot>
-          {orderStatusLabel(activeStatus)}
-        </Badge>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-xs">
-        {!isTerminal && (
-          <Button size="sm" variant="secondary" leadingIcon="chat" loading={chatting} onClick={openChat}>
-            Chat với quán
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge tone={orderStatusTone(activeStatus)} dot size="md">
+            {orderStatusLabel(activeStatus)}
+          </Badge>
+          {!isTerminal && (
+            <Button
+              size="sm"
+              variant="secondary"
+              leadingIcon="chat"
+              loading={chatting}
+              onClick={openChat}
+              className="rounded-lg shadow-xs hover:border-primary hover:text-primary transition-all"
+            >
+              Chat với quán
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
@@ -412,7 +418,23 @@ export default function CustomerTracking() {
               })}
             </div>
             <div className="mt-base grid gap-sm border-t border-hairline pt-base text-body-sm md:grid-cols-2">
-              <div><div className="text-caption-uppercase text-body">Quán ăn</div><div className="mt-1 text-ink">{order.restaurant?.name ?? order.restaurant_name ?? 'Quán ăn đối tác'}</div></div>
+              <div>
+                <div className="text-caption-uppercase text-body">Quán ăn</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="font-semibold text-ink">{order.restaurant?.name ?? order.restaurant_name ?? 'Quán ăn đối tác'}</span>
+                  {!isTerminal && (
+                    <button
+                      type="button"
+                      onClick={openChat}
+                      disabled={chatting}
+                      className="inline-flex items-center gap-1 rounded bg-canvas-soft px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Icon name="chat" size={12} />
+                      Nhắn tin
+                    </button>
+                  )}
+                </div>
+              </div>
               <div><div className="text-caption-uppercase text-body">Thanh toán</div><div className="mt-1 text-ink">{(order.payment_method ?? order.paymentMethod) === 'vnpay' ? 'VNPay' : 'Thanh toán khi nhận hàng'}</div></div>
               <div><div className="text-caption-uppercase text-body">Giao đến</div><div className="mt-1 text-ink">{order.delivery_address ?? order.deliveryAddress ?? 'Địa chỉ đã chọn khi đặt đơn'}</div></div>
             </div>

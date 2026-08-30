@@ -419,7 +419,7 @@ export default function CustomerCheckout() {
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [isAddingNewAddress, newLine1, selectedWardName, selectedProvinceName, newCoordinates, pushToast]);
 
-  if (!cart?.items?.length) {
+  if (!cart?.items?.length && !placing) {
     return (
       <div className="container-page py-section">
         <EmptyState
@@ -522,6 +522,7 @@ export default function CustomerCheckout() {
       });
       if (payment === 'vnpay') {
         const payRes = await apiPost('/api/v1/payments/vnpay', { orderId: res.order.id });
+        clearCart();
         window.location.href = payRes.paymentUrl;
       } else {
         clearCart();

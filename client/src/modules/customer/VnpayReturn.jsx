@@ -10,7 +10,7 @@ import { apiGet } from '../../lib/api.js';
 export default function VnpayReturn() {
   const [params] = useSearchParams();
   const nav = useNavigate();
-  const { clearCart } = useApp();
+  const { clearCart, pushToast } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('failed');
@@ -44,10 +44,19 @@ export default function VnpayReturn() {
             return;
           }
           if (!result.pending) {
-            setStatus(responseCode === '24' ? 'cancelled' : 'failed');
-            setOrderCode(result.orderCode || gatewayReference);
-            setErrorReason(result.reason || 'Payment verification failed.');
+            const isCancel = responseCode === '24';
+            const finalCode = result.orderCode || gatewayReference;
+            setStatus(isCancel ? 'cancelled' : 'failed');
+            setOrderCode(finalCode);
+            setErrorReason(result.reason || (isCancel ? 'Bạn đã hủy giao dịch trên cổng thanh toán VNPay.' : 'Giao dịch thanh toán không thành công.'));
             setLoading(false);
+
+            // Gửi toast thông báo ngữ cảnh
+            pushToast({
+              kind: 'warning',
+              title: isCancel ? 'Giao dịch thanh toán đã hủy' : 'Thanh toán chưa thành công',
+              message: `Đơn hàng #${finalCode} vẫn được tạm giữ trong 30 phút. Bạn có thể thanh toán lại tại mục Đơn hàng.`,
+            });
             return;
           }
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -61,7 +70,7 @@ export default function VnpayReturn() {
       } catch (error) {
         if (!disposed) {
           setStatus('failed');
-          setErrorReason(error.message || 'Payment verification failed.');
+          setErrorReason(error.message || 'Xác thực thanh toán thất bại.');
           setLoading(false);
         }
       }
@@ -71,12 +80,12 @@ export default function VnpayReturn() {
     return () => {
       disposed = true;
     };
-  }, [params]);
+  }, [params, pushToast]);
 
   useEffect(() => {
-    if (status !== 'succeeded') return;
+    // Luôn xóa giỏ hàng vì đơn hàng đã được tạo thành công trong hệ thống
     clearCart({ localOnly: true });
-  }, [clearCart, status]);
+  }, [clearCart]);
 
   useEffect(() => {
     if (status !== 'succeeded') return undefined;
@@ -112,8 +121,8 @@ export default function VnpayReturn() {
     if (status === 'failed') {
       return {
         icon: 'alert',
-        title: 'Thanh toán thất bại',
-        message: errorReason || 'Giao dịch không thành công. Vui lòng thử lại hoặc dùng phương thức khác.',
+        title: 'Thanh toán chưa thành công',
+        message: errorReason || 'Giao dịch qua cổng VNPay chưa hoàn tất. Đơn hàng vẫn được lưu trong 30 phút để bạn có thể thanh toán lại.',
         toneBg: 'bg-[#fbeaea] text-error',
         primary: orderCode
           ? { label: 'Thanh toán lại đơn này', to: `/app/track/${orderCode}` }
@@ -124,10 +133,10 @@ export default function VnpayReturn() {
     return {
       icon: 'x',
       title: 'Bạn đã hủy thanh toán',
-      message: 'Đơn hàng vẫn được lưu — bạn có thể quay lại thanh toán bất cứ lúc nào.',
+      message: 'Giao dịch đã được hủy. Đơn hàng vẫn được tạm giữ trong 30 phút — bạn có thể quay lại thanh toán bất cứ lúc nào.',
       toneBg: 'bg-canvas-soft text-ink',
       primary: orderCode
-        ? { label: 'Tiếp tục thanh toán', to: `/app/track/${orderCode}` }
+        ? { label: 'Thanh toán lại đơn này', to: `/app/track/${orderCode}` }
         : { label: 'Xem đơn hàng', to: '/app/orders' },
       secondary: { label: 'Về trang chủ', to: '/app' },
     };

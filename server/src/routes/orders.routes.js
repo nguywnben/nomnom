@@ -271,13 +271,11 @@ router.post('/', requireAuth, async (req, res, next) => {
       );
     }
 
-    // 8. Đổi giỏ hàng sang converted (Xóa cứng) - chỉ xóa cho COD. Với VNPay sẽ xóa khi thanh toán thành công
-    if (paymentMethod === 'cod') {
-      await connection.query(
-        `DELETE FROM carts WHERE id = ?`,
-        [cart.id]
-      );
-    }
+    // 8. Đổi giỏ hàng sang converted (Xóa cứng) - xóa giỏ hàng ngay khi đã tạo đơn hàng thành công
+    await connection.query(
+      `DELETE FROM carts WHERE id = ?`,
+      [cart.id]
+    );
 
     // Truy vấn lại thông tin đơn hàng vừa lưu
     const [orders] = await connection.query(

@@ -9,6 +9,7 @@ import Modal from '../../components/Modal.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Icon from '../../components/Icon.jsx';
+import Input from '../../components/Input.jsx';
 import { apiGet } from '../../lib/api.js';
 import { cancelMyOrderApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -92,12 +93,16 @@ export default function CustomerOrders() {
 
   return (
     <div className="container-page py-xl">
-      <div className="mb-base flex flex-col justify-between gap-base md:flex-row md:items-end">
-        <div>
-          <div className="text-caption-uppercase text-body">Lịch sử</div>
-          <h1 className="text-display-lg text-ink">Đơn hàng của bạn</h1>
-        </div>
-        <div className="shrink-0">
+      {/* Page Header */}
+      <div className="mb-5">
+        <div className="text-caption-uppercase text-body font-medium">Lịch sử</div>
+        <h1 className="text-display-lg font-bold text-ink">Đơn hàng của bạn</h1>
+      </div>
+
+      {/* Unified Filter & Search Toolbar */}
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        {/* Status Tabs */}
+        <div className="overflow-x-auto pb-1 md:pb-0">
           <Tabs
             items={[
               { value: 'all', label: 'Tất cả' },
@@ -113,24 +118,27 @@ export default function CustomerOrders() {
             }}
           />
         </div>
-      </div>
 
-      <div className="mb-base flex max-w-md items-center gap-xs">
-        <div className="relative flex-1">
-          <Icon name="search" size={16} className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body" />
-          <input
+        {/* Search input */}
+        <div className="w-full sm:w-72 md:w-80 shrink-0">
+          <Input
+            leadingIcon="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm theo mã đơn hoặc tên quán…"
             aria-label="Tìm đơn hàng"
-            className="h-11 w-full rounded-md border border-hairline-strong bg-surface-card pl-10 pr-base text-body-sm text-ink outline-none placeholder:text-muted"
+            className="w-full"
+            trailingButton={
+              q
+                ? {
+                    icon: 'close',
+                    onClick: () => setQ(''),
+                    'aria-label': 'Xoá tìm kiếm',
+                  }
+                : undefined
+            }
           />
         </div>
-        {q && (
-          <Button variant="ghost" size="sm" onClick={() => setQ('')}>
-            Xoá
-          </Button>
-        )}
       </div>
 
       {loading ? (

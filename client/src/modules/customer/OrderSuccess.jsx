@@ -6,12 +6,19 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet } from '../../lib/api.js';
+import { useApp } from '../../context/AppContext.jsx';
 
 export default function OrderSuccess() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState('');
   const nav = useNavigate();
+  const { clearCart } = useApp();
+
+  useEffect(() => {
+    // Đảm bảo xóa sạch giỏ hàng khi người dùng đã đặt đơn thành công
+    clearCart({ localOnly: true });
+  }, [clearCart]);
 
   useEffect(() => {
     let active = true;
