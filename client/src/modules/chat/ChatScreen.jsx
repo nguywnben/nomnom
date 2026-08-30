@@ -239,30 +239,16 @@ export default function ChatScreen() {
       {/* Main Container */}
       <main className="flex-1 container-page mx-auto w-full px-3 sm:px-4 py-4 sm:py-6">
         {/* Breadcrumb / Section Title */}
-        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
-                <Icon name="chat" size={18} />
-              </div>
-              <h1 className="text-title-md font-bold text-ink">Hộp thư & Trò chuyện</h1>
-            </div>
-            <p className="mt-0.5 text-caption text-body">
-              Trao đổi trực tiếp với quán ăn và khách hàng theo từng đơn hàng cụ thể
-            </p>
-          </div>
-
+        <div className="mb-4">
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              leadingIcon="arrowPath"
-              onClick={() => loadConversations()}
-              className="text-caption"
-            >
-              Làm mới
-            </Button>
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
+              <Icon name="chat" size={18} />
+            </div>
+            <h1 className="text-title-md font-bold text-ink">Hộp thư & Trò chuyện</h1>
           </div>
+          <p className="mt-0.5 text-caption text-body">
+            Trao đổi trực tiếp với quán ăn và khách hàng theo từng đơn hàng cụ thể
+          </p>
         </div>
 
         {error && (
@@ -455,7 +441,7 @@ export default function ChatScreen() {
 
                   {/* Multi-order switcher if this partner has multiple conversations */}
                   {activeGroup && activeGroup.conversations.length > 1 && (
-                    <div className="mt-2.5 flex items-center gap-2 overflow-x-auto border-t border-hairline pt-2">
+                    <div className="mt-2.5 flex items-center gap-2 overflow-x-auto border-t border-hairline pt-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                       <span className="text-[11px] font-medium text-body shrink-0">Chuyển đơn ({activeGroup.conversations.length}):</span>
                       {activeGroup.conversations.map((c) => {
                         const isCurrent = activeId === c.id;
@@ -594,15 +580,14 @@ export default function ChatScreen() {
                       placeholder={`Nhắn tin cho ${active.restaurantName || other?.name || 'đối tác'}...`}
                       className="h-11 min-w-0 flex-1 rounded-xl border border-hairline-strong bg-canvas-subtle/50 px-4 text-body-sm text-ink placeholder:text-body focus:border-primary focus:bg-surface-card focus:outline-none transition-all"
                     />
-                    <Button
+                    <button
                       type="submit"
-                      variant="primary"
                       disabled={!text.trim() || sending}
-                      className="h-11 px-4 rounded-xl shrink-0"
+                      aria-label="Gửi tin nhắn"
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-on-primary shadow-xs transition-all hover:bg-primary-active active:scale-95 disabled:cursor-not-allowed disabled:bg-muted-soft disabled:text-canvas"
                     >
                       <Icon name={sending ? 'spinner' : 'send'} size={18} className={sending ? 'animate-spin' : ''} />
-                      <span className="hidden sm:inline">Gửi</span>
-                    </Button>
+                    </button>
                   </form>
                   <div className="mt-1 text-center text-[11px] text-body hidden sm:block">
                     Nhấn <kbd className="rounded bg-canvas-soft px-1 border border-hairline text-ink">Enter</kbd> để gửi tin nhắn

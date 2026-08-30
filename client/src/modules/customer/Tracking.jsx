@@ -8,6 +8,7 @@ import Image from '../../components/Image.jsx';
 import { apiGet, apiPost, confirmOrderDeliveryApi, createOrderConversationApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { orderStatusLabel, orderStatusTone } from '../../lib/orderStatus.js';
+import { useApp } from '../../context/AppContext.jsx';
 
 const STEPS = [
   { id: 'placed', label: 'Đã đặt', icon: 'check' },
@@ -97,30 +98,14 @@ export default function CustomerTracking() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    if (!order) return undefined;
-    const etaStr = order.estimated_delivery_at ?? order.estimatedDeliveryAt;
-    if (!etaStr || ['delivered', 'cancelled', 'failed', 'expired'].includes(order.status)) {
-      setEtaLeft(0);
-      return undefined;
-    }
-    const target = new Date(etaStr).getTime();
-    if (Number.isNaN(target)) return undefined;
-    const tick = () => setEtaLeft(Math.max(0, target - Date.now()));
-    tick();
-    const interval = window.setInterval(tick, 1000);
-    return () => window.clearInterval(interval);
-  }, [order]);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
-  const formatEtaCountdown = (ms) => {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    const mm = String(m).padStart(2, '0');
-    const ss = String(s).padStart(2, '0');
-    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-  };
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowTick(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const { openChatPopup } = useApp();
 
   const openChat = async () => {
     if (!order || chatting) return;
@@ -128,7 +113,11 @@ export default function CustomerTracking() {
     try {
       const res = await createOrderConversationApi(order.id, 'merchant');
       const conversationId = res?.conversation?.id ?? res?.id;
-      nav(`/chat/${conversationId}`);
+      if (openChatPopup) {
+        openChatPopup(conversationId);
+      } else {
+        nav(`/chat/${conversationId}`);
+      }
     } catch (err) {
       setError(err.message || 'Không thể mở trò chuyện với quán.');
     } finally {
@@ -224,6 +213,54 @@ export default function CustomerTracking() {
     });
     return map;
   }, [timeline]);
+
+  const etaInfo = useMemo(() => {
+    if (!order) return null;
+    if (['pending_payment', 'payment_failed'].includes(order.status)) {
+      return {
+        type: 'unpaid',
+        text: 'Thời gian giao hàng sẽ được tính sau khi hoàn tất thanh toán',
+      };
+    }
+    if (order.status === 'delivered') {
+      const deliveredTime = order.delivered_at || timelineByStatus.get('delivered') || order.updated_at;
+      return {
+        type: 'delivered',
+        text: `Đã giao thành công lúc ${formatTime(deliveredTime)}`,
+      };
+    }
+    if (['cancelled', 'failed', 'expired'].includes(order.status)) {
+      return null;
+    }
+
+    const etaStr = order.estimated_delivery_at ?? order.estimatedDeliveryAt;
+    if (!etaStr) return null;
+
+    const baseTarget = new Date(etaStr).getTime();
+    if (Number.isNaN(baseTarget)) return null;
+
+    const diffMin = Math.round((baseTarget - nowTick) / 60000);
+
+    if (diffMin > 0) {
+      const targetTimeStr = formatTime(new Date(baseTarget));
+      return {
+        type: 'on_time',
+        title: `Dự kiến giao lúc ${targetTimeStr}`,
+        subtitle: `(khoảng ${diffMin} phút nữa)`,
+      };
+    }
+
+    // Nếu đã quá giờ dự kiến nhưng đơn chưa giao xong: Tự động giãn thêm 5 - 10 phút
+    const bufferMin = order.status === 'delivering' ? 5 : 10;
+    const adjustedTime = new Date(nowTick + bufferMin * 60000);
+    const adjustedTimeStr = formatTime(adjustedTime);
+
+    return {
+      type: 'delayed',
+      title: `Dự kiến giao khoảng ${adjustedTimeStr}`,
+      subtitle: `Món ăn có thể đến trễ vài phút do quán đang nấu hoặc tình hình giao thông`,
+    };
+  }, [order, timelineByStatus, nowTick]);
 
   if (loading) {
     return <div className="container-page py-section text-center">Đang tải...</div>;
@@ -344,33 +381,55 @@ export default function CustomerTracking() {
             </Card>
           )}
           <Card padded hover={false} className="order-2">
-            <div className="mb-base flex items-center justify-between gap-2">
+            <div className="mb-base flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
-                <div className="text-title-md text-ink">Trạng thái đơn hàng</div>
-                <p className="text-caption text-body">
-                  Dự kiến giao lúc {formatTime(order.estimated_delivery_at ?? order.estimatedDeliveryAt)}
-                </p>
-                {etaLeft > 0 && (
-                  <p className="mt-1 inline-flex items-center gap-1 text-caption font-semibold text-ink">
-                    <Icon name="clock" size={12} /> Còn {formatEtaCountdown(etaLeft)}
-                  </p>
+                <div className="text-title-md font-bold text-ink">Trạng thái đơn hàng</div>
+                {etaInfo && (
+                  <div className="mt-1">
+                    {etaInfo.type === 'unpaid' && (
+                      <p className="text-caption text-body">
+                        {etaInfo.text}
+                      </p>
+                    )}
+                    {etaInfo.type === 'delivered' && (
+                      <p className="inline-flex items-center gap-1.5 text-caption font-semibold text-success">
+                        <Icon name="check" size={14} />
+                        {etaInfo.text}
+                      </p>
+                    )}
+                    {etaInfo.type === 'on_time' && (
+                      <div className="flex flex-wrap items-center gap-1.5 text-caption">
+                        <span className="font-bold text-ink">{etaInfo.title}</span>
+                        <span className="text-body font-medium">{etaInfo.subtitle}</span>
+                      </div>
+                    )}
+                    {etaInfo.type === 'delayed' && (
+                      <div className="flex flex-col gap-0.5 text-caption">
+                        <div className="flex items-center gap-1.5 font-bold text-warning">
+                          <Icon name="clock" size={13} />
+                          <span>{etaInfo.title}</span>
+                        </div>
+                        <span className="text-[11px] text-body">{etaInfo.subtitle}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-              <span className="text-caption text-body">
+              <span className="text-caption text-body shrink-0">
                 Cập nhật gần nhất: {formatDateTime(timelineByStatus.get(activeStatus) ?? order.updated_at ?? order.updatedAt)}
               </span>
             </div>
 
-            {!isTerminal && <ol className="space-y-3">
+            {!isTerminal && <ol className="space-y-2.5">
               {timeline.map((step) => {
                 const done = STEP_INDEX[activeStatus] >= STEP_INDEX[step.status];
                 const active = activeStatus === step.status;
 
                 return (
-                  <li key={step.status} className="flex items-start gap-3">
+                  <li key={step.status} className="flex items-center gap-3 py-0.5">
                     <div
                       className={
-                        'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-pill border-2 transition-colors ' +
+                        'grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 transition-colors ' +
                         (done
                           ? 'bg-primary border-primary text-on-primary'
                           : 'bg-surface-card border-hairline-strong text-body')
@@ -379,14 +438,14 @@ export default function CustomerTracking() {
                       <Icon name={step.status === 'preparing' || step.status === 'ready_for_pickup' ? 'package' : step.status === 'delivering' || step.status === 'picked_up' ? 'bike' : 'check'} size={16} />
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 flex flex-col justify-center">
                       <div className="flex items-center justify-between gap-3">
-                        <div className={'text-body-md font-semibold ' + (done ? 'text-ink' : 'text-body')}>
+                        <div className={'text-body-md font-semibold leading-normal ' + (done ? 'text-ink' : 'text-body')}>
                           {STEPS.find((item) => item.id === step.status)?.label ?? step.status}
                         </div>
                         <div className="text-caption text-body">{step.at ? formatTime(step.at) : active ? 'Đang cập nhật' : '--'}</div>
                       </div>
-                      {active && !isDelivered && <div className="text-caption text-success">Đang tiến hành</div>}
+                      {active && !isDelivered && <div className="text-caption text-success font-medium">Đang tiến hành</div>}
                     </div>
                   </li>
                 );
