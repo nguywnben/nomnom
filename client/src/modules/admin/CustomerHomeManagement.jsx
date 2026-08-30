@@ -78,7 +78,6 @@ export default function CustomerHomeManagement() {
           <p className="mt-xs text-body-sm text-body">Quản lý body của /app; header và footer không thay đổi ở đây.</p>
         </div>
         <div className="flex gap-xs">
-          <Button variant="secondary" leadingIcon="refresh" onClick={load}>Làm mới</Button>
           <Button leadingIcon="check" loading={saving} onClick={save}>Lưu bố cục</Button>
         </div>
       </div>

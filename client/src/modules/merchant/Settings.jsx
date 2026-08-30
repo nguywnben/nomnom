@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
@@ -35,7 +36,8 @@ const EMPTY = {
 };
 
 export default function MerchantSettings() {
-  const { pushToast } = useApp();
+  const { pushToast, setMerchantRestaurant } = useApp();
+  const outletCtx = useOutletContext();
   const [tab, setTab] = useState('profile');
   const [form, setForm] = useState(EMPTY);
   const [saved, setSaved] = useState(EMPTY);
@@ -122,6 +124,10 @@ export default function MerchantSettings() {
       const response = await updateMerchantSettingsApi(editableSettings);
       setForm(response.restaurant);
       setSaved(response.restaurant);
+      setMerchantRestaurant?.((prev) => (prev ? { ...prev, is_open_now: response.restaurant.isOpenNow } : prev));
+      if (outletCtx?.setRestaurantOpen) {
+        outletCtx.setRestaurantOpen(Boolean(response.restaurant.isOpenNow));
+      }
       setError('');
       pushToast({ kind: 'success', title: 'Đã lưu cài đặt', message: 'Thông tin mới đã được cập nhật.' });
     } catch (err) {
@@ -232,9 +238,9 @@ export default function MerchantSettings() {
       </div>
       <Modal open={addressModalOpen} onClose={() => setAddressModalOpen(false)} title="Yêu cầu đổi địa chỉ quán" size="lg">
         <div className="grid gap-sm md:grid-cols-2">
-          <Input id="request-address-line" className="md:col-span-2" label="Địa chỉ cụ thể" required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
           <Select id="request-city" label="Tỉnh/Thành phố" required value={provinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = provinces.find((value) => value.code === event.target.value); setProvinceCode(event.target.value); setWardCode(''); setAddress({ city: item?.name ?? '', district: '', ward: '' }); }} />
           <Select id="request-ward" label="Phường/Xã" required value={wardCode} disabled={!provinceCode} options={[{ value: '', label: provinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = wards.find((value) => value.code === event.target.value); setWardCode(event.target.value); setAddress({ ward: item?.name ?? '' }); }} />
+          <Input id="request-address-line" className="md:col-span-2" label="Số nhà, tên đường cụ thể" placeholder="Số nhà, tên đường cụ thể..." required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
           <p className="md:col-span-2 text-caption text-body">Địa chỉ mới chỉ có hiệu lực sau khi admin duyệt; trong lúc chờ, hệ thống vẫn dùng địa chỉ hiện tại.</p>
           <div className="flex justify-end gap-2 md:col-span-2">
             <Button variant="secondary" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>Hủy</Button>

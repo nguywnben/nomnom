@@ -35,7 +35,6 @@ export default function AdminFinancial() {
           <h1 className="text-display-lg text-ink">Báo cáo nền tảng</h1>
           <p className="mt-xs text-body-sm text-body">Dữ liệu từ các đơn đã giao và payout merchant.</p>
         </div>
-        <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button>
       </div>
 
       <Tabs className="w-fit max-w-full" items={[

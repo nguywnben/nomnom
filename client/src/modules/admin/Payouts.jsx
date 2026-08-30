@@ -98,7 +98,6 @@ export default function AdminPayouts() {
           <h1 className="text-display-lg text-ink">Duyệt rút tiền</h1>
           <p className="mt-xs text-body-sm text-body">Chỉ hoàn tất sau khi có mã giao dịch ngân hàng.</p>
         </div>
-        <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button>
       </div>
 
       <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">

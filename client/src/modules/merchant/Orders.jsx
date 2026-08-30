@@ -78,6 +78,15 @@ function groupOrders(orders) {
     const col = COLUMNS.find((c) => c.statuses.includes(order.status));
     if (col) buckets[col.key].push(order);
   }
+
+  // 1. Cột "Mới": Đơn đặt sớm hơn (chờ lâu hơn) nằm TRÊN CÙNG để xử lý trước (FIFO)
+  buckets.new.sort((a, b) => new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime());
+
+  // 2. Các cột "Đang làm", "Sẵn sàng giao", "Đã giao": Đơn trễ hơn (mới hơn) nằm TRÊN
+  buckets.preparing.sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+  buckets.ready.sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+  buckets.completed.sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+
   return buckets;
 }
 
@@ -258,9 +267,6 @@ export default function MerchantOrders() {
           <Badge tone="live" dot>
             {lastSyncedAt ? `Cập nhật ${lastSyncedAt.toLocaleTimeString('vi-VN')}` : 'Đang tải…'}
           </Badge>
-          <Button variant="secondary" leadingIcon="refresh" onClick={() => loadOrders()}>
-            Làm mới
-          </Button>
         </div>
       </div>
 
@@ -277,9 +283,6 @@ export default function MerchantOrders() {
                     <Badge tone={col.tone}>{col.label}</Badge>
                     <span className="text-caption text-body nums">{list.length}</span>
                   </div>
-                  {col.key === 'new' && list.length > 0 && (
-                    <Badge tone="live" dot>Cần xử lý</Badge>
-                  )}
                 </div>
 
                 {list.length === 0 ? (
@@ -348,72 +351,127 @@ export default function MerchantOrders() {
 }
 
 function OrderCard({ order, busy, onAction, onCancel, onChat, onPrint }) {
-  const minutesAgo = useMinutesAgo(order.placedAt);
+  const timeAgo = useTimeAgo(order.placedAt);
   const next = ACTIONS[order.status];
   const canCancel = ['placed', 'accepted', 'preparing', 'ready_for_pickup'].includes(order.status);
 
   return (
-    <Card padded={false} className="overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-sm pt-sm">
-        <span className="text-caption-uppercase text-body">{order.orderCode}</span>
-        <Badge tone="outline">{minutesAgo} phút trước</Badge>
+    <Card padded={false} className="overflow-hidden shadow-xs hover:shadow-sm transition-shadow">
+      <div className="flex items-center justify-between gap-2 border-b border-hairline bg-canvas-soft/60 px-sm py-2">
+        <span
+          className="font-mono text-caption font-semibold text-ink truncate max-w-[140px]"
+          title={order.orderCode}
+        >
+          {order.orderCode}
+        </span>
+        <Badge tone="outline" className="text-caption shrink-0 whitespace-nowrap">
+          {timeAgo}
+        </Badge>
       </div>
-      <div className="px-sm py-sm">
-        <div className="text-title-sm text-ink">{order.customerName}</div>
-        {order.customerPhone && order.customerPhone !== 'null' ? (
-          <div className="text-caption text-body">{order.customerPhone}</div>
-        ) : null}
-        <ul className="mt-1 space-y-0.5 text-body-sm text-body">
+
+      <div className="p-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="text-title-sm font-semibold text-ink truncate">{order.customerName}</div>
+          {order.customerPhone && order.customerPhone !== 'null' ? (
+            <span className="text-caption text-body shrink-0">{order.customerPhone}</span>
+          ) : null}
+        </div>
+
+        <ul className="mt-2 space-y-1 text-body-sm text-body">
           {order.items.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-base">
-              <span>
-                <span className="text-ink nums">{item.quantity}×</span> {item.name}
+            <li key={item.id} className="flex items-start justify-between gap-2">
+              <span className="line-clamp-2">
+                <span className="font-medium text-ink nums">{item.quantity}×</span> {item.name}
               </span>
-              <span className="nums text-body">{formatVnd(item.lineSubtotal)}</span>
+              <span className="nums text-body shrink-0">{formatVnd(item.lineSubtotal)}</span>
             </li>
           ))}
         </ul>
+
         {order.customerNote ? (
-          <div className="mt-2 rounded-md border border-hairline bg-canvas-soft px-sm py-1.5 text-caption text-body">
-            <Icon name="alert" size={11} className="mr-1 inline" /> {order.customerNote}
+          <div className="mt-2 rounded-md border border-hairline bg-canvas-soft px-sm py-1 text-caption text-body">
+            <Icon name="alert" size={11} className="mr-1 inline text-warning" /> {order.customerNote}
           </div>
         ) : null}
-        <div className="mt-sm flex items-center justify-between">
+
+        <div className="mt-sm flex items-center justify-between border-t border-hairline pt-2">
           <span className="text-caption text-body">Tổng cộng</span>
-          <span className="nums text-title-sm text-ink">{formatVnd(order.totalAmount)}</span>
+          <span className="nums text-title-sm font-bold text-ink">{formatVnd(order.totalAmount)}</span>
         </div>
       </div>
-      <div className="flex items-center gap-1 border-t border-hairline p-sm">
-          <Button variant="secondary" size="sm" leadingIcon="chat" onClick={onChat}>Nhắn khách</Button>
-          <Button variant="secondary" size="sm" leadingIcon="package" onClick={onPrint}>In phiếu</Button>
 
-          {canCancel ? (
-            <Button variant="secondary" size="sm" disabled={busy} onClick={onCancel}>
+      {/* Action footer */}
+      <div className="space-y-1.5 border-t border-hairline bg-canvas-soft/40 p-sm">
+        {next && (
+          <Button
+            size="sm"
+            className="w-full font-semibold shadow-xs"
+            disabled={busy}
+            loading={busy}
+            onClick={() => onAction(next.action)}
+          >
+            {next.label}
+          </Button>
+        )}
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon="chat"
+            className="flex-1 !px-2 text-caption font-medium"
+            onClick={onChat}
+          >
+            Nhắn tin
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon="printer"
+            className="flex-1 !px-2 text-caption font-medium"
+            onClick={onPrint}
+          >
+            In phiếu
+          </Button>
+          {canCancel && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="!px-2.5 text-caption font-medium text-error hover:bg-error-soft hover:text-error"
+              disabled={busy}
+              onClick={onCancel}
+            >
               Hủy
             </Button>
-          ) : null}
-          {next ? (
-            <Button
-              size="sm"
-              className="ml-auto"
-              disabled={busy}
-              onClick={() => onAction(next.action)}
-            >
-              {busy ? 'Đang xử lý…' : next.label}
-            </Button>
-          ) : null}
+          )}
         </div>
-
+      </div>
     </Card>
   );
 }
 
-function useMinutesAgo(timestamp) {
+function formatTimeAgo(timestamp) {
+  if (!timestamp) return '';
+  const now = Date.now();
+  const dateObj = new Date(timestamp);
+  const placed = dateObj.getTime();
+  const diffMinutes = Math.max(0, Math.round((now - placed) / 60000));
+  const timeStr = dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+  if (diffMinutes < 1) return 'Vừa xong';
+  if (diffMinutes < 60) return `${diffMinutes} phút trước`;
+  const isToday = new Date().toDateString() === dateObj.toDateString();
+  if (isToday) return timeStr;
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month} ${timeStr}`;
+}
+
+function useTimeAgo(timestamp) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(t);
   }, []);
-  const placed = timestamp ? new Date(timestamp).getTime() : now;
-  return Math.max(1, Math.round((now - placed) / 60000));
+  return formatTimeAgo(timestamp);
 }

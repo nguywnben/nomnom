@@ -239,15 +239,9 @@ export default function CustomerRestaurant() {
                       {restaurant.cuisineName}
                     </Badge>
                   )}
-                  {!isOpen && <Badge tone="error">Đóng cửa</Badge>}
                 </div>
                 <h1 className="mt-1 text-display-lg">{restaurant.name}</h1>
                 {restaurant.tagline && <div className="text-body-sm text-on-dark-soft">{restaurant.tagline}</div>}
-                {restaurant.description && restaurant.description !== restaurant.tagline && (
-                  <p className="mt-1.5 text-caption text-on-dark-soft/90 max-w-2xl line-clamp-2 leading-relaxed">
-                    {restaurant.description}
-                  </p>
-                )}
               </div>
               <div className="hidden md:flex items-center gap-2">
                 <Button variant="primary" onClick={handleShare}>

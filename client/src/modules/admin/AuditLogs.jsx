@@ -155,9 +155,6 @@ export default function AdminAuditLogs() {
             Nhật ký đối soát ghi nhận các hành động quan trọng thực hiện bởi quản trị viên.
           </p>
         </div>
-        <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>
-          Làm mới
-        </Button>
       </div>
 
       <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">

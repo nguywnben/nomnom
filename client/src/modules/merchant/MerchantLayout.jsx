@@ -21,7 +21,6 @@ const links = [
   { to: '/merchant/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/merchant/reviews', label: 'Đánh giá', icon: 'starFilled' },
   { to: '/merchant/wallet', label: 'Ví & rút tiền', icon: 'wallet' },
-  { to: '/merchant/notifications', label: 'Thông báo', icon: 'bell' },
   { to: '/merchant/settings', label: 'Cài đặt quán', icon: 'cog' },
 ];
 
@@ -34,7 +33,7 @@ const links = [
 // ---------------------------------------------------------------------------
 export default function MerchantLayout() {
   const nav = useNavigate();
-  const { currentMerchant, pushToast, logout } = useApp();
+  const { currentMerchant, pushToast, logout, setMerchantRestaurant } = useApp();
   const [checkingRestaurant, setCheckingRestaurant] = useState(true);
   const [restaurantOpen, setRestaurantOpen] = useState(true);
   const [restaurantProfile, setRestaurantProfile] = useState(null);
@@ -56,6 +55,7 @@ export default function MerchantLayout() {
           return;
         }
         setRestaurantProfile(data.restaurant);
+        setMerchantRestaurant?.(data.restaurant);
         const ordersResponse = await fetchMerchantOrdersApi({ status: 'placed' });
         if (!active) return;
         const ordersArray = Array.isArray(ordersResponse?.orders)
@@ -100,11 +100,13 @@ export default function MerchantLayout() {
     return () => {
       active = false;
     };
-  }, [logout, nav, pushToast]);
+  }, [logout, nav, pushToast, setMerchantRestaurant]);
 
   const changeOpenStatus = async (value) => {
     const previous = restaurantOpen;
     setRestaurantOpen(value);
+    setRestaurantProfile((prev) => (prev ? { ...prev, is_open_now: value } : prev));
+    setMerchantRestaurant?.((prev) => (prev ? { ...prev, is_open_now: value } : prev));
     setChangingOpen(true);
     try {
       await updateMerchantSettingsApi({ isOpenNow: value });
@@ -115,6 +117,8 @@ export default function MerchantLayout() {
       });
     } catch (error) {
       setRestaurantOpen(previous);
+      setRestaurantProfile((prev) => (prev ? { ...prev, is_open_now: previous } : prev));
+      setMerchantRestaurant?.((prev) => (prev ? { ...prev, is_open_now: previous } : prev));
       pushToast({ kind: 'error', title: 'Không thể cập nhật', message: error.message || 'Vui lòng thử lại.' });
     } finally {
       setChangingOpen(false);
@@ -147,11 +151,10 @@ export default function MerchantLayout() {
       {/* Desktop sidebar — persistent */}
       <DesktopSidebar
         currentMerchant={merchantIdentity}
+        restaurantSlug={restaurantProfile?.slug || restaurantProfile?.id}
         newCount={newCount}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((value) => !value)}
-        onSwitchRole={() => nav('/app')}
-        onLogout={() => logout()}
       />
 
       {/* Mobile drawer sidebar — off-canvas */}
@@ -164,10 +167,9 @@ export default function MerchantLayout() {
       >
         <SidebarContent
           currentMerchant={merchantIdentity}
+          restaurantSlug={restaurantProfile?.slug || restaurantProfile?.id}
           newCount={newCount}
           onItemClick={() => setDrawerOpen(false)}
-          onSwitchRole={() => nav('/app')}
-          onLogout={() => logout()}
         />
       </Drawer>
 
@@ -222,12 +224,6 @@ export default function MerchantLayout() {
             >
               Trò chuyện với khách hàng
             </Button>
-            <Button
-              leadingIcon="arrowRight"
-              onClick={() => nav('/app/restaurant/' + encodeURIComponent(restaurantProfile?.slug || restaurantProfile?.id))}
-            >
-              Xem quán ăn
-            </Button>
           </div>
         </header>
 
@@ -250,7 +246,7 @@ export default function MerchantLayout() {
         </div>
 
         <main className="flex-1 overflow-y-auto p-base md:p-xl">
-          <Outlet />
+          <Outlet context={{ restaurantOpen, setRestaurantOpen, changeOpenStatus, restaurantProfile }} />
         </main>
       </div>
     </div>
@@ -279,7 +275,7 @@ function playNewOrderBeep() {
   }
 }
 
-function DesktopSidebar({ currentMerchant, newCount, collapsed, onToggleCollapse, onSwitchRole, onLogout }) {
+function DesktopSidebar({ currentMerchant, restaurantSlug, newCount, collapsed, onToggleCollapse }) {
   return (
     <aside
       className={clsx(
@@ -305,19 +301,18 @@ function DesktopSidebar({ currentMerchant, newCount, collapsed, onToggleCollapse
       )}
       <SidebarContent
         currentMerchant={currentMerchant}
+        restaurantSlug={restaurantSlug}
         newCount={newCount}
         collapsed={collapsed}
-        onSwitchRole={onSwitchRole}
-        onLogout={onLogout}
       />
     </aside>
   );
 }
 
-function SidebarContent({ currentMerchant, newCount, collapsed = false, onItemClick, onSwitchRole, onLogout }) {
+function SidebarContent({ currentMerchant, restaurantSlug, newCount, collapsed = false, onItemClick }) {
   return (
     <>
-      <nav className="flex-1 px-sm py-2">
+      <nav className="flex-1 px-sm py-2 overflow-y-auto no-scrollbar">
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -341,37 +336,28 @@ function SidebarContent({ currentMerchant, newCount, collapsed = false, onItemCl
           </NavLink>
         ))}
       </nav>
-      {!collapsed && <div className="border-t border-hairline p-sm">
+      <div className="border-t border-hairline p-sm space-y-2">
+        {restaurantSlug && (
+          <NavLink
+            to={`/app/restaurant/${encodeURIComponent(restaurantSlug)}`}
+            onClick={onItemClick}
+            className="flex h-10 items-center gap-2 rounded-md border border-hairline-strong bg-canvas-soft px-sm text-button text-ink transition-colors hover:bg-canvas hover:border-ink/40"
+          >
+            <Icon name="store" size={16} className="shrink-0" />
+            {!collapsed && <span className="flex-1 truncate">Xem quán ăn</span>}
+            {!collapsed && <Icon name="chevronRight" size={14} className="text-body shrink-0" />}
+          </NavLink>
+        )}
         <div className="flex items-center gap-sm">
           <Avatar src={currentMerchant.avatar} name={currentMerchant.name} />
-          <div className="min-w-0 flex-1">
-            <div className="text-body-sm font-semibold text-ink truncate">{currentMerchant.name}</div>
-            <div className="text-caption text-body truncate">{currentMerchant.email}</div>
-          </div>
-          <div className="flex shrink-0 gap-0.5">
-            <button
-              type="button"
-              onClick={onSwitchRole}
-              className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
-              aria-label="Chuyển vai trò"
-              title="Chuyển vai trò"
-            >
-              <Icon name="refresh" size={14} />
-            </button>
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="grid h-9 w-9 place-items-center rounded-md text-error hover:bg-canvas-soft"
-                aria-label="Đăng xuất"
-                title="Đăng xuất"
-              >
-                <Icon name="x" size={14} />
-              </button>
-            )}
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="text-body-sm font-semibold text-ink truncate">{currentMerchant.name}</div>
+              <div className="text-caption text-body truncate">{currentMerchant.email}</div>
+            </div>
+          )}
         </div>
-      </div>}
+      </div>
     </>
   );
 }

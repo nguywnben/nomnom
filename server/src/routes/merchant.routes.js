@@ -542,13 +542,43 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'Không tìm thấy nhà hàng của đối tác này.' });
     }
 
-    const range = ['today', 'week', 'month'].includes(req.query.range) ? req.query.range : 'today';
+    const range = ['today', 'yesterday', 'week', 'month', 'custom'].includes(req.query.range) ? req.query.range : 'today';
+    let { fromDate, toDate } = req.query;
+
+    // Giới hạn thời gian tối đa: không cho chọn xa hơn 90 ngày trước
+    const maxLookbackDate = new Date();
+    maxLookbackDate.setDate(maxLookbackDate.getDate() - 90);
+    const maxLookbackStr = maxLookbackDate.toISOString().slice(0, 10);
+
+    if (fromDate && fromDate < maxLookbackStr) {
+      fromDate = maxLookbackStr;
+    }
 
     let dateConditionSql = 'placed_at >= CURDATE()';
-    if (range === 'week') {
+    let chartDaysCount = 7;
+    let chartEndDate = new Date();
+    let chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)';
+
+    if (fromDate && toDate) {
+      const fromLiteral = pool.escape(`${fromDate} 00:00:00`);
+      const toLiteral = pool.escape(`${toDate} 23:59:59`);
+      dateConditionSql = `placed_at >= ${fromLiteral} AND placed_at <= ${toLiteral}`;
+      
+      const diffMs = Math.abs(new Date(toDate) - new Date(fromDate));
+      chartDaysCount = Math.min(31, Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1));
+      chartEndDate = new Date(toDate);
+      chartDateConditionSql = `placed_at >= ${fromLiteral} AND placed_at <= ${toLiteral}`;
+    } else if (range === 'yesterday') {
+      dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND placed_at < CURDATE()';
+      chartDaysCount = 7;
+    } else if (range === 'week') {
       dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)';
+      chartDaysCount = 7;
+      chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)';
     } else if (range === 'month') {
       dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)';
+      chartDaysCount = 30;
+      chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)';
     }
 
     // 1. Summary
@@ -616,10 +646,10 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
       placedAt: o.placedAt
     }));
 
-    // 4. Chart (7 ngày gần nhất)
+    // 4. Chart
     const chartData = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
+    for (let i = chartDaysCount - 1; i >= 0; i--) {
+      const d = new Date(chartEndDate.getTime());
       d.setDate(d.getDate() - i);
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -640,7 +670,7 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
        FROM orders
        WHERE restaurant_id = ? 
          AND status = 'delivered'
-         AND placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+         AND ${chartDateConditionSql}
        GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
        ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
       [restaurantId]
@@ -700,10 +730,21 @@ router.get('/me/orders', requireAuth, ensureMerchant, async (req, res, next) => 
       return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
     }
 
-    const date = parseOrderDate(req.query.date);
+    const { fromDate, toDate } = req.query;
     const status = req.query.status ? String(req.query.status).trim() : null;
 
-    const params = [restaurant.id, date];
+    let dateSql = '';
+    const params = [restaurant.id];
+
+    if (fromDate && toDate) {
+      dateSql = ' AND o.placed_at >= ? AND o.placed_at <= ?';
+      params.push(`${fromDate} 00:00:00`, `${toDate} 23:59:59`);
+    } else {
+      const date = parseOrderDate(req.query.date);
+      dateSql = ' AND DATE(o.placed_at) = ?';
+      params.push(date);
+    }
+
     let statusSql = '';
     if (status) {
       if (['pending_payment', 'payment_failed', 'expired'].includes(status)) {
@@ -720,7 +761,7 @@ router.get('/me/orders', requireAuth, ensureMerchant, async (req, res, next) => 
        FROM orders o
        JOIN users u ON u.id = o.customer_id
        WHERE o.restaurant_id = ?
-         AND DATE(o.placed_at) = ?
+         ${dateSql}
          ${statusSql}
        ORDER BY o.placed_at DESC`,
       params,

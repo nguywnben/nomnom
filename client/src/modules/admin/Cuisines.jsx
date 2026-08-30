@@ -111,7 +111,7 @@ export default function AdminCuisines() {
           <h1 className="text-display-lg text-ink">Loại hình ẩm thực</h1>
           <p className="mt-xs text-body-sm text-body">Quản lý danh sách hiển thị cho khách hàng và biểu mẫu đăng ký quán.</p>
         </div>
-        <div className="flex gap-xs"><Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button><Button leadingIcon="plus" onClick={openCreate}>Thêm loại</Button></div>
+        <Button leadingIcon="plus" onClick={openCreate}>Thêm loại</Button>
       </div>
 
       {error && <div className="rounded-md border border-error bg-[#fbeaea] p-sm text-body-sm text-error" role="alert">{error}</div>}

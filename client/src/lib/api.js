@@ -231,14 +231,21 @@ export function fetchMerchantRestaurantApi() {
 }
 
 /** Lấy thông tin KPI và thống kê cho Dashboard của merchant — GET /api/v1/merchant/me/dashboard */
-export function fetchMerchantDashboardApi(range = 'today') {
-  return apiGet(`/api/v1/merchant/me/dashboard?range=${range}`);
+export function fetchMerchantDashboardApi(params = 'today') {
+  const query = typeof params === 'string' ? { range: params } : (params || {});
+  const sp = new URLSearchParams();
+  if (query.range) sp.set('range', query.range);
+  if (query.fromDate) sp.set('fromDate', query.fromDate);
+  if (query.toDate) sp.set('toDate', query.toDate);
+  return apiGet(`/api/v1/merchant/me/dashboard?${sp.toString()}`);
 }
 
 /** Đơn hàng của quán — GET /api/v1/merchant/me/orders */
-export function fetchMerchantOrdersApi({ date, status } = {}) {
+export function fetchMerchantOrdersApi({ date, status, fromDate, toDate } = {}) {
   const params = new URLSearchParams();
   if (date) params.set('date', date);
+  if (fromDate) params.set('fromDate', fromDate);
+  if (toDate) params.set('toDate', toDate);
   if (status) params.set('status', status);
   const qs = params.toString();
   return apiGet(`/api/v1/merchant/me/orders${qs ? `?${qs}` : ''}`);

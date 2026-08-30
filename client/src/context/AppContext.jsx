@@ -1098,6 +1098,7 @@ export function AppProvider({ children }) {
     setDeliveryAddress,
     currentAdmin,
     merchantRestaurant,
+    setMerchantRestaurant,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

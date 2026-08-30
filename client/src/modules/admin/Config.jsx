@@ -87,7 +87,6 @@ export default function AdminConfig() {
           <h1 className="text-display-lg text-ink">Cấu hình nền tảng</h1>
           <p className="mt-xs text-body-sm text-body">Các tham số được hệ thống kiểm tra giới hạn trước khi áp dụng.</p>
         </div>
-        <Button variant="secondary" leadingIcon="refresh" loading={loading} onClick={load}>Làm mới</Button>
       </div>
 
       {error && <div className="rounded-md border border-error bg-[#fbeaea] p-sm text-body-sm text-error" role="alert">{error}</div>}

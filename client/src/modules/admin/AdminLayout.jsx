@@ -78,13 +78,10 @@ export default function AdminLayout() {
           </div>
         )}
         <SidebarLinks collapsed={collapsed} />
-        {!collapsed && (
-          <SidebarFooter
-            currentAdmin={currentAdmin}
-            onSwitchRole={() => nav('/app')}
-            onLogout={() => logout()}
-          />
-        )}
+        <SidebarFooter
+          currentAdmin={currentAdmin}
+          collapsed={collapsed}
+        />
       </aside>
 
       {/* Mobile drawer sidebar */}
@@ -98,8 +95,7 @@ export default function AdminLayout() {
         <SidebarLinks collapsed={false} onItemClick={() => setDrawerOpen(false)} />
         <SidebarFooter
           currentAdmin={currentAdmin}
-          onSwitchRole={() => nav('/app')}
-          onLogout={() => logout()}
+          onItemClick={() => setDrawerOpen(false)}
         />
       </Drawer>
 
@@ -145,7 +141,7 @@ export default function AdminLayout() {
 
 function SidebarLinks({ collapsed, onItemClick }) {
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-sm py-2">
+    <nav className="flex flex-1 flex-col gap-1 px-sm py-2 overflow-y-auto no-scrollbar">
       {links.map((l) => (
         <NavLink
           key={l.to}
@@ -167,37 +163,26 @@ function SidebarLinks({ collapsed, onItemClick }) {
   );
 }
 
-function SidebarFooter({ currentAdmin, onSwitchRole, onLogout }) {
+function SidebarFooter({ currentAdmin, collapsed = false, onItemClick }) {
   return (
-    <div className="border-t border-hairline p-sm">
+    <div className="border-t border-hairline p-sm space-y-2">
+      <NavLink
+        to="/app"
+        onClick={onItemClick}
+        className="flex h-10 items-center gap-2 rounded-md border border-hairline-strong bg-canvas-soft px-sm text-button text-ink transition-colors hover:bg-canvas hover:border-ink/40"
+      >
+        <Icon name="user" size={16} className="shrink-0" />
+        {!collapsed && <span className="flex-1 truncate">Trang khách hàng</span>}
+        {!collapsed && <Icon name="chevronRight" size={14} className="text-body shrink-0" />}
+      </NavLink>
       <div className="flex items-center gap-sm">
         <Avatar src={currentAdmin.avatar} name={currentAdmin.name} />
-        <div className="min-w-0 flex-1">
-          <div className="text-body-sm font-semibold text-ink truncate">{currentAdmin.name}</div>
-          <div className="text-caption text-body truncate">{currentAdmin.role}</div>
-        </div>
-        <div className="flex shrink-0 gap-0.5">
-          <button
-            type="button"
-            onClick={onSwitchRole}
-            className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
-            aria-label="Chuyển vai trò"
-            title="Chuyển vai trò"
-          >
-            <Icon name="refresh" size={14} />
-          </button>
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="grid h-9 w-9 place-items-center rounded-md text-error hover:bg-canvas-soft"
-              aria-label="Đăng xuất"
-              title="Đăng xuất"
-            >
-              <Icon name="x" size={14} />
-            </button>
-          )}
-        </div>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <div className="text-body-sm font-semibold text-ink truncate">{currentAdmin.name}</div>
+            <div className="text-caption text-body truncate">{currentAdmin.role}</div>
+          </div>
+        )}
       </div>
     </div>
   );

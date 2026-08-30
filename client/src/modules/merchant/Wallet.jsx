@@ -70,7 +70,6 @@ export default function MerchantWallet() {
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-sm">
         <div><div className="text-caption-uppercase text-body">Tài chính</div><h1 className="text-display-lg text-ink">Ví quán & rút tiền</h1></div>
-        <Button variant="secondary" leadingIcon="refresh" onClick={load} loading={loading}>Làm mới</Button>
       </div>
 
       <Card padded variant="dark" className="grid gap-base md:grid-cols-[1fr_auto] md:items-center">
