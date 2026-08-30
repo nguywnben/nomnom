@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import Avatar from '../../components/Avatar.jsx';
@@ -42,6 +42,7 @@ export default function ChatWidget() {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const suggestionScroll = useHorizontalDragScroll();
+  const widgetInitialScrollDoneRef = useRef(false);
 
   // 1. Tải danh sách các cuộc trò chuyện
   const loadConversations = useCallback(async (silent = false) => {
@@ -82,17 +83,23 @@ export default function ChatWidget() {
   // Polling tin nhắn mỗi 3s khi đang mở activeChatId
   useEffect(() => {
     if (!chatOpen || !activeChatId || !user) return undefined;
+    widgetInitialScrollDoneRef.current = false;
     loadMessages(activeChatId);
     const timer = window.setInterval(() => loadMessages(activeChatId, true), 3000);
     return () => window.clearInterval(timer);
   }, [chatOpen, activeChatId, loadMessages, user]);
 
   // Tự động cuộn xuống cuối khi có tin nhắn mới
-  useEffect(() => {
-    if (chatOpen && activeChatId) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  useLayoutEffect(() => {
+    if (chatOpen && activeChatId && messages.length) {
+      if (!widgetInitialScrollDoneRef.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        widgetInitialScrollDoneRef.current = true;
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-  }, [messages, chatOpen, activeChatId]);
+  }, [messages.length, chatOpen, activeChatId]);
 
   // 3. Gửi tin nhắn
   const handleSend = async (customText = null) => {

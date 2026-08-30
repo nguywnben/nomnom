@@ -514,7 +514,7 @@ export default function CustomerTracking() {
               </p>
               <Button
                 className="mt-sm w-full"
-                onClick={() => nav('/app/reviews/write/' + order.id)}
+                onClick={() => nav('/app/reviews/write/' + order.id, { state: { from: `/app/track/${order.order_code || order.orderCode || order.id}` } })}
               >
                 Để lại đánh giá
               </Button>

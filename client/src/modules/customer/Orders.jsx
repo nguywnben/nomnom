@@ -100,44 +100,54 @@ export default function CustomerOrders() {
       </div>
 
       {/* Unified Filter & Search Toolbar */}
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        {/* Status Tabs */}
-        <div className="overflow-x-auto pb-1 md:pb-0">
-          <Tabs
-            items={[
-              { value: 'all', label: 'Tất cả' },
-              { value: 'pending', label: 'Chờ thanh toán' },
-              { value: 'active', label: 'Đang giao' },
-              { value: 'delivered', label: 'Đã giao' },
-              { value: 'cancelled', label: 'Đã huỷ' },
-            ]}
-            value={filterStatus}
-            onChange={(val) => {
-              setFilterStatus(val);
-              setPage(1);
-            }}
-          />
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-sm">
+        {/* Status Filter Buttons */}
+        <div className="flex max-w-full items-center gap-xs overflow-x-auto no-scrollbar flex-1 min-w-0">
+          {[
+            { value: 'all', label: 'Tất cả' },
+            { value: 'pending', label: 'Chờ thanh toán' },
+            { value: 'active', label: 'Đang giao' },
+            { value: 'delivered', label: 'Đã giao' },
+            { value: 'cancelled', label: 'Đã huỷ' },
+          ].map((item) => (
+            <button
+              key={item.value}
+              onClick={() => {
+                setFilterStatus(item.value);
+                setPage(1);
+              }}
+              className={
+                'h-9 inline-flex items-center justify-center whitespace-nowrap rounded-md px-sm text-button transition-colors shrink-0 ' +
+                (filterStatus === item.value
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'bg-surface-card border border-hairline-strong text-ink hover:bg-canvas-soft')
+              }
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
 
         {/* Search input */}
-        <div className="w-full sm:w-72 md:w-80 shrink-0">
-          <Input
-            leadingIcon="search"
+        <div className="relative w-full sm:w-72 md:w-80 shrink-0 h-9">
+          <Icon name="search" size={16} className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body" />
+          <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm theo mã đơn hoặc tên quán…"
             aria-label="Tìm đơn hàng"
-            className="w-full"
-            trailingButton={
-              q
-                ? {
-                    icon: 'close',
-                    onClick: () => setQ(''),
-                    'aria-label': 'Xoá tìm kiếm',
-                  }
-                : undefined
-            }
+            className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-8 text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
           />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              aria-label="Xoá tìm kiếm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-body hover:text-ink"
+            >
+              <Icon name="close" size={12} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -244,7 +254,7 @@ export default function CustomerOrders() {
                         leadingIcon="starFilled"
                         onClick={(e) => {
                           e.stopPropagation();
-                          nav(`/app/reviews/write/${order.id}`);
+                          nav(`/app/reviews/write/${order.id}`, { state: { from: '/app/orders' } });
                         }}
                       >
                         Đánh giá

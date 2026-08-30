@@ -26,6 +26,37 @@ export default function CustomerRestaurant() {
   const [menuQuery, setMenuQuery] = useState('');
   const [vouchers, setVouchers] = useState([]);
   const voucherScroll = useHorizontalDragScroll();
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkVoucherScroll = () => {
+    const el = voucherScroll.ref.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 5);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
+  };
+
+  useEffect(() => {
+    checkVoucherScroll();
+    const el = voucherScroll.ref.current;
+    if (!el) return;
+    el.addEventListener('scroll', checkVoucherScroll, { passive: true });
+    window.addEventListener('resize', checkVoucherScroll);
+    return () => {
+      el.removeEventListener('scroll', checkVoucherScroll);
+      window.removeEventListener('resize', checkVoucherScroll);
+    };
+  }, [vouchers]);
+
+  const scrollVouchers = (direction) => {
+    const el = voucherScroll.ref.current;
+    if (!el) return;
+    const scrollAmount = (el.clientWidth / 3) * 2;
+    el.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    });
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -211,7 +242,12 @@ export default function CustomerRestaurant() {
                   {!isOpen && <Badge tone="error">Đóng cửa</Badge>}
                 </div>
                 <h1 className="mt-1 text-display-lg">{restaurant.name}</h1>
-                <div className="text-body-sm text-on-dark-soft">{restaurant.tagline}</div>
+                {restaurant.tagline && <div className="text-body-sm text-on-dark-soft">{restaurant.tagline}</div>}
+                {restaurant.description && restaurant.description !== restaurant.tagline && (
+                  <p className="mt-1.5 text-caption text-on-dark-soft/90 max-w-2xl line-clamp-2 leading-relaxed">
+                    {restaurant.description}
+                  </p>
+                )}
               </div>
               <div className="hidden md:flex items-center gap-2">
                 <Button variant="primary" onClick={handleShare}>
@@ -244,19 +280,26 @@ export default function CustomerRestaurant() {
                 )}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div className="rounded-lg border border-hairline-strong bg-canvas-soft px-3 py-2">
-                <div className="text-caption text-body">Thời gian giao</div>
-                <div className="mt-1 inline-flex items-center gap-1.5 font-medium text-ink">
+                <div className="text-caption text-body">Chuẩn bị</div>
+                <div className="mt-1 inline-flex items-center gap-1 font-medium text-ink">
                   <Icon name="clock" size={14} />
-                  {restaurant.avgPrepTimeMin} phút
+                  {restaurant.avgPrepTimeMin}p
+                </div>
+              </div>
+              <div className="rounded-lg border border-hairline-strong bg-canvas-soft px-3 py-2">
+                <div className="text-caption text-body">Khoảng cách</div>
+                <div className="mt-1 inline-flex items-center gap-1 font-medium text-ink">
+                  <Icon name="bike" size={14} />
+                  <span className="nums">{restaurant.estimatedDistanceKm ? `${restaurant.estimatedDistanceKm} km` : 'Gần bạn'}</span>
                 </div>
               </div>
               <div className="rounded-lg border border-hairline-strong bg-canvas-soft px-3 py-2">
                 <div className="text-caption text-body">Đơn tối thiểu</div>
-                <div className="mt-1 inline-flex items-center gap-1.5 font-medium text-ink">
+                <div className="mt-1 inline-flex items-center gap-1 font-medium text-ink">
                   <Icon name="cash" size={14} />
-                  <span className="nums">{formatVnd(restaurant.minOrderAmount)}</span>
+                  <span className="nums">{Number(restaurant.minOrderAmount) > 0 ? formatVnd(restaurant.minOrderAmount) : '0 ₫'}</span>
                 </div>
               </div>
             </div>
@@ -274,6 +317,16 @@ export default function CustomerRestaurant() {
             <span className="inline-flex items-center gap-1 text-body">
               <Icon name="clock" size={14} /> {restaurant.avgPrepTimeMin} phút
             </span>
+            {restaurant.estimatedDistanceKm !== null && restaurant.estimatedDistanceKm !== undefined && (
+              <span className="inline-flex items-center gap-1 text-body">
+                <Icon name="bike" size={14} /> Cách bạn <strong className="nums text-ink">{restaurant.estimatedDistanceKm} km</strong>
+              </span>
+            )}
+            {Number(restaurant.minOrderAmount) > 0 && (
+              <span className="inline-flex items-center gap-1 text-body">
+                <Icon name="cash" size={14} /> Đơn tối thiểu: <strong className="nums text-ink">{formatVnd(restaurant.minOrderAmount)}</strong>
+              </span>
+            )}
             <span className="inline-flex items-center gap-1 text-body">
               <Icon name="pin" size={14} /> {addressLine}
             </span>
@@ -311,36 +364,62 @@ export default function CustomerRestaurant() {
                   <Icon name="zap" size={16} className="text-ink" />
                   <span>Ưu đãi từ quán ({vouchers.length})</span>
                 </div>
-                <Link to="/app/profile/promotions" className="text-caption font-medium text-text-link hover:underline">
-                  Kho voucher ›
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link to="/app/profile/promotions" className="text-caption font-medium text-text-link hover:underline">
+                    Kho voucher ›
+                  </Link>
+                  {vouchers.length > 3 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => scrollVouchers('left')}
+                        disabled={!canScrollLeft}
+                        aria-label="Cuộn xem ưu đãi trước"
+                        className="grid h-6 w-6 place-items-center rounded-full border border-hairline bg-surface-card text-ink transition-all hover:bg-canvas-soft disabled:opacity-25 disabled:pointer-events-none shadow-xs"
+                      >
+                        <Icon name="chevronLeft" size={12} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => scrollVouchers('right')}
+                        disabled={!canScrollRight}
+                        aria-label="Cuộn xem thêm ưu đãi"
+                        className="grid h-6 w-6 place-items-center rounded-full border border-hairline bg-surface-card text-ink transition-all hover:bg-canvas-soft disabled:opacity-25 disabled:pointer-events-none shadow-xs"
+                      >
+                        <Icon name="chevronRight" size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div
                 ref={voucherScroll.ref}
                 onMouseDown={voucherScroll.onMouseDown}
                 onClickCapture={voucherScroll.onClickCapture}
-                className="flex max-w-full cursor-default gap-sm overflow-x-auto no-scrollbar pb-1 active:cursor-grabbing select-none"
+                className="flex max-w-full cursor-grab gap-2 overflow-x-auto no-scrollbar pb-1 active:cursor-grabbing select-none"
                 role="region"
-                aria-label="Ưu đãi từ quán — kéo cuộn ngang"
+                aria-label="Ưu đãi từ quán — kéo cuộn ngang hoặc bấm mũi tên"
               >
                 {vouchers.map((v) => {
                   const maxDiscount = v.maxDiscountAmount;
                   const discountLabel = v.discountType === 'percent'
-                    ? `Giảm ${v.discountValue}%${maxDiscount ? ` (tối đa ${formatVnd(maxDiscount)})` : ''}`
+                    ? `Giảm ${v.discountValue}%`
                     : `Giảm ${formatVnd(v.discountValue)}`;
                   const isSaved = v.isSaved;
 
                   return (
                     <div
                       key={v.id}
-                      className="flex min-w-[280px] shrink-0 items-center justify-between gap-3 rounded-lg border border-hairline-strong bg-surface-card p-sm transition-shadow hover:shadow-soft"
+                      className="flex min-w-[210px] md:min-w-[calc((100%-20px)/3.15)] md:max-w-[calc((100%-20px)/3.15)] shrink-0 items-center justify-between gap-2 rounded-lg border border-hairline-strong bg-surface-card px-2.5 py-2 transition-shadow hover:shadow-soft"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-body-sm font-bold text-ink">{v.code}</span>
-                          <Badge tone="preview">{discountLabel}</Badge>
+                          <span className="font-mono text-body-sm font-bold text-ink truncate">{v.code}</span>
+                          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                            {discountLabel}
+                          </span>
                         </div>
-                        <div className="mt-1 text-caption text-body truncate">
+                        <div className="mt-0.5 text-[11px] text-body truncate">
                           {v.minOrderAmount > 0 ? `Đơn từ ${formatVnd(v.minOrderAmount)}` : 'Mọi đơn hàng'}
                         </div>
                       </div>
@@ -352,7 +431,7 @@ export default function CustomerRestaurant() {
                           e.stopPropagation();
                           handleSaveVoucher(v);
                         }}
-                        className="!h-8 !px-3 !text-caption shrink-0"
+                        className="!h-7 !px-2.5 !text-caption shrink-0"
                       >
                         {isSaved ? 'Đã lưu ✓' : 'Lưu'}
                       </Button>
@@ -363,34 +442,40 @@ export default function CustomerRestaurant() {
             </div>
           )}
 
-          <div className="mb-base">
-            <div className="mb-2 flex items-center gap-xs">
-              <div className="relative flex-1 md:max-w-xs">
+          {/* Tiêu đề & Bộ lọc Thực đơn */}
+          <div className="mb-base pt-1">
+            <div className="mb-3">
+              <h2 className="text-display-xs text-ink font-bold">Thực đơn món ăn</h2>
+              <p className="text-caption text-body">Khám phá các món ăn đặc sắc được chuẩn bị bởi {restaurant.name}</p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-sm">
+              <div className="flex max-w-full items-center gap-xs overflow-x-auto no-scrollbar flex-1 min-w-0">
+                {activeCategories.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCat(c)}
+                    className={
+                      'h-9 inline-flex items-center justify-center whitespace-nowrap rounded-md px-sm text-button transition-colors shrink-0 ' +
+                      (cat === c
+                        ? 'bg-primary text-on-primary shadow-xs'
+                        : 'bg-surface-card border border-hairline-strong text-ink hover:bg-canvas-soft')
+                    }
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <div className="relative w-full sm:w-60 shrink-0 h-9">
                 <Icon name="search" size={16} className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body" />
                 <input
                   value={menuQuery}
                   onChange={(e) => setMenuQuery(e.target.value)}
-                  placeholder="Tìm trong thực đơn…"
+                  placeholder="Tìm món trong thực đơn…"
                   aria-label="Tìm trong thực đơn"
-                  className="h-10 w-full rounded-md border border-hairline-strong bg-surface-card pl-10 pr-base text-body-sm text-ink outline-none placeholder:text-muted"
+                  className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
                 />
               </div>
-            </div>
-            <div className="flex max-w-full items-center gap-xs overflow-x-auto no-scrollbar">
-              {activeCategories.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCat(c)}
-                  className={
-                    'h-9 whitespace-nowrap rounded-md px-sm text-button transition-colors ' +
-                    (cat === c
-                      ? 'bg-primary text-on-primary'
-                      : 'bg-surface-card border border-hairline-strong text-ink hover:bg-canvas-soft')
-                  }
-                >
-                  {c}
-                </button>
-              ))}
             </div>
           </div>
 
@@ -528,10 +613,28 @@ export default function CustomerRestaurant() {
 
         <aside className="hidden md:block">
           <Card padded className="sticky top-24 flex flex-col gap-base">
+            {restaurant.description && (
+              <div>
+                <div className="text-caption-uppercase text-body">Giới thiệu quán</div>
+                <p className="text-body-sm text-ink leading-relaxed mt-1">{restaurant.description}</p>
+              </div>
+            )}
             <div>
               <div className="text-caption-uppercase text-body">Thời gian chuẩn bị món</div>
               <div className="text-body-sm text-ink">{restaurant.avgPrepTimeMin} phút</div>
             </div>
+            {restaurant.estimatedDistanceKm !== null && restaurant.estimatedDistanceKm !== undefined && (
+              <div>
+                <div className="text-caption-uppercase text-body">Khoảng cách</div>
+                <div className="text-body-sm font-semibold text-ink nums">~{restaurant.estimatedDistanceKm} km</div>
+              </div>
+            )}
+            {Number(restaurant.minOrderAmount) > 0 && (
+              <div>
+                <div className="text-caption-uppercase text-body">Đơn tối thiểu</div>
+                <div className="text-body-sm font-semibold text-ink nums">{formatVnd(restaurant.minOrderAmount)}</div>
+              </div>
+            )}
             <div>
               <div className="text-caption-uppercase text-body">Ẩm thực</div>
               <div className="text-body-sm text-ink">{restaurant.cuisineName}</div>

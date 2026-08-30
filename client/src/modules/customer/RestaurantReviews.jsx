@@ -142,9 +142,13 @@ export default function RestaurantReviews() {
 
   return (
     <div className="container-page py-xl">
-      <Link to={`/app/restaurant/${restaurant.id}`} className="inline-flex items-center gap-1 text-button text-body hover:text-ink">
+      <button
+        type="button"
+        onClick={() => (window.history.length > 1 ? nav(-1) : nav(`/app/restaurant/${restaurant.id}`))}
+        className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
+      >
         <Icon name="chevronLeft" size={14} /> Quay lại trang quán ăn
-      </Link>
+      </button>
       
       <div className="mt-2 mb-base">
         <div className="text-caption-uppercase text-body">Đánh giá quán ăn</div>
@@ -199,7 +203,7 @@ export default function RestaurantReviews() {
                         Đã đánh giá
                       </div>
                     ) : (
-                      <Link to={`/app/reviews/write/${o.id}`}>
+                      <Link to={`/app/reviews/write/${o.id}`} state={{ from: `/app/reviews/${restaurant.id}` }}>
                         <Button size="sm">Đánh giá ngay</Button>
                       </Link>
                     )}

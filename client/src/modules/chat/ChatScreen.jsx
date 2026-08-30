@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import Avatar from '../../components/Avatar.jsx';
@@ -46,6 +46,7 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const scroller = useRef(null);
+  const initialScrollDoneRef = useRef(false);
 
   // Load all conversations
   const loadConversations = useCallback(async (silent = false) => {
@@ -96,13 +97,21 @@ export default function ChatScreen() {
       setMessages([]);
       return undefined;
     }
+    initialScrollDoneRef.current = false;
     loadMessages(activeId);
     const timer = window.setInterval(() => loadMessages(activeId, true), 3000);
     return () => window.clearInterval(timer);
   }, [activeId, loadMessages]);
 
-  useEffect(() => {
-    if (scroller.current) {
+  useLayoutEffect(() => {
+    if (!scroller.current || !messages.length) return;
+
+    if (!initialScrollDoneRef.current) {
+      // Lần đầu tải tin nhắn: Nhảy ngay xuống đáy tức thì không có độ trễ/trượt từ trên xuống
+      scroller.current.scrollTop = scroller.current.scrollHeight;
+      initialScrollDoneRef.current = true;
+    } else {
+      // Khi có tin nhắn mới gửi hoặc nhận thêm: Cuộn êm
       scroller.current.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' });
     }
   }, [messages.length]);

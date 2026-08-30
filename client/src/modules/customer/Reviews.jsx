@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
@@ -13,7 +13,18 @@ import { apiGet, apiPost } from '../../lib/api.js';
 export default function Reviews() {
   const { id } = useParams(); // ID đơn hàng
   const nav = useNavigate();
+  const location = useLocation();
   const { pushToast } = useApp();
+
+  const goBack = () => {
+    if (location.state?.from) {
+      nav(location.state.from);
+    } else if (window.history.length > 1) {
+      nav(-1);
+    } else {
+      nav('/app/orders');
+    }
+  };
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -115,8 +126,12 @@ export default function Reviews() {
         message: `${order.restaurant?.name || 'Quán ăn'} rất trân trọng ý kiến đóng góp của bạn.`,
       });
 
-      // Điều hướng quay lại trang danh sách đơn hàng cần đánh giá của nhà hàng
-      nav(`/app/reviews/${order.restaurant_id}`);
+      // Điều hướng quay lại trang trước đó hoặc danh sách đơn hàng
+      if (location.state?.from) {
+        nav(location.state.from);
+      } else {
+        nav('/app/orders');
+      }
     } catch (err) {
       console.error(err);
       pushToast({
@@ -139,7 +154,7 @@ export default function Reviews() {
         <Card padded className="max-w-md mx-auto">
           <div className="text-xl font-bold text-ink mb-sm">Lỗi</div>
           <p className="text-body mb-base">{error || 'Không tìm thấy thông tin đơn hàng.'}</p>
-          <Button onClick={() => nav('/app/orders')}>Quay lại đơn hàng</Button>
+          <Button onClick={goBack}>Quay lại đơn hàng</Button>
         </Card>
       </div>
     );
@@ -151,7 +166,7 @@ export default function Reviews() {
         <Card padded className="max-w-md mx-auto">
           <div className="text-xl font-bold text-ink mb-sm">Chưa thể đánh giá</div>
           <p className="text-body mb-base">Bạn chỉ có thể đánh giá đơn hàng sau khi nhận hàng thành công.</p>
-          <Button onClick={() => nav('/app/orders')}>Quay lại đơn hàng</Button>
+          <Button onClick={goBack}>Quay lại đơn hàng</Button>
         </Card>
       </div>
     );
@@ -161,9 +176,13 @@ export default function Reviews() {
 
   return (
     <div className="container-page py-xl">
-      <Link to={`/app/reviews/${order.restaurant_id}`} className="inline-flex items-center gap-1 text-button text-body hover:text-ink">
-        <Icon name="chevronLeft" size={14} /> Quay lại danh sách đơn hàng
-      </Link>
+      <button
+        type="button"
+        onClick={goBack}
+        className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
+      >
+        <Icon name="chevronLeft" size={14} /> Quay lại đơn hàng
+      </button>
       <div className="mt-2 mb-base">
         <div className="text-caption-uppercase text-body">Để lại đánh giá</div>
         <h1 className="text-display-lg text-ink">{r?.name}</h1>
@@ -238,7 +257,7 @@ export default function Reviews() {
           ))}
 
           <div className="flex items-center justify-end gap-xs">
-            <Button variant="secondary" onClick={() => nav(`/app/reviews/${order.restaurant_id}`)}>
+            <Button variant="secondary" onClick={goBack}>
               {order.isReviewed ? 'Quay lại' : 'Để sau'}
             </Button>
             {!order.isReviewed && (

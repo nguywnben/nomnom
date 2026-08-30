@@ -121,6 +121,14 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // 4. Tính toán tiền theo công thức đơn giản
     const subtotal = cartItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const minOrderAmount = Number(restaurant.min_order_amount ?? 0);
+    if (minOrderAmount > 0 && subtotal < minOrderAmount) {
+      await connection.rollback();
+      return res.status(400).json({
+        error: `Đơn hàng tối thiểu của quán là ${minOrderAmount.toLocaleString('vi-VN')} ₫ (hiện tại: ${subtotal.toLocaleString('vi-VN')} ₫). Vui lòng chọn thêm món.`,
+        code: 'MIN_ORDER_AMOUNT_NOT_MET',
+      });
+    }
     const delivery_fee = shippingQuote.total;
     if (voucher) {
       const [[voucherUsageRow]] = await connection.query(

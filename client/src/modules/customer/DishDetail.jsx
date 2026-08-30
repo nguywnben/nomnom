@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import { IconButton } from '../../components/Button.jsx';
@@ -17,7 +17,20 @@ import { fetchMenuItemDetailApi, fetchMenuItemReviewsApi } from '../../lib/api.j
 export default function CustomerDishDetail() {
   const { id } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
   const { addToCart, setCartOpen, shopAsCustomer, currentLocation } = useApp();
+
+  const goBack = () => {
+    if (location.state?.from) {
+      nav(location.state.from);
+    } else if (window.history.length > 1) {
+      nav(-1);
+    } else if (data?.restaurant?.id) {
+      nav(`/app/restaurant/${data.restaurant.id}`);
+    } else {
+      nav('/app');
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -73,7 +86,7 @@ export default function CustomerDishDetail() {
       <div className="container-page pt-base">
         <button
           type="button"
-          onClick={() => (restaurant?.id ? nav(`/app/restaurant/${restaurant.id}`) : nav(-1))}
+          onClick={goBack}
           className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
         >
           <Icon name="chevronLeft" size={14} /> Quay lại
