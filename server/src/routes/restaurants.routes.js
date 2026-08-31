@@ -252,25 +252,43 @@ router.get('/:id/reviews', async (req, res, next) => {
     const offset = (pageVal - 1) * limitVal;
     const rating = req.query.rating ? Number(req.query.rating) : null;
     const sort = req.query.sort === 'oldest' ? 'oldest' : 'newest';
+    const target = String(req.query.target ?? 'all');
     if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
       return res.status(400).json({ error: 'Số sao phải từ 1 đến 5.' });
     }
+    if (!['all', 'restaurant', 'dish'].includes(target)) {
+      return res.status(400).json({ error: 'target phải là all, restaurant hoặc dish.' });
+    }
 
-    const reviewWhere = ['restaurant_id = ?', 'menu_item_id IS NULL', 'is_hidden = 0'];
+    const reviewWhere = ['rv.restaurant_id = ?', 'rv.is_hidden = 0'];
     const reviewParams = [restaurant.id];
+    if (target === 'restaurant') {
+      reviewWhere.push('rv.menu_item_id IS NULL');
+    } else if (target === 'dish') {
+      reviewWhere.push('rv.menu_item_id IS NOT NULL');
+    }
     if (rating !== null) {
-      reviewWhere.push('rating = ?');
+      reviewWhere.push('rv.rating = ?');
       reviewParams.push(rating);
     }
 
     const [[{ total }]] = await pool.query(
-      `SELECT COUNT(*) as total FROM reviews WHERE ${reviewWhere.join(' AND ')}`,
+      `SELECT COUNT(*) as total FROM reviews rv WHERE ${reviewWhere.join(' AND ')}`,
       reviewParams,
+    );
+    const [[statsRow]] = await pool.query(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN rv.menu_item_id IS NULL THEN 1 ELSE 0 END) AS restaurant_count,
+              SUM(CASE WHEN rv.menu_item_id IS NOT NULL THEN 1 ELSE 0 END) AS dish_count
+       FROM reviews rv
+       WHERE rv.restaurant_id = ? AND rv.is_hidden = 0`,
+      [restaurant.id],
     );
     const [distributionRows] = await pool.query(
       `SELECT rating, COUNT(*) AS total
-       FROM reviews
-       WHERE restaurant_id = ? AND menu_item_id IS NULL AND is_hidden = 0
+       FROM reviews rv
+       WHERE rv.restaurant_id = ? AND rv.is_hidden = 0
+       ${target === 'restaurant' ? 'AND rv.menu_item_id IS NULL' : target === 'dish' ? 'AND rv.menu_item_id IS NOT NULL' : ''}
        GROUP BY rating`,
       [restaurant.id],
     );
@@ -288,14 +306,12 @@ router.get('/:id/reviews', async (req, res, next) => {
          rv.customer_id AS customerId,
          rv.menu_item_id AS menuItemId,
          mi.name AS itemName,
+         mi.image_url AS itemImage,
          IF(rv.is_edited = 0 AND rv.created_at >= NOW() - INTERVAL 7 DAY, 1, 0) AS canEdit
        FROM reviews rv
        INNER JOIN users u ON u.id = rv.customer_id
        LEFT JOIN menu_items mi ON mi.id = rv.menu_item_id
-       WHERE rv.restaurant_id = ?
-         AND rv.menu_item_id IS NULL
-         AND rv.is_hidden = 0
-         ${rating !== null ? 'AND rv.rating = ?' : ''}
+       WHERE ${reviewWhere.join(' AND ')}
        ORDER BY rv.created_at ${sort === 'oldest' ? 'ASC' : 'DESC'}, rv.id ${sort === 'oldest' ? 'ASC' : 'DESC'}
        LIMIT ? OFFSET ?`,
       [...reviewParams, limitVal, offset],
@@ -315,6 +331,7 @@ router.get('/:id/reviews', async (req, res, next) => {
         customerId: Number(row.customerId),
         menuItemId: row.menuItemId ? Number(row.menuItemId) : null,
         itemName: row.itemName ?? null,
+        itemImage: row.itemImage ?? null,
         canEdit: Boolean(row.canEdit),
       })),
       pagination: {
@@ -324,7 +341,9 @@ router.get('/:id/reviews', async (req, res, next) => {
       },
       stats: {
         average: Number(restaurant.ratingAvg ?? 0),
-        total: Number(restaurant.reviewCount ?? 0),
+        total: Number(statsRow?.total ?? restaurant.reviewCount ?? 0),
+        restaurantCount: Number(statsRow?.restaurant_count ?? 0),
+        dishCount: Number(statsRow?.dish_count ?? 0),
         distribution: Object.fromEntries([1, 2, 3, 4, 5].map((star) => [star, Number(distributionRows.find((row) => Number(row.rating) === star)?.total ?? 0)])),
       },
     });
@@ -352,11 +371,11 @@ router.get('/:id/vouchers', async (req, res, next) => {
          FROM vouchers v
          LEFT JOIN customer_saved_vouchers csv ON csv.voucher_id = v.id AND csv.customer_id = ?
         WHERE v.status = 'active'
-          AND (v.is_public = 1 OR v.is_public IS NULL)
+          AND v.is_public = 1
           AND v.starts_at <= NOW()
           AND v.ends_at >= NOW()
-          AND (v.restaurant_id IS NULL OR v.restaurant_id = ?)
-        ORDER BY (v.restaurant_id IS NOT NULL) DESC, v.ends_at ASC, v.created_at DESC`,
+          AND v.restaurant_id = ?
+        ORDER BY v.ends_at ASC, v.created_at DESC`,
       [userId, restaurant.id],
     );
 

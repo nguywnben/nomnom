@@ -609,6 +609,10 @@ router.patch('/reviews/:id', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'Đánh giá phải từ 1 đến 5 sao.' });
     }
 
+    if (comment && comment.length > 500) {
+      return res.status(400).json({ error: 'Nội dung nhận xét không được vượt quá 500 ký tự.' });
+    }
+
     await connection.beginTransaction();
 
     // 1. Lấy thông tin đánh giá

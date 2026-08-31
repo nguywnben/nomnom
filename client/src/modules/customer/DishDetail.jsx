@@ -21,12 +21,12 @@ export default function CustomerDishDetail() {
   const { addToCart, setCartOpen, shopAsCustomer, currentLocation } = useApp();
 
   const goBack = () => {
-    if (location.state?.from) {
+    if (location.state?.from && !location.state.from.includes(`/dish/${id}/reviews`)) {
       nav(location.state.from);
+    } else if (data?.restaurant?.slug || data?.restaurant?.id) {
+      nav(`/app/restaurant/${data.restaurant.slug || data.restaurant.id}`);
     } else if (window.history.length > 1) {
       nav(-1);
-    } else if (data?.restaurant?.id) {
-      nav(`/app/restaurant/${data.restaurant.id}`);
     } else {
       nav('/app');
     }
@@ -87,9 +87,9 @@ export default function CustomerDishDetail() {
         <button
           type="button"
           onClick={goBack}
-          className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
+          className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors cursor-pointer"
         >
-          <Icon name="chevronLeft" size={14} /> Quay lại
+          <Icon name="chevronLeft" size={14} /> Quay lại quán ăn
         </button>
       </div>
 

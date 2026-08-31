@@ -316,8 +316,8 @@ export default function AdminPromotions() {
             value={form.isPublic ? 'public' : 'private'}
             onChange={(e) => setForm((cur) => ({ ...cur, isPublic: e.target.value === 'public' }))}
             options={[
-              { value: 'public', label: '🌐 Công khai (Hiển thị kho mã & thực đơn)' },
-              { value: 'private', label: '🔒 Riêng tư / Bí mật (Chỉ nhập tay mới dùng được)' },
+              { value: 'public', label: 'Công khai' },
+              { value: 'private', label: 'Riêng tư' },
             ]}
           />
           <Input

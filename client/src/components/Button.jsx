@@ -13,6 +13,7 @@ import Icon from './Icon.jsx';
 
 // Sizes — 48px+ touch targets on mobile, editorial tighter on desktop.
 const sizeStyles = {
+  xs: 'h-7 px-2 text-caption',
   sm: 'h-9 px-sm text-button',
   md: 'h-12 md:h-10 px-base text-button',
   lg: 'h-14 md:h-12 px-md text-button',

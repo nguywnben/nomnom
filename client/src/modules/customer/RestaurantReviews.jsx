@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
@@ -8,7 +9,7 @@ import Avatar from '../../components/Avatar.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import Pagination from '../../components/Pagination.jsx';
-import { Select, Textarea } from '../../components/Input.jsx';
+import { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { apiGet, apiPatch } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -39,6 +40,8 @@ export default function RestaurantReviews() {
   const [restaurant, setRestaurant] = useState(null);
   const [orders, setOrders] = useState([]);
   const [restaurantReviews, setRestaurantReviews] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [target, setTarget] = useState('all');
   const [reviewPage, setReviewPage] = useState(1);
   const [reviewRating, setReviewRating] = useState('');
   const [reviewSort, setReviewSort] = useState('newest');
@@ -68,9 +71,10 @@ export default function RestaurantReviews() {
       });
       
       // Tải lại danh sách đánh giá của nhà hàng
-      const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10&page=${reviewPage}&rating=${reviewRating}&sort=${reviewSort}`);
+      const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10&page=${reviewPage}&rating=${reviewRating}&sort=${reviewSort}&target=${target}`);
       setRestaurantReviews(reviewsData?.data || []);
       setReviewTotal(Number(reviewsData?.pagination?.total ?? 0));
+      if (reviewsData?.stats) setStats(reviewsData.stats);
       
       setEditingReview(null);
     } catch (err) {
@@ -105,13 +109,15 @@ export default function RestaurantReviews() {
         }
 
         // 3. Lấy đánh giá của các khách hàng khác
-        const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10&page=${reviewPage}&rating=${reviewRating}&sort=${reviewSort}`);
+        const reviewsData = await apiGet(`/api/v1/restaurants/${id}/reviews?limit=10&page=${reviewPage}&rating=${reviewRating}&sort=${reviewSort}&target=${target}`);
         if (!active) return;
         setRestaurantReviews(reviewsData?.data || []);
         setReviewTotal(Number(reviewsData?.pagination?.total ?? 0));
+        if (reviewsData?.stats) setStats(reviewsData.stats);
 
       } catch (err) {
-        if (active) setError(err.message || 'Không thể tải thông tin dữ liệu.');
+        if (!active) return;
+        setError(err.message || 'Không thể tải thông tin dữ liệu.');
       } finally {
         if (active) setLoading(false);
       }
@@ -122,10 +128,10 @@ export default function RestaurantReviews() {
     return () => {
       active = false;
     };
-  }, [currentCustomer, id, reviewPage, reviewRating, reviewSort]);
+  }, [currentCustomer, id, reviewPage, reviewRating, reviewSort, target]);
 
   if (loading) {
-    return <div className="container-page py-section text-center">Đang tải danh sách...</div>;
+    return <div className="container-page py-section text-center">Đang tải danh sách đánh giá...</div>;
   }
 
   if (error || !restaurant) {
@@ -141,183 +147,321 @@ export default function RestaurantReviews() {
   }
 
   return (
-    <div className="container-page py-xl">
-      <button
-        type="button"
-        onClick={() => (window.history.length > 1 ? nav(-1) : nav(`/app/restaurant/${restaurant.id}`))}
-        className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors"
-      >
-        <Icon name="chevronLeft" size={14} /> Quay lại trang quán ăn
-      </button>
-      
-      <div className="mt-2 mb-base">
-        <div className="text-caption-uppercase text-body">Đánh giá quán ăn</div>
-        <h1 className="text-display-lg text-ink">{restaurant.name}</h1>
-        <p className="text-body-sm text-body mt-1">{restaurant.addressLine}</p>
+    <div className="container-page py-xl space-y-base">
+      <div>
+        <button
+          type="button"
+          onClick={() => (window.history.length > 1 ? nav(-1) : nav(`/app/restaurant/${restaurant.slug || restaurant.id}`))}
+          className="inline-flex items-center gap-1 text-button text-body hover:text-ink transition-colors cursor-pointer"
+        >
+          <Icon name="chevronLeft" size={14} /> Quay lại trang quán ăn
+        </button>
+        
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-base border-b border-hairline pb-base">
+          <div>
+            <div className="text-caption-uppercase text-body">Đánh giá khách hàng</div>
+            <h1 className="text-display-lg text-ink">{restaurant.name}</h1>
+            <p className="text-body-sm text-body mt-0.5">{restaurant.addressLine}</p>
+          </div>
+          <Link to={`/app/restaurant/${restaurant.slug || restaurant.id}`}>
+            <Button size="sm" variant="secondary" leadingIcon="store">
+              Xem thực đơn quán
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      <div className="grid gap-xl lg:grid-cols-[360px_1fr]">
+      <div className="grid gap-xl lg:grid-cols-[340px_1fr]">
+        {/* Cột trái: Tổng quan đánh giá & Đơn hàng của bạn */}
         <div className="space-y-base">
-          {!currentCustomer ? (
-            <Card padded>
-              <div className="text-title-md text-ink">Đánh giá sau khi nhận hàng</div>
-              <p className="mt-1 text-body-sm text-body">Đăng nhập bằng tài khoản khách hàng để đánh giá các đơn đã giao.</p>
-              <Link to={`/login?next=${encodeURIComponent(`/app/reviews/${restaurant.id}`)}`}>
-                <Button className="mt-base">Đăng nhập</Button>
-              </Link>
-            </Card>
-          ) : orders.length === 0 ? (
-            <EmptyState
-              icon="package"
-              title="Chưa có đơn hàng nào hoàn thành"
-              message="Bạn chỉ có thể đánh giá các đơn hàng đã được giao hàng thành công từ quán ăn này."
-              action={
-                <Link to={`/app/restaurant/${restaurant.id}`}>
-                  <Button>Xem thực đơn của quán</Button>
-                </Link>
-              }
-            />
-          ) : (
-            <div className="flex flex-col gap-base">
-              {orders.map((o) => (
-                <Card key={o.id} padded className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-base mb-1">
-                      <span className="text-title-sm text-ink font-semibold">#{o.order_code}</span>
-                      <span className="text-caption text-body">
-                        {new Date(o.placed_at).toLocaleDateString('vi-VN')}
-                      </span>
-                      <span className="nums text-body-sm font-medium text-ink">
-                        {formatVnd(Number(o.total_amount))}
-                      </span>
+          {/* Card Tổng quan điểm số */}
+          <Card padded className="space-y-base">
+            <div>
+              <div className="text-caption-uppercase text-body">Tổng quan đánh giá</div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-display-lg text-ink font-bold nums">
+                  {Number(stats?.average ?? restaurant.ratingAvg ?? 0).toFixed(1)}
+                </span>
+                <span className="text-body-sm text-body">trên 5</span>
+              </div>
+              <div className="mt-1">
+                <StarRating value={Number(stats?.average ?? restaurant.ratingAvg ?? 0)} size={20} />
+              </div>
+              <div className="mt-1.5 text-caption text-body">
+                Dựa trên <strong>{stats?.total ?? 0}</strong> lượt đánh giá
+                {stats?.restaurantCount !== undefined && stats?.dishCount !== undefined && (
+                  <div className="mt-0.5 text-[11px] text-muted">
+                    ({stats.restaurantCount} về quán · {stats.dishCount} về món ăn)
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Thanh phân bổ số sao 5★ đến 1★ */}
+            <div className="space-y-1.5 border-t border-hairline pt-sm">
+              <div className="text-caption-uppercase text-body text-[11px] mb-1">Chi tiết mức sao</div>
+              {[5, 4, 3, 2, 1].map((star) => {
+                const count = stats?.distribution?.[star] ?? 0;
+                const totalCount = stats?.total ?? 0;
+                const percent = totalCount > 0 ? (count / totalCount) * 100 : 0;
+                const isSelected = reviewRating === String(star);
+
+                return (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => {
+                      setReviewRating(isSelected ? '' : String(star));
+                      setReviewPage(1);
+                    }}
+                    className={clsx(
+                      'w-full flex items-center gap-2 text-caption rounded-md px-2 py-1 transition-colors cursor-pointer text-left',
+                      isSelected ? 'bg-ink text-canvas font-semibold' : 'hover:bg-canvas-soft text-body',
+                    )}
+                  >
+                    <span className="w-5 text-right font-medium">{star}★</span>
+                    <div className="h-2 flex-1 rounded-full bg-canvas-soft overflow-hidden border border-hairline/40">
+                      <div
+                        className={clsx('h-full rounded-full transition-all duration-300', isSelected ? 'bg-canvas' : 'bg-primary')}
+                        style={{ width: `${percent}%` }}
+                      />
                     </div>
-                    <div className="text-body-sm text-body line-clamp-1">
+                    <span className="w-7 text-right nums text-caption font-medium">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          {/* Card Đơn hàng của bạn tại quán */}
+          <Card padded className="space-y-sm">
+            <div className="text-title-sm font-bold text-ink">Đơn hàng của bạn</div>
+            {!currentCustomer ? (
+              <div className="text-body-sm text-body space-y-2">
+                <p>Đăng nhập để xem và đánh giá các đơn đã mua tại quán.</p>
+                <Link to={`/login?next=${encodeURIComponent(`/app/reviews/${restaurant.id}`)}`}>
+                  <Button size="sm" className="w-full">Đăng nhập</Button>
+                </Link>
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-sm space-y-2">
+                <p className="text-caption text-body">Bạn chưa có đơn hàng hoàn thành nào tại quán ăn này.</p>
+                <Link to={`/app/restaurant/${restaurant.slug || restaurant.id}`}>
+                  <Button size="sm" variant="secondary">Đặt món ngay</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-sm max-h-[300px] overflow-y-auto no-scrollbar">
+                {orders.map((o) => (
+                  <div key={o.id} className="rounded-md border border-hairline bg-canvas-soft/40 p-sm space-y-1.5">
+                    <div className="flex items-center justify-between text-caption">
+                      <span className="font-mono font-bold text-ink">#{o.order_code}</span>
+                      <span className="text-muted">{new Date(o.placed_at).toLocaleDateString('vi-VN')}</span>
+                    </div>
+                    <div className="text-caption text-body line-clamp-1">
                       {o.items?.map((i) => `${i.quantity}× ${i.item_name_snapshot}`).join(', ')}
                     </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="nums text-body-sm font-semibold text-ink">{formatVnd(Number(o.total_amount))}</span>
+                      {o.isReviewed ? (
+                        <span className="inline-flex items-center gap-1 text-success text-caption font-medium">
+                          <Icon name="check" size={12} /> Đã đánh giá
+                        </span>
+                      ) : (
+                        <Link to={`/app/reviews/write/${o.id}`} state={{ from: `/app/reviews/${restaurant.id}` }}>
+                          <Button size="sm">Đánh giá ngay</Button>
+                        </Link>
+                      )}
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
 
-                  <div className="mt-sm sm:mt-0">
-                    {o.isReviewed ? (
-                      <div className="inline-flex items-center gap-1.5 text-success font-medium text-body-sm py-1.5 px-3 bg-success/10 rounded-pill">
-                        <Icon name="check" size={14} />
-                        Đã đánh giá
-                      </div>
-                    ) : (
-                      <Link to={`/app/reviews/write/${o.id}`} state={{ from: `/app/reviews/${restaurant.id}` }}>
-                        <Button size="sm">Đánh giá ngay</Button>
-                      </Link>
-                    )}
-                  </div>
-                </Card>
+        {/* Cột phải: Toolbar bộ lọc & Danh sách nhận xét */}
+        <div className="space-y-base">
+          {/* Thanh Toolbar lọc kiểu Menu.jsx */}
+          <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between border-b border-hairline pb-sm">
+            {/* Tabs chọn phân loại Quán / Món */}
+            <div className="flex max-w-full items-center gap-xs overflow-x-auto no-scrollbar flex-1 min-w-0 pb-1">
+              {[
+                { id: 'all', label: 'Tất cả', count: stats?.total ?? reviewTotal },
+                { id: 'restaurant', label: 'Đánh giá Quán', count: stats?.restaurantCount },
+                { id: 'dish', label: 'Đánh giá Món', count: stats?.dishCount },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setTarget(tab.id);
+                    setReviewPage(1);
+                  }}
+                  className={clsx(
+                    'h-9 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-sm text-button transition-colors shrink-0 cursor-pointer',
+                    target === tab.id
+                      ? 'bg-primary text-on-primary shadow-xs'
+                      : 'bg-surface-card border border-hairline-strong text-ink hover:bg-canvas-soft',
+                  )}
+                >
+                  <span>{tab.label}</span>
+                  {tab.count !== undefined && (
+                    <span
+                      className={clsx(
+                        'rounded-full px-1.5 py-0.2 text-caption nums',
+                        target === tab.id ? 'bg-white/20 text-white' : 'bg-canvas-soft text-body',
+                      )}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
               ))}
+            </div>
+
+            {/* Selects bộ lọc bên phải */}
+            <div className="flex items-center gap-xs shrink-0">
+              <select
+                className="h-9 rounded-md border border-hairline-strong bg-surface-card px-3 text-body-sm text-ink outline-none cursor-pointer focus:border-ink transition-colors"
+                value={reviewRating}
+                onChange={(event) => {
+                  setReviewRating(event.target.value);
+                  setReviewPage(1);
+                }}
+                aria-label="Lọc theo số sao"
+              >
+                <option value="">Tất cả sao</option>
+                <option value="5">5 sao</option>
+                <option value="4">4 sao</option>
+                <option value="3">3 sao</option>
+                <option value="2">2 sao</option>
+                <option value="1">1 sao</option>
+              </select>
+
+              <select
+                className="h-9 rounded-md border border-hairline-strong bg-surface-card px-3 text-body-sm text-ink outline-none cursor-pointer focus:border-ink transition-colors"
+                value={reviewSort}
+                onChange={(event) => {
+                  setReviewSort(event.target.value);
+                  setReviewPage(1);
+                }}
+                aria-label="Sắp xếp đánh giá"
+              >
+                <option value="newest">Mới nhất</option>
+                <option value="oldest">Cũ nhất</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Danh sách các thẻ nhận xét */}
+          {restaurantReviews.length === 0 ? (
+            <EmptyState
+              icon="starFilled"
+              title="Chưa có đánh giá phù hợp"
+              message="Hãy thử chọn một mức sao khác hoặc quay lại sau."
+            />
+          ) : (
+            <div className="space-y-base">
+              {restaurantReviews.map((rev) => {
+                const isOwnReview = String(rev.customerId) === String(currentCustomer?.id);
+                const showEditButton = isOwnReview && rev.canEdit;
+
+                return (
+                  <Card key={rev.id} padded className="space-y-sm">
+                    <div className="flex items-start gap-sm">
+                      <Avatar src={rev.customerAvatar} name={rev.customerName} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-body-sm font-semibold text-ink">{rev.customerName}</span>
+                              {/* Phân loại đánh giá Quán hay Món */}
+                              {rev.itemName ? (
+                                <span className="inline-flex items-center gap-1.5 rounded bg-canvas-soft border border-hairline px-2 py-0.5 text-caption font-medium text-ink">
+                                  {rev.itemImage ? (
+                                    <img
+                                      src={rev.itemImage}
+                                      alt={rev.itemName}
+                                      className="h-4 w-4 rounded object-cover border border-hairline shrink-0"
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    <Icon name="tag" size={12} className="text-primary shrink-0" />
+                                  )}
+                                  <span className="font-semibold text-ink">{rev.itemName}</span>
+                                </span>
+                              ) : (
+                                <Badge tone="outline" className="text-caption">
+                                  Đánh giá quán
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="mt-0.5 text-caption text-body">
+                              {new Date(rev.createdAt).toLocaleDateString('vi-VN')}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <StarRating value={rev.rating} size={18} />
+                            {showEditButton && (
+                              <button
+                                onClick={() => {
+                                  setEditingReview(rev);
+                                  setEditRating(rev.rating);
+                                  setEditComment(rev.comment || '');
+                                }}
+                                className="text-caption font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer ml-1"
+                              >
+                                <Icon name="edit" size={12} />
+                                Sửa
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="mt-2 text-body-sm text-ink leading-relaxed">
+                          {rev.comment || (
+                            <span className="text-muted italic">Khách hàng chỉ chấm {rev.rating} sao và không để lại nhận xét.</span>
+                          )}
+                          {rev.isEdited && (
+                            <span className="ml-2 text-[11px] text-muted italic bg-canvas-soft px-1.5 py-0.2 rounded border border-hairline">
+                              đã chỉnh sửa
+                            </span>
+                          )}
+                        </p>
+
+                        {rev.replyText && (
+                          <div className="mt-sm rounded-md border border-hairline-strong bg-canvas-soft p-sm">
+                            <div className="flex items-center justify-between text-caption text-body">
+                              <span className="inline-flex items-center gap-1 font-semibold text-ink">
+                                <Icon name="store" size={12} /> Phản hồi của quán
+                              </span>
+                              {rev.replyAt && <span>{new Date(rev.replyAt).toLocaleDateString('vi-VN')}</span>}
+                            </div>
+                            <p className="mt-1 text-body-sm text-ink">{rev.replyText}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+
+              {reviewTotal > 10 && (
+                <Pagination
+                  className="mt-base border-t border-hairline pt-base"
+                  total={reviewTotal}
+                  pageSize={10}
+                  page={reviewPage}
+                  onChange={setReviewPage}
+                />
+              )}
             </div>
           )}
         </div>
-
-        <aside>
-          <Card padded>
-            <div className="flex flex-wrap items-end justify-between gap-sm">
-              <div>
-                <div className="text-title-md text-ink">Tất cả đánh giá</div>
-                <div className="mt-1 text-caption text-body">{reviewTotal} đánh giá về quán</div>
-              </div>
-              <div className="flex flex-wrap gap-xs">
-                <Select
-                  className="w-36"
-                  aria-label="Lọc theo số sao"
-                  value={reviewRating}
-                  onChange={(event) => { setReviewRating(event.target.value); setReviewPage(1); }}
-                  options={[
-                    { value: '', label: 'Tất cả sao' },
-                    ...[5, 4, 3, 2, 1].map((star) => ({ value: String(star), label: `${star} sao` })),
-                  ]}
-                />
-                <Select
-                  className="w-36"
-                  aria-label="Sắp xếp đánh giá"
-                  value={reviewSort}
-                  onChange={(event) => { setReviewSort(event.target.value); setReviewPage(1); }}
-                  options={[
-                    { value: 'newest', label: 'Mới nhất' },
-                    { value: 'oldest', label: 'Cũ nhất' },
-                  ]}
-                />
-              </div>
-            </div>
-            <div className="mt-base">
-            {restaurantReviews.length === 0 ? (
-              <div className="text-caption text-body py-xl text-center">Chưa có đánh giá phù hợp.</div>
-            ) : (
-              <div className="space-y-base">
-                {restaurantReviews.map((rev) => {
-                  const isOwnReview = String(rev.customerId) === String(currentCustomer?.id);
-                  const showEditButton = isOwnReview && rev.canEdit;
-                  return (
-                    <div key={rev.id} className="flex flex-col gap-1 pb-base border-b border-hairline last:border-0 last:pb-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Avatar src={rev.customerAvatar} name={rev.customerName} size="sm" />
-                          <div className="flex flex-col">
-                            <span className="text-body-sm font-semibold text-ink">{rev.customerName}</span>
-                            <span className="text-caption-sm text-body">{new Date(rev.createdAt).toLocaleDateString('vi-VN')}</span>
-                          </div>
-                          <Badge tone="outline">{rev.rating}★</Badge>
-                        </div>
-                        {showEditButton && (
-                          <div className="flex items-center gap-xs">
-                           
-                            <button
-                              onClick={() => {
-                                setEditingReview(rev);
-                                setEditRating(rev.rating);
-                                setEditComment(rev.comment || '');
-                              }}
-                              className="text-caption font-semibold text-primary hover:underline flex items-center gap-xs"
-                            >
-                              <Icon name="edit" size={12} />
-                              Sửa
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {rev.itemName && (
-                        <div className="text-caption font-medium text-body-sm bg-canvas-soft px-2 py-0.5 rounded border border-hairline w-fit my-1">
-                          Món: <span className="text-ink font-semibold">{rev.itemName}</span>
-                        </div>
-                      )}
-
-                      <p className="text-caption text-body leading-relaxed mt-1">
-                        {rev.comment}
-                        {rev.isEdited && (
-                          <span className="ml-base text-caption-sm text-body font-normal italic bg-canvas-soft px-1.5 py-0.5 rounded border border-hairline">
-                            đã chỉnh sửa
-                          </span>
-                        )}
-                      </p>
-
-                      {rev.replyText && (
-                        <div className="ml-4 mt-sm p-2 bg-canvas-soft border-l border-primary rounded text-xs text-body leading-relaxed">
-                          <span className="font-semibold text-ink">Quán phản hồi:</span> {rev.replyText}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            </div>
-            {reviewTotal > 10 && (
-              <Pagination
-                className="mt-base border-t border-hairline pt-base"
-                total={reviewTotal}
-                pageSize={10}
-                page={reviewPage}
-                onChange={setReviewPage}
-              />
-            )}
-          </Card>
-        </aside>
       </div>
 
       {editingReview && (
@@ -360,10 +504,14 @@ export default function RestaurantReviews() {
                 <Textarea
                   id="edit-comment"
                   rows={4}
+                  maxLength={500}
                   placeholder="Chia sẻ cảm nhận của bạn về quán ăn..."
                   value={editComment}
-                  onChange={(e) => setEditComment(e.target.value)}
+                  onChange={(e) => setEditComment(e.target.value.slice(0, 500))}
                 />
+                <div className="mt-1 text-right text-[11px] text-muted">
+                  {editComment.length}/500 ký tự
+                </div>
               </div>
             </div>
             

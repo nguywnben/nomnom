@@ -29,6 +29,7 @@ const paths = {
   chevronRight: <path d="M9 6l6 6-6 6" {...stroke} />,
   chevronLeft: <path d="M15 6l-6 6 6 6" {...stroke} />,
   chevronDown: <path d="M6 9l6 6 6-6" {...stroke} />,
+  chevronUp: <path d="M18 15l-6-6-6 6" {...stroke} />,
   plus: <path d="M12 5v14M5 12h14" {...stroke} />,
   minus: <path d="M5 12h14" {...stroke} />,
   star: (
@@ -137,6 +138,16 @@ const paths = {
       <path d="M6 9V3h12v6" />
       <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
       <path d="M6 14h12v7H6z" />
+    </g>
+  ),
+  grip: (
+    <g {...stroke}>
+      <circle cx="9" cy="5" r="1" fill="currentColor" />
+      <circle cx="9" cy="12" r="1" fill="currentColor" />
+      <circle cx="9" cy="19" r="1" fill="currentColor" />
+      <circle cx="15" cy="5" r="1" fill="currentColor" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" />
+      <circle cx="15" cy="19" r="1" fill="currentColor" />
     </g>
   ),
   eye: (

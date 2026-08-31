@@ -1092,6 +1092,18 @@ router.post('/me/items', requireAuth, getMerchantRestaurant, async (req, res, ne
       return res.status(400).json({ error: 'Danh mục không hợp lệ hoặc không thuộc quán của bạn.' });
     }
 
+    if (isFeatured) {
+      const [[countRow]] = await pool.query(
+        'SELECT COUNT(*) as count FROM menu_items WHERE restaurant_id = ? AND is_featured = 1',
+        [restaurantId]
+      );
+      if (countRow?.count >= 5) {
+        return res.status(400).json({
+          error: 'Mỗi quán chỉ được đặt tối đa 5 món nổi bật. Vui lòng bỏ ghim bớt món trước khi chọn thêm.',
+        });
+      }
+    }
+
     const [result] = await pool.query(
       `INSERT INTO menu_items (
         restaurant_id, category_id, name, description, image_url, price, prep_time_min, is_featured, sort_order
@@ -1201,6 +1213,23 @@ router.patch('/me/items/:id', requireAuth, getMerchantRestaurant, async (req, re
       params.push(Number(prepTimeMin));
     }
     if (isFeatured !== undefined) {
+      if (isFeatured) {
+        const [[itemRow]] = await pool.query(
+          'SELECT is_featured FROM menu_items WHERE id = ?',
+          [itemId]
+        );
+        if (!itemRow?.is_featured) {
+          const [[countRow]] = await pool.query(
+            'SELECT COUNT(*) as count FROM menu_items WHERE restaurant_id = ? AND is_featured = 1',
+            [restaurantId]
+          );
+          if (countRow?.count >= 5) {
+            return res.status(400).json({
+              error: 'Mỗi quán chỉ được đặt tối đa 5 món nổi bật. Vui lòng bỏ ghim bớt món trước khi chọn thêm.',
+            });
+          }
+        }
+      }
       updates.push('is_featured = ?');
       params.push(isFeatured ? 1 : 0);
     }
@@ -1460,11 +1489,15 @@ router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) =>
     const offset = (page - 1) * limit;
     const rating = req.query.rating === undefined ? null : Number(req.query.rating);
     const replied = String(req.query.replied ?? 'all');
+    const target = String(req.query.target ?? 'all');
     if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
       return res.status(400).json({ error: 'rating must be an integer from 1 to 5.' });
     }
     if (!['all', 'true', 'false'].includes(replied)) {
       return res.status(400).json({ error: 'replied must be all, true, or false.' });
+    }
+    if (!['all', 'restaurant', 'dish'].includes(target)) {
+      return res.status(400).json({ error: 'target must be all, restaurant, or dish.' });
     }
 
     const filters = ['rv.restaurant_id = ?'];
@@ -1475,14 +1508,20 @@ router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) =>
     }
     if (replied === 'true') filters.push('rv.reply_text IS NOT NULL');
     if (replied === 'false') filters.push('rv.reply_text IS NULL');
+    if (target === 'restaurant') filters.push('rv.menu_item_id IS NULL');
+    if (target === 'dish') filters.push('rv.menu_item_id IS NOT NULL');
     const where = filters.join(' AND ');
 
     const [[countRow]] = await pool.query(
       'SELECT COUNT(*) AS total FROM reviews rv WHERE ' + where,
       params,
     );
+    const [[statsRow]] = await pool.query(
+      'SELECT COUNT(*) AS total, SUM(CASE WHEN rv.menu_item_id IS NULL THEN 1 ELSE 0 END) AS restaurant_count, SUM(CASE WHEN rv.menu_item_id IS NOT NULL THEN 1 ELSE 0 END) AS dish_count FROM reviews rv WHERE rv.restaurant_id = ?',
+      [restaurant.id],
+    );
     const [rows] = await pool.query(
-      'SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at, u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code FROM reviews rv INNER JOIN users u ON u.id = rv.customer_id INNER JOIN orders o ON o.id = rv.order_id WHERE ' + where + ' ORDER BY rv.created_at DESC, rv.id DESC LIMIT ? OFFSET ?',
+      'SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at, rv.menu_item_id, u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code, mi.name AS menu_item_name, mi.image_url AS menu_item_image FROM reviews rv INNER JOIN users u ON u.id = rv.customer_id INNER JOIN orders o ON o.id = rv.order_id LEFT JOIN menu_items mi ON mi.id = rv.menu_item_id WHERE ' + where + ' ORDER BY rv.created_at DESC, rv.id DESC LIMIT ? OFFSET ?',
       [...params, limit, offset],
     );
 
@@ -1498,8 +1537,16 @@ router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) =>
         createdAt: row.created_at,
         customerName: row.customer_name,
         customerAvatar: row.customer_avatar,
+        menuItemId: row.menu_item_id ? Number(row.menu_item_id) : null,
+        menuItemName: row.menu_item_name ?? null,
+        menuItemImage: row.menu_item_image ?? null,
       })),
       total: Number(countRow?.total ?? 0),
+      summary: {
+        total: Number(statsRow?.total ?? 0),
+        restaurantCount: Number(statsRow?.restaurant_count ?? 0),
+        dishCount: Number(statsRow?.dish_count ?? 0),
+      },
       page,
       limit,
     });

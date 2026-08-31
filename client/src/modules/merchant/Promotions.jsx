@@ -155,7 +155,7 @@ export default function MerchantPromotions() {
           <Badge tone="success" dot>{summary.active} hoạt động</Badge>
           <Badge tone="warning" dot>{summary.paused} tạm dừng</Badge>
           <Badge tone="outline" dot>{summary.draft} nháp</Badge>
-          <Button leadingIcon="plus" onClick={openCreate}>
+          <Button leadingIcon="plus" size="sm" onClick={openCreate}>
             Tạo voucher
           </Button>
         </div>
@@ -182,58 +182,71 @@ export default function MerchantPromotions() {
         </Card>
       ) : (
         <div className="grid gap-base lg:grid-cols-2 xl:grid-cols-3">
-          {vouchers.map((voucher) => (
-            <Card key={voucher.id} padded className="flex flex-col gap-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-title-sm text-ink">{voucher.code}</span>
-                    <Badge tone={voucher.isPublic ? 'outline' : 'default'}>
-                      {voucher.isPublic ? '🌐 Công khai' : '🔒 Bí mật'}
+          {vouchers.map((voucher) => {
+            const statusConfig = {
+              active: { label: 'Hoạt động', tone: 'success' },
+              paused: { label: 'Tạm dừng', tone: 'warning' },
+              draft: { label: 'Nháp', tone: 'outline' },
+            }[voucher.status] || { label: voucher.status, tone: 'outline' };
+
+            return (
+              <Card key={voucher.id} padded className="flex flex-col justify-between gap-sm">
+                <div className="space-y-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-title-sm font-bold text-ink">{voucher.code}</span>
+                        <Badge tone={voucher.isPublic ? 'outline' : 'default'}>
+                          {voucher.isPublic ? 'Công khai' : 'Riêng tư'}
+                        </Badge>
+                      </div>
+                      <h3 className="mt-1 text-body font-semibold text-ink">{voucher.name}</h3>
+                    </div>
+                    <Badge tone={statusConfig.tone} dot className="shrink-0">
+                      {statusConfig.label}
                     </Badge>
                   </div>
-                  <div className="mt-1 text-body-sm font-semibold text-ink">{voucher.name}</div>
-                </div>
-                <Badge tone={voucher.status === 'active' ? 'success' : voucher.status === 'paused' ? 'warning' : 'outline'} dot>
-                  {voucher.status}
-                </Badge>
-              </div>
-              <p className="text-body-sm text-body">{voucher.description || 'Không có mô tả.'}</p>
-              <div className="grid grid-cols-2 gap-2 text-body-sm">
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Ưu đãi</div>
-                  <div className="text-ink">
-                    {voucher.discountType === 'percent'
-                      ? `Giảm ${voucher.discountValue}%${voucher.maxDiscountAmount ? ` tối đa ${formatVnd(voucher.maxDiscountAmount)}` : ''}`
-                      : `Giảm ${formatVnd(voucher.discountValue)}`}
+
+                  <p className="text-body-sm text-body line-clamp-2 min-h-[38px]">{voucher.description || 'Không có mô tả thêm.'}</p>
+
+                  <div className="grid grid-cols-2 gap-2 text-body-sm">
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Ưu đãi</div>
+                      <div className="text-ink font-semibold mt-0.5">
+                        {voucher.discountType === 'percent'
+                          ? `Giảm ${voucher.discountValue}%${voucher.maxDiscountAmount ? ` tối đa ${formatVnd(voucher.maxDiscountAmount)}` : ''}`
+                          : `Giảm ${formatVnd(voucher.discountValue)}`}
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Đơn tối thiểu</div>
+                      <div className="text-ink font-semibold mt-0.5">{voucher.minOrderAmount > 0 ? formatVnd(voucher.minOrderAmount) : 'Mọi đơn hàng'}</div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Từ ngày</div>
+                      <div className="text-ink mt-0.5">{new Date(voucher.startsAt).toLocaleDateString('vi-VN')}</div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Đến ngày</div>
+                      <div className="text-ink mt-0.5">{new Date(voucher.endsAt).toLocaleDateString('vi-VN')}</div>
+                    </div>
                   </div>
                 </div>
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Đơn tối thiểu</div>
-                  <div className="text-ink">{formatVnd(voucher.minOrderAmount)}</div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-sm mt-1">
+                  <div className="text-caption text-body">
+                    {voucher.usageLimit ? `Giới hạn ${voucher.usageLimit} lượt` : 'Không giới hạn lượt'}
+                    {' · '}
+                    Mỗi khách {voucher.perUserLimit} lần
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <IconButton icon="edit" label="Sửa voucher" size="sm" variant="secondary" onClick={() => openEdit(voucher)} />
+                    <IconButton icon="trash" label="Xóa voucher" size="sm" variant="secondary" className="text-error hover:!bg-error/10 hover:!border-error/30" onClick={() => setDeleteId(voucher.id)} />
+                  </div>
                 </div>
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Hiệu lực</div>
-                  <div className="text-ink">{new Date(voucher.startsAt).toLocaleDateString('vi-VN')}</div>
-                </div>
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Đến</div>
-                  <div className="text-ink">{new Date(voucher.endsAt).toLocaleDateString('vi-VN')}</div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-sm">
-                <div className="text-caption text-body">
-                  {voucher.usageLimit ? `Giới hạn ${voucher.usageLimit} lượt` : 'Không giới hạn lượt'}
-                  {' · '}
-                  Mỗi khách {voucher.perUserLimit} lần
-                </div>
-                <div className="flex items-center gap-1">
-                  <IconButton icon="edit" label="Sửa voucher" size="sm" onClick={() => openEdit(voucher)} />
-                  <IconButton icon="trash" label="Xóa voucher" size="sm" onClick={() => setDeleteId(voucher.id)} />
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -266,8 +279,8 @@ export default function MerchantPromotions() {
             value={form.isPublic ? 'public' : 'private'}
             onChange={(e) => setForm((cur) => ({ ...cur, isPublic: e.target.value === 'public' }))}
             options={[
-              { value: 'public', label: '🌐 Công khai (Treo trên thực đơn quán)' },
-              { value: 'private', label: '🔒 Riêng tư / Bí mật (Chỉ nhập mã tay mới dùng được)' },
+              { value: 'public', label: 'Công khai' },
+              { value: 'private', label: 'Riêng tư' },
             ]}
           />
           <Select

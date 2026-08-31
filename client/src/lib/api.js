@@ -274,8 +274,8 @@ export function deleteMerchantVoucherApi(id) {
   return apiDelete(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`);
 }
 
-export function fetchMerchantReviewsApi({ page = 1, limit = 50, rating, replied = 'all' } = {}) {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit), replied });
+export function fetchMerchantReviewsApi({ page = 1, limit = 50, rating, replied = 'all', target = 'all' } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), replied, target });
   if (rating) params.set('rating', String(rating));
   return apiGet(`/api/v1/merchant/me/reviews?${params.toString()}`);
 }
