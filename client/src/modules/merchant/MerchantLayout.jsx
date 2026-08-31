@@ -16,13 +16,13 @@ import {
 } from '../../lib/merchantStatus.js';
 
 const links = [
-  { to: '/merchant', label: 'Bảng điều khiển', icon: 'grid', end: true },
+  { to: '/merchant', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/merchant/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/merchant/menu', label: 'Thực đơn', icon: 'list' },
   { to: '/merchant/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/merchant/reviews', label: 'Đánh giá', icon: 'starFilled' },
-  { to: '/merchant/wallet', label: 'Ví & rút tiền', icon: 'wallet' },
-  { to: '/merchant/settings', label: 'Cài đặt quán', icon: 'cog' },
+  { to: '/merchant/wallet', label: 'Ví tiền', icon: 'wallet' },
+  { to: '/merchant/settings', label: 'Cài đặt', icon: 'cog' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -326,7 +326,7 @@ function DesktopSidebar({ currentMerchant, restaurantSlug, newCount, collapsed, 
 function SidebarContent({ currentMerchant, restaurantSlug, newCount, collapsed = false, onItemClick }) {
   return (
     <>
-      <nav className="flex flex-1 flex-col gap-1 px-sm py-2 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 px-sm py-2 overflow-y-auto no-scrollbar">
         {links.map((link) => (
           <NavLink
             key={link.to}

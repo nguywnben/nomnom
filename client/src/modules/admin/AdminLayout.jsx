@@ -14,8 +14,8 @@ const links = [
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/admin/restaurants', label: 'Quán ăn', icon: 'store' },
-  { to: '/admin/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
+  { to: '/admin/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/admin/reviews', label: 'Đánh giá', icon: 'starFilled' },
   { to: '/admin/financial', label: 'Tài chính', icon: 'wallet' },
   { to: '/admin/content', label: 'Nội dung', icon: 'image' },
@@ -26,8 +26,8 @@ const sidebarOrder = [
   '/admin',
   '/admin/orders',
   '/admin/restaurants',
-  '/admin/promotions',
   '/admin/accounts',
+  '/admin/promotions',
   '/admin/reviews',
   '/admin/financial',
   '/admin/content',
@@ -148,7 +148,7 @@ export default function AdminLayout() {
 
 function SidebarLinks({ collapsed, onItemClick }) {
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-sm py-2 overflow-y-auto no-scrollbar">
+    <nav className="flex-1 px-sm py-2 overflow-y-auto no-scrollbar">
       {links.map((l) => (
         <NavLink
           key={l.to}
