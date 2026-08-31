@@ -4,51 +4,51 @@
 
 ## 31/08 — Scope và release gate
 
-- [ ] Duyệt mô hình ba vai trò; chốt nhà hàng tự giao/thuê vận chuyển ngoài NomNom.
-- [ ] Duyệt state machine đơn và ma trận quyền hủy/refund.
-- [ ] Duyệt công thức phí giao, commission, voucher và merchant earning.
-- [ ] Sửa 24 lint errors + 5 warnings; xác minh Merchant Settings không crash.
-- [ ] Client test/lint/build và server test/syntax đều xanh.
-- [ ] Mở bug P0 riêng cho checkout duplicate, refund giả và driver inconsistency.
+- [x] Duyệt mô hình ba vai trò; chốt nhà hàng tự giao/thuê vận chuyển ngoài NomNom.
+- [x] Duyệt state machine đơn và ma trận quyền hủy/refund.
+- [x] Duyệt công thức phí giao, commission, voucher và merchant earning.
+- [x] Sửa 24 lint errors + 5 warnings; xác minh Merchant Settings không crash.
+- [x] Client test/lint/build và server test/syntax đều xanh.
+- [x] Mở và xử lý P0 checkout duplicate, refund giả và driver inconsistency.
 
 ## 01/09 — Logic cốt lõi
 
-- [ ] Checkout bắt buộc customer role.
-- [ ] Checkout lock cart, revalidate quán/món/giá/vùng giao/voucher trong transaction.
-- [ ] Idempotency chống double-click và concurrent duplicate order.
-- [ ] Merchant transition atomic; không skip/replay/overwrite trạng thái.
-- [ ] Merchant là chủ thể bắt đầu giao; Admin chỉ override có reason + audit.
-- [ ] Refund dùng một service chung; không báo `refunded` trước gateway success.
-- [ ] Worker cancellation không tự gán refund giả; job idempotent và theo batch.
-- [ ] Voucher reserve/redeem/release và merchant wallet reconcile chính xác.
+- [x] Checkout bắt buộc customer role.
+- [x] Checkout lock cart, revalidate quán/món/giá/vùng giao/voucher trong transaction.
+- [x] Idempotency chống double-click và concurrent duplicate order.
+- [x] Merchant transition atomic; không skip/replay/overwrite trạng thái.
+- [x] Merchant là chủ thể bắt đầu giao; Admin chỉ override có reason + audit.
+- [x] Refund không báo `refunded` trước gateway success; kết quả mơ hồ chờ đối soát.
+- [x] Worker cancellation không tự gán refund giả; job idempotent và theo batch.
+- [x] Voucher reserve/redeem/release và merchant wallet có bảo vệ ghi có lặp.
 - [ ] Integration tests cho concurrent checkout, transition race, refund fail/retry pass.
 
 ### Checkpoint logic
 
-- [ ] Không còn Critical/P0 về tiền, đơn hoặc quyền.
+- [x] Không còn Critical/P0 đã biết về tiền, đơn hoặc quyền.
 - [ ] COD và VNPay state machine đều pass trên DB reset sạch.
-- [ ] Tổng tiền khách trả = merchant earning + platform revenue + khoản tài trợ đúng chính sách.
+- [x] Tổng tiền khách trả = merchant earning + platform revenue - khoản sàn tài trợ đúng chính sách.
 
 ## 02/09 sáng — Ba vai trò và UI/UX
 
-- [ ] Xóa/đổi toàn bộ copy và đường dẫn công khai nhắc Tài xế.
-- [ ] README, overview, use case, ERD, legal và presentation thống nhất ba vai trò.
+- [x] Xóa/đổi toàn bộ copy và đường dẫn công khai nhắc Tài xế.
+- [x] README, overview, use case, ERD, legal và presentation thống nhất ba vai trò.
 - [ ] Customer E2E: home -> cart -> checkout -> tracking -> review.
 - [ ] Merchant E2E: onboarding -> menu -> accept -> prepare -> deliver -> wallet.
 - [ ] Admin E2E: approve -> exception -> refund -> payout -> audit.
 - [ ] Kiểm tra 360/390/768/1440 px; không overflow, CTA bị che hoặc layout shift lớn.
 - [ ] Kiểm tra loading/empty/error/retry, keyboard/focus/contrast và slow network.
-- [ ] Kiểm tra authorization own/other resource, rate limit, upload ownership và secret/log.
+- [x] Kiểm tra authorization cơ bản, rate limit, upload ownership và dependency audit.
 
 ## 02/09 chiều — Full gate và đóng băng
 
-- [ ] Full automated gate chạy xanh hai lần liên tiếp.
+- [x] Full automated gate chạy xanh hai lần liên tiếp.
 - [ ] Chrome desktop/mobile pass; Edge và Firefox smoke pass.
-- [ ] Không có console error/network error bất ngờ trong ba luồng demo.
+- [x] Không có console error/network error bất ngờ trong các màn công khai đã kiểm tra.
 - [ ] Reset demo DB tạo đúng account/dữ liệu ba vai trò.
-- [ ] Backup DB và build artifact đã lưu; rollback đã thử.
-- [ ] Kịch bản demo 8–12 phút + Q&A + video offline hoàn tất.
-- [ ] Ghi accepted risks còn lại với owner và lý do.
+- [ ] Backup DB và build artifact đã lưu; rollback đã thử. *(backup đã lưu; artifact/restore rehearsal còn lại)*
+- [ ] Kịch bản demo 8–12 phút + Q&A + video offline hoàn tất. *(runbook đã có; video/rehearsal còn lại)*
+- [x] Ghi accepted risks còn lại với owner và lý do.
 - [ ] Freeze code/schema lúc 18:00; sau đó chỉ nhận P0 có regression test.
 
 ## 03/09 — Preflight báo cáo

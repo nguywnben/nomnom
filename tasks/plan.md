@@ -30,18 +30,23 @@ Không nên xóa phá hủy các bảng Tài xế ngay trước ngày báo cáo.
 thành legacy/không sử dụng, loại khỏi UI, API công khai, seed demo, ERD và tài liệu phạm vi cuối.
 Migration xóa vật lý chỉ thực hiện sau khi có backup, kiểm thử và buổi bảo vệ đã kết thúc.
 
-## 2. Đánh giá hiện trạng có bằng chứng
+## 2. Trạng thái thực thi có bằng chứng
 
-| Hạng mục | Kết quả ngày 31/08/2026 | Đánh giá |
+| Hạng mục | Kết quả cuối ngày 31/08/2026 | Đánh giá |
 |---|---:|---|
-| Server unit/integration tests | 25 pass, 0 fail | Tốt nhưng coverage còn hẹp |
+| Server unit/integration tests | 52 pass, 0 fail | Đạt gate hiện tại |
 | Client unit tests | 3 pass, 0 fail | Quá ít so với quy mô UI |
-| Server syntax check | 55 file pass | Đạt |
-| Client production build | Pass | Đạt; lần chạy trong sandbox lỗi `EPERM`, chạy ngoài sandbox pass |
-| Client lint | 24 lỗi, 5 cảnh báo | Không đạt release gate |
-| API + DB demo | Server khởi động, health pass, trả 14 nhà hàng | Đạt smoke cơ bản |
-| E2E/browser/concurrency | Chưa có bằng chứng tự động | Khoảng trống lớn |
-| Tài liệu phạm vi | Vẫn mô tả 4 vai trò và driver phase | Không nhất quán với sản phẩm cuối |
+| Server syntax check | 74 file pass | Đạt |
+| Client production build | Pass, 701 module | Đạt |
+| Client lint | 0 lỗi/cảnh báo | Đạt |
+| API + DB demo | Health + smoke 3 role + quyền chéo pass | Đạt |
+| Browser | Public/login 320–1440 px, console sạch | UI đăng nhập 3 role còn kiểm tra thủ công |
+| Dependency audit | Client 0, server 0 vulnerability | Đạt |
+| Tài liệu phạm vi | README/use case/ERD/legal/demo thống nhất 3 vai trò | Đạt |
+
+Bằng chứng chi tiết nằm tại `docs/RELEASE_EVIDENCE_2026-08-31.md`. Các phát hiện dưới đây là
+baseline ban đầu; P0/P1 đã xử lý hoặc được ghi fail-safe/accepted risk trong
+`docs/KNOWN_LIMITATIONS.md`.
 
 ### Phát hiện ưu tiên
 
