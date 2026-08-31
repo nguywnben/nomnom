@@ -39,7 +39,6 @@ export default function MerchantMenu() {
   const [deletingItem, setDeletingItem] = useState(null);
   // boolean
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [returnToManageModal, setReturnToManageModal] = useState(false);
 
   const loadMenu = useCallback(async () => {
     setLoading(true);
@@ -143,10 +142,6 @@ export default function MerchantMenu() {
         pushToast({ kind: 'success', title: 'Đã cập nhật danh mục', message: draftCat.name });
       }
       setEditingCategory(null);
-      if (returnToManageModal) {
-        setIsCategoryModalOpen(true);
-        setReturnToManageModal(false);
-      }
     } catch (err) {
       pushToast({ kind: 'error', title: 'Lỗi thao tác danh mục', message: err.message });
     }
@@ -229,10 +224,6 @@ export default function MerchantMenu() {
       pushToast({ kind: 'error', title: 'Không thể xóa danh mục', message: err.message });
     } finally {
       setDeletingCategory(null);
-      if (returnToManageModal) {
-        setIsCategoryModalOpen(true);
-        setReturnToManageModal(false);
-      }
     }
   };
 
@@ -380,39 +371,44 @@ export default function MerchantMenu() {
   return (
     <div className="space-y-base">
       {/* Top Header */}
-      <div className="flex flex-col gap-sm md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Thực đơn nhà hàng</div>
-          <h1 className="text-display-lg text-ink">Quản lý thực đơn</h1>
+          <div className="text-caption-uppercase text-body">Thực đơn & Món ăn</div>
+          <h1 className="text-display-lg text-ink">Quản lý Thực đơn</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Thêm món mới, cập nhật giá bán, nhóm món và kiểm soát trạng thái còn hàng hoặc hết món theo thời gian thực.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-xs">
-          <div className="relative w-52 md:w-60 shrink-0 h-9">
-            <Icon
-              name="search"
-              size={16}
-              className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
-            />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tìm món trong thực đơn…"
-              aria-label="Tìm trong thực đơn"
-              className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
-            />
-          </div>
-          <select
-            className="h-9 rounded-md border border-hairline-strong bg-surface-card px-3 text-body-sm text-ink outline-none cursor-pointer focus:border-ink transition-colors"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Lọc trạng thái món ăn"
-          >
-            <option value="all">Tất cả trạng thái ({stats.total})</option>
-            <option value="in_stock">Còn hàng ({stats.inStock})</option>
-            <option value="out_of_stock">Hết hàng ({stats.outOfStock})</option>
-            <option value="featured">Món nổi bật ⭐ ({stats.featured}/5)</option>
-            <option value="hidden">Đang ẩn ({stats.hidden})</option>
-          </select>
+      </div>
+
+      {/* Toolbar: Search + Status Filter */}
+      <div className="flex flex-wrap items-center justify-end gap-xs">
+        <div className="relative w-full sm:w-64 md:w-72 shrink-0 h-9">
+          <Icon
+            name="search"
+            size={16}
+            className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+          />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Tìm món trong thực đơn…"
+            aria-label="Tìm trong thực đơn"
+            className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+          />
         </div>
+        <select
+          className="h-9 rounded-md border border-hairline-strong bg-surface-card px-3 text-body-sm text-ink outline-none cursor-pointer focus:border-ink transition-colors"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Lọc trạng thái món ăn"
+        >
+          <option value="all">Tất cả trạng thái ({stats.total})</option>
+          <option value="in_stock">Còn hàng ({stats.inStock})</option>
+          <option value="out_of_stock">Hết hàng ({stats.outOfStock})</option>
+          <option value="featured">Món nổi bật ⭐ ({stats.featured}/5)</option>
+          <option value="hidden">Đang ẩn ({stats.hidden})</option>
+        </select>
       </div>
 
       {/* Category Tabs & Actions */}
@@ -728,11 +724,7 @@ export default function MerchantMenu() {
             <Button
               variant="secondary"
               leadingIcon="plus"
-              onClick={() => {
-                setIsCategoryModalOpen(false);
-                setReturnToManageModal(true);
-                setEditingCategory('new');
-              }}
+              onClick={() => setEditingCategory('new')}
             >
               Tạo danh mục mới
             </Button>
@@ -803,11 +795,7 @@ export default function MerchantMenu() {
                     size="sm"
                     variant="secondary"
                     className="text-error hover:!bg-error/10 hover:!border-error/30"
-                    onClick={() => {
-                      setIsCategoryModalOpen(false);
-                      setReturnToManageModal(true);
-                      handleDeleteCategory(c);
-                    }}
+                    onClick={() => handleDeleteCategory(c)}
                   />
                 </div>
               </div>
@@ -819,13 +807,7 @@ export default function MerchantMenu() {
       <CategoryEditor
         category={editingCategory === 'new' ? null : editingCategory}
         open={editingCategory !== null}
-        onClose={() => {
-          setEditingCategory(null);
-          if (returnToManageModal) {
-            setIsCategoryModalOpen(true);
-            setReturnToManageModal(false);
-          }
-        }}
+        onClose={() => setEditingCategory(null)}
         onSave={handleSaveCategory}
       />
 
@@ -841,26 +823,14 @@ export default function MerchantMenu() {
       {/* Delete Category Confirmation Modal */}
       <Modal
         open={deletingCategory !== null}
-        onClose={() => {
-          setDeletingCategory(null);
-          if (returnToManageModal) {
-            setIsCategoryModalOpen(true);
-            setReturnToManageModal(false);
-          }
-        }}
+        onClose={() => setDeletingCategory(null)}
         title="Xác nhận xóa danh mục"
         size="sm"
         footer={
           <>
             <Button
               variant="secondary"
-              onClick={() => {
-                setDeletingCategory(null);
-                if (returnToManageModal) {
-                  setIsCategoryModalOpen(true);
-                  setReturnToManageModal(false);
-                }
-              }}
+              onClick={() => setDeletingCategory(null)}
             >
               Hủy
             </Button>

@@ -25,16 +25,20 @@ function ensureAdmin(req, res, next) {
 }
 
 function serializeUser(row, roles) {
+  const role = row.primary_role || roles?.[0] || 'customer';
   return {
     id: row.id,
     email: row.email,
+    phone: row.phone ?? null,
     fullName: row.full_name,
     avatarUrl: row.avatar_url,
-    primaryRole: row.primary_role,
+    primaryRole: role,
+    role,
     status: row.status,
     suspensionExpiresAt: row.suspension_expires_at ?? null,
     suspensionReason: row.suspension_reason ?? null,
-    roles,
+    lastLoginAt: row.last_login_at ?? null,
+    roles: [role],
     joinedAt: row.created_at,
   };
 }
@@ -335,7 +339,14 @@ function parseOverviewRange(raw, fromDate, toDate) {
       sqlParams: [fromDate, toDate],
     };
   }
-  const range = ['today', 'week', '7d', 'month', '30d', '90d', 'quarter'].includes(raw) ? raw : 'month';
+  const range = ['today', 'week', '7d', 'month', '30d', '90d', 'quarter', 'all'].includes(raw) ? raw : 'month';
+  if (range === 'all') {
+    return {
+      range: 'all',
+      placedAtSql: '1 = 1',
+      sqlParams: [],
+    };
+  }
   if (range === 'today') {
     return {
       range: 'today',
@@ -464,9 +475,10 @@ router.get('/usersQuery', async (req, res, next) => {
     const role = String(req.query.role ?? 'all').trim().toLowerCase();
     const status = String(req.query.status ?? 'all').trim().toLowerCase();
     const q = String(req.query.q ?? '').trim().toLowerCase();
+    const isExport = req.query.export === '1' || req.query.export === 'true';
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
+    const limit = isExport ? 10000 : Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const offset = isExport ? 0 : (page - 1) * limit;
 
     const filters = [
       "u.status <> 'pending'",
@@ -474,7 +486,7 @@ router.get('/usersQuery', async (req, res, next) => {
     const params = [];
 
     if (role && role !== 'all') {
-      filters.push('EXISTS (SELECT 1 FROM user_roles role_filter WHERE role_filter.user_id = u.id AND role_filter.role = ?)');
+      filters.push('u.primary_role = ?');
       params.push(role);
     }
 
@@ -484,8 +496,8 @@ router.get('/usersQuery', async (req, res, next) => {
     }
 
     if (q) {
-      filters.push('(LOWER(u.full_name) LIKE ? OR LOWER(u.email) LIKE ?)');
-      params.push(`%${q}%`, `%${q}%`);
+      filters.push('(LOWER(u.full_name) LIKE ? OR LOWER(u.email) LIKE ? OR u.phone LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
     }
 
     const whereClause = filters.join(' AND ');
@@ -498,7 +510,7 @@ router.get('/usersQuery', async (req, res, next) => {
     );
 
     const [rows] = await pool.query(
-      `SELECT u.id, u.email, u.full_name, u.avatar_url, u.primary_role, u.status, u.suspension_expires_at, u.suspension_reason, u.created_at,
+      `SELECT u.id, u.email, u.phone, u.full_name, u.avatar_url, u.primary_role, u.status, u.suspension_expires_at, u.suspension_reason, u.last_login_at, u.created_at,
               GROUP_CONCAT(DISTINCT ur.role) AS roles
        FROM users u
        LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -509,8 +521,32 @@ router.get('/usersQuery', async (req, res, next) => {
       [...params, limit, offset],
     );
 
+    // Summary counts for dashboard badges based strictly on single primary_role
+    const [summaryRows] = await pool.query(
+      `SELECT
+         COUNT(DISTINCT u.id) AS total,
+         COUNT(DISTINCT CASE WHEN u.primary_role = 'customer' THEN u.id END) AS customers,
+         COUNT(DISTINCT CASE WHEN u.primary_role = 'merchant' THEN u.id END) AS merchants,
+         COUNT(DISTINCT CASE WHEN u.primary_role = 'admin' THEN u.id END) AS admins,
+         COUNT(DISTINCT CASE WHEN u.status = 'active' THEN u.id END) AS active,
+         COUNT(DISTINCT CASE WHEN u.status = 'suspended' THEN u.id END) AS suspended,
+         COUNT(DISTINCT CASE WHEN u.status = 'banned' THEN u.id END) AS banned
+       FROM users u
+       WHERE u.status <> 'pending'`,
+    );
+
+    const summary = {
+      total: Number(summaryRows[0]?.total ?? 0),
+      customers: Number(summaryRows[0]?.customers ?? 0),
+      merchants: Number(summaryRows[0]?.merchants ?? 0),
+      admins: Number(summaryRows[0]?.admins ?? 0),
+      active: Number(summaryRows[0]?.active ?? 0),
+      suspended: Number(summaryRows[0]?.suspended ?? 0),
+      banned: Number(summaryRows[0]?.banned ?? 0),
+    };
+
     const items = rows.map((row) => serializeUser(row, row.roles ? row.roles.split(',') : []));
-    res.json({ items, total: Number(countRows[0]?.total ?? 0), page, limit });
+    res.json({ items, total: Number(countRows[0]?.total ?? 0), page, limit, summary });
   } catch (err) {
     next(err);
   }
@@ -571,6 +607,11 @@ router.patch('/users/:id/status', async (req, res, next) => {
         return res.status(400).json({ error: 'Lý do đình chỉ là bắt buộc.' });
       }
       expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+      reasonValue = suspensionReason;
+    } else if (status === 'banned') {
+      if (!suspensionReason) {
+        return res.status(400).json({ error: 'Lý do khóa tài khoản là bắt buộc.' });
+      }
       reasonValue = suspensionReason;
     }
 
@@ -977,7 +1018,7 @@ router.post('/restaurants/:id/approve', async (req, res, next) => {
   const adminId = req.auth.userId;
 
   if (!restaurantId) {
-    return res.status(400).json({ error: 'ID nhà hàng không hợp lệ.' });
+    return res.status(400).json({ error: 'ID quán ăn không hợp lệ.' });
   }
 
   const conn = await pool.getConnection();
@@ -994,11 +1035,11 @@ router.post('/restaurants/:id/approve', async (req, res, next) => {
     const restaurant = rows[0];
     if (!restaurant) {
       await conn.rollback();
-      return res.status(404).json({ error: 'Nhà hàng không tồn tại.' });
+      return res.status(404).json({ error: 'Quán ăn không tồn tại.' });
     }
     if (restaurant.status !== 'pending') {
       await conn.rollback();
-      return res.status(400).json({ error: 'Chỉ có thể duyệt nhà hàng đang chờ xét duyệt.' });
+      return res.status(400).json({ error: 'Chỉ có thể duyệt quán ăn đang chờ xét duyệt.' });
     }
     if (!hasValidCoordinates(restaurant)) {
       await conn.rollback();
@@ -1084,7 +1125,7 @@ router.post('/restaurants/:id/reject', async (req, res, next) => {
   const reason = String(req.body?.reason ?? '').trim();
 
   if (!restaurantId) {
-    return res.status(400).json({ error: 'ID nhà hàng không hợp lệ.' });
+    return res.status(400).json({ error: 'ID quán ăn không hợp lệ.' });
   }
   if (!reason) {
     return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối.' });
@@ -1107,11 +1148,11 @@ router.post('/restaurants/:id/reject', async (req, res, next) => {
     const restaurant = rows[0];
     if (!restaurant) {
       await conn.rollback();
-      return res.status(404).json({ error: 'Nhà hàng không tồn tại.' });
+      return res.status(404).json({ error: 'Quán ăn không tồn tại.' });
     }
     if (restaurant.status !== 'pending') {
       await conn.rollback();
-      return res.status(400).json({ error: 'Chỉ có thể từ chối nhà hàng đang chờ xét duyệt.' });
+      return res.status(400).json({ error: 'Chỉ có thể từ chối quán ăn đang chờ xét duyệt.' });
     }
 
     await conn.query(
@@ -1671,40 +1712,78 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
 
 router.get('/reviews', async (req, res, next) => {
   try {
-    const { hidden, page, q } = req.query;
+    const { hidden, tab, page, limit: queryLimit, q, rating, targetType } = req.query;
+    const isExport = req.query.export === '1' || req.query.export === 'true';
+    const ratingVal = rating && rating !== 'all' ? Number(rating) : null;
     const ratingMax = req.query.ratingMax === undefined ? null : Number(req.query.ratingMax);
     const pageVal = Math.max(1, parseInt(page, 10) || 1);
-    const limit = 10;
-    const offset = (pageVal - 1) * limit;
+    const limit = isExport ? 1000 : Math.min(100, Math.max(1, parseInt(queryLimit, 10) || 10));
+    const offset = isExport ? 0 : (pageVal - 1) * limit;
 
     let whereSql = '1 = 1';
     const params = [];
 
+    // Tab Filter
+    if (tab === 'hidden') {
+      whereSql += ' AND rv.is_hidden = 1';
+    } else if (tab === 'low') {
+      whereSql += ' AND rv.rating <= 3';
+    }
+
+    // Hidden Filter
     if (hidden === 'true' || hidden === '1') {
       whereSql += ' AND rv.is_hidden = 1';
     } else if (hidden === 'false' || hidden === '0') {
       whereSql += ' AND rv.is_hidden = 0';
     }
 
-    if (ratingMax !== null) {
-      if (!Number.isInteger(ratingMax) || ratingMax < 1 || ratingMax > 5) {
-        return res.status(400).json({ error: 'ratingMax must be an integer from 1 to 5.' });
-      }
+    // Specific Star Rating Filter (1..5)
+    if (ratingVal !== null && Number.isInteger(ratingVal) && ratingVal >= 1 && ratingVal <= 5) {
+      whereSql += ' AND rv.rating = ?';
+      params.push(ratingVal);
+    } else if (ratingMax !== null && Number.isInteger(ratingMax) && ratingMax >= 1 && ratingMax <= 5) {
       whereSql += ' AND rv.rating <= ?';
       params.push(ratingMax);
     }
-    const search = String(q ?? '').trim();
-    if (search) {
-      whereSql += ' AND (rv.comment LIKE ? OR u.full_name LIKE ? OR r.name LIKE ? OR o.order_code LIKE ?)';
-      const needle = '%' + search + '%';
-      params.push(needle, needle, needle, needle);
+
+    // Target Type Filter: restaurant vs dish
+    if (targetType === 'restaurant') {
+      whereSql += ' AND rv.menu_item_id IS NULL';
+    } else if (targetType === 'dish') {
+      whereSql += ' AND rv.menu_item_id IS NOT NULL';
     }
 
+    // Search query
+    const search = String(q ?? '').trim();
+    if (search) {
+      whereSql += ' AND (rv.comment LIKE ? OR u.full_name LIKE ? OR r.name LIKE ? OR mi.name LIKE ? OR o.order_code LIKE ?)';
+      const needle = '%' + search + '%';
+      params.push(needle, needle, needle, needle, needle);
+    }
+
+    // Global summary counts across all reviews
+    const [summaryRows] = await pool.query(
+      `SELECT
+        COUNT(*) as total,
+        COALESCE(SUM(CASE WHEN rating <= 3 THEN 1 ELSE 0 END), 0) as low_rating,
+        COALESCE(SUM(CASE WHEN is_hidden = 1 THEN 1 ELSE 0 END), 0) as hidden,
+        COALESCE(SUM(CASE WHEN is_hidden = 0 THEN 1 ELSE 0 END), 0) as published
+       FROM reviews`
+    );
+    const summary = {
+      total: Number(summaryRows[0]?.total ?? 0),
+      lowRating: Number(summaryRows[0]?.low_rating ?? 0),
+      hidden: Number(summaryRows[0]?.hidden ?? 0),
+      published: Number(summaryRows[0]?.published ?? 0),
+    };
+
+    // Filtered count
     const [countRows] = await pool.query(
       `SELECT COUNT(*) as total
        FROM reviews rv
        LEFT JOIN users u ON rv.customer_id = u.id
        LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN menu_items mi ON rv.menu_item_id = mi.id
        LEFT JOIN orders o ON rv.order_id = o.id
        WHERE ${whereSql}`,
       params
@@ -1712,10 +1791,18 @@ router.get('/reviews', async (req, res, next) => {
     const total = countRows[0]?.total ?? 0;
 
     const [rows] = await pool.query(
-      `SELECT rv.*, u.full_name AS customer_name, u.avatar_url AS customer_avatar, r.name AS restaurant_name, o.order_code
+      `SELECT
+         rv.*,
+         u.full_name AS customer_name,
+         u.avatar_url AS customer_avatar,
+         r.name AS restaurant_name,
+         mi.name AS dish_name,
+         mi.image_url AS dish_image,
+         o.order_code
        FROM reviews rv
        LEFT JOIN users u ON rv.customer_id = u.id
        LEFT JOIN restaurants r ON rv.restaurant_id = r.id
+       LEFT JOIN menu_items mi ON rv.menu_item_id = mi.id
        LEFT JOIN orders o ON rv.order_id = o.id
        WHERE ${whereSql}
        ORDER BY rv.created_at DESC
@@ -1728,8 +1815,9 @@ router.get('/reviews', async (req, res, next) => {
       pagination: {
         page: pageVal,
         limit,
-        total
-      }
+        total,
+      },
+      summary,
     });
   } catch (err) {
     next(err);
@@ -1740,7 +1828,7 @@ router.patch('/reviews/:id', async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
     const id = Number(req.params.id);
-    const { isHidden } = req.body;
+    const { isHidden, reason } = req.body;
 
     if (isNaN(id)) {
       return res.status(400).json({ error: 'ID đánh giá không hợp lệ' });
@@ -1753,7 +1841,7 @@ router.patch('/reviews/:id', async (req, res, next) => {
     await connection.beginTransaction();
 
     const [reviews] = await connection.query(
-      'SELECT restaurant_id, menu_item_id FROM reviews WHERE id = ? FOR UPDATE',
+      'SELECT id, restaurant_id, menu_item_id, rating, comment FROM reviews WHERE id = ? FOR UPDATE',
       [id]
     );
 
@@ -1762,7 +1850,7 @@ router.patch('/reviews/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Không tìm thấy đánh giá' });
     }
 
-    const { restaurant_id, menu_item_id } = reviews[0];
+    const { restaurant_id, menu_item_id, rating, comment } = reviews[0];
 
     await connection.query(
       'UPDATE reviews SET is_hidden = ? WHERE id = ?',
@@ -1772,6 +1860,19 @@ router.patch('/reviews/:id', async (req, res, next) => {
     await refreshReviewStats(connection, {
       restaurantId: restaurant_id,
       menuItemIds: menu_item_id ? [menu_item_id] : [],
+    });
+
+    await logAudit(connection, {
+      adminId: req.auth.userId,
+      action: isHidden ? 'an_danh_gia' : 'hien_danh_gia',
+      targetType: 'review',
+      targetId: id,
+      metadata: {
+        restaurantId: restaurant_id,
+        menuItemId: menu_item_id,
+        rating,
+        lyDo: reason?.trim() || (isHidden ? 'Ẩn đánh giá vi phạm' : 'Khôi phục hiển thị đánh giá'),
+      },
     });
 
     await connection.commit();

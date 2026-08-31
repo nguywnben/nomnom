@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Area,
@@ -42,8 +42,15 @@ export default function MerchantDashboard() {
 
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
+  const [rangeMode, setRangeMode] = useState('today');
 
-  const setPreset = (daysAgo) => {
+  const setPreset = (daysAgo, modeKey) => {
+    if (modeKey === 'all') {
+      setFromDate('');
+      setToDate('');
+      setRangeMode('all');
+      return;
+    }
     if (daysAgo === 0) {
       setFromDate(todayStr);
       setToDate(todayStr);
@@ -51,14 +58,16 @@ export default function MerchantDashboard() {
       setFromDate(calcDateStr(daysAgo));
       setToDate(todayStr);
     }
+    setRangeMode(modeKey);
   };
 
   const activePresetValue = (() => {
+    if (rangeMode && rangeMode !== 'custom') return rangeMode;
     if (fromDate === todayStr && toDate === todayStr) return 'today';
     if (fromDate === calcDateStr(6) && toDate === todayStr) return '7d';
     if (fromDate === calcDateStr(29) && toDate === todayStr) return '30d';
-    if (fromDate === minDateStr && toDate === todayStr) return '90d';
-    return null;
+    if (fromDate === calcDateStr(89) && toDate === todayStr) return '90d';
+    return 'custom';
   })();
 
   const [loading, setLoading] = useState(true);
@@ -92,7 +101,8 @@ export default function MerchantDashboard() {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchMerchantDashboardApi({ fromDate, toDate });
+        const query = rangeMode === 'all' ? { range: 'all' } : { fromDate, toDate };
+        const data = await fetchMerchantDashboardApi(query);
         if (active && requestSeq.current === currentRequest) {
           setDashboardData(data);
         }
@@ -116,7 +126,7 @@ export default function MerchantDashboard() {
     return () => {
       active = false;
     };
-  }, [backendUnavailable, fromDate, toDate]);
+  }, [backendUnavailable, fromDate, toDate, rangeMode]);
 
   const outletCtx = useOutletContext();
   const restaurantOpen = outletCtx?.restaurantOpen ?? currentMerchant?.restaurantOpen;
@@ -146,6 +156,7 @@ export default function MerchantDashboard() {
   };
 
   const getRangeDisplay = () => {
+    if (rangeMode === 'all') return 'Toàn thời gian';
     if (fromDate === todayStr && toDate === todayStr) return 'Hôm nay';
     if (fromDate === calcDateStr(6) && toDate === todayStr) return '7 ngày qua';
     if (fromDate === calcDateStr(29) && toDate === todayStr) return '30 ngày qua';
@@ -157,7 +168,7 @@ export default function MerchantDashboard() {
   const exportCsv = async () => {
     try {
       setExporting(true);
-      const res = await fetchMerchantOrdersApi({ fromDate, toDate });
+      const res = await fetchMerchantOrdersApi(rangeMode === 'all' ? {} : { fromDate, toDate });
       const ordersToExport = (res?.orders && res.orders.length > 0)
         ? res.orders
         : dashboardData.recentOrders;
@@ -189,7 +200,7 @@ export default function MerchantDashboard() {
         };
       });
 
-      downloadCsv(`nomnom-don-hang-${fromDate}_den_${toDate}.csv`, rows);
+      downloadCsv(`nomnom-don-hang-${rangeMode === 'all' ? 'toan-thoi-gian' : `${fromDate}_den_${toDate}`}.csv`, rows);
     } catch (err) {
       console.error('Error exporting CSV:', err);
     } finally {
@@ -197,10 +208,32 @@ export default function MerchantDashboard() {
     }
   };
 
-  const formattedChartData = dashboardData.chart.map((item) => ({
-    ...item,
-    formattedDate: formatDateLabel(item.date),
-  }));
+  const formattedChartData = useMemo(() => {
+    const raw = dashboardData.chart || [];
+    if (raw.length > 0) {
+      return raw.map((item) => ({
+        ...item,
+        formattedDate: formatDateLabel(item.date),
+      }));
+    }
+    const fallback = [];
+    const count = rangeMode === 'today' ? 1 : rangeMode === '7d' ? 7 : 30;
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      fallback.push({
+        date: dateStr,
+        formattedDate: `${dd}/${mm}`,
+        orderCount: 0,
+        revenue: 0,
+      });
+    }
+    return fallback;
+  }, [dashboardData.chart, rangeMode]);
 
   if (backendUnavailable) {
     return (
@@ -265,13 +298,25 @@ export default function MerchantDashboard() {
 
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-center justify-between gap-base">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">
-            {getRangeDisplay()}
-          </div>
-          <h1 className="text-display-lg text-ink">Bảng điều khiển</h1>
+          <div className="text-caption-uppercase text-body">Tổng quan & Kinh doanh</div>
+          <h1 className="text-display-lg text-ink">Bảng điều khiển Quán ăn</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Theo dõi kết quả bán hàng, doanh thu thực tế, tiến độ đơn hàng mới và các món ăn bán chạy nhất.
+          </p>
         </div>
+
+        {restaurantOpen !== null && restaurantOpen !== undefined && (
+          <Badge tone={restaurantOpen ? 'success' : 'error'} dot className="h-9 px-3 flex items-center justify-center">
+            {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
+          </Badge>
+        )}
+      </div>
+
+      {/* Toolbar: Range Tabs + Date Pickers + Export CSV */}
+      <div className="flex flex-col gap-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-xs">
           {/* Quick preset segmented tabs */}
           <Tabs
@@ -281,17 +326,19 @@ export default function MerchantDashboard() {
               { value: '7d', label: '7 ngày' },
               { value: '30d', label: '30 ngày' },
               { value: '90d', label: '90 ngày' },
+              { value: 'all', label: 'Toàn thời gian' },
             ]}
             value={activePresetValue}
             onChange={(val) => {
-              if (val === 'today') setPreset(0);
-              else if (val === '7d') setPreset(6);
-              else if (val === '30d') setPreset(29);
-              else if (val === '90d') setPreset(90);
+              if (val === 'today') setPreset(0, 'today');
+              else if (val === '7d') setPreset(6, '7d');
+              else if (val === '30d') setPreset(29, '30d');
+              else if (val === '90d') setPreset(89, '90d');
+              else if (val === 'all') setPreset(0, 'all');
             }}
           />
 
-          {/* Direct date pickers (Max 90 days lookback) */}
+          {/* Direct date pickers */}
           <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink">
             <Icon name="calendar" size={15} className="text-body shrink-0" />
             <input
@@ -303,8 +350,9 @@ export default function MerchantDashboard() {
                 const val = e.target.value;
                 if (!val) return;
                 setFromDate(val < minDateStr ? minDateStr : val);
+                setRangeMode('custom');
               }}
-              title="Từ ngày (tối đa 90 ngày trước)"
+              title="Từ ngày"
               aria-label="Từ ngày"
               className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
             />
@@ -318,30 +366,25 @@ export default function MerchantDashboard() {
                 const val = e.target.value;
                 if (!val) return;
                 setToDate(val > todayStr ? todayStr : val);
+                setRangeMode('custom');
               }}
               title="Đến ngày (tối đa hôm nay)"
               aria-label="Đến ngày"
               className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
             />
           </div>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            leadingIcon="download"
-            onClick={exportCsv}
-            loading={exporting}
-            disabled={exporting || (!dashboardData.recentOrders.length && !dashboardData.summary.orderCount)}
-          >
-            Xuất CSV
-          </Button>
-
-          {restaurantOpen !== null && restaurantOpen !== undefined && (
-            <Badge tone={restaurantOpen ? 'success' : 'error'} dot className="h-9 px-3 flex items-center justify-center">
-              {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
-            </Badge>
-          )}
         </div>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          leadingIcon="download"
+          onClick={exportCsv}
+          loading={exporting}
+          disabled={exporting || (!dashboardData.recentOrders.length && !dashboardData.summary.orderCount)}
+        >
+          Xuất CSV
+        </Button>
       </div>
 
       {/* KPI Cards */}
@@ -414,10 +457,6 @@ export default function MerchantDashboard() {
           {loading ? (
             <div className="flex h-64 items-center justify-center bg-canvas-soft rounded-md">
               <Skeleton className="h-4/5 w-11/12" rounded="md" />
-            </div>
-          ) : dashboardData.chart.length === 0 ? (
-            <div className="flex h-64 items-center justify-center bg-canvas-soft rounded-md text-body-sm text-body">
-              Chưa có dữ liệu thống kê biểu đồ.
             </div>
           ) : (
             <div className="h-64 min-w-0">

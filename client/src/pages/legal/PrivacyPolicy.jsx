@@ -40,7 +40,7 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong className="text-ink">Đối tác:</strong> hồ sơ quán, giấy tờ kinh doanh, thông tin KYC
-            và tài khoản ngân hàng khi bạn đăng ký nhà hàng.
+            và tài khoản ngân hàng khi bạn đăng ký quán ăn.
           </li>
         </ul>
       </LegalSection>

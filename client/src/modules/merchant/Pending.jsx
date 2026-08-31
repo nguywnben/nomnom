@@ -221,7 +221,7 @@ export default function MerchantPending() {
           <div className="text-caption-uppercase text-body">Đối tác NomNom</div>
           <h1 className="text-display-md text-ink md:text-display-lg">Trạng thái hồ sơ quán</h1>
           <p className="mt-xs text-body-md text-body">
-            Theo dõi tiến trình xét duyệt đối tác nhà hàng của bạn trên NomNom.
+            Theo dõi tiến trình xét duyệt đối tác quán ăn của bạn trên NomNom.
           </p>
         </div>
 

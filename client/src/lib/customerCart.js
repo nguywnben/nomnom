@@ -1,6 +1,6 @@
 /**
  * Giỏ hàng & đặt món trên /app — guest, customer chưa là đối tác chính thức,
- * hoặc customer đang chờ duyệt nhà hàng.
+ * hoặc customer đang chờ duyệt quán ăn.
  */
 
 const RESTRICTION_BY_ROLE = {
@@ -12,7 +12,7 @@ const RESTRICTION_BY_ROLE = {
   merchant: {
     title: 'Không thể đặt món',
     message:
-      'Tài khoản đối tác nhà hàng dùng để quản lý quán trên NomNom, không dùng để đặt đồ ăn. Vui lòng đăng xuất và dùng tài khoản khách hàng.',
+      'Tài khoản đối tác quán ăn dùng để quản lý quán trên NomNom, không dùng để đặt đồ ăn. Vui lòng đăng xuất và dùng tài khoản khách hàng.',
   },
 };
 
@@ -20,7 +20,7 @@ const RESTRICTION_BY_PARTNER = {
   established_merchant: {
     title: 'Không thể đặt món',
     message:
-      'Tài khoản đối tác nhà hàng không dùng để đặt đồ ăn trên NomNom. Hãy dùng khu vực quản lý quán hoặc đăng xuất và dùng tài khoản khách hàng khác.',
+      'Tài khoản đối tác quán ăn không dùng để đặt đồ ăn trên NomNom. Hãy dùng khu vực quản lý quán hoặc đăng xuất và dùng tài khoản khách hàng khác.',
   },
   legacy_partner: {
     title: 'Không thể đặt món',

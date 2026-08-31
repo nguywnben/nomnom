@@ -18,7 +18,6 @@ const links = [
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
   { to: '/admin/restaurants', label: 'Quán ăn', icon: 'store' },
   { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
-  { to: '/admin/payouts', label: 'Rút tiền', icon: 'cash' },
   { to: '/admin/reviews', label: 'Đánh giá', icon: 'starFilled' },
   { to: '/admin/financial', label: 'Tài chính', icon: 'wallet' },
   { to: '/admin/config', label: 'Cấu hình', icon: 'cog' },
@@ -33,7 +32,6 @@ const sidebarOrder = [
   '/admin/accounts',
   '/admin/reviews',
   '/admin/financial',
-  '/admin/payouts',
   '/admin/customer-home',
   '/admin/cuisines',
   '/admin/config',
@@ -120,7 +118,7 @@ export default function AdminLayout() {
             label="Thông báo"
             size="sm"
             badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
-            onClick={() => nav('/app/notifications')}
+            onClick={() => nav('/admin/notifications')}
           />
         </header>
 
@@ -136,7 +134,7 @@ export default function AdminLayout() {
               variant="secondary"
               label="Thông báo"
               badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
-              onClick={() => nav('/app/notifications')}
+              onClick={() => nav('/admin/notifications')}
             />
             <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ

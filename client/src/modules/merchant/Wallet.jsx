@@ -68,8 +68,14 @@ export default function MerchantWallet() {
 
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-end justify-between gap-sm">
-        <div><div className="text-caption-uppercase text-body">Tài chính</div><h1 className="text-display-lg text-ink">Ví quán & rút tiền</h1></div>
+      <div className="flex flex-wrap items-end justify-between gap-base">
+        <div>
+          <div className="text-caption-uppercase text-body">Tài chính & Doanh thu</div>
+          <h1 className="text-display-lg text-ink">Ví Doanh thu & Rút tiền</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Kiểm tra số dư khả dụng, lịch sử thu nhập từ đơn hàng và gửi yêu cầu rút tiền về tài khoản ngân hàng.
+          </p>
+        </div>
       </div>
 
       <Card padded variant="dark" className="grid gap-base md:grid-cols-[1fr_auto] md:items-center">

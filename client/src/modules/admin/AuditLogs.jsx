@@ -16,8 +16,8 @@ const ACTION_LABELS = {
   an_loai_am_thuc: { label: 'Ẩn loại ẩm thực', tone: 'warning' },
   xoa_loai_am_thuc: { label: 'Xóa loại ẩm thực', tone: 'error' },
   sap_xep_loai_am_thuc: { label: 'Sắp xếp loại ẩm thực', tone: 'outline' },
-  duyet_nha_hang: { label: 'Duyệt nhà hàng', tone: 'success' },
-  tu_choi_nha_hang: { label: 'Từ chối nhà hàng', tone: 'error' },
+  duyet_nha_hang: { label: 'Duyệt quán ăn', tone: 'success' },
+  tu_choi_nha_hang: { label: 'Từ chối quán ăn', tone: 'error' },
   doi_trang_thai_tai_khoan: { label: 'Đổi trạng thái tài khoản', tone: 'warning' },
   huy_don_hang: { label: 'Hủy đơn hàng', tone: 'error' },
   duyet_rut_tien: { label: 'Duyệt rút tiền', tone: 'live' },
@@ -84,7 +84,7 @@ function formatMetadataValue(key, value) {
 
 const TARGET_LABELS = {
   cuisine: 'Loại ẩm thực',
-  restaurant: 'Nhà hàng',
+  restaurant: 'Quán ăn',
   user: 'Tài khoản',
   order: 'Đơn hàng',
   payout: 'Yêu cầu rút tiền',
@@ -148,14 +148,20 @@ export default function AdminAuditLogs() {
 
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-end justify-between gap-sm">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Hệ thống</div>
-          <h1 className="text-display-lg text-ink">Lịch sử hoạt động</h1>
+          <div className="text-caption-uppercase text-body">Bảo mật & Giám sát</div>
+          <h1 className="text-display-lg text-ink">Nhật ký Hoạt động (Audit Logs)</h1>
           <p className="mt-xs text-body-sm text-body">
-            Nhật ký đối soát ghi nhận các hành động quan trọng thực hiện bởi quản trị viên.
+            Ghi nhận toàn bộ thao tác quản trị, thay đổi cấu hình, duyệt quán và xử lý tranh chấp nhằm đảm bảo tính minh bạch.
           </p>
         </div>
+        {pagination.total > 0 && (
+          <div className="flex flex-wrap items-center gap-xs">
+            <Badge tone="outline">Tổng {pagination.total} bản ghi nhật ký</Badge>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
@@ -164,7 +170,7 @@ export default function AdminAuditLogs() {
           className="max-w-full"
           items={[
             { value: 'all', label: 'Tất cả' },
-            { value: 'restaurant', label: 'Nhà hàng' },
+            { value: 'restaurant', label: 'Quán ăn' },
             { value: 'user', label: 'Tài khoản' },
             { value: 'order', label: 'Đơn hàng' },
             { value: 'payout', label: 'Rút tiền' },

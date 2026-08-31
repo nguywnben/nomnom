@@ -158,10 +158,15 @@ export default function MerchantSettings() {
 
   return (
     <div className="space-y-base">
-      <div>
-        <div className="text-caption-uppercase text-body">Quản trị</div>
-        <h1 className="text-display-lg text-ink">Cài đặt quán</h1>
-        <p className="mt-xs text-body-sm text-body">Quản lý thông tin hiển thị, vận hành và tài khoản nhận tiền.</p>
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
+        <div>
+          <div className="text-caption-uppercase text-body">Hồ sơ & Hoạt động</div>
+          <h1 className="text-display-lg text-ink">Cài đặt Quán ăn</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Cập nhật thông tin thương hiệu, thiết lập thời gian chuẩn bị món và liên kết tài khoản ngân hàng nhận doanh thu.
+          </p>
+        </div>
       </div>
 
       {error && (

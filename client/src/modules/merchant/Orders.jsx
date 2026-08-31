@@ -254,24 +254,36 @@ export default function MerchantOrders() {
 
   return (
     <div className="space-y-base">
+      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">{isToday ? 'Hôm nay' : 'Lịch sử'}</div>
-          <h1 className="text-display-lg text-ink">Đơn hàng trực tiếp</h1>
+          <div className="text-caption-uppercase text-body">Vận hành & Đơn hàng</div>
+          <h1 className="text-display-lg text-ink">Quản lý Đơn hàng</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Tiếp nhận, xác nhận chế biến, bàn giao món ăn cho tài xế và theo dõi tiến độ đơn theo thời gian thực.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-xs">
+
+        <Badge tone={isToday ? 'live' : 'outline'} dot={isToday} className="h-9 px-3 flex items-center justify-center">
+          {isToday
+            ? (lastSyncedAt ? `Cập nhật ${lastSyncedAt.toLocaleTimeString('vi-VN')}` : 'Đang tải…')
+            : `Ngày ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('vi-VN')}`}
+        </Badge>
+      </div>
+
+      {/* Toolbar: Date Picker */}
+      <div className="flex items-center justify-between">
+        <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink">
+          <Icon name="calendar" size={15} className="text-body shrink-0" />
           <input
             type="date"
             value={selectedDate}
             max={todayIsoDate()}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="h-9 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink cursor-pointer"
+            title="Chọn ngày xem đơn"
+            aria-label="Chọn ngày xem đơn"
+            className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
           />
-          <Badge tone={isToday ? 'live' : 'outline'} dot={isToday} className="h-9 px-3 flex items-center justify-center">
-            {isToday
-              ? (lastSyncedAt ? `Cập nhật ${lastSyncedAt.toLocaleTimeString('vi-VN')}` : 'Đang tải…')
-              : `Ngày ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('vi-VN')}`}
-          </Badge>
         </div>
       </div>
 

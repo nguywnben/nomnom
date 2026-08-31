@@ -69,6 +69,8 @@ export default function AdminRestaurantApprovals() {
   const [suspendModalOpen, setSuspendModalOpen] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
   const [suspendTarget, setSuspendTarget] = useState(null);
+  const [unSuspendTarget, setUnSuspendTarget] = useState(null);
+  const [addressApproveTarget, setAddressApproveTarget] = useState(null);
   const [actingId, setActingId] = useState(null);
 
   // Load Cuisines for Filter
@@ -247,11 +249,14 @@ export default function AdminRestaurantApprovals() {
     }
   };
 
-  const approveAddressChange = async (requestId) => {
+  const confirmApproveAddressChange = async () => {
+    if (!addressApproveTarget) return;
+    const requestId = addressApproveTarget.id;
     setActingId(`address-${requestId}`);
     try {
       await approveAdminRestaurantAddressChangeRequest(requestId);
       setAddressItems((current) => current.filter((item) => item.id !== requestId));
+      setAddressApproveTarget(null);
       pushToast({
         kind: 'success',
         title: 'Đã duyệt đổi địa chỉ',
@@ -297,30 +302,35 @@ export default function AdminRestaurantApprovals() {
     }
   };
 
-  const handleToggleSuspend = async (restaurant, newStatus) => {
+  const handleToggleSuspend = (restaurant, newStatus) => {
     if (newStatus === 'suspended') {
       setSuspendTarget(restaurant);
       setSuspendReason('');
       setSuspendModalOpen(true);
-      return;
+    } else {
+      setUnSuspendTarget(restaurant);
     }
+  };
 
-    setActingId(restaurant.id);
+  const confirmUnsuspend = async () => {
+    if (!unSuspendTarget) return;
+    setActingId(unSuspendTarget.id);
     try {
-      await updateAdminRestaurantStatusApi(restaurant.id, { status: 'active' });
+      await updateAdminRestaurantStatusApi(unSuspendTarget.id, { status: 'active' });
       pushToast({
         kind: 'success',
-        title: 'Đã kích hoạt quán',
-        message: `Quán "${restaurant.name}" đã được mở khóa và có thể tiếp tục hoạt động.`,
+        title: 'Đã mở khóa quán',
+        message: `Quán "${unSuspendTarget.name}" đã được mở khóa và có thể tiếp tục hoạt động.`,
       });
-      if (active && active.id === restaurant.id) {
+      if (active && active.id === unSuspendTarget.id) {
         setActive((cur) => ({ ...cur, status: 'active', rejectionReason: null }));
       }
+      setUnSuspendTarget(null);
       await loadAllRestaurants();
     } catch (err) {
       pushToast({
         kind: 'error',
-        title: 'Không thể kích hoạt quán',
+        title: 'Không thể mở khóa quán',
         message: err.message || 'Vui lòng thử lại sau.',
       });
     } finally {
@@ -413,7 +423,7 @@ export default function AdminRestaurantApprovals() {
                 value={qPending}
                 onChange={(e) => setQPending(e.target.value)}
                 placeholder="Tìm theo tên quán, chủ, thành phố…"
-                aria-label="Tìm kiếm nhà hàng chờ duyệt"
+                aria-label="Tìm kiếm quán ăn chờ duyệt"
                 className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
               />
             </div>
@@ -524,10 +534,10 @@ export default function AdminRestaurantApprovals() {
                         <Button
                           size="sm"
                           leadingIcon="check"
-                          onClick={() => approveAddressChange(request.id)}
+                          onClick={() => setAddressApproveTarget(request)}
                           disabled={busy}
                         >
-                          {busy ? 'Đang xử lý…' : 'Duyệt'}
+                          Duyệt
                         </Button>
                       </div>
                     </li>
@@ -907,6 +917,70 @@ export default function AdminRestaurantApprovals() {
             >
               Xác nhận từ chối
             </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL: XÁC NHẬN MỞ KHÓA QUÁN ĂN */}
+      <Modal
+        open={Boolean(unSuspendTarget)}
+        onClose={() => setUnSuspendTarget(null)}
+        title={`Mở khóa quán ${unSuspendTarget?.name || ''}`}
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setUnSuspendTarget(null)} disabled={Boolean(actingId)}>
+              Hủy
+            </Button>
+            <Button
+              leadingIcon="check"
+              onClick={confirmUnsuspend}
+              loading={Boolean(actingId)}
+              disabled={Boolean(actingId)}
+            >
+              {actingId ? 'Đang mở khóa…' : 'Xác nhận mở khóa'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-base">
+          <p className="text-body-sm text-body leading-relaxed">
+            Bạn có chắc chắn muốn mở khóa cho quán <strong className="text-ink">{unSuspendTarget?.name}</strong> hoạt động trở lại không?
+          </p>
+          <div className="rounded-md border border-primary/20 bg-primary/5 p-sm text-body-sm text-ink">
+            Quán ăn sẽ xuất hiện trở lại trên thanh tìm kiếm và được phép mở cửa nhận đơn hàng bình thường.
+          </div>
+        </div>
+      </Modal>
+
+      {/* MODAL: XÁC NHẬN DUYỆT ĐỔI ĐỊA CHỈ */}
+      <Modal
+        open={Boolean(addressApproveTarget)}
+        onClose={() => setAddressApproveTarget(null)}
+        title="Xác nhận duyệt đổi địa chỉ"
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setAddressApproveTarget(null)} disabled={Boolean(actingId)}>
+              Hủy
+            </Button>
+            <Button
+              leadingIcon="check"
+              onClick={confirmApproveAddressChange}
+              loading={Boolean(actingId)}
+              disabled={Boolean(actingId)}
+            >
+              {actingId ? 'Đang cập nhật…' : 'Xác nhận duyệt'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-base">
+          <p className="text-body-sm text-body leading-relaxed">
+            Duyệt yêu cầu đổi địa chỉ của quán <strong className="text-ink">{addressApproveTarget?.name}</strong> sang địa chỉ mới:
+          </p>
+          <div className="rounded-md border border-hairline-strong bg-canvas-soft p-sm text-body-sm font-medium text-ink">
+            {addressApproveTarget?.newAddress}
           </div>
         </div>
       </Modal>

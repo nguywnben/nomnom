@@ -56,7 +56,6 @@ const AdminOverview = lazy(() => import('./modules/admin/Overview.jsx'));
 const AdminAccounts = lazy(() => import('./modules/admin/Accounts.jsx'));
 const AdminFinancial = lazy(() => import('./modules/admin/Financial.jsx'));
 const AdminRestaurantApprovals = lazy(() => import('./modules/admin/RestaurantApprovals.jsx'));
-const AdminPayouts = lazy(() => import('./modules/admin/Payouts.jsx'));
 const AdminOrders = lazy(() => import('./modules/admin/Orders.jsx'));
 const AdminReviewsModeration = lazy(() => import('./modules/admin/ReviewsModeration.jsx'));
 const AdminPromotions = lazy(() => import('./modules/admin/Promotions.jsx'));
@@ -64,6 +63,7 @@ const AdminConfig = lazy(() => import('./modules/admin/Config.jsx'));
 const AdminCuisines = lazy(() => import('./modules/admin/Cuisines.jsx'));
 const AdminCustomerHome = lazy(() => import('./modules/admin/CustomerHomeManagement.jsx'));
 const AdminAuditLogs = lazy(() => import('./modules/admin/AuditLogs.jsx'));
+const AdminNotifications = lazy(() => import('./modules/admin/Notifications.jsx'));
 
 const ChatScreen = lazy(() => import('./modules/chat/ChatScreen.jsx'));
 
@@ -149,13 +149,14 @@ export default function App() {
             <Route path="promotions" element={<SuspenseRoute><AdminPromotions /></SuspenseRoute>} />
             <Route path="financial" element={<SuspenseRoute><AdminFinancial /></SuspenseRoute>} />
             <Route path="restaurants" element={<SuspenseRoute><AdminRestaurantApprovals /></SuspenseRoute>} />
-            <Route path="payouts" element={<SuspenseRoute><AdminPayouts /></SuspenseRoute>} />
+            <Route path="payouts" element={<Navigate to="/admin/financial?tab=payouts" replace />} />
             <Route path="orders" element={<SuspenseRoute><AdminOrders /></SuspenseRoute>} />
             <Route path="reviews" element={<SuspenseRoute><AdminReviewsModeration /></SuspenseRoute>} />
             <Route path="cuisines" element={<SuspenseRoute><AdminCuisines /></SuspenseRoute>} />
             <Route path="customer-home" element={<SuspenseRoute><AdminCustomerHome /></SuspenseRoute>} />
             <Route path="config" element={<SuspenseRoute><AdminConfig /></SuspenseRoute>} />
             <Route path="audit-logs" element={<SuspenseRoute><AdminAuditLogs /></SuspenseRoute>} />
+            <Route path="notifications" element={<SuspenseRoute><AdminNotifications /></SuspenseRoute>} />
           </Route>
         </Route>
 

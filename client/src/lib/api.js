@@ -124,7 +124,7 @@ export function fetchAdminOverview(arg = 'month') {
   return apiGet(`/api/v1/admin/overview?${params.toString()}`);
 }
 
-export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20 } = {}) {
+export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20, export: isExport } = {}) {
   const params = new URLSearchParams({
     role,
     status,
@@ -132,6 +132,7 @@ export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1
     page: String(page),
     limit: String(limit),
   });
+  if (isExport) params.set('export', '1');
   return apiGet(`/api/v1/admin/usersQuery?${params.toString()}`);
 }
 
@@ -377,14 +378,18 @@ export function cancelMyOrderApi(orderId) {
   return apiPost(`/api/v1/me/orders/${encodeURIComponent(orderId)}/cancel`, {});
 }
 
-export function fetchAdminReviews({ hidden = 'all', page = 1, q = '', ratingMax } = {}) {
-  const params = new URLSearchParams({ hidden, page: String(page), q });
-  if (ratingMax) params.set('ratingMax', String(ratingMax));
+export function fetchAdminReviews({ tab = 'all', hidden = 'all', page = 1, limit = 10, q = '', rating = 'all', targetType = 'all', export: isExport } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), q });
+  if (tab && tab !== 'all') params.set('tab', tab);
+  if (hidden && hidden !== 'all') params.set('hidden', hidden);
+  if (rating && rating !== 'all') params.set('rating', String(rating));
+  if (targetType && targetType !== 'all') params.set('targetType', targetType);
+  if (isExport) params.set('export', '1');
   return apiGet(`/api/v1/admin/reviews?${params.toString()}`);
 }
 
-export function updateAdminReviewHidden(reviewId, isHidden) {
-  return apiPatch(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}`, { isHidden });
+export function updateAdminReviewHidden(reviewId, isHidden, reason = '') {
+  return apiPatch(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}`, { isHidden, reason });
 }
 
 export function fetchRestaurants(params = {}) {
@@ -619,8 +624,14 @@ export function updateAdminPayoutApi(id, body) {
   return apiPatch('/api/v1/admin/payouts/' + encodeURIComponent(id), body);
 }
 
-export function fetchAdminFinancialApi(range = 'month') {
-  return apiGet('/api/v1/admin/financial?range=' + encodeURIComponent(range));
+export function fetchAdminFinancialApi(params = 'month') {
+  let query = '';
+  if (typeof params === 'string') {
+    query = `range=${encodeURIComponent(params)}`;
+  } else if (params && typeof params === 'object') {
+    query = new URLSearchParams(params).toString();
+  }
+  return apiGet(`/api/v1/admin/financial?${query}`);
 }
 
 export function fetchAdminConfigApi() {

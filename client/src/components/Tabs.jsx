@@ -5,7 +5,7 @@ import clsx from 'clsx';
 //   • Mũi tên ←/→ (hoặc ↑/↓) di chuyển focus và kích hoạt tab.
 //   • Home/End tới tab đầu/cuối.
 //   • Roving tabindex: chỉ tab đang chọn nằm trong luồng Tab.
-export default function Tabs({ items, value, onChange, className, size = 'md' }) {
+export default function Tabs({ items, value, onChange, className, size = 'sm' }) {
   const refs = useRef([]);
   const isSm = size === 'sm';
 

@@ -100,7 +100,7 @@ async function issueSession(userRow, roles, req, { remember = true } = {}) {
 function parseRegisterBody(body) {
   const requestedRole = body?.role;
   if (requestedRole && requestedRole !== 'customer') {
-    return { error: 'Đăng ký tại đây chỉ dành cho khách hàng. Tài xế và nhà hàng sẽ có hình thức đăng ký riêng.' };
+    return { error: 'Đăng ký tại đây chỉ dành cho khách hàng. Đối tác quán ăn sẽ có hình thức đăng ký riêng.' };
   }
 
   const fullName = String(body?.fullName ?? '').trim();

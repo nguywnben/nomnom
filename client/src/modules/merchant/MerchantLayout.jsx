@@ -92,7 +92,7 @@ export default function MerchantLayout() {
         pushToast({
           kind: 'error',
           title: 'Lỗi kết nối',
-          message: 'Không thể xác thực trạng thái nhà hàng.',
+          message: 'Không thể xác thực trạng thái quán ăn.',
         });
       } finally {
         if (active) setCheckingRestaurant(false);

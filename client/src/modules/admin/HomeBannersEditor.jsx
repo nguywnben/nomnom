@@ -103,22 +103,31 @@ export default function HomeBannersEditor({ maxItems = 6 }) {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   const toggle = async (banner) => {
+    const next = !banner.isActive;
     try {
-      const response = await updateAdminHomeBannerApi(banner.id, { isActive: !banner.isActive });
-      setBanners((items) => items.map((item) => item.id === banner.id ? response.banner : item));
+      await updateAdminHomeBannerApi(banner.id, { isActive: next });
+      setBanners((items) => items.map((item) => (item.id === banner.id ? { ...item, isActive: next } : item)));
     } catch (toggleError) {
       pushToast({ kind: 'error', title: 'Không thể cập nhật', message: toggleError.message });
     }
   };
 
-  const remove = async (banner) => {
-    if (!confirm(`Xóa banner "${banner.title}"?`)) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteAdminHomeBannerApi(banner.id);
-      setBanners((items) => items.filter((item) => item.id !== banner.id));
+      await deleteAdminHomeBannerApi(deleteTarget.id);
+      setBanners((items) => items.filter((item) => item.id !== deleteTarget.id));
+      pushToast({ kind: 'info', title: 'Đã xóa banner', message: deleteTarget.title });
+      setDeleteTarget(null);
     } catch (removeError) {
       pushToast({ kind: 'error', title: 'Không thể xóa', message: removeError.message });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -178,7 +187,7 @@ export default function HomeBannersEditor({ maxItems = 6 }) {
                 </div>
                 <div className="flex shrink-0 gap-xxs">
                   <IconButton icon="edit" label="Sửa banner" variant="secondary" size="sm" onClick={() => { setDraft({ ...banner }); setEditor(banner); }} />
-                  <IconButton icon="trash" label="Xóa banner" size="sm" className="text-error" onClick={() => remove(banner)} />
+                  <IconButton icon="trash" label="Xóa banner" size="sm" className="text-error" onClick={() => setDeleteTarget(banner)} />
                 </div>
               </div>
             </div>
@@ -207,6 +216,28 @@ export default function HomeBannersEditor({ maxItems = 6 }) {
           <ImageUploader value={draft.imageUrl} onUploaded={(url) => setDraft({ ...draft, imageUrl: url })} folder="home-banners" aspectRatio="video" className="items-start" />
           <Switch checked={draft.isActive} onChange={(value) => setDraft({ ...draft, isActive: value })} label="Hiển thị trên trang chủ" />
         </div>
+      </Modal>
+
+      {/* MODAL: XÁC NHẬN XÓA BANNER */}
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        title="Xác nhận xóa banner"
+        size="sm"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={confirmDelete} loading={deleting} disabled={deleting}>
+              Xóa banner
+            </Button>
+          </>
+        )}
+      >
+        <p className="text-body-sm text-body leading-relaxed">
+          Bạn có chắc chắn muốn xóa banner <strong className="text-ink">"{deleteTarget?.title}"</strong> không? Hành động này không thể hoàn tác.
+        </p>
       </Modal>
     </Card>
   );

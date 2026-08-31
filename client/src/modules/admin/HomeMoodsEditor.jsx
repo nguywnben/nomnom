@@ -58,12 +58,18 @@ export default function HomeMoodsEditor({ moods, onChange }) {
     setEditingId(null);
   };
 
-  const removeMood = (id) => {
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const confirmDeleteMood = () => {
+    if (!deleteTarget) return;
     if (moods.length <= 1) {
       pushToast({ kind: 'error', title: 'Cần giữ lại ít nhất một thẻ' });
+      setDeleteTarget(null);
       return;
     }
-    emit(moods.filter((mood) => mood.id !== id));
+    emit(moods.filter((mood) => mood.id !== deleteTarget.id));
+    pushToast({ kind: 'info', title: 'Đã xóa thẻ tâm trạng', message: deleteTarget.label });
+    setDeleteTarget(null);
   };
 
   return (
@@ -118,7 +124,7 @@ export default function HomeMoodsEditor({ moods, onChange }) {
                 </div>
                 <div className="flex shrink-0 gap-xxs">
                   <IconButton icon="edit" label="Sửa thẻ" variant="secondary" size="sm" onClick={() => { setDraft({ ...mood }); setEditingId(mood.id); }} />
-                  <IconButton icon="trash" label="Xóa thẻ" size="sm" className="text-error" onClick={() => removeMood(mood.id)} />
+                  <IconButton icon="trash" label="Xóa thẻ" size="sm" className="text-error" onClick={() => setDeleteTarget(mood)} />
                 </div>
               </div>
             </div>
@@ -145,6 +151,28 @@ export default function HomeMoodsEditor({ moods, onChange }) {
           <ImageUploader value={draft?.imageUrl ?? ''} onUploaded={(url) => setDraft({ ...draft, imageUrl: url })} folder="home-moods" aspectRatio="video" className="items-start" />
           <Switch checked={draft?.isVisible ?? true} onChange={(value) => setDraft({ ...draft, isVisible: value })} label="Hiển thị trên trang chủ" />
         </div>
+      </Modal>
+
+      {/* MODAL: XÁC NHẬN XÓA THẺ TÂM TRẠNG */}
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title="Xác nhận xóa thẻ tâm trạng"
+        size="sm"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" onClick={confirmDeleteMood}>
+              Xóa thẻ
+            </Button>
+          </>
+        )}
+      >
+        <p className="text-body-sm text-body leading-relaxed">
+          Bạn có chắc chắn muốn xóa thẻ tâm trạng <strong className="text-ink">"{deleteTarget?.label}"</strong> không?
+        </p>
       </Modal>
     </Card>
   );

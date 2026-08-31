@@ -11,12 +11,12 @@ import Icon from './Icon.jsx';
 //
 // States: Default / Hover / Active / Disabled.
 
-// Sizes — 48px+ touch targets on mobile, editorial tighter on desktop.
+// Sizes — Chuẩn hóa 36px (h-9) làm tiêu chuẩn giao diện NomNom
 const sizeStyles = {
   xs: 'h-7 px-2 text-caption',
   sm: 'h-9 px-sm text-button',
-  md: 'h-12 md:h-10 px-base text-button',
-  lg: 'h-14 md:h-12 px-md text-button',
+  md: 'h-9 px-base text-button',
+  lg: 'h-11 px-md text-button',
 };
 
 const variantStyles = {

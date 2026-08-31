@@ -104,8 +104,11 @@ export default function MerchantReviews() {
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Khách hàng</div>
-          <h1 className="text-display-lg text-ink">Đánh giá</h1>
+          <div className="text-caption-uppercase text-body">Chăm sóc Khách hàng</div>
+          <h1 className="text-display-lg text-ink">Đánh giá & Phản hồi Khách hàng</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Xem phản hồi chất lượng món ăn, dịch vụ phục vụ và gửi câu trả lời trực tiếp đến thực khách.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Badge tone="outline">Tổng {summary.total || items.length} đánh giá</Badge>

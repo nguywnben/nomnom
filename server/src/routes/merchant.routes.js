@@ -16,7 +16,7 @@ function ensureMerchant(req, res, next) {
   if ((req.auth.roles ?? []).includes('merchant')) {
     return next();
   }
-  return res.status(403).json({ error: 'Bạn không có quyền truy cập khu vực đối tác nhà hàng.' });
+  return res.status(403).json({ error: 'Bạn không có quyền truy cập khu vực đối tác quán ăn.' });
 }
 
 async function loadOwnedRestaurant(userId) {
@@ -321,11 +321,11 @@ router.post('/apply', requireAuth, async (req, res, next) => {
       const rest = existingOwner[0];
       if (rest.status === 'active') {
         await conn.rollback();
-        return res.status(400).json({ error: 'Bạn đã sở hữu một nhà hàng đang hoạt động trên hệ thống.' });
+        return res.status(400).json({ error: 'Bạn đã sở hữu một quán ăn đang hoạt động trên hệ thống.' });
       }
       if (rest.status === 'pending') {
         await conn.rollback();
-        return res.status(400).json({ error: 'Yêu cầu đăng ký nhà hàng của bạn đang chờ xét duyệt.' });
+        return res.status(400).json({ error: 'Yêu cầu đăng ký quán ăn của bạn đang chờ xét duyệt.' });
       }
       // Nếu status là suspended hoặc closed, cho phép cập nhật lại thông tin để nộp lại đơn
       restaurantId = rest.id;
@@ -339,7 +339,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
     );
     if (existingPhone.length > 0) {
       await conn.rollback();
-      return res.status(400).json({ error: 'Số điện thoại này đã được một nhà hàng khác sử dụng.' });
+      return res.status(400).json({ error: 'Số điện thoại này đã được một quán ăn khác sử dụng.' });
     }
 
     // 4. Sinh unique slug từ name
@@ -460,7 +460,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
       [
         adminId,
         'Yêu cầu đăng ký quán ăn mới',
-        `Nhà hàng "${name.trim()}" vừa gửi yêu cầu duyệt hồ sơ đối tác.`,
+        `Quán ăn "${name.trim()}" vừa gửi yêu cầu duyệt hồ sơ đối tác.`,
         '/admin/restaurants'
       ]
     );
@@ -539,20 +539,11 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
     }
 
     if (!restaurantId) {
-      return res.status(404).json({ error: 'Không tìm thấy nhà hàng của đối tác này.' });
+      return res.status(404).json({ error: 'Không tìm thấy quán ăn của đối tác này.' });
     }
 
-    const range = ['today', 'yesterday', 'week', 'month', 'custom'].includes(req.query.range) ? req.query.range : 'today';
+    const range = ['today', 'yesterday', 'week', 'month', '90d', 'all', 'custom'].includes(req.query.range) ? req.query.range : 'today';
     let { fromDate, toDate } = req.query;
-
-    // Giới hạn thời gian tối đa: không cho chọn xa hơn 90 ngày trước
-    const maxLookbackDate = new Date();
-    maxLookbackDate.setDate(maxLookbackDate.getDate() - 90);
-    const maxLookbackStr = maxLookbackDate.toISOString().slice(0, 10);
-
-    if (fromDate && fromDate < maxLookbackStr) {
-      fromDate = maxLookbackStr;
-    }
 
     let dateConditionSql = 'placed_at >= CURDATE()';
     let chartDaysCount = 7;
@@ -565,9 +556,12 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
       dateConditionSql = `placed_at >= ${fromLiteral} AND placed_at <= ${toLiteral}`;
       
       const diffMs = Math.abs(new Date(toDate) - new Date(fromDate));
-      chartDaysCount = Math.min(31, Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1));
+      chartDaysCount = Math.min(90, Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1));
       chartEndDate = new Date(toDate);
       chartDateConditionSql = `placed_at >= ${fromLiteral} AND placed_at <= ${toLiteral}`;
+    } else if (range === 'all') {
+      dateConditionSql = '1 = 1';
+      chartDateConditionSql = '1 = 1';
     } else if (range === 'yesterday') {
       dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND placed_at < CURDATE()';
       chartDaysCount = 7;
@@ -579,6 +573,10 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
       dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)';
       chartDaysCount = 30;
       chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)';
+    } else if (range === '90d') {
+      dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 89 DAY)';
+      chartDaysCount = 90;
+      chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 89 DAY)';
     }
 
     // 1. Summary
@@ -608,7 +606,7 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
        INNER JOIN orders o ON o.id = oi.order_id
        WHERE o.restaurant_id = ? 
          AND o.status = 'delivered'
-         AND o.${dateConditionSql}
+         AND ${dateConditionSql}
        GROUP BY oi.menu_item_id, oi.item_name_snapshot
        ORDER BY totalSold DESC, revenue DESC
        LIMIT 5`,
@@ -647,40 +645,60 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
     }));
 
     // 4. Chart
-    const chartData = [];
-    for (let i = chartDaysCount - 1; i >= 0; i--) {
-      const d = new Date(chartEndDate.getTime());
-      d.setDate(d.getDate() - i);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      chartData.push({
-        date: dateStr,
-        orderCount: 0,
-        revenue: 0
-      });
-    }
+    let chartData = [];
+    if (range === 'all') {
+      const [chartRows] = await pool.query(
+        `SELECT 
+           DATE_FORMAT(placed_at, '%Y-%m-%d') AS dateStr,
+           COUNT(*) AS orderCount,
+           COALESCE(SUM(total_amount), 0) AS revenue
+         FROM orders
+         WHERE restaurant_id = ? 
+           AND status = 'delivered'
+         GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
+         ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
+        [restaurantId]
+      );
+      chartData = chartRows.map(r => ({
+        date: r.dateStr,
+        orderCount: Number(r.orderCount),
+        revenue: Number(r.revenue)
+      }));
+    } else {
+      for (let i = chartDaysCount - 1; i >= 0; i--) {
+        const d = new Date(chartEndDate.getTime());
+        d.setDate(d.getDate() - i);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        chartData.push({
+          date: dateStr,
+          orderCount: 0,
+          revenue: 0
+        });
+      }
 
-    const [chartRows] = await pool.query(
-      `SELECT 
-         DATE_FORMAT(placed_at, '%Y-%m-%d') AS dateStr,
-         COUNT(*) AS orderCount,
-         COALESCE(SUM(total_amount), 0) AS revenue
-       FROM orders
-       WHERE restaurant_id = ? 
-         AND status = 'delivered'
-         AND ${chartDateConditionSql}
-       GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
-       ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
-      [restaurantId]
-    );
+      const [chartRows] = await pool.query(
+        `SELECT 
+           DATE_FORMAT(placed_at, '%Y-%m-%d') AS dateStr,
+           COUNT(*) AS orderCount,
+           COALESCE(SUM(total_amount), 0) AS revenue
+         FROM orders
+         WHERE restaurant_id = ? 
+           AND status = 'delivered'
+           AND ${chartDateConditionSql}
+         GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
+         ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
+        [restaurantId]
+      );
 
-    for (const row of chartRows) {
-      const match = chartData.find(c => c.date === row.dateStr);
-      if (match) {
-        match.orderCount = Number(row.orderCount);
-        match.revenue = Number(row.revenue);
+      for (const row of chartRows) {
+        const match = chartData.find(c => c.date === row.dateStr);
+        if (match) {
+          match.orderCount = Number(row.orderCount);
+          match.revenue = Number(row.revenue);
+        }
       }
     }
 

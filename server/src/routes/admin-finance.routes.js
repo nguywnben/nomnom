@@ -196,15 +196,29 @@ router.patch('/payouts/:id', async (req, res, next) => {
   }
 });
 
-function financialRange(raw) {
-  if (raw === 'today') return { range: 'today', where: 'o.delivered_at >= CURDATE()', days: 1 };
-  if (raw === 'week') return { range: 'week', where: 'o.delivered_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)', days: 7 };
-  return { range: 'month', where: 'o.delivered_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)', days: 30 };
+function financialRange(query = {}) {
+  const { range: raw, fromDate, toDate } = query;
+  if (fromDate && toDate) {
+    const from = String(fromDate).slice(0, 10);
+    const to = String(toDate).slice(0, 10);
+    return {
+      range: 'custom',
+      where: `o.delivered_at >= '${from} 00:00:00' AND o.delivered_at <= '${to} 23:59:59'`,
+      refundWhere: `completed_at >= '${from} 00:00:00' AND completed_at <= '${to} 23:59:59'`,
+      fromDate: from,
+      toDate: to,
+    };
+  }
+  if (raw === 'today') return { range: 'today', where: 'o.delivered_at >= CURDATE()', refundWhere: 'completed_at >= CURDATE()' };
+  if (raw === 'week' || raw === '7d') return { range: 'week', where: 'o.delivered_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)', refundWhere: 'completed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)' };
+  if (raw === 'quarter' || raw === '90d') return { range: 'quarter', where: 'o.delivered_at >= DATE_SUB(CURDATE(), INTERVAL 89 DAY)', refundWhere: 'completed_at >= DATE_SUB(CURDATE(), INTERVAL 89 DAY)' };
+  if (raw === 'all') return { range: 'all', where: '1 = 1', refundWhere: '1 = 1' };
+  return { range: 'month', where: 'o.delivered_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)', refundWhere: 'completed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)' };
 }
 
 router.get('/financial', async (req, res, next) => {
   try {
-    const selected = financialRange(req.query.range);
+    const selected = financialRange(req.query);
     const [[metrics]] = await pool.query(
       "SELECT COUNT(*) AS deliveredOrders, COALESCE(SUM(o.total_amount), 0) AS gmv, COALESCE(SUM(o.platform_fee), 0) AS platformFee, COALESCE(SUM(o.merchant_earning), 0) AS merchantNet, COALESCE(AVG(o.total_amount), 0) AS averageOrder FROM orders o WHERE o.status = 'delivered' AND " + selected.where,
     );
@@ -212,21 +226,59 @@ router.get('/financial', async (req, res, next) => {
       "SELECT COALESCE(SUM(status = 'pending'), 0) AS pendingCount, COALESCE(SUM(status = 'approved'), 0) AS approvedCount, COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0) AS completedAmount FROM payout_requests pr JOIN wallets w ON w.id = pr.wallet_id WHERE w.owner_type = 'merchant'",
     );
     const [[refunds]] = await pool.query(
-      "SELECT COUNT(*) AS refundCount, COALESCE(SUM(amount), 0) AS refundAmount FROM payment_refunds WHERE status = 'succeeded' AND completed_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)",
-      [selected.days - 1],
+      "SELECT COUNT(*) AS refundCount, COALESCE(SUM(amount), 0) AS refundAmount FROM payment_refunds WHERE status = 'succeeded' AND " + selected.refundWhere,
     );
     const [series] = await pool.query(
-      "SELECT DATE_FORMAT(o.delivered_at, '%Y-%m-%d') AS date, COUNT(*) AS orderCount, COALESCE(SUM(o.total_amount), 0) AS gmv, COALESCE(SUM(o.platform_fee), 0) AS platformFee FROM orders o WHERE o.status = 'delivered' AND " + selected.where + " GROUP BY DATE_FORMAT(o.delivered_at, '%Y-%m-%d') ORDER BY date ASC",
+      "SELECT DATE_FORMAT(o.delivered_at, '%Y-%m-%d') AS date, COUNT(*) AS orderCount, COALESCE(SUM(o.total_amount), 0) AS gmv, COALESCE(SUM(o.platform_fee), 0) AS platformFee, COALESCE(SUM(o.merchant_earning), 0) AS merchantNet FROM orders o WHERE o.status = 'delivered' AND " + selected.where + " GROUP BY DATE_FORMAT(o.delivered_at, '%Y-%m-%d') ORDER BY date ASC",
     );
+
+    // Payment Methods Breakdown
+    const [paymentRows] = await pool.query(
+      "SELECT COALESCE(o.payment_method, 'cod') AS method, COUNT(*) AS count, COALESCE(SUM(o.total_amount), 0) AS amount FROM orders o WHERE o.status = 'delivered' AND " + selected.where + " GROUP BY COALESCE(o.payment_method, 'cod')",
+    );
+
+    // Top 5 Performing Restaurants by GMV
+    const [topRestaurants] = await pool.query(
+      "SELECT r.id, r.name, r.slug, COUNT(o.id) AS deliveredOrders, COALESCE(SUM(o.total_amount), 0) AS gmv, COALESCE(SUM(o.platform_fee), 0) AS platformFee, COALESCE(SUM(o.merchant_earning), 0) AS merchantNet FROM orders o JOIN restaurants r ON o.restaurant_id = r.id WHERE o.status = 'delivered' AND " + selected.where + " GROUP BY r.id, r.name, r.slug ORDER BY gmv DESC LIMIT 5",
+    );
+
     return res.json({
       range: selected.range,
       metrics: {
-        deliveredOrders: Number(metrics.deliveredOrders), gmv: Number(metrics.gmv), platformFee: Number(metrics.platformFee),
-        merchantNet: Number(metrics.merchantNet), averageOrder: Math.round(Number(metrics.averageOrder)),
-        refundCount: Number(refunds.refundCount), refundAmount: Number(refunds.refundAmount),
+        deliveredOrders: Number(metrics.deliveredOrders),
+        gmv: Number(metrics.gmv),
+        platformFee: Number(metrics.platformFee),
+        merchantNet: Number(metrics.merchantNet),
+        averageOrder: Math.round(Number(metrics.averageOrder)),
+        refundCount: Number(refunds.refundCount),
+        refundAmount: Number(refunds.refundAmount),
       },
-      payouts: { pendingCount: Number(payouts.pendingCount), approvedCount: Number(payouts.approvedCount), completedAmount: Number(payouts.completedAmount) },
-      series: series.map((row) => ({ date: row.date, orderCount: Number(row.orderCount), gmv: Number(row.gmv), platformFee: Number(row.platformFee) })),
+      payouts: {
+        pendingCount: Number(payouts.pendingCount),
+        approvedCount: Number(payouts.approvedCount),
+        completedAmount: Number(payouts.completedAmount),
+      },
+      series: series.map((row) => ({
+        date: row.date,
+        orderCount: Number(row.orderCount),
+        gmv: Number(row.gmv),
+        platformFee: Number(row.platformFee),
+        merchantNet: Number(row.merchantNet),
+      })),
+      paymentMethods: paymentRows.map((r) => ({
+        method: r.method,
+        count: Number(r.count),
+        amount: Number(r.amount),
+      })),
+      topRestaurants: topRestaurants.map((r) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        deliveredOrders: Number(r.deliveredOrders),
+        gmv: Number(r.gmv),
+        platformFee: Number(r.platformFee),
+        merchantNet: Number(r.merchantNet),
+      })),
     });
   } catch (error) {
     return next(error);

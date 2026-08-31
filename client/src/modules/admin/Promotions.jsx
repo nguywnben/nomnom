@@ -6,6 +6,7 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
+import Tabs from '../../components/Tabs.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import {
   createAdminVoucherApi,
@@ -164,8 +165,11 @@ export default function AdminPromotions() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Hệ thống</div>
-          <h1 className="text-display-lg text-ink">Khuyến mãi</h1>
+          <div className="text-caption-uppercase text-body">Tiếp thị & Khuyến mãi</div>
+          <h1 className="text-display-lg text-ink">Quản lý Khuyến mãi Toàn sàn</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Thiết lập mã giảm giá toàn hệ thống, mã ưu đãi vận chuyển và giám sát các chương trình khuyến mãi của quán ăn.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Badge tone="outline">Tổng {summary.total}</Badge>
@@ -173,16 +177,29 @@ export default function AdminPromotions() {
           <Badge tone="default">Của quán {summary.merchant}</Badge>
           <Badge tone="success" dot>{summary.active} hoạt động</Badge>
           <Badge tone="warning" dot>{summary.paused} tạm dừng</Badge>
-          <Button leadingIcon="plus" size="sm" onClick={openCreate}>
-            Tạo voucher
-          </Button>
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filter Bar / Toolbar */}
       <div className="flex flex-col gap-sm">
-        <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
-          <div className="relative w-full md:w-80 shrink-0 h-9">
+        {/* Row 1: Scope Tabs */}
+        <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
+          <Tabs
+            size="sm"
+            className="w-fit max-w-full"
+            items={[
+              { value: 'all', label: `Tất cả (${summary.total})` },
+              { value: 'platform', label: `Toàn sàn (${summary.platform})` },
+              { value: 'merchant', label: `Của quán (${summary.merchant})` },
+            ]}
+            value={scopeFilter}
+            onChange={setScopeFilter}
+          />
+        </div>
+
+        {/* Row 2: Search Input (trái) + Dropdown Filters & Action Button (phải) */}
+        <div className="flex flex-col gap-sm lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:w-72 shrink-0 h-9">
             <Icon
               name="search"
               size={16}
@@ -208,18 +225,6 @@ export default function AdminPromotions() {
                 { value: 'all', label: 'Mọi loại giảm' },
                 { value: 'percent', label: 'Giảm theo %' },
                 { value: 'fixed', label: 'Giảm cố định' },
-              ]}
-            />
-            <Select
-              aria-label="Lọc phạm vi"
-              className="w-full sm:w-auto md:w-36"
-              fieldClassName="!h-9 !px-sm text-caption"
-              value={scopeFilter}
-              onChange={(e) => setScopeFilter(e.target.value)}
-              options={[
-                { value: 'all', label: 'Mọi phạm vi' },
-                { value: 'platform', label: 'Toàn sàn' },
-                { value: 'merchant', label: 'Của quán' },
               ]}
             />
             <Select
@@ -261,6 +266,9 @@ export default function AdminPromotions() {
                 { value: 'min_order_low', label: 'Đơn tối thiểu thấp' },
               ]}
             />
+            <Button leadingIcon="plus" size="sm" onClick={openCreate}>
+              Tạo voucher
+            </Button>
           </div>
         </div>
       </div>
@@ -282,8 +290,7 @@ export default function AdminPromotions() {
         <Card padded>
           <div className="py-xl text-center space-y-sm">
             <div className="text-title-md text-ink">Chưa có mã khuyến mãi nào</div>
-            <p className="text-body text-body-sm">Không tìm thấy voucher phù hợp với bộ lọc hiện tại.</p>
-            <Button onClick={openCreate}>Tạo mã mới</Button>
+            <Button leadingIcon="plus" size="sm" onClick={openCreate}>Tạo voucher</Button>
           </div>
         </Card>
       ) : (

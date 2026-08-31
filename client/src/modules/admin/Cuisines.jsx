@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
 import ImageUploader from '../../components/ImageUploader.jsx';
 import Modal from '../../components/Modal.jsx';
@@ -18,6 +20,7 @@ function toDraft(cuisine) {
 export default function AdminCuisines() {
   const { pushToast } = useApp();
   const [cuisines, setCuisines] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editor, setEditor] = useState(null);
@@ -103,35 +106,103 @@ export default function AdminCuisines() {
     }
   };
 
+  const filteredCuisines = useMemo(() => {
+    if (!searchQuery.trim()) return cuisines;
+    const q = searchQuery.toLowerCase().trim();
+    return cuisines.filter((c) => c.name.toLowerCase().includes(q));
+  }, [cuisines, searchQuery]);
+
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-end justify-between gap-sm">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Danh mục nền tảng</div>
-          <h1 className="text-display-lg text-ink">Loại hình ẩm thực</h1>
-          <p className="mt-xs text-body-sm text-body">Quản lý danh sách hiển thị cho khách hàng và biểu mẫu đăng ký quán.</p>
+          <div className="text-caption-uppercase text-body">Danh mục & Phân loại</div>
+          <h1 className="text-display-lg text-ink">Loại hình Ẩm thực</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Quản lý danh sách phân loại ẩm thực hiển thị trên trang chủ khách hàng và biểu mẫu đăng ký mở quán.
+          </p>
         </div>
-        <Button leadingIcon="plus" onClick={openCreate}>Thêm loại</Button>
+        <div className="flex flex-wrap items-center gap-xs">
+          <Badge tone="outline">Tổng {cuisines.length} loại</Badge>
+          <Badge tone="success" dot>{cuisines.filter((c) => c.isActive).length} hiển thị</Badge>
+          <Badge tone="warning" dot>{cuisines.filter((c) => !c.isActive).length} đang ẩn</Badge>
+        </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:w-72 shrink-0 h-9">
+          <Icon
+            name="search"
+            size={16}
+            className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+          />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm loại ẩm thực…"
+            aria-label="Tìm loại ẩm thực"
+            className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+          />
+        </div>
+
+        <div className="flex items-center gap-xs justify-end">
+          <Button leadingIcon="plus" size="sm" onClick={openCreate}>
+            Thêm loại hình
+          </Button>
+        </div>
       </div>
 
       {error && <div className="rounded-md border border-error bg-[#fbeaea] p-sm text-body-sm text-error" role="alert">{error}</div>}
       <div>
-        {loading && !cuisines.length ? <div className="py-section text-center text-body-sm text-body" role="status">Đang tải loại hình ẩm thực...</div> : cuisines.length === 0 ? (
-          <EmptyState icon="grid" title="Chưa có loại hình ẩm thực" description="Tạo loại đầu tiên để quán có thể lựa chọn khi đăng ký." action={<Button leadingIcon="plus" onClick={openCreate}>Thêm loại</Button>} />
-        ) : <div className="grid gap-base md:grid-cols-2 xl:grid-cols-4">
-          {cuisines.map((cuisine) => <Card key={cuisine.id} padded={false} hover={false} draggable onDragStart={() => setDraggedId(cuisine.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorder(cuisine.id)} onDragEnd={() => setDraggedId(null)} className="overflow-hidden cursor-grab active:cursor-grabbing">
-            <div className="relative aspect-[4/3] bg-canvas-soft">
-              {cuisine.iconUrl ? <img draggable={false} src={cuisine.iconUrl} alt="" className="h-full w-full select-none object-cover" /> : <div className="grid h-full place-items-center text-body"><span className="text-title-md">{cuisine.name.slice(0, 1)}</span></div>}
-            </div>
-            <div className="flex min-h-[116px] flex-col p-sm">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-title-md text-ink">{cuisine.name}</div>
-                <div className="text-caption text-body">{cuisine.restaurantCount} quán đang dùng</div>
-              </div>
-              <div className="mt-sm flex items-center justify-between gap-sm"><Switch checked={cuisine.isActive} onChange={() => toggleActive(cuisine)} label={cuisine.isActive ? 'Hiển thị' : 'Ẩn'} /><div className="flex gap-xxs"><IconButton icon="edit" label={'Sửa ' + cuisine.name} variant="secondary" size="sm" onClick={() => openEdit(cuisine)} /><IconButton icon="trash" label={'Xóa ' + cuisine.name} size="sm" className="text-error" onClick={() => setDeleteTarget(cuisine)} /></div></div>
-            </div>
-          </Card>)}
-        </div>}
+        {loading && !cuisines.length ? (
+          <div className="py-section text-center text-body-sm text-body" role="status">Đang tải loại hình ẩm thực...</div>
+        ) : filteredCuisines.length === 0 ? (
+          <EmptyState
+            icon="grid"
+            title={searchQuery ? 'Không tìm thấy loại hình phù hợp' : 'Chưa có loại hình ẩm thực'}
+            description={searchQuery ? 'Thử tìm kiếm với từ khóa khác.' : 'Tạo loại đầu tiên để quán có thể lựa chọn khi đăng ký.'}
+            action={!searchQuery && <Button leadingIcon="plus" size="sm" onClick={openCreate}>Thêm loại</Button>}
+          />
+        ) : (
+          <div className="grid gap-base md:grid-cols-2 xl:grid-cols-4">
+            {filteredCuisines.map((cuisine) => (
+              <Card
+                key={cuisine.id}
+                padded={false}
+                hover={false}
+                draggable={!searchQuery}
+                onDragStart={() => setDraggedId(cuisine.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => reorder(cuisine.id)}
+                onDragEnd={() => setDraggedId(null)}
+                className={`overflow-hidden ${!searchQuery ? 'cursor-grab active:cursor-grabbing' : ''}`}
+              >
+                <div className="relative aspect-[4/3] bg-canvas-soft">
+                  {cuisine.iconUrl ? (
+                    <img draggable={false} src={cuisine.iconUrl} alt="" className="h-full w-full select-none object-cover" />
+                  ) : (
+                    <div className="grid h-full place-items-center text-body"><span className="text-title-md">{cuisine.name.slice(0, 1)}</span></div>
+                  )}
+                </div>
+                <div className="flex min-h-[116px] flex-col p-sm">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-title-md text-ink">{cuisine.name}</div>
+                    <div className="text-caption text-body">{cuisine.restaurantCount} quán đang dùng</div>
+                  </div>
+                  <div className="mt-sm flex items-center justify-between gap-sm">
+                    <Switch checked={cuisine.isActive} onChange={() => toggleActive(cuisine)} label={cuisine.isActive ? 'Hiển thị' : 'Ẩn'} />
+                    <div className="flex gap-xxs">
+                      <IconButton icon="edit" label={'Sửa ' + cuisine.name} variant="secondary" size="sm" onClick={() => openEdit(cuisine)} />
+                      <IconButton icon="trash" label={'Xóa ' + cuisine.name} size="sm" className="text-error" onClick={() => setDeleteTarget(cuisine)} />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       <Modal open={Boolean(editor)} onClose={closeEditor} title={editor?.mode === 'create' ? 'Thêm loại hình ẩm thực' : 'Sửa loại hình ẩm thực'} size="sm" footer={<><Button variant="secondary" disabled={saving} onClick={closeEditor}>Hủy</Button><Button loading={saving} onClick={save}>{editor?.mode === 'create' ? 'Tạo loại' : 'Lưu thay đổi'}</Button></>}>

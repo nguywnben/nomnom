@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import ImageUploader from '../../components/ImageUploader.jsx';
@@ -70,16 +71,30 @@ export default function CustomerHomeManagement() {
   if (loading || !config) return <div className="py-section text-center text-body-sm text-body">Đang tải cấu hình trang chủ...</div>;
 
   return (
-    <div className="space-y-lg">
+    <div className="space-y-base">
+      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Nội dung khách hàng</div>
-          <h1 className="text-display-lg text-ink">Trang chủ khách hàng</h1>
-          <p className="mt-xs text-body-sm text-body">Quản lý body của /app; header và footer không thay đổi ở đây.</p>
+          <div className="text-caption-uppercase text-body">Giao diện & Trải nghiệm</div>
+          <h1 className="text-display-lg text-ink">Quản lý Trang chủ Khách hàng</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Tùy chỉnh biểu ngữ quảng cáo, bộ sưu tập món ngon theo tâm trạng và thứ tự hiển thị các khối nội dung.
+          </p>
         </div>
-        <div className="flex gap-xs">
-          <Button leadingIcon="check" loading={saving} onClick={save}>Lưu bố cục</Button>
+        <div className="flex flex-wrap items-center gap-xs">
+          <Badge tone="outline">{config.sections?.length || 0} khối bố cục</Badge>
+          <Badge tone="success" dot>{config.sections?.filter((s) => s.isVisible).length || 0} đang hiển thị</Badge>
         </div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-body-sm text-body font-medium">
+          Tùy chỉnh thông tin trang chủ, sắp xếp vị trí và bấm lưu để áp dụng thay đổi.
+        </div>
+        <Button leadingIcon="check" size="sm" loading={saving} onClick={save}>
+          Lưu bố cục
+        </Button>
       </div>
 
       <Card padded>

@@ -25,7 +25,7 @@ const CUSTOMER_FAQ = [
 const MERCHANT_FAQ = [
   {
     q: 'Làm sao để đăng ký quán trên NomNom?',
-    a: 'Đăng nhập tài khoản khách hàng, vào Đăng ký nhà hàng và hoàn tất 5 bước: thông tin quán, địa chỉ, giấy tờ, ngân hàng và xác nhận. Hồ sơ sẽ được NomNom xét duyệt trước khi quán xuất hiện trên app.',
+    a: 'Đăng nhập tài khoản khách hàng, vào Đăng ký quán ăn và hoàn tất 5 bước: thông tin quán, địa chỉ, giấy tờ, ngân hàng và xác nhận. Hồ sơ sẽ được NomNom xét duyệt trước khi quán xuất hiện trên app.',
   },
   {
     q: 'Có phí đăng ký hoặc hợp đồng dài hạn không?',
@@ -94,7 +94,7 @@ export default function PartnerFaq() {
         <p className="text-caption-uppercase text-body">Hỏi &amp; đáp</p>
         <h1 className="mt-1 text-display-md text-ink md:text-display-lg">Mọi điều bạn cần biết về NomNom</h1>
         <p className="mt-sm max-w-2xl text-body-md text-body">
-          Đồ ăn thực, đặt món thuận tiện và hợp tác cùng nhà hàng. Chưa thấy câu trả lời? Liên
+          Đồ ăn thực, đặt món thuận tiện và hợp tác cùng quán ăn. Chưa thấy câu trả lời? Liên
           hệ đội NomNom qua mục cuối trang chủ.
         </p>
 
@@ -116,7 +116,7 @@ export default function PartnerFaq() {
           />
           <FaqSection
             id="faq-quan-an"
-            title="Quán ăn &amp; nhà hàng"
+            title="Quán ăn &amp; Đối tác"
             subtitle="Onboarding, phí và vận hành hàng ngày."
             items={MERCHANT_FAQ}
           />

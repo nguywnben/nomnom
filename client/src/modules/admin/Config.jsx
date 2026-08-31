@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Input from '../../components/Input.jsx';
@@ -81,11 +82,18 @@ export default function AdminConfig() {
 
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-end justify-between gap-sm">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Hệ thống</div>
-          <h1 className="text-display-lg text-ink">Cấu hình nền tảng</h1>
-          <p className="mt-xs text-body-sm text-body">Các tham số được hệ thống kiểm tra giới hạn trước khi áp dụng.</p>
+          <div className="text-caption-uppercase text-body">Hệ thống & Vận hành</div>
+          <h1 className="text-display-lg text-ink">Cấu hình Nền tảng</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Thiết lập tỷ lệ hoa hồng mặc định, bán kính giao hàng tối đa và các thông số vận hành cốt lõi của hệ thống.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-xs">
+          <Badge tone="outline">{items.length} tham số hệ thống</Badge>
+          <Badge tone="live" dot>Áp dụng toàn sàn</Badge>
         </div>
       </div>
 
@@ -112,7 +120,7 @@ export default function AdminConfig() {
                   value={draft[item.key] ?? ''}
                   onChange={(event) => setDraft((current) => ({ ...current, [item.key]: event.target.value }))}
                 />
-                <Button leadingIcon="check" loading={saving === item.key} disabled={!changed} onClick={() => save(item)}>Lưu</Button>
+                <Button leadingIcon="check" size="sm" loading={saving === item.key} disabled={!changed} onClick={() => save(item)}>Lưu</Button>
               </div>
             </Card>
           );

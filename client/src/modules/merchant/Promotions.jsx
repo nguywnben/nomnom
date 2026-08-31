@@ -5,6 +5,7 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
+import Tabs from '../../components/Tabs.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import {
   createMerchantVoucherApi,
@@ -193,25 +194,26 @@ export default function MerchantPromotions() {
 
   return (
     <div className="space-y-base">
+      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Tăng trưởng</div>
-          <h1 className="text-display-lg text-ink">Khuyến mãi</h1>
+          <div className="text-caption-uppercase text-body">Tiếp thị & Khuyến mãi</div>
+          <h1 className="text-display-lg text-ink">Chương trình Khuyến mãi Quán</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Tạo mã giảm giá riêng, ưu đãi món ăn và chương trình tặng kèm để thu hút khách hàng mới và tăng đơn đặt lại.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Badge tone="outline">Tổng {vouchers.length}</Badge>
           <Badge tone="success" dot>{summary.active} hoạt động</Badge>
           <Badge tone="warning" dot>{summary.paused} tạm dừng</Badge>
           <Badge tone="outline" dot>{summary.draft} nháp</Badge>
-          <Button leadingIcon="plus" size="sm" onClick={openCreate}>
-            Tạo voucher
-          </Button>
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:w-80 shrink-0 h-9">
+      {/* Filter Bar / Toolbar */}
+      <div className="flex flex-col gap-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative w-full lg:w-72 shrink-0 h-9">
           <Icon
             name="search"
             size={16}
@@ -278,6 +280,9 @@ export default function MerchantPromotions() {
               { value: 'min_order_low', label: 'Đơn tối thiểu thấp' },
             ]}
           />
+          <Button leadingIcon="plus" size="sm" onClick={openCreate}>
+            Tạo voucher
+          </Button>
         </div>
       </div>
 
@@ -296,9 +301,7 @@ export default function MerchantPromotions() {
       ) : vouchers.length === 0 ? (
         <Card padded>
           <div className="py-xl text-center space-y-sm">
-            <div className="text-title-md text-ink">Chưa có voucher nào</div>
-            <p className="text-body text-body-sm">Tạo voucher quán để khách áp dụng khi đặt món.</p>
-            <Button onClick={openCreate}>Tạo mã mới</Button>
+            <Button leadingIcon="plus" size="sm" onClick={openCreate}>Tạo voucher</Button>
           </div>
         </Card>
       ) : filteredVouchers.length === 0 ? (
