@@ -530,7 +530,7 @@ export default function CustomerHome() {
             <div>
               <div className="text-title-md text-ink">Hợp tác với NomNom</div>
               <div className="text-body-sm text-body">
-                Bạn có quán ăn hoặc muốn giao hàng? Hãy tham gia nền tảng.
+                Bạn có quán ăn? Hãy tham gia nền tảng để tiếp cận thêm khách hàng.
               </div>
             </div>
           </div>

@@ -7,7 +7,6 @@ import Icon from '../components/Icon.jsx';
 import Image from '../components/Image.jsx';
 import Logo from '../components/Logo.jsx';
 import Avatar from '../components/Avatar.jsx';
-import { useGeolocationLocalityLabel } from '../hooks/useGeolocationLocalityLabel.js';
 import { helpers } from '../data/mock.js';
 
 // ---------------------------------------------------------------------------
@@ -98,7 +97,6 @@ const LANDING_HEADER_ELEVATE_AFTER_PX = 16;
 
 export default function Landing() {
   const [headerElevated, setHeaderElevated] = useState(false);
-  const heroLocalityLine = useGeolocationLocalityLabel();
   const categories = [];
   const featuredRestaurants = [];
 
@@ -186,38 +184,6 @@ export default function Landing() {
           aria-hidden="true"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-ink/70 via-ink/40 to-ink/75" />
-
-        <div className="hidden" aria-hidden="true">
-          <Badge tone="dark" className="mx-auto mb-base !bg-canvas/15 !text-on-dark backdrop-blur">
-            Giao nhanh, đặt món thuận tiện · {heroLocalityLine}
-          </Badge>
-          <h1 className="mx-auto max-w-3xl text-display-lg md:text-display-xl lg:text-display-mega">
-            Đói bụng? Đặt món ngay.
-          </h1>
-          <p className="mx-auto mt-md max-w-xl text-body-md text-on-dark-soft">
-            Thức ăn ngon từ những quán ăn thực thụ, giao nóng tận cửa. Hãy chọn món bạn thèm và chúng tôi sẽ lo phần còn lại.
-          </p>
-
-          {/* CTA vào ứng dụng — đặt món, nhập địa chỉ trong /app */}
-          <div id="dat-hang-legacy" className="mx-auto mt-lg flex justify-center">
-            <Button
-              as={Link}
-              to="/app"
-              size="lg"
-              variant="secondary"
-              trailingIcon="arrowRight"
-              className={clsx(
-                'w-full min-w-[min(100%,17.5rem)] sm:w-auto',
-                '!border-canvas/35 !bg-canvas/15 !text-on-dark backdrop-blur-md',
-                'shadow-lg shadow-ink/25 transition-[background-color,border-color,box-shadow]',
-                'hover:!border-canvas/45 hover:!bg-canvas/25 hover:shadow-xl',
-                'active:!bg-canvas/30',
-              )}
-            >
-              Vào ứng dụng đặt món
-            </Button>
-          </div>
-        </div>
 
         <div id="dat-hang" className="container-page flex min-h-[560px] flex-col items-center justify-end pb-xxl pt-28 text-center text-on-dark md:min-h-[680px] md:justify-center md:pb-12 md:pt-32 lg:min-h-[720px]">
           <div className="max-w-2xl">
