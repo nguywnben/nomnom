@@ -9,9 +9,9 @@ if (!password) {
 }
 
 const accounts = {
-  admin: process.env.NOMNOM_ADMIN_EMAIL || 'avery@nomnom.example',
-  customer: process.env.NOMNOM_CUSTOMER_EMAIL || 'mara@example.com',
-  merchant: process.env.NOMNOM_MERCHANT_EMAIL || 'owner@cinque.example',
+  admin: process.env.NOMNOM_ADMIN_EMAIL || 'admin@nomnom.local',
+  customer: process.env.NOMNOM_CUSTOMER_EMAIL || 'khachhang@nomnom.local',
+  merchant: process.env.NOMNOM_MERCHANT_EMAIL || 'nhahang@nomnom.local',
 };
 
 async function request(path, { token, method = 'GET', body } = {}) {

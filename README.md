@@ -201,9 +201,9 @@ After importing `database/nomnom.sql`, all documented demo accounts use the pass
 
 | Role | Email | Entry point |
 |---|---|---|
-| Admin | `avery@nomnom.example` | `/admin` |
-| Customer | `mara@example.com` | `/app` |
-| Merchant | `owner@cinque.example` | `/merchant` |
+| Admin | `admin@nomnom.local` | `/admin` |
+| Customer | `khachhang@nomnom.local` | `/app` |
+| Merchant | `nhahang@nomnom.local` | `/merchant` |
 
 No permanent public demo URL is guaranteed yet. Local setup is the supported demonstration path.
 

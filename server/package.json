@@ -9,7 +9,8 @@
     "test": "node --test --test-isolation=none",
     "smoke:roles": "node scripts/smoke-three-roles.mjs",
     "backup:db": "node scripts/backup-database.mjs",
-    "verify:restore": "node scripts/verify-backup-restore.mjs"
+    "verify:restore": "node scripts/verify-backup-restore.mjs",
+    "verify:report-seed": "node scripts/verify-report-seed.mjs"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
