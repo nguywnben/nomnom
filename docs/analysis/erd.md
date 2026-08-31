@@ -61,6 +61,8 @@ merchant_billable_subtotal = subtotal - merchant_funded_discount
 platform_commission = floor(merchant_billable_subtotal * commission_rate / 100)
 merchant_earning = merchant_billable_subtotal - platform_commission
 platform_fee = platform_commission + delivery_fee
+platform_funded_discount = discount_amount (chỉ khi voucher do sàn tài trợ)
+total_amount = merchant_earning + platform_fee - platform_funded_discount
 ```
 
 Voucher do sàn tài trợ không làm giảm `merchant_earning`. Phí giao được nền tảng giữ để thanh

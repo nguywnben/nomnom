@@ -1073,6 +1073,28 @@ LOCK TABLES `wallets` WRITE;
 INSERT INTO `wallets` VALUES (1,3,'driver',642000,49600,4580000,3938000,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(2,4,'driver',850000,0,5200000,4350000,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(3,6,'driver',320000,0,1240000,920000,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(4,7,'merchant',1500000,0,2116500,616500,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(5,8,'merchant',4300000,0,9850000,5550000,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(6,9,'merchant',3200000,0,7340000,4140000,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(7,11,'merchant',6800000,0,14120000,7320000,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(8,13,'merchant',1100000,0,2450000,1350000,0,'2026-05-21 21:42:10','2026-05-21 21:42:10'),(100,121,'merchant',350000,0,850000,500000,0,'2026-08-13 01:47:48','2026-08-13 01:47:48'),(101,122,'merchant',350000,0,850000,500000,0,'2026-08-13 01:47:48','2026-08-13 01:47:48'),(102,123,'merchant',350000,0,850000,500000,0,'2026-08-13 01:47:48','2026-08-13 01:47:48'),(103,132,'merchant',350000,0,850000,500000,0,'2026-08-13 01:47:48','2026-08-13 01:47:48'),(104,133,'merchant',350000,0,850000,500000,0,'2026-08-13 01:47:48','2026-08-13 01:47:48'),(105,134,'merchant',350000,0,850000,500000,0,'2026-08-13 01:47:48','2026-08-13 01:47:48');
 /*!40000 ALTER TABLE `wallets` ENABLE KEYS */;
 UNLOCK TABLES;
+
+-- Final three-role demo reconciliation: delivery fee belongs to platform operations.
+-- Only report seed rows are adjusted; legacy driver and user-created orders are untouched.
+UPDATE orders o
+JOIN restaurants r ON r.id = o.restaurant_id
+LEFT JOIN vouchers v ON v.id = o.voucher_id
+SET
+  o.merchant_earning =
+    (CASE WHEN v.restaurant_id IS NOT NULL THEN GREATEST(0, o.subtotal - o.discount_amount) ELSE o.subtotal END)
+    - FLOOR(
+      (CASE WHEN v.restaurant_id IS NOT NULL THEN GREATEST(0, o.subtotal - o.discount_amount) ELSE o.subtotal END)
+      * r.commission_rate / 100
+    ),
+  o.platform_fee =
+    FLOOR(
+      (CASE WHEN v.restaurant_id IS NOT NULL THEN GREATEST(0, o.subtotal - o.discount_amount) ELSE o.subtotal END)
+      * r.commission_rate / 100
+    ) + o.delivery_fee
+WHERE o.order_code LIKE 'DEMO-%'
+  AND o.driver_id IS NULL
+  AND COALESCE(o.driver_earning, 0) = 0;
+
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

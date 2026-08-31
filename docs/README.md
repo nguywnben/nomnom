@@ -72,4 +72,5 @@ mysql -u root -p nomnom < database/migrations/20260803_wave4_completion.sql
 mysql -u root -p nomnom < database/migrations/20260804_wave5_completion.sql
 mysql -u root -p nomnom < database/migrations/20260831_checkout_idempotency.sql
 mysql -u root -p nomnom < database/migrations/20260831_upload_ownership.sql
+mysql -u root -p nomnom < database/migrations/20260831_reconcile_demo_finance.sql
 ```

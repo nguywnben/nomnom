@@ -11,6 +11,7 @@ import {
   buildCheckoutRequestHash,
   normalizeIdempotencyKey,
 } from '../lib/checkoutIdempotency.js';
+import { calculateOrderFinance } from '../lib/orderFinance.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -196,14 +197,17 @@ router.post('/', requireAuth, async (req, res, next) => {
     // HẠCH TOÁN DOANH THU & DÒNG TIỀN CHUẨN:
     // Nếu mã do Quán ăn tạo (voucher.restaurant_id !== null) -> Quán tự chịu phần giảm giá.
     // Nếu mã do Sàn tài trợ (voucher.restaurant_id === null) -> Sàn chi trả khuyến mãi, Quán hưởng trọn giá gốc món.
-    const isMerchantVoucher = voucher && voucher.restaurant_id !== null;
-    const merchantBillableSubtotal = isMerchantVoucher
-      ? Math.max(0, subtotal - discount_amount)
-      : subtotal;
-    const platform_commission = Math.floor(merchantBillableSubtotal * Number(restaurant.commission_rate) / 100);
-    const merchant_earning = merchantBillableSubtotal - platform_commission;
-    // Phí dịch vụ nền tảng (hoa hồng sàn + phí giao hàng)
-    const platform_fee = platform_commission + delivery_fee;
+    const isMerchantVoucher = Boolean(voucher && voucher.restaurant_id !== null);
+    const finance = calculateOrderFinance({
+      subtotal,
+      deliveryFee: delivery_fee,
+      discountAmount: discount_amount,
+      commissionRate: Number(restaurant.commission_rate),
+      isMerchantVoucher,
+    });
+    const merchant_earning = finance.merchantEarning;
+    // Phí nền tảng = hoa hồng + phí dùng để chi trả vận chuyển bên ngoài NomNom.
+    const platform_fee = finance.platformFee;
 
     // 5. Tính toán khoảng cách và thời gian giao hàng dự kiến
     let distance_km = shippingQuote.distanceKm;
