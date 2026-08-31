@@ -157,15 +157,6 @@ export default function AdminLayout() {
             <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              leadingIcon="logout"
-              className="!border-[#dc2626] !bg-white !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
-              onClick={() => setLogoutConfirmOpen(true)}
-            >
-              Đăng xuất
-            </Button>
           </div>
         </header>
 
@@ -257,8 +248,8 @@ function SidebarFooter({ currentAdmin, collapsed = false, onItemClick, onLogout 
             icon="logout"
             size="sm"
             label="Đăng xuất"
-            variant="secondary"
-            className="!border-[#dc2626] !bg-white !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+            variant="ghost"
+            className="text-body hover:bg-canvas hover:text-error transition-colors"
             onClick={onLogout}
           />
         )}
