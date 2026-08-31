@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
@@ -167,6 +168,12 @@ export default function MerchantSettings() {
             Cập nhật thông tin thương hiệu, thiết lập thời gian chuẩn bị món và liên kết tài khoản ngân hàng nhận doanh thu.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-xs">
+          <Badge tone={form.isOpenNow ? 'success' : 'warning'} dot>
+            {form.isOpenNow ? 'Đang mở cửa' : 'Đang đóng cửa'}
+          </Badge>
+          <Badge tone="outline">Hoa hồng {form.commissionRate}%</Badge>
+        </div>
       </div>
 
       {error && (
@@ -175,16 +182,24 @@ export default function MerchantSettings() {
         </div>
       )}
 
-      <Tabs
-        className="w-fit max-w-full"
-        items={[
-          { value: 'profile', label: 'Thông tin' },
-          { value: 'operations', label: 'Vận hành' },
-          { value: 'bank', label: 'Nhận tiền' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
+      {/* Toolbar: Tabs + Save button */}
+      <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
+        <Tabs
+          size="sm"
+          className="w-fit max-w-full"
+          items={[
+            { value: 'profile', label: 'Thông tin' },
+            { value: 'operations', label: 'Vận hành' },
+            { value: 'bank', label: 'Nhận tiền' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+
+        <Button leadingIcon="check" size="sm" onClick={save} loading={saving}>
+          Lưu thay đổi
+        </Button>
+      </div>
 
       {tab === 'profile' && (
         <Card padded className="grid gap-sm md:grid-cols-2">
@@ -243,10 +258,6 @@ export default function MerchantSettings() {
         </Card>
       )}
 
-      <div className="flex justify-end">
-        <Button leadingIcon="check" onClick={save} loading={saving}>Lưu thay đổi</Button>
-      </div>
-
       <div className="pt-base border-t border-hairline">
         <Card padded className="border-hairline-strong">
           <div className="flex flex-wrap items-center justify-between gap-sm">
@@ -258,6 +269,7 @@ export default function MerchantSettings() {
             </div>
             <Button
               variant="critical"
+              size="sm"
               leadingIcon="logout"
               onClick={() => setLogoutConfirmOpen(true)}
             >
@@ -267,38 +279,55 @@ export default function MerchantSettings() {
         </Card>
       </div>
 
-      <Modal open={addressModalOpen} onClose={() => setAddressModalOpen(false)} title="Yêu cầu đổi địa chỉ quán" size="lg">
+      <Modal
+        open={addressModalOpen}
+        onClose={() => setAddressModalOpen(false)}
+        title="Yêu cầu đổi địa chỉ quán"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>
+              Hủy
+            </Button>
+            <Button size="sm" onClick={submitAddressChange} loading={addressSubmitting}>
+              Gửi yêu cầu
+            </Button>
+          </>
+        }
+      >
         <div className="grid gap-sm md:grid-cols-2">
           <Select id="request-city" label="Tỉnh/Thành phố" required value={provinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = provinces.find((value) => value.code === event.target.value); setProvinceCode(event.target.value); setWardCode(''); setAddress({ city: item?.name ?? '', district: '', ward: '' }); }} />
           <Select id="request-ward" label="Phường/Xã" required value={wardCode} disabled={!provinceCode} options={[{ value: '', label: provinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = wards.find((value) => value.code === event.target.value); setWardCode(event.target.value); setAddress({ ward: item?.name ?? '' }); }} />
           <Input id="request-address-line" className="md:col-span-2" label="Số nhà, tên đường cụ thể" placeholder="Số nhà, tên đường cụ thể..." required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
           <p className="md:col-span-2 text-caption text-body">Địa chỉ mới chỉ có hiệu lực sau khi admin duyệt; trong lúc chờ, hệ thống vẫn dùng địa chỉ hiện tại.</p>
-          <div className="flex justify-end gap-2 md:col-span-2">
-            <Button variant="secondary" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>Hủy</Button>
-            <Button onClick={submitAddressChange} loading={addressSubmitting}>Gửi yêu cầu</Button>
-          </div>
         </div>
       </Modal>
 
-      <Modal open={logoutConfirmOpen} onClose={() => setLogoutConfirmOpen(false)} title="Xác nhận đăng xuất" size="sm">
-        <div className="space-y-sm">
-          <p className="text-body-sm text-body">
-            Bạn có chắc chắn muốn đăng xuất khỏi cổng quản trị quán đối tác không?
-          </p>
-          <div className="flex justify-end gap-xs">
-            <Button variant="secondary" onClick={() => setLogoutConfirmOpen(false)} disabled={loggingOut}>
+      <Modal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(false)} disabled={loggingOut}>
               Hủy
             </Button>
             <Button
               variant="critical"
+              size="sm"
               leadingIcon="logout"
               onClick={handleLogout}
               loading={loggingOut}
             >
               Đăng xuất
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi cổng quản trị quán đối tác không?
+        </p>
       </Modal>
     </div>
   );
