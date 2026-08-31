@@ -23,6 +23,7 @@ import locationsRoutes from './routes/locations.routes.js';
 import { ensureWave5Schema } from './lib/wave5Schema.js';
 import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
 import { creditMerchantForDeliveredOrder } from './lib/merchantOrders.js';
+import { canAutomaticallyCancelOrder } from './lib/orderExpiry.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -394,11 +395,13 @@ async function startOrderExpiryWorker() {
              FOR UPDATE`,
           );
           for (const order of stalePlacedOrders) {
+            if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
+              continue;
+            }
             console.log(`[Expiry Worker] Tự động hủy đơn ID ${order.id} (${order.order_code}) do quán không xác nhận sau 10 phút`);
-            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
             await connection.query(
-              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không xác nhận sau 10 phút', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
-              [paymentStatus, order.id],
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không xác nhận sau 10 phút', cancelled_at = NOW() WHERE id = ?",
+              [order.id],
             );
             await connection.query(
               "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
@@ -412,7 +415,7 @@ async function startOrderExpiryWorker() {
             await connection.query(
               `INSERT INTO notifications (user_id, type, title, body, link_url)
                VALUES (?, 'order_cancelled', 'Đơn hàng tự động hủy', ?, '/app/orders')`,
-              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán không kịp xác nhận. Tiền thanh toán và mã giảm giá (nếu có) đã được hoàn lại.`],
+              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán không kịp xác nhận. Mã giảm giá (nếu có) đã được hoàn lại.`],
             );
             if (order.merchant_user_id) {
               await connection.query(
@@ -433,11 +436,13 @@ async function startOrderExpiryWorker() {
              FOR UPDATE`,
           );
           for (const order of stalePreparingOrders) {
+            if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
+              continue;
+            }
             console.log(`[Expiry Worker] Tự động hủy đơn ID ${order.id} (${order.order_code}) do quán treo làm món quá 60 phút`);
-            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
             await connection.query(
-              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không hoàn thành chế biến sau 60 phút', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
-              [paymentStatus, order.id],
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không hoàn thành chế biến sau 60 phút', cancelled_at = NOW() WHERE id = ?",
+              [order.id],
             );
             await connection.query(
               "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
@@ -451,7 +456,7 @@ async function startOrderExpiryWorker() {
             await connection.query(
               `INSERT INTO notifications (user_id, type, title, body, link_url)
                VALUES (?, 'order_cancelled', 'Đơn hàng tự động hủy', ?, '/app/orders')`,
-              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán chuẩn bị quá lâu (>60 phút). Tiền thanh toán và mã giảm giá (nếu có) đã được hoàn lại.`],
+              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán chuẩn bị quá lâu (>60 phút). Mã giảm giá (nếu có) đã được hoàn lại.`],
             );
             if (order.merchant_user_id) {
               await connection.query(
@@ -471,10 +476,12 @@ async function startOrderExpiryWorker() {
              FOR UPDATE`,
           );
           for (const order of staleOvernightOrders) {
-            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
+            if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
+              continue;
+            }
             await connection.query(
-              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động đóng đơn do quá hạn xử lý trong ngày (quá 12 giờ)', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
-              [paymentStatus, order.id],
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động đóng đơn do quá hạn xử lý trong ngày (quá 12 giờ)', cancelled_at = NOW() WHERE id = ?",
+              [order.id],
             );
             await connection.query(
               "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
