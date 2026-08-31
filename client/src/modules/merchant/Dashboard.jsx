@@ -433,8 +433,9 @@ export default function MerchantDashboard() {
             label="Đơn mới chờ duyệt"
             value={dashboardData.summary.newOrderCount}
             icon="bell"
-            delta={dashboardData.summary.newOrderCount > 0 ? 'Cần xử lý ngay' : 'Không có đơn chờ'}
-            deltaTone={dashboardData.summary.newOrderCount > 0 ? 'error' : 'success'}
+            delta={dashboardData.summary.newOrderCount > 0 ? 'Cần xử lý ngay' : undefined}
+            deltaTone={dashboardData.summary.newOrderCount > 0 ? 'error' : undefined}
+            sub={dashboardData.summary.newOrderCount === 0 ? 'Không có đơn chờ' : undefined}
           />
         </div>
       )}
