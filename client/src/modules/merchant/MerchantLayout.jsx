@@ -10,6 +10,7 @@ import Logo from '../../components/Logo.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantOrdersApi, fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
 import {
   isMerchantRestaurantApproved,
 } from '../../lib/merchantStatus.js';
@@ -42,6 +43,7 @@ export default function MerchantLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [newCount, setNewCount] = useState(0);
   const prevNewCount = useRef(0);
+  const notifCount = useUnreadNotificationCount(Boolean(currentMerchant));
 
   useEffect(() => {
     let active = true;
@@ -191,7 +193,13 @@ export default function MerchantLayout() {
             </div>
           </div>
           {newCount > 0 && <Badge tone="live" dot>{newCount}</Badge>}
-          <IconButton icon="bell" label="Thông báo" size="sm" onClick={() => nav('/merchant/notifications')} />
+          <IconButton
+            icon="bell"
+            label="Thông báo"
+            size="sm"
+            badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+            onClick={() => nav('/merchant/notifications')}
+          />
         </header>
 
         {/* Desktop top header (hidden md:flex) */}
@@ -216,7 +224,13 @@ export default function MerchantLayout() {
                 {newCount} đơn hàng mới
               </Badge>
             )}
-            <IconButton icon="bell" label="Thông báo" variant="secondary" onClick={() => nav('/merchant/notifications')} />
+            <IconButton
+              icon="bell"
+              label="Thông báo"
+              variant="secondary"
+              badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+              onClick={() => nav('/merchant/notifications')}
+            />
             <Button
               variant="secondary"
               leadingIcon="chat"

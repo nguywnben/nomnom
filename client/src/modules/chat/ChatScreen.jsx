@@ -272,14 +272,14 @@ export default function ChatScreen() {
           <aside className="w-full md:w-80 lg:w-96 shrink-0 border-b md:border-b-0 md:border-r border-hairline flex flex-col bg-surface-card">
             {/* Search header */}
             <div className="p-3 border-b border-hairline bg-canvas-subtle/40">
-              <div className="relative">
-                <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-body" />
+              <div className="relative h-9">
+                <Icon name="search" size={16} className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body" />
                 <input
                   type="text"
                   placeholder="Tìm quán, khách hoặc mã đơn..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-hairline bg-surface-card pl-9 pr-3 py-1.5 text-body-sm text-ink placeholder:text-body focus:border-primary focus:outline-none"
+                  className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-8 text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
                 />
                 {searchQuery && (
                   <button

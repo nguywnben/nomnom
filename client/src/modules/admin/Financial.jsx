@@ -37,7 +37,7 @@ export default function AdminFinancial() {
         </div>
       </div>
 
-      <Tabs className="w-fit max-w-full" items={[
+      <Tabs size="sm" className="w-fit max-w-full" items={[
         { value: 'today', label: 'Hôm nay' },
         { value: 'week', label: '7 ngày' },
         { value: 'month', label: '30 ngày' },

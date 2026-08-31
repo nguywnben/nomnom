@@ -250,25 +250,39 @@ export default function MerchantOrders() {
     }
   };
 
+  const isToday = selectedDate === todayIsoDate();
+
   return (
     <div className="space-y-base">
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Hôm nay</div>
+          <div className="text-caption-uppercase text-body">{isToday ? 'Hôm nay' : 'Lịch sử'}</div>
           <h1 className="text-display-lg text-ink">Đơn hàng trực tiếp</h1>
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <input
             type="date"
             value={selectedDate}
+            max={todayIsoDate()}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="rounded-md border border-hairline bg-surface px-sm py-1.5 text-body-sm text-ink"
+            className="h-9 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink cursor-pointer"
           />
-          <Badge tone="live" dot>
-            {lastSyncedAt ? `Cập nhật ${lastSyncedAt.toLocaleTimeString('vi-VN')}` : 'Đang tải…'}
+          <Badge tone={isToday ? 'live' : 'outline'} dot={isToday} className="h-9 px-3 flex items-center justify-center">
+            {isToday
+              ? (lastSyncedAt ? `Cập nhật ${lastSyncedAt.toLocaleTimeString('vi-VN')}` : 'Đang tải…')
+              : `Ngày ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('vi-VN')}`}
           </Badge>
         </div>
       </div>
+
+      {!isToday && (
+        <div className="rounded-md border border-hairline-strong bg-canvas-soft px-base py-sm text-body-sm text-body flex items-center gap-2">
+          <Icon name="info" size={16} className="text-[#0d74ce] shrink-0" />
+          <span>
+            Bạn đang xem đơn hàng ngày <strong>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('vi-VN')}</strong>. Các đơn ngày cũ được hiển thị ở chế độ chỉ đọc để tra cứu và in phiếu chế biến.
+          </span>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-xl text-center text-body-md text-body">Đang tải đơn hàng…</div>
@@ -298,6 +312,7 @@ export default function MerchantOrders() {
                       <OrderCard
                         key={order.orderCode}
                         order={order}
+                        isToday={isToday}
                         busy={actingCode === order.orderCode}
                         onAction={(action) => handleAction(order, action)}
                         onCancel={() => {
@@ -350,10 +365,12 @@ export default function MerchantOrders() {
   );
 }
 
-function OrderCard({ order, busy, onAction, onCancel, onChat, onPrint }) {
+function OrderCard({ order, busy, isToday = true, onAction, onCancel, onChat, onPrint }) {
   const timeAgo = useTimeAgo(order.placedAt);
   const next = ACTIONS[order.status];
   const canCancel = ['placed', 'accepted', 'preparing', 'ready_for_pickup'].includes(order.status);
+  const mins = Math.floor((Date.now() - new Date(order.placedAt).getTime()) / 60000);
+  const isLate = isToday && ['placed', 'accepted', 'preparing'].includes(order.status) && mins >= 20;
 
   return (
     <Card padded={false} className="overflow-hidden shadow-xs hover:shadow-sm transition-shadow">
@@ -364,9 +381,16 @@ function OrderCard({ order, busy, onAction, onCancel, onChat, onPrint }) {
         >
           {order.orderCode}
         </span>
-        <Badge tone="outline" className="text-caption shrink-0 whitespace-nowrap">
-          {timeAgo}
-        </Badge>
+        <div className="flex items-center gap-1 shrink-0">
+          {isLate && (
+            <Badge tone="error" dot className="text-[11px] font-semibold animate-pulse">
+              Trễ ({mins}p)
+            </Badge>
+          )}
+          <Badge tone="outline" className="text-caption shrink-0 whitespace-nowrap">
+            {timeAgo}
+          </Badge>
+        </div>
       </div>
 
       <div className="p-sm">
@@ -402,7 +426,7 @@ function OrderCard({ order, busy, onAction, onCancel, onChat, onPrint }) {
 
       {/* Action footer */}
       <div className="space-y-1.5 border-t border-hairline bg-canvas-soft/40 p-sm">
-        {next && (
+        {isToday && next && (
           <Button
             size="sm"
             className="w-full font-semibold shadow-xs"
@@ -433,7 +457,7 @@ function OrderCard({ order, busy, onAction, onCancel, onChat, onPrint }) {
           >
             In phiếu
           </Button>
-          {canCancel && (
+          {isToday && canCancel && (
             <Button
               variant="secondary"
               size="sm"

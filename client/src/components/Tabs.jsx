@@ -5,8 +5,9 @@ import clsx from 'clsx';
 //   • Mũi tên ←/→ (hoặc ↑/↓) di chuyển focus và kích hoạt tab.
 //   • Home/End tới tab đầu/cuối.
 //   • Roving tabindex: chỉ tab đang chọn nằm trong luồng Tab.
-export default function Tabs({ items, value, onChange, className }) {
+export default function Tabs({ items, value, onChange, className, size = 'md' }) {
   const refs = useRef([]);
+  const isSm = size === 'sm';
 
   const moveFocus = (from, delta) => {
     const next = (from + delta + items.length) % items.length;
@@ -46,7 +47,8 @@ export default function Tabs({ items, value, onChange, className }) {
       role="tablist"
       aria-orientation="horizontal"
       className={clsx(
-        'inline-flex w-fit max-w-full items-center gap-1 rounded-md border border-hairline-strong bg-surface-card p-1',
+        'inline-flex w-fit max-w-full items-center rounded-md border border-hairline-strong bg-surface-card',
+        isSm ? 'h-9 gap-0.5 p-0.5' : 'gap-1 p-1',
         className,
       )}
     >
@@ -65,7 +67,8 @@ export default function Tabs({ items, value, onChange, className }) {
             onClick={() => onChange?.(it.value)}
             onKeyDown={(e) => onKeyDown(e, index)}
             className={clsx(
-              'h-8 rounded-sm px-sm text-button transition-colors',
+              'rounded-sm transition-colors',
+              isSm ? 'h-full px-2.5 text-caption font-medium' : 'h-8 px-sm text-button',
               active ? 'bg-primary text-on-primary' : 'text-ink hover:bg-canvas-soft',
             )}
           >

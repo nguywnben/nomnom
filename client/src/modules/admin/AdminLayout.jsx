@@ -8,6 +8,7 @@ import Drawer from '../../components/Drawer.jsx';
 import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
 
 const links = [
   { to: '/admin/customer-home', label: 'Trang chủ', icon: 'image' },
@@ -15,7 +16,7 @@ const links = [
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/admin/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
-  { to: '/admin/restaurants', label: 'Duyệt quán', icon: 'store' },
+  { to: '/admin/restaurants', label: 'Quán ăn', icon: 'store' },
   { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/admin/payouts', label: 'Rút tiền', icon: 'cash' },
   { to: '/admin/reviews', label: 'Đánh giá', icon: 'starFilled' },
@@ -52,6 +53,7 @@ export default function AdminLayout() {
   const { currentAdmin, logout } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const notifCount = useUnreadNotificationCount(Boolean(currentAdmin));
 
   return (
     <div className="flex min-h-screen bg-canvas-soft">
@@ -113,7 +115,13 @@ export default function AdminLayout() {
             <div className="text-caption-uppercase text-body">Quản trị viên</div>
             <div className="text-body-sm font-semibold text-ink">Tổng quan nền tảng</div>
           </div>
-          <IconButton icon="bell" label="Thông báo" size="sm" onClick={() => nav('/app/notifications')} />
+          <IconButton
+            icon="bell"
+            label="Thông báo"
+            size="sm"
+            badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+            onClick={() => nav('/app/notifications')}
+          />
         </header>
 
         {/* Desktop header */}
@@ -123,11 +131,16 @@ export default function AdminLayout() {
             <div className="text-title-md text-ink">Tổng quan nền tảng</div>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-xs">
-            <IconButton icon="bell" variant="secondary" label="Thông báo" onClick={() => nav('/app/notifications')} />
+            <IconButton
+              icon="bell"
+              variant="secondary"
+              label="Thông báo"
+              badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+              onClick={() => nav('/app/notifications')}
+            />
             <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ
             </Button>
-            <Button leadingIcon="cog" onClick={() => nav('/admin/config')}>Cài đặt</Button>
           </div>
         </header>
 
@@ -164,6 +177,10 @@ function SidebarLinks({ collapsed, onItemClick }) {
 }
 
 function SidebarFooter({ currentAdmin, collapsed = false, onItemClick }) {
+  const name = currentAdmin?.name || 'Quản trị viên';
+  const role = currentAdmin?.role || 'Quản trị';
+  const avatar = currentAdmin?.avatar;
+
   return (
     <div className="border-t border-hairline p-sm space-y-2">
       <NavLink
@@ -176,11 +193,11 @@ function SidebarFooter({ currentAdmin, collapsed = false, onItemClick }) {
         {!collapsed && <Icon name="chevronRight" size={14} className="text-body shrink-0" />}
       </NavLink>
       <div className="flex items-center gap-sm">
-        <Avatar src={currentAdmin.avatar} name={currentAdmin.name} />
+        <Avatar src={avatar} name={name} />
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <div className="text-body-sm font-semibold text-ink truncate">{currentAdmin.name}</div>
-            <div className="text-caption text-body truncate">{currentAdmin.role}</div>
+            <div className="text-body-sm font-semibold text-ink truncate">{name}</div>
+            <div className="text-caption text-body truncate">{role}</div>
           </div>
         )}
       </div>

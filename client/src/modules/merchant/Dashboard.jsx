@@ -275,6 +275,7 @@ export default function MerchantDashboard() {
         <div className="flex flex-wrap items-center gap-xs">
           {/* Quick preset segmented tabs */}
           <Tabs
+            size="sm"
             items={[
               { value: 'today', label: 'Hôm nay' },
               { value: '7d', label: '7 ngày' },
@@ -291,7 +292,7 @@ export default function MerchantDashboard() {
           />
 
           {/* Direct date pickers (Max 90 days lookback) */}
-          <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-sm text-button text-ink">
+          <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink">
             <Icon name="calendar" size={15} className="text-body shrink-0" />
             <input
               type="date"
@@ -336,7 +337,7 @@ export default function MerchantDashboard() {
           </Button>
 
           {restaurantOpen !== null && restaurantOpen !== undefined && (
-            <Badge tone={restaurantOpen ? 'success' : 'error'} dot>
+            <Badge tone={restaurantOpen ? 'success' : 'error'} dot className="h-9 px-3 flex items-center justify-center">
               {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
             </Badge>
           )}

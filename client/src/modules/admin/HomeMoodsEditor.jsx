@@ -139,9 +139,9 @@ export default function HomeMoodsEditor({ moods, onChange }) {
         )}
       >
         <div className="space-y-sm">
-          <Input label="Tiêu đề" value={draft?.label ?? ''} onChange={(event) => setDraft({ ...draft, label: event.target.value })} />
-          <Textarea label="Mô tả ngắn" rows={2} value={draft?.subtitle ?? ''} onChange={(event) => setDraft({ ...draft, subtitle: event.target.value })} />
-          <Input label="Liên kết nội bộ" hint="Ví dụ: /app/search?cuisine=italian" value={draft?.linkUrl ?? ''} onChange={(event) => setDraft({ ...draft, linkUrl: event.target.value })} />
+          <Input label="Tiêu đề" placeholder="VD: Bữa trưa văn phòng, Cà phê & Trà" value={draft?.label ?? ''} onChange={(event) => setDraft({ ...draft, label: event.target.value })} />
+          <Textarea label="Mô tả ngắn" rows={2} placeholder="VD: Món ngon chuẩn vị, giao nhanh tiện lợi" value={draft?.subtitle ?? ''} onChange={(event) => setDraft({ ...draft, subtitle: event.target.value })} />
+          <Input label="Liên kết nội bộ" placeholder="/app/search?cuisine=vietnamese" hint="Ví dụ: /app/search?cuisine=italian" value={draft?.linkUrl ?? ''} onChange={(event) => setDraft({ ...draft, linkUrl: event.target.value })} />
           <ImageUploader value={draft?.imageUrl ?? ''} onUploaded={(url) => setDraft({ ...draft, imageUrl: url })} folder="home-moods" aspectRatio="video" className="items-start" />
           <Switch checked={draft?.isVisible ?? true} onChange={(value) => setDraft({ ...draft, isVisible: value })} label="Hiển thị trên trang chủ" />
         </div>

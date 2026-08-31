@@ -112,8 +112,15 @@ export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
 }
 
-export function fetchAdminOverview(range = 'month') {
-  const params = new URLSearchParams({ range });
+export function fetchAdminOverview(arg = 'month') {
+  const params = new URLSearchParams();
+  if (typeof arg === 'string') {
+    params.set('range', arg);
+  } else if (arg && typeof arg === 'object') {
+    if (arg.range) params.set('range', arg.range);
+    if (arg.fromDate) params.set('fromDate', arg.fromDate);
+    if (arg.toDate) params.set('toDate', arg.toDate);
+  }
   return apiGet(`/api/v1/admin/overview?${params.toString()}`);
 }
 
@@ -293,6 +300,20 @@ export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
 }
 
+export function fetchAdminRestaurantsApi(params = {}) {
+  const query = new URLSearchParams();
+  if (params.q) query.set('q', params.q);
+  if (params.status) query.set('status', params.status);
+  if (params.cuisineId) query.set('cuisineId', params.cuisineId);
+  if (params.city) query.set('city', params.city);
+  const qStr = query.toString();
+  return apiGet(`/api/v1/admin/restaurants${qStr ? `?${qStr}` : ''}`);
+}
+
+export function updateAdminRestaurantStatusApi(restaurantId, body) {
+  return apiPatch(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/status`, body);
+}
+
 export function fetchAdminPendingRestaurants() {
   return apiGet('/api/v1/admin/restaurants/pending');
 }
@@ -321,7 +342,7 @@ export function rejectAdminRestaurantAddressChangeRequest(requestId, reason) {
   return apiPost(`/api/v1/admin/restaurant-address-change-requests/${encodeURIComponent(requestId)}/reject`, { reason });
 }
 
-export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', page = 1 } = {}) {
+export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', fromDate, toDate, page = 1, limit = 10 } = {}) {
   const params = new URLSearchParams({
     status,
     paymentMethod,
@@ -329,6 +350,9 @@ export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymen
     q,
     page: String(page),
   });
+  if (fromDate) params.set('fromDate', fromDate);
+  if (toDate) params.set('toDate', toDate);
+  if (limit) params.set('limit', String(limit));
   return apiGet(`/api/v1/admin/orders?${params.toString()}`);
 }
 
@@ -468,6 +492,9 @@ export function fetchAdminVouchersApi(params = {}) {
   if (params.q) query.set('q', params.q);
   if (params.status) query.set('status', params.status);
   if (params.scope) query.set('scope', params.scope);
+  if (params.discountType) query.set('discountType', params.discountType);
+  if (params.isPublic) query.set('isPublic', params.isPublic);
+  if (params.sortBy) query.set('sortBy', params.sortBy);
   const qStr = query.toString();
   return apiGet(`/api/v1/admin/vouchers${qStr ? `?${qStr}` : ''}`);
 }

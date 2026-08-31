@@ -3,6 +3,7 @@ import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Icon from '../../components/Icon.jsx';
 import Input, { Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
@@ -102,6 +103,7 @@ export default function AdminPayouts() {
 
       <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
         <Tabs
+          size="sm"
           className="max-w-full"
           items={[
             { value: 'pending', label: 'Chờ duyệt' },
@@ -113,7 +115,20 @@ export default function AdminPayouts() {
           value={status}
           onChange={(next) => { setStatus(next); setPage(1); }}
         />
-        <Input leadingIcon="search" aria-label="Tìm payout" placeholder="Tìm quán hoặc ngân hàng..." value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} className="w-full md:w-72" />
+        <div className="relative w-full md:w-72 shrink-0 h-9">
+          <Icon
+            name="search"
+            size={16}
+            className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+          />
+          <input
+            value={query}
+            onChange={(event) => { setQuery(event.target.value); setPage(1); }}
+            placeholder="Tìm quán hoặc ngân hàng..."
+            aria-label="Tìm payout"
+            className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+          />
+        </div>
       </div>
 
       {error && <div className="rounded-md border border-error bg-[#fbeaea] p-sm text-body-sm text-error" role="alert">{error}</div>}

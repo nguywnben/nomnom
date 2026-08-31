@@ -97,10 +97,11 @@ export default function NotificationsPage({ audience = 'customer' }) {
           <h1 className={customer ? 'text-display-md text-ink md:text-display-lg' : 'text-display-lg text-ink'}>Thông báo</h1>
           <p className="mt-xs text-body-sm text-body">{unreadCount ? 'Bạn có ' + unreadCount + ' thông báo chưa đọc.' : 'Bạn đã đọc tất cả thông báo.'}</p>
         </div>
-        <Button variant="secondary" leadingIcon="check" onClick={markAll} disabled={!unreadCount}>Đánh dấu đã đọc</Button>
+        <Button variant="secondary" size="sm" leadingIcon="check" onClick={markAll} disabled={!unreadCount}>Đánh dấu đã đọc</Button>
       </div>
 
       <Tabs
+        size="sm"
         className={(customer ? 'mt-base ' : '') + 'w-fit max-w-full'}
         items={[
           { value: 'all', label: 'Tất cả' },

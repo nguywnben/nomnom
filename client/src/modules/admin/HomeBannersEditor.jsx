@@ -199,11 +199,11 @@ export default function HomeBannersEditor({ maxItems = 6 }) {
         )}
       >
         <div className="space-y-sm">
-          <Input label="Nhãn" value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
-          <Input label="Tiêu đề" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
-          <Textarea label="Mô tả" rows={2} value={draft.subtitle} onChange={(event) => setDraft({ ...draft, subtitle: event.target.value })} />
-          <Input label="Nhãn nút" value={draft.ctaLabel} onChange={(event) => setDraft({ ...draft, ctaLabel: event.target.value })} />
-          <Input label="Liên kết nội bộ" value={draft.linkUrl} hint="Ví dụ: /app/search" onChange={(event) => setDraft({ ...draft, linkUrl: event.target.value })} />
+          <Input label="Nhãn" placeholder="VD: Món mới, Ưu đãi" value={draft.tag} onChange={(event) => setDraft({ ...draft, tag: event.target.value })} />
+          <Input label="Tiêu đề" placeholder="VD: Khám phá hương vị ẩm thực mới" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
+          <Textarea label="Mô tả" rows={2} placeholder="VD: Giảm ngay 30% cho các món best-seller trong tuần..." value={draft.subtitle} onChange={(event) => setDraft({ ...draft, subtitle: event.target.value })} />
+          <Input label="Nhãn nút" placeholder="VD: Đặt món ngay" value={draft.ctaLabel} onChange={(event) => setDraft({ ...draft, ctaLabel: event.target.value })} />
+          <Input label="Liên kết nội bộ" placeholder="/app/search" value={draft.linkUrl} hint="Ví dụ: /app/search" onChange={(event) => setDraft({ ...draft, linkUrl: event.target.value })} />
           <ImageUploader value={draft.imageUrl} onUploaded={(url) => setDraft({ ...draft, imageUrl: url })} folder="home-banners" aspectRatio="video" className="items-start" />
           <Switch checked={draft.isActive} onChange={(value) => setDraft({ ...draft, isActive: value })} label="Hiển thị trên trang chủ" />
         </div>

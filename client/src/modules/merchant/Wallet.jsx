@@ -92,7 +92,7 @@ export default function MerchantWallet() {
         <Kpi title="Tổng thu nhập" value={formatVnd(wallet.totalEarned)} hint={'Đã rút ' + formatVnd(wallet.totalWithdrawn)} />
       </div>
 
-      <Tabs className="w-fit max-w-full" items={[{ value: 'transactions', label: 'Lịch sử giao dịch' }, { value: 'payouts', label: 'Lịch sử rút tiền' }]} value={tab} onChange={setTab} />
+      <Tabs size="sm" className="w-fit max-w-full" items={[{ value: 'transactions', label: 'Lịch sử giao dịch' }, { value: 'payouts', label: 'Lịch sử rút tiền' }]} value={tab} onChange={setTab} />
 
       {tab === 'transactions' && (data.transactions.length ? <Card padded={false} className="overflow-hidden"><ul className="divide-y divide-hairline">
         {data.transactions.map((item) => {

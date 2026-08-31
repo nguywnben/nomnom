@@ -3,6 +3,7 @@ import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
+import Icon from '../../components/Icon.jsx';
 import Input from '../../components/Input.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import Tabs from '../../components/Tabs.jsx';
@@ -121,16 +122,24 @@ export default function AdminReviewsModeration() {
           <div className="text-caption-uppercase text-body">Khách hàng</div>
           <h1 className="text-display-lg text-ink">Kiểm duyệt đánh giá</h1>
         </div>
-        <Input
-          className="w-full md:w-72"
-          leadingIcon="search"
-          placeholder="Tìm theo khách, quán, nội dung…"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-        />
+        <div className="relative w-full md:w-72 shrink-0 h-9">
+          <Icon
+            name="search"
+            size={16}
+            className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+          />
+          <input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Tìm theo khách, quán, nội dung…"
+            aria-label="Tìm kiếm đánh giá"
+            className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+          />
+        </div>
       </div>
 
       <Tabs
+        size="sm"
         className="w-fit max-w-full"
         items={[
           { value: 'low', label: '≤ 3 sao' },

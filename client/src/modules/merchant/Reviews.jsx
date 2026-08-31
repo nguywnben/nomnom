@@ -7,13 +7,18 @@ import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import { Select, Textarea } from '../../components/Input.jsx';
+import Pagination from '../../components/Pagination.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantReviewsApi, replyMerchantReviewApi } from '../../lib/api.js';
 
+const PAGE_SIZE = 10;
+
 export default function MerchantReviews() {
   const { pushToast } = useApp();
   const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [summary, setSummary] = useState({ total: 0, restaurantCount: 0, dishCount: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,11 +34,14 @@ export default function MerchantReviews() {
     setError('');
     try {
       const data = await fetchMerchantReviewsApi({
+        page,
+        limit: PAGE_SIZE,
         rating: ratingFilter === 'all' ? undefined : Number(ratingFilter),
         replied: replyFilter,
         target: targetFilter,
       });
       setItems(data?.items ?? []);
+      setTotal(data?.total ?? 0);
       if (data?.summary) {
         setSummary(data.summary);
       }
@@ -42,7 +50,7 @@ export default function MerchantReviews() {
     } finally {
       setLoading(false);
     }
-  }, [ratingFilter, replyFilter, targetFilter]);
+  }, [page, ratingFilter, replyFilter, targetFilter]);
 
   useEffect(() => {
     loadData();
@@ -118,7 +126,10 @@ export default function MerchantReviews() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setTargetFilter(tab.id)}
+              onClick={() => {
+                setTargetFilter(tab.id);
+                setPage(1);
+              }}
               className={clsx(
                 'h-9 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-sm text-button transition-colors shrink-0 cursor-pointer',
                 targetFilter === tab.id
@@ -144,7 +155,10 @@ export default function MerchantReviews() {
           <select
             className="h-9 rounded-md border border-hairline-strong bg-surface-card px-3 text-body-sm text-ink outline-none cursor-pointer focus:border-ink transition-colors"
             value={ratingFilter}
-            onChange={(e) => setRatingFilter(e.target.value)}
+            onChange={(e) => {
+              setRatingFilter(e.target.value);
+              setPage(1);
+            }}
             aria-label="Lọc theo số sao"
           >
             <option value="all">Tất cả mức đánh giá</option>
@@ -158,7 +172,10 @@ export default function MerchantReviews() {
           <select
             className="h-9 rounded-md border border-hairline-strong bg-surface-card px-3 text-body-sm text-ink outline-none cursor-pointer focus:border-ink transition-colors"
             value={replyFilter}
-            onChange={(e) => setReplyFilter(e.target.value)}
+            onChange={(e) => {
+              setReplyFilter(e.target.value);
+              setPage(1);
+            }}
             aria-label="Lọc theo phản hồi"
           >
             <option value="all">Tất cả trạng thái phản hồi</option>
@@ -323,6 +340,17 @@ export default function MerchantReviews() {
                   </div>
                 </Card>
               ))}
+
+              {total > PAGE_SIZE && (
+                <div className="flex justify-center pt-base">
+                  <Pagination
+                    total={total}
+                    pageSize={PAGE_SIZE}
+                    page={page}
+                    onChange={setPage}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

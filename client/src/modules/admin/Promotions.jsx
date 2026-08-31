@@ -3,6 +3,7 @@ import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
@@ -36,7 +37,6 @@ function defaultForm() {
     usageLimit: '',
     perUserLimit: '1',
     isPublic: true,
-    restaurantId: '',
     startsAt: toDatetimeLocal(now),
     endsAt: toDatetimeLocal(ends),
     status: 'active',
@@ -49,8 +49,11 @@ export default function AdminPromotions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [discountTypeFilter, setDiscountTypeFilter] = useState('all');
   const [scopeFilter, setScopeFilter] = useState('all');
+  const [publicFilter, setPublicFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
   const [editor, setEditor] = useState(null);
   const [form, setForm] = useState(defaultForm());
   const [saving, setSaving] = useState(false);
@@ -64,6 +67,9 @@ export default function AdminPromotions() {
         q: query,
         status: statusFilter,
         scope: scopeFilter,
+        discountType: discountTypeFilter,
+        isPublic: publicFilter,
+        sortBy,
       });
       setVouchers(res?.vouchers ?? []);
     } catch (err) {
@@ -71,7 +77,7 @@ export default function AdminPromotions() {
     } finally {
       setLoading(false);
     }
-  }, [query, statusFilter, scopeFilter]);
+  }, [query, statusFilter, scopeFilter, discountTypeFilter, publicFilter, sortBy]);
 
   useEffect(() => {
     load();
@@ -105,7 +111,6 @@ export default function AdminPromotions() {
       usageLimit: v.usageLimit === null ? '' : String(v.usageLimit),
       perUserLimit: String(v.perUserLimit ?? 1),
       isPublic: v.isPublic !== false,
-      restaurantId: v.restaurantId ? String(v.restaurantId) : '',
       startsAt: toDatetimeLocal(v.startsAt),
       endsAt: toDatetimeLocal(v.endsAt),
       status: v.status,
@@ -122,7 +127,6 @@ export default function AdminPromotions() {
         minOrderAmount: Number(form.minOrderAmount) || 0,
         usageLimit: form.usageLimit === '' ? null : Number(form.usageLimit),
         perUserLimit: Number(form.perUserLimit) || 1,
-        restaurantId: form.restaurantId ? Number(form.restaurantId) : null,
         isPublic: Boolean(form.isPublic),
       };
 
@@ -156,132 +160,196 @@ export default function AdminPromotions() {
   };
 
   return (
-    <div className="space-y-base p-base md:p-xl">
+    <div className="space-y-base">
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
           <div className="text-caption-uppercase text-body">Hệ thống</div>
-          <h1 className="text-display-md font-bold text-ink">Quản lý Khuyến mãi & Voucher</h1>
+          <h1 className="text-display-lg text-ink">Khuyến mãi</h1>
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Badge tone="outline">Tổng {summary.total}</Badge>
           <Badge tone="preview">Toàn sàn {summary.platform}</Badge>
           <Badge tone="default">Của quán {summary.merchant}</Badge>
           <Badge tone="success" dot>{summary.active} hoạt động</Badge>
-          <Button leadingIcon="plus" onClick={openCreate}>
+          <Badge tone="warning" dot>{summary.paused} tạm dừng</Badge>
+          <Button leadingIcon="plus" size="sm" onClick={openCreate}>
             Tạo voucher
           </Button>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <Card padded className="grid gap-sm sm:grid-cols-3">
-        <Input
-          placeholder="Tìm theo mã, tên hoặc quán…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          leadingIcon="search"
-        />
-        <Select
-          value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value)}
-          options={[
-            { value: 'all', label: 'Tất cả phạm vi' },
-            { value: 'platform', label: '🌐 Mã Toàn sàn' },
-            { value: 'merchant', label: '🏪 Mã Quán ăn' },
-          ]}
-        />
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          options={[
-            { value: 'all', label: 'Tất cả trạng thái' },
-            { value: 'active', label: 'Hoạt động' },
-            { value: 'paused', label: 'Tạm dừng' },
-            { value: 'draft', label: 'Nháp' },
-          ]}
-        />
-      </Card>
+      <div className="flex flex-col gap-sm">
+        <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:w-80 shrink-0 h-9">
+            <Icon
+              name="search"
+              size={16}
+              className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+            />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Tìm theo mã, tên hoặc quán…"
+              aria-label="Tìm kiếm khuyến mãi"
+              className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-xs">
+            <Select
+              aria-label="Loại giảm giá"
+              className="w-full sm:w-auto md:w-36"
+              fieldClassName="!h-9 !px-sm text-caption"
+              value={discountTypeFilter}
+              onChange={(e) => setDiscountTypeFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Mọi loại giảm' },
+                { value: 'percent', label: 'Giảm theo %' },
+                { value: 'fixed', label: 'Giảm cố định' },
+              ]}
+            />
+            <Select
+              aria-label="Lọc phạm vi"
+              className="w-full sm:w-auto md:w-36"
+              fieldClassName="!h-9 !px-sm text-caption"
+              value={scopeFilter}
+              onChange={(e) => setScopeFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Mọi phạm vi' },
+                { value: 'platform', label: 'Toàn sàn' },
+                { value: 'merchant', label: 'Của quán' },
+              ]}
+            />
+            <Select
+              aria-label="Lọc hiển thị"
+              className="w-full sm:w-auto md:w-36"
+              fieldClassName="!h-9 !px-sm text-caption"
+              value={publicFilter}
+              onChange={(e) => setPublicFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Mọi hiển thị' },
+                { value: 'public', label: 'Công khai' },
+                { value: 'private', label: 'Bí mật' },
+              ]}
+            />
+            <Select
+              aria-label="Lọc trạng thái"
+              className="w-full sm:w-auto md:w-36"
+              fieldClassName="!h-9 !px-sm text-caption"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Mọi trạng thái' },
+                { value: 'active', label: 'Hoạt động' },
+                { value: 'paused', label: 'Tạm dừng' },
+                { value: 'draft', label: 'Nháp' },
+                { value: 'expired', label: 'Đã hết hạn' },
+              ]}
+            />
+            <Select
+              aria-label="Sắp xếp"
+              className="w-full sm:w-auto md:w-40"
+              fieldClassName="!h-9 !px-sm text-caption"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              options={[
+                { value: 'newest', label: 'Mới nhất' },
+                { value: 'expiring_soon', label: 'Sắp hết hạn' },
+                { value: 'discount_high', label: 'Ưu đãi cao nhất' },
+                { value: 'min_order_low', label: 'Đơn tối thiểu thấp' },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* List */}
       {loading ? (
         <Card padded>
-          <div className="py-xl text-center text-body animate-pulse">Đang tải danh sách voucher…</div>
+          <div className="py-xl text-center text-body">Đang tải danh sách voucher…</div>
         </Card>
       ) : error ? (
         <Card padded>
-          <div className="py-xl text-center">
-            <p className="text-body text-body-sm text-danger">{error}</p>
-            <Button className="mt-sm" onClick={load}>Thử lại</Button>
+          <div className="py-xl text-center space-y-sm">
+            <div className="text-title-md text-ink">Không thể tải voucher</div>
+            <p className="text-body text-body-sm">{error}</p>
+            <Button onClick={load}>Thử lại</Button>
           </div>
         </Card>
       ) : vouchers.length === 0 ? (
         <Card padded>
-          <EmptyState
-            icon="zap"
-            title="Chưa có mã khuyến mãi nào"
-            description="Không tìm thấy voucher phù hợp với bộ lọc hiện tại."
-            action={<Button onClick={openCreate}>Tạo mã mới</Button>}
-          />
+          <div className="py-xl text-center space-y-sm">
+            <div className="text-title-md text-ink">Chưa có mã khuyến mãi nào</div>
+            <p className="text-body text-body-sm">Không tìm thấy voucher phù hợp với bộ lọc hiện tại.</p>
+            <Button onClick={openCreate}>Tạo mã mới</Button>
+          </div>
         </Card>
       ) : (
         <div className="grid gap-base lg:grid-cols-2 xl:grid-cols-3">
           {vouchers.map((v) => {
-            const isUsable = v.status === 'active' && !v.isExpired;
+            const statusConfig = {
+              active: { label: 'Hoạt động', tone: 'success' },
+              paused: { label: 'Tạm dừng', tone: 'warning' },
+              draft: { label: 'Nháp', tone: 'outline' },
+            }[v.status] || { label: v.status, tone: 'outline' };
+
             return (
-              <Card key={v.id} padded className={`flex flex-col gap-sm ${!isUsable ? 'opacity-70 bg-canvas-soft' : ''}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-title-sm font-bold text-ink">{v.code}</span>
-                      <Badge tone={v.restaurantId ? 'default' : 'preview'}>
-                        {v.restaurantId ? `Quán: ${v.restaurantName || v.restaurantId}` : '🌐 Toàn sàn'}
-                      </Badge>
-                      <Badge tone={v.isPublic ? 'outline' : 'default'}>
-                        {v.isPublic ? 'Công khai' : 'Bí mật'}
-                      </Badge>
+              <Card key={v.id} padded className="flex flex-col justify-between gap-sm">
+                <div className="space-y-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-title-sm font-bold text-ink">{v.code}</span>
+                        <Badge tone={v.restaurantId ? 'default' : 'preview'}>
+                          {v.restaurantId ? `Quán: ${v.restaurantName || v.restaurantId}` : 'Toàn sàn'}
+                        </Badge>
+                        <Badge tone={v.isPublic ? 'outline' : 'default'}>
+                          {v.isPublic ? 'Công khai' : 'Bí mật'}
+                        </Badge>
+                      </div>
+                      <h3 className="mt-1 text-body font-semibold text-ink">{v.name}</h3>
                     </div>
-                    <div className="mt-1 text-body-sm font-semibold text-ink">{v.name}</div>
+                    <Badge tone={statusConfig.tone} dot className="shrink-0">
+                      {statusConfig.label}
+                    </Badge>
                   </div>
-                  <Badge tone={v.status === 'active' ? 'success' : v.status === 'paused' ? 'warning' : 'outline'} dot>
-                    {v.status === 'active' ? 'Hoạt động' : v.status === 'paused' ? 'Tạm dừng' : 'Nháp'}
-                  </Badge>
-                </div>
 
-                <p className="text-caption text-body line-clamp-2">{v.description || 'Ưu đãi đặt món NomNom.'}</p>
+                  <p className="text-body-sm text-body line-clamp-2 min-h-[38px]">{v.description || 'Ưu đãi đặt món NomNom.'}</p>
 
-                <div className="grid grid-cols-2 gap-2 text-caption">
-                  <div className="rounded bg-canvas-soft p-2">
-                    <span className="text-body block">Mức giảm:</span>
-                    <strong className="text-ink">
-                      {v.discountType === 'percent'
-                        ? `Giảm ${v.discountValue}% (tối đa ${formatVnd(v.maxDiscountAmount || 0)})`
-                        : `Giảm ${formatVnd(v.discountValue)}`}
-                    </strong>
-                  </div>
-                  <div className="rounded bg-canvas-soft p-2">
-                    <span className="text-body block">Đơn tối thiểu:</span>
-                    <strong className="text-ink">{formatVnd(v.minOrderAmount)}</strong>
-                  </div>
-                  <div className="rounded bg-canvas-soft p-2">
-                    <span className="text-body block">Lượt dùng:</span>
-                    <strong className="text-ink">
-                      {v.usedCount} / {v.usageLimit ? v.usageLimit : '∞'}
-                    </strong>
-                  </div>
-                  <div className="rounded bg-canvas-soft p-2">
-                    <span className="text-body block">Hạn dùng:</span>
-                    <strong className="text-ink">{new Date(v.endsAt).toLocaleDateString('vi-VN')}</strong>
+                  <div className="grid grid-cols-2 gap-2 text-body-sm">
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Ưu đãi</div>
+                      <div className="text-ink font-semibold mt-0.5">
+                        {v.discountType === 'percent'
+                          ? `Giảm ${v.discountValue}%${v.maxDiscountAmount ? ` (tối đa ${formatVnd(v.maxDiscountAmount)})` : ''}`
+                          : `Giảm ${formatVnd(v.discountValue)}`}
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Đơn tối thiểu</div>
+                      <div className="text-ink font-semibold mt-0.5">{v.minOrderAmount > 0 ? formatVnd(v.minOrderAmount) : 'Mọi đơn hàng'}</div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Lượt dùng</div>
+                      <div className="text-ink font-semibold mt-0.5">{v.usedCount ?? 0} / {v.usageLimit ? v.usageLimit : '∞'}</div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Hạn dùng</div>
+                      <div className="text-ink font-semibold mt-0.5">{new Date(v.endsAt).toLocaleDateString('vi-VN')}</div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-hairline pt-sm mt-auto">
-                  <span className="text-caption text-body">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-sm mt-1">
+                  <div className="text-caption text-body">
                     Tạo bởi: {v.creatorName || 'Hệ thống'}
-                  </span>
-                  <div className="flex items-center gap-1">
+                    {v.perUserLimit ? ` · Mỗi khách ${v.perUserLimit} lần` : ''}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
                     <IconButton icon="edit" label="Sửa" size="sm" onClick={() => openEdit(v)} />
-                    <IconButton icon="trash" label="Xóa" size="sm" onClick={() => setDeleteTarget(v)} />
+                    <IconButton icon="trash" label="Xóa" size="sm" className="text-body hover:text-error" onClick={() => setDeleteTarget(v)} />
                   </div>
                 </div>
               </Card>
@@ -294,7 +362,7 @@ export default function AdminPromotions() {
       <Modal
         open={Boolean(editor)}
         onClose={() => { if (!saving) setEditor(null); }}
-        title={editor?.mode === 'create' ? 'Tạo mã voucher mới' : `Chỉnh sửa voucher ${editor?.voucher?.code}`}
+        title={editor?.mode === 'create' ? 'Tạo mã voucher toàn sàn' : `Chỉnh sửa voucher ${editor?.voucher?.code}`}
         size="lg"
         footer={
           <>
@@ -302,14 +370,26 @@ export default function AdminPromotions() {
               Hủy
             </Button>
             <Button onClick={submitForm} loading={saving}>
-              {editor?.mode === 'create' ? 'Tạo voucher' : 'Lưu thay đổi'}
+              {editor?.mode === 'create' ? 'Tạo voucher toàn sàn' : 'Lưu thay đổi'}
             </Button>
           </>
         }
       >
         <form className="grid gap-sm md:grid-cols-2" onSubmit={submitForm}>
-          <Input label="Mã voucher" required value={form.code} onChange={(e) => setForm((cur) => ({ ...cur, code: e.target.value.toUpperCase() }))} />
-          <Input label="Tên voucher" required value={form.name} onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))} />
+          <Input
+            label="Mã voucher"
+            required
+            placeholder="VD: NOMNOM50, FREESHIP"
+            value={form.code}
+            onChange={(e) => setForm((cur) => ({ ...cur, code: e.target.value.toUpperCase() }))}
+          />
+          <Input
+            label="Tên voucher"
+            required
+            placeholder="VD: Giảm 50K cho đơn đầu tiên"
+            value={form.name}
+            onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))}
+          />
           <Select
             label="Kênh phát hành"
             required
@@ -319,13 +399,6 @@ export default function AdminPromotions() {
               { value: 'public', label: 'Công khai' },
               { value: 'private', label: 'Riêng tư' },
             ]}
-          />
-          <Input
-            label="ID Nhà hàng (Để trống nếu là mã Toàn sàn)"
-            type="number"
-            placeholder="Để trống nếu là voucher Toàn sàn"
-            value={form.restaurantId}
-            onChange={(e) => setForm((cur) => ({ ...cur, restaurantId: e.target.value }))}
           />
           <Select
             label="Loại giảm giá"
@@ -348,17 +421,59 @@ export default function AdminPromotions() {
               { value: 'draft', label: 'Nháp' },
             ]}
           />
-          <Input label="Giá trị giảm" required type="number" value={form.discountValue} onChange={(e) => setForm((cur) => ({ ...cur, discountValue: e.target.value }))} />
-          <Input label="Giảm tối đa" type="number" value={form.maxDiscountAmount} onChange={(e) => setForm((cur) => ({ ...cur, maxDiscountAmount: e.target.value }))} />
-          <Input label="Đơn tối thiểu" type="number" value={form.minOrderAmount} onChange={(e) => setForm((cur) => ({ ...cur, minOrderAmount: e.target.value }))} />
-          <Input label="Giới hạn tổng lượt dùng" type="number" value={form.usageLimit} onChange={(e) => setForm((cur) => ({ ...cur, usageLimit: e.target.value }))} />
-          <Input label="Mỗi khách dùng tối đa" type="number" value={form.perUserLimit} onChange={(e) => setForm((cur) => ({ ...cur, perUserLimit: e.target.value }))} />
-          <Input label="Bắt đầu" type="datetime-local" value={form.startsAt} onChange={(e) => setForm((cur) => ({ ...cur, startsAt: e.target.value }))} />
-          <Input label="Kết thúc" type="datetime-local" value={form.endsAt} onChange={(e) => setForm((cur) => ({ ...cur, endsAt: e.target.value }))} />
+          <Input
+            label="Giá trị giảm"
+            required
+            type="number"
+            placeholder={form.discountType === 'percent' ? 'VD: 15 (nghĩa là 15%)' : 'VD: 50000'}
+            value={form.discountValue}
+            onChange={(e) => setForm((cur) => ({ ...cur, discountValue: e.target.value }))}
+          />
+          <Input
+            label="Giảm tối đa"
+            type="number"
+            placeholder="VD: 50000 (để trống nếu không giới hạn)"
+            value={form.maxDiscountAmount}
+            onChange={(e) => setForm((cur) => ({ ...cur, maxDiscountAmount: e.target.value }))}
+          />
+          <Input
+            label="Đơn tối thiểu"
+            type="number"
+            placeholder="VD: 100000 (0 là mọi đơn)"
+            value={form.minOrderAmount}
+            onChange={(e) => setForm((cur) => ({ ...cur, minOrderAmount: e.target.value }))}
+          />
+          <Input
+            label="Giới hạn tổng lượt dùng"
+            type="number"
+            placeholder="VD: 100 (để trống nếu không giới hạn)"
+            value={form.usageLimit}
+            onChange={(e) => setForm((cur) => ({ ...cur, usageLimit: e.target.value }))}
+          />
+          <Input
+            label="Mỗi khách dùng tối đa"
+            type="number"
+            placeholder="VD: 1"
+            value={form.perUserLimit}
+            onChange={(e) => setForm((cur) => ({ ...cur, perUserLimit: e.target.value }))}
+          />
+          <Input
+            label="Bắt đầu"
+            type="datetime-local"
+            value={form.startsAt}
+            onChange={(e) => setForm((cur) => ({ ...cur, startsAt: e.target.value }))}
+          />
+          <Input
+            label="Kết thúc"
+            type="datetime-local"
+            value={form.endsAt}
+            onChange={(e) => setForm((cur) => ({ ...cur, endsAt: e.target.value }))}
+          />
           <div className="md:col-span-2">
             <Textarea
               label="Mô tả"
               rows={3}
+              placeholder="Nhập mô tả chi tiết, điều kiện áp dụng voucher..."
               value={form.description}
               onChange={(e) => setForm((cur) => ({ ...cur, description: e.target.value }))}
             />

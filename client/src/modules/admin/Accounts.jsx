@@ -247,6 +247,7 @@ export default function AdminAccounts() {
       <Card padded={false}>
         <div className="flex flex-wrap items-center gap-xs border-b border-hairline px-base py-sm">
           <Tabs
+            size="sm"
             items={[
               { value: 'all', label: 'Tất cả' },
               { value: 'merchant', label: 'Quán ăn' },
@@ -257,6 +258,7 @@ export default function AdminAccounts() {
             onChange={setRoleAndReset}
           />
           <Tabs
+            size="sm"
             items={[
               { value: 'all', label: 'Mọi trạng thái' },
               { value: 'active', label: 'Hoạt động' },
@@ -266,14 +268,20 @@ export default function AdminAccounts() {
             value={status}
             onChange={setStatusAndReset}
           />
-          <Input
-            leadingIcon="search"
-            placeholder="Tìm email, tên..."
-            aria-label="Tìm tài khoản"
-            value={searchText}
-            onChange={(e) => setQueryAndReset(e.target.value)}
-            className="w-full md:ml-auto md:w-64"
-          />
+          <div className="relative w-full md:ml-auto md:w-72 shrink-0 h-9">
+            <Icon
+              name="search"
+              size={16}
+              className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+            />
+            <input
+              value={searchText}
+              onChange={(e) => setQueryAndReset(e.target.value)}
+              placeholder="Tìm email, tên..."
+              aria-label="Tìm tài khoản"
+              className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+            />
+          </div>
         </div>
 
         {loading ? (

@@ -384,6 +384,109 @@ async function startOrderExpiryWorker() {
             );
           }
 
+          // 3. Tự động hủy đơn mới (placed) nếu quán không bấm nhận sau 10 phút
+          const [stalePlacedOrders] = await connection.query(
+            `SELECT o.id, o.order_code, o.customer_id, o.restaurant_id, o.total_amount, o.payment_status, r.owner_user_id AS merchant_user_id
+             FROM orders o
+             JOIN restaurants r ON r.id = o.restaurant_id
+             WHERE o.status = 'placed'
+               AND o.created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+             FOR UPDATE`,
+          );
+          for (const order of stalePlacedOrders) {
+            console.log(`[Expiry Worker] Tự động hủy đơn ID ${order.id} (${order.order_code}) do quán không xác nhận sau 10 phút`);
+            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
+            await connection.query(
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không xác nhận sau 10 phút', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
+              [paymentStatus, order.id],
+            );
+            await connection.query(
+              "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+              [order.id],
+            );
+            await connection.query(
+              `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, note)
+               VALUES (?, 'placed', 'cancelled', 'system', 'Hệ thống tự động hủy do quán không bấm nhận đơn sau 10 phút.')`,
+              [order.id],
+            );
+            await connection.query(
+              `INSERT INTO notifications (user_id, type, title, body, link_url)
+               VALUES (?, 'order_cancelled', 'Đơn hàng tự động hủy', ?, '/app/orders')`,
+              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán không kịp xác nhận. Tiền thanh toán và mã giảm giá (nếu có) đã được hoàn lại.`],
+            );
+            if (order.merchant_user_id) {
+              await connection.query(
+                `INSERT INTO notifications (user_id, type, title, body, link_url)
+                 VALUES (?, 'order_cancelled', 'Đơn hàng bị hủy do quá hạn nhận', ?, '/merchant/orders')`,
+                [order.merchant_user_id, `Đơn hàng #${order.order_code} đã bị hủy tự động do quán không bấm nhận trong 10 phút.`],
+              );
+            }
+          }
+
+          // 4. Tự động hủy đơn nếu quán nhận nhưng treo đang làm quá 60 phút
+          const [stalePreparingOrders] = await connection.query(
+            `SELECT o.id, o.order_code, o.customer_id, o.restaurant_id, o.total_amount, o.payment_status, r.owner_user_id AS merchant_user_id
+             FROM orders o
+             JOIN restaurants r ON r.id = o.restaurant_id
+             WHERE o.status IN ('accepted', 'preparing')
+               AND o.created_at < DATE_SUB(NOW(), INTERVAL 60 MINUTE)
+             FOR UPDATE`,
+          );
+          for (const order of stalePreparingOrders) {
+            console.log(`[Expiry Worker] Tự động hủy đơn ID ${order.id} (${order.order_code}) do quán treo làm món quá 60 phút`);
+            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
+            await connection.query(
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không hoàn thành chế biến sau 60 phút', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
+              [paymentStatus, order.id],
+            );
+            await connection.query(
+              "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+              [order.id],
+            );
+            await connection.query(
+              `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, note)
+               VALUES (?, 'preparing', 'cancelled', 'system', 'Hệ thống tự động hủy do quán không hoàn thành chế biến sau 60 phút.')`,
+              [order.id],
+            );
+            await connection.query(
+              `INSERT INTO notifications (user_id, type, title, body, link_url)
+               VALUES (?, 'order_cancelled', 'Đơn hàng tự động hủy', ?, '/app/orders')`,
+              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán chuẩn bị quá lâu (>60 phút). Tiền thanh toán và mã giảm giá (nếu có) đã được hoàn lại.`],
+            );
+            if (order.merchant_user_id) {
+              await connection.query(
+                `INSERT INTO notifications (user_id, type, title, body, link_url)
+                 VALUES (?, 'order_cancelled', 'Đơn hàng bị hủy do quá giờ làm món', ?, '/merchant/orders')`,
+                [order.merchant_user_id, `Đơn hàng #${order.order_code} đã bị hủy tự động do quán không bấm xong món trong 60 phút.`],
+              );
+            }
+          }
+
+          // 5. Tự động đóng/hủy đơn treo qua ngày (chưa hoàn tất sau 12 giờ)
+          const [staleOvernightOrders] = await connection.query(
+            `SELECT o.id, o.order_code, o.status, o.customer_id, o.payment_status
+             FROM orders o
+             WHERE o.status IN ('accepted', 'preparing', 'ready_for_pickup')
+               AND o.created_at < DATE_SUB(NOW(), INTERVAL 12 HOUR)
+             FOR UPDATE`,
+          );
+          for (const order of staleOvernightOrders) {
+            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
+            await connection.query(
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động đóng đơn do quá hạn xử lý trong ngày (quá 12 giờ)', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
+              [paymentStatus, order.id],
+            );
+            await connection.query(
+              "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
+              [order.id],
+            );
+            await connection.query(
+              `INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, note)
+               VALUES (?, ?, 'cancelled', 'system', 'Hệ thống tự động hủy do đơn chưa hoàn tất qua ngày (quá 12 giờ).')`,
+              [order.id, order.status],
+            );
+          }
+
         await connection.commit();
       } catch (err) {
         await connection.rollback();
