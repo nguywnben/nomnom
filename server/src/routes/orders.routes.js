@@ -6,6 +6,7 @@ import { buildShippingQuote } from '../lib/shippingQuote.js';
 import crypto from 'crypto';
 import { normalizeReviewSubmission, refreshReviewStats } from '../lib/reviewSubmission.js';
 import { creditMerchantForDeliveredOrder } from '../lib/merchantOrders.js';
+import { validateCheckoutAvailability } from '../lib/checkoutValidation.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -52,7 +53,8 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // Lấy cart items + menu items info
     const [cartItems] = await connection.query(
-      `SELECT ci.*, m.name as item_name, m.price, m.prep_time_min
+      `SELECT ci.*, m.name as item_name, m.price, m.prep_time_min,
+              m.restaurant_id AS menu_restaurant_id, m.status AS menu_status, m.in_stock
        FROM cart_items ci
        JOIN menu_items m ON ci.menu_item_id = m.id
        WHERE ci.cart_id = ?`,
@@ -88,10 +90,12 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // 3. Thông tin nhà hàng
     const [rests] = await connection.query(
-      `SELECT * FROM restaurants WHERE id = ?`,
+      `SELECT * FROM restaurants WHERE id = ? FOR UPDATE`,
       [cart.restaurant_id]
     );
     const restaurant = rests[0];
+
+    validateCheckoutAvailability(restaurant, cartItems);
 
     let shippingQuote;
     try {
