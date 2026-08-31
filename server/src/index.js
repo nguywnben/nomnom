@@ -25,17 +25,21 @@ import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
 import { creditMerchantForDeliveredOrder } from './lib/merchantOrders.js';
 import { canAutomaticallyCancelOrder } from './lib/orderExpiry.js';
 import pool, { verifyDbConnection } from './db/pool.js';
+import { createRateLimiter, securityHeaders } from './middleware/security.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
+const authRateLimit = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 60 });
 
+app.disable('x-powered-by');
+app.use(securityHeaders);
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
     credentials: true,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'nomnom-api' });
@@ -45,7 +49,7 @@ app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/me/notifications', notificationsRoutes);
   app.use('/api/v1/admin', adminFinanceRoutes);
   app.use('/api/v1/chat', chatRoutes);
-  app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/auth', authRateLimit, authRoutes);
   app.use('/api/v1/merchant', merchantRoutes);
   app.use('/api/v1/merchant/me', merchantFinanceRoutes);
 app.use('/api/v1/me', meRoutes);
@@ -557,6 +561,22 @@ async function ensureCheckoutIdempotencySchema() {
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 }
 
+async function ensureUploadOwnershipSchema() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS uploaded_assets (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    owner_user_id BIGINT UNSIGNED NOT NULL,
+    public_id VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    secure_url VARCHAR(1000) NOT NULL,
+    folder VARCHAR(40) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_uploaded_assets_public_id (public_id),
+    KEY idx_uploaded_assets_owner (owner_user_id, deleted_at),
+    CONSTRAINT fk_uploaded_assets_owner FOREIGN KEY (owner_user_id) REFERENCES users (id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+}
+
 async function ensureDeliveryNotificationType() {
   const [columns] = await pool.query("SHOW COLUMNS FROM notifications LIKE 'type'");
   const type = String(columns[0]?.Type ?? '');
@@ -592,6 +612,7 @@ async function start() {
     await verifyDbConnection();
     await ensureOrderDeliveryTimestamp();
     await ensureCheckoutIdempotencySchema();
+    await ensureUploadOwnershipSchema();
     await ensureDeliveryNotificationType();
     await ensureSuspensionColumn();
     await ensureSuspensionReasonColumn();
