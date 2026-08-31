@@ -7,6 +7,10 @@ import crypto from 'crypto';
 import { normalizeReviewSubmission, refreshReviewStats } from '../lib/reviewSubmission.js';
 import { creditMerchantForDeliveredOrder } from '../lib/merchantOrders.js';
 import { validateCheckoutAvailability } from '../lib/checkoutValidation.js';
+import {
+  buildCheckoutRequestHash,
+  normalizeIdempotencyKey,
+} from '../lib/checkoutIdempotency.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -37,12 +41,43 @@ router.post('/', requireAuth, async (req, res, next) => {
   try {
     const { userId: customerId } = req.auth;
     const { addressId, paymentMethod, customerNote, voucherCode } = req.body;
+    const idempotencyKey = normalizeIdempotencyKey(req.get('Idempotency-Key'));
+    const requestHash = buildCheckoutRequestHash({ addressId, paymentMethod, customerNote, voucherCode });
 
     if (!['cod', 'vnpay'].includes(paymentMethod)) {
       return res.status(400).json({ error: 'Phương thức thanh toán không hợp lệ' });
     }
 
     await connection.beginTransaction();
+
+    await connection.query(
+      `INSERT INTO order_checkout_idempotency (customer_id, idempotency_key, request_hash)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
+      [customerId, idempotencyKey, requestHash],
+    );
+    const [[checkoutAttempt]] = await connection.query(
+      `SELECT request_hash, order_id
+       FROM order_checkout_idempotency
+       WHERE customer_id = ? AND idempotency_key = ?
+       FOR UPDATE`,
+      [customerId, idempotencyKey],
+    );
+    if (checkoutAttempt.request_hash !== requestHash) {
+      await connection.rollback();
+      return res.status(409).json({
+        error: 'Khóa đặt hàng đã được dùng cho một yêu cầu khác.',
+        code: 'IDEMPOTENCY_KEY_REUSED',
+      });
+    }
+    if (checkoutAttempt.order_id) {
+      const [[existingOrder]] = await connection.query(
+        'SELECT * FROM orders WHERE id = ? AND customer_id = ? LIMIT 1',
+        [checkoutAttempt.order_id, customerId],
+      );
+      await connection.commit();
+      return res.status(200).json({ order: existingOrder, idempotent: true });
+    }
 
     // 1. Đọc cart
     const cart = await getActiveCart(connection, customerId);
@@ -228,6 +263,13 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
 
     const orderId = orderResult.insertId;
+
+    await connection.query(
+      `UPDATE order_checkout_idempotency
+       SET order_id = ?
+       WHERE customer_id = ? AND idempotency_key = ?`,
+      [orderId, customerId, idempotencyKey],
+    );
 
     // 7. Tạo order items
     for (const item of cartItems) {

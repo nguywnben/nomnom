@@ -71,10 +71,11 @@ export function apiGet(path) {
   return apiFetch(path);
 }
 
-export function apiPost(path, body) {
+export function apiPost(path, body, options = {}) {
   return apiFetch(path, {
+    ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...options.headers },
     body: JSON.stringify(body),
   });
 }
