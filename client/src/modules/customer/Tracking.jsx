@@ -8,13 +8,14 @@ import Image from '../../components/Image.jsx';
 import { apiGet, apiPost, confirmOrderDeliveryApi, createOrderConversationApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { orderStatusLabel, orderStatusTone } from '../../lib/orderStatus.js';
+import { useApp } from '../../context/AppContext.jsx';
 
 const STEPS = [
   { id: 'placed', label: 'Đã đặt', icon: 'check' },
   { id: 'accepted', label: 'Đã nhận đơn', icon: 'store' },
   { id: 'preparing', label: 'Đang chuẩn bị', icon: 'package' },
-  { id: 'ready_for_pickup', label: 'Sẵn sàng lấy', icon: 'package' },
-  { id: 'picked_up', label: 'Đã lấy hàng', icon: 'bike' },
+  { id: 'ready_for_pickup', label: 'Sẵn sàng giao', icon: 'package' },
+  { id: 'picked_up', label: 'Đã bàn giao', icon: 'package' },
   { id: 'delivering', label: 'Đang giao', icon: 'bike' },
   { id: 'delivered', label: 'Đã giao', icon: 'check' },
 ];
@@ -67,7 +68,6 @@ export default function CustomerTracking() {
   const [paying, setPaying] = useState(false);
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [etaLeft, setEtaLeft] = useState(0);
   const [chatting, setChatting] = useState(false);
 
   useEffect(() => {
@@ -97,30 +97,14 @@ export default function CustomerTracking() {
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    if (!order) return undefined;
-    const etaStr = order.estimated_delivery_at ?? order.estimatedDeliveryAt;
-    if (!etaStr || ['delivered', 'cancelled', 'failed', 'expired'].includes(order.status)) {
-      setEtaLeft(0);
-      return undefined;
-    }
-    const target = new Date(etaStr).getTime();
-    if (Number.isNaN(target)) return undefined;
-    const tick = () => setEtaLeft(Math.max(0, target - Date.now()));
-    tick();
-    const interval = window.setInterval(tick, 1000);
-    return () => window.clearInterval(interval);
-  }, [order]);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
-  const formatEtaCountdown = (ms) => {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    const mm = String(m).padStart(2, '0');
-    const ss = String(s).padStart(2, '0');
-    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-  };
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowTick(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const { openChatPopup } = useApp();
 
   const openChat = async () => {
     if (!order || chatting) return;
@@ -128,7 +112,11 @@ export default function CustomerTracking() {
     try {
       const res = await createOrderConversationApi(order.id, 'merchant');
       const conversationId = res?.conversation?.id ?? res?.id;
-      nav(`/chat/${conversationId}`);
+      if (openChatPopup) {
+        openChatPopup(conversationId);
+      } else {
+        nav(`/chat/${conversationId}`);
+      }
     } catch (err) {
       setError(err.message || 'Không thể mở trò chuyện với quán.');
     } finally {
@@ -225,6 +213,54 @@ export default function CustomerTracking() {
     return map;
   }, [timeline]);
 
+  const etaInfo = useMemo(() => {
+    if (!order) return null;
+    if (['pending_payment', 'payment_failed'].includes(order.status)) {
+      return {
+        type: 'unpaid',
+        text: 'Thời gian giao hàng sẽ được tính sau khi hoàn tất thanh toán',
+      };
+    }
+    if (order.status === 'delivered') {
+      const deliveredTime = order.delivered_at || timelineByStatus.get('delivered') || order.updated_at;
+      return {
+        type: 'delivered',
+        text: `Đã giao thành công lúc ${formatTime(deliveredTime)}`,
+      };
+    }
+    if (['cancelled', 'failed', 'expired'].includes(order.status)) {
+      return null;
+    }
+
+    const etaStr = order.estimated_delivery_at ?? order.estimatedDeliveryAt;
+    if (!etaStr) return null;
+
+    const baseTarget = new Date(etaStr).getTime();
+    if (Number.isNaN(baseTarget)) return null;
+
+    const diffMin = Math.round((baseTarget - nowTick) / 60000);
+
+    if (diffMin > 0) {
+      const targetTimeStr = formatTime(new Date(baseTarget));
+      return {
+        type: 'on_time',
+        title: `Dự kiến giao lúc ${targetTimeStr}`,
+        subtitle: `(khoảng ${diffMin} phút nữa)`,
+      };
+    }
+
+    // Nếu đã quá giờ dự kiến nhưng đơn chưa giao xong: Tự động giãn thêm 5 - 10 phút
+    const bufferMin = order.status === 'delivering' ? 5 : 10;
+    const adjustedTime = new Date(nowTick + bufferMin * 60000);
+    const adjustedTimeStr = formatTime(adjustedTime);
+
+    return {
+      type: 'delayed',
+      title: `Dự kiến giao khoảng ${adjustedTimeStr}`,
+      subtitle: `Món ăn có thể đến trễ vài phút do quán đang nấu hoặc tình hình giao thông`,
+    };
+  }, [order, timelineByStatus, nowTick]);
+
   if (loading) {
     return <div className="container-page py-section text-center">Đang tải...</div>;
   }
@@ -246,23 +282,29 @@ export default function CustomerTracking() {
         <Icon name="chevronLeft" size={14} /> Đơn hàng của tôi
       </Link>
 
-      <div className="mt-2 mb-base flex items-end justify-between">
+      <div className="mt-3 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="text-caption-uppercase text-body">Đơn hàng #{order.order_code ?? order.orderCode ?? id}</div>
-          <h1 className="text-display-lg text-ink">{isTerminal ? 'Chi tiết đơn hàng' : 'Theo dõi đơn hàng'}</h1>
+          <div className="text-caption-uppercase text-body font-medium">Đơn hàng #{order.order_code ?? order.orderCode ?? id}</div>
+          <h1 className="text-display-md sm:text-display-lg font-bold text-ink">{isTerminal ? 'Chi tiết đơn hàng' : 'Theo dõi đơn hàng'}</h1>
           {error && <p className="mt-1 text-caption text-warning">{error}</p>}
         </div>
-        <Badge tone={orderStatusTone(activeStatus)} dot>
-          {orderStatusLabel(activeStatus)}
-        </Badge>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-xs">
-        {!isTerminal && (
-          <Button size="sm" variant="secondary" leadingIcon="chat" loading={chatting} onClick={openChat}>
-            Chat với quán
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge tone={orderStatusTone(activeStatus)} dot size="md">
+            {orderStatusLabel(activeStatus)}
+          </Badge>
+          {!isTerminal && (
+            <Button
+              size="sm"
+              variant="secondary"
+              leadingIcon="chat"
+              loading={chatting}
+              onClick={openChat}
+              className="rounded-lg shadow-xs hover:border-primary hover:text-primary transition-all"
+            >
+              Chat với quán
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
@@ -338,33 +380,55 @@ export default function CustomerTracking() {
             </Card>
           )}
           <Card padded hover={false} className="order-2">
-            <div className="mb-base flex items-center justify-between gap-2">
+            <div className="mb-base flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
-                <div className="text-title-md text-ink">Trạng thái đơn hàng</div>
-                <p className="text-caption text-body">
-                  Dự kiến giao lúc {formatTime(order.estimated_delivery_at ?? order.estimatedDeliveryAt)}
-                </p>
-                {etaLeft > 0 && (
-                  <p className="mt-1 inline-flex items-center gap-1 text-caption font-semibold text-ink">
-                    <Icon name="clock" size={12} /> Còn {formatEtaCountdown(etaLeft)}
-                  </p>
+                <div className="text-title-md font-bold text-ink">Trạng thái đơn hàng</div>
+                {etaInfo && (
+                  <div className="mt-1">
+                    {etaInfo.type === 'unpaid' && (
+                      <p className="text-caption text-body">
+                        {etaInfo.text}
+                      </p>
+                    )}
+                    {etaInfo.type === 'delivered' && (
+                      <p className="inline-flex items-center gap-1.5 text-caption font-semibold text-success">
+                        <Icon name="check" size={14} />
+                        {etaInfo.text}
+                      </p>
+                    )}
+                    {etaInfo.type === 'on_time' && (
+                      <div className="flex flex-wrap items-center gap-1.5 text-caption">
+                        <span className="font-bold text-ink">{etaInfo.title}</span>
+                        <span className="text-body font-medium">{etaInfo.subtitle}</span>
+                      </div>
+                    )}
+                    {etaInfo.type === 'delayed' && (
+                      <div className="flex flex-col gap-0.5 text-caption">
+                        <div className="flex items-center gap-1.5 font-bold text-warning">
+                          <Icon name="clock" size={13} />
+                          <span>{etaInfo.title}</span>
+                        </div>
+                        <span className="text-[11px] text-body">{etaInfo.subtitle}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
-              <span className="text-caption text-body">
+              <span className="text-caption text-body shrink-0">
                 Cập nhật gần nhất: {formatDateTime(timelineByStatus.get(activeStatus) ?? order.updated_at ?? order.updatedAt)}
               </span>
             </div>
 
-            {!isTerminal && <ol className="space-y-3">
+            {!isTerminal && <ol className="space-y-2.5">
               {timeline.map((step) => {
                 const done = STEP_INDEX[activeStatus] >= STEP_INDEX[step.status];
                 const active = activeStatus === step.status;
 
                 return (
-                  <li key={step.status} className="flex items-start gap-3">
+                  <li key={step.status} className="flex items-center gap-3 py-0.5">
                     <div
                       className={
-                        'mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-pill border-2 transition-colors ' +
+                        'grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 transition-colors ' +
                         (done
                           ? 'bg-primary border-primary text-on-primary'
                           : 'bg-surface-card border-hairline-strong text-body')
@@ -373,14 +437,14 @@ export default function CustomerTracking() {
                       <Icon name={step.status === 'preparing' || step.status === 'ready_for_pickup' ? 'package' : step.status === 'delivering' || step.status === 'picked_up' ? 'bike' : 'check'} size={16} />
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 flex flex-col justify-center">
                       <div className="flex items-center justify-between gap-3">
-                        <div className={'text-body-md font-semibold ' + (done ? 'text-ink' : 'text-body')}>
+                        <div className={'text-body-md font-semibold leading-normal ' + (done ? 'text-ink' : 'text-body')}>
                           {STEPS.find((item) => item.id === step.status)?.label ?? step.status}
                         </div>
                         <div className="text-caption text-body">{step.at ? formatTime(step.at) : active ? 'Đang cập nhật' : '--'}</div>
                       </div>
-                      {active && !isDelivered && <div className="text-caption text-success">Đang tiến hành</div>}
+                      {active && !isDelivered && <div className="text-caption text-success font-medium">Đang tiến hành</div>}
                     </div>
                   </li>
                 );
@@ -412,7 +476,23 @@ export default function CustomerTracking() {
               })}
             </div>
             <div className="mt-base grid gap-sm border-t border-hairline pt-base text-body-sm md:grid-cols-2">
-              <div><div className="text-caption-uppercase text-body">Quán ăn</div><div className="mt-1 text-ink">{order.restaurant?.name ?? order.restaurant_name ?? 'Quán ăn đối tác'}</div></div>
+              <div>
+                <div className="text-caption-uppercase text-body">Quán ăn</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="font-semibold text-ink">{order.restaurant?.name ?? order.restaurant_name ?? 'Quán ăn đối tác'}</span>
+                  {!isTerminal && (
+                    <button
+                      type="button"
+                      onClick={openChat}
+                      disabled={chatting}
+                      className="inline-flex items-center gap-1 rounded bg-canvas-soft px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Icon name="chat" size={12} />
+                      Nhắn tin
+                    </button>
+                  )}
+                </div>
+              </div>
               <div><div className="text-caption-uppercase text-body">Thanh toán</div><div className="mt-1 text-ink">{(order.payment_method ?? order.paymentMethod) === 'vnpay' ? 'VNPay' : 'Thanh toán khi nhận hàng'}</div></div>
               <div><div className="text-caption-uppercase text-body">Giao đến</div><div className="mt-1 text-ink">{order.delivery_address ?? order.deliveryAddress ?? 'Địa chỉ đã chọn khi đặt đơn'}</div></div>
             </div>
@@ -433,7 +513,7 @@ export default function CustomerTracking() {
               </p>
               <Button
                 className="mt-sm w-full"
-                onClick={() => nav('/app/reviews/write/' + order.id)}
+                onClick={() => nav('/app/reviews/write/' + order.id, { state: { from: `/app/track/${order.order_code || order.orderCode || order.id}` } })}
               >
                 Để lại đánh giá
               </Button>

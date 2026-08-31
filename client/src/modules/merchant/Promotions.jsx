@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
+import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
@@ -34,6 +35,7 @@ function defaultForm() {
     minOrderAmount: '0',
     usageLimit: '',
     perUserLimit: '1',
+    isPublic: true,
     startsAt: toDatetimeLocal(now),
     endsAt: toDatetimeLocal(ends),
     status: 'draft',
@@ -50,6 +52,11 @@ export default function MerchantPromotions() {
   const [deleteId, setDeleteId] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultForm());
+  const [query, setQuery] = useState('');
+  const [discountTypeFilter, setDiscountTypeFilter] = useState('all');
+  const [publicFilter, setPublicFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
 
   const loadData = async () => {
     setLoading(true);
@@ -74,6 +81,48 @@ export default function MerchantPromotions() {
     draft: vouchers.filter((voucher) => voucher.status === 'draft').length,
   }), [vouchers]);
 
+  const filteredVouchers = useMemo(() => {
+    const now = new Date();
+    const list = vouchers.filter((v) => {
+      if (discountTypeFilter !== 'all' && v.discountType !== discountTypeFilter) return false;
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'expired') {
+          if (new Date(v.endsAt) >= now) return false;
+        } else if (v.status !== statusFilter) {
+          return false;
+        }
+      }
+      if (publicFilter !== 'all') {
+        const isPub = v.isPublic !== false;
+        if (publicFilter === 'public' && !isPub) return false;
+        if (publicFilter === 'private' && isPub) return false;
+      }
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        const codeMatch = v.code?.toLowerCase().includes(q);
+        const nameMatch = v.name?.toLowerCase().includes(q);
+        const descMatch = v.description?.toLowerCase().includes(q);
+        if (!codeMatch && !nameMatch && !descMatch) return false;
+      }
+      return true;
+    });
+
+    return list.sort((a, b) => {
+      if (sortBy === 'expiring_soon') {
+        return new Date(a.endsAt) - new Date(b.endsAt);
+      }
+      if (sortBy === 'discount_high') {
+        const valA = a.discountType === 'percent' ? a.discountValue * 1000 : a.discountValue;
+        const valB = b.discountType === 'percent' ? b.discountValue * 1000 : b.discountValue;
+        return valB - valA;
+      }
+      if (sortBy === 'min_order_low') {
+        return (a.minOrderAmount || 0) - (b.minOrderAmount || 0);
+      }
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+  }, [vouchers, discountTypeFilter, statusFilter, publicFilter, sortBy, query]);
+
   const openCreate = () => {
     setEditing(null);
     setForm(defaultForm());
@@ -93,6 +142,7 @@ export default function MerchantPromotions() {
       minOrderAmount: String(voucher.minOrderAmount ?? 0),
       usageLimit: voucher.usageLimit === null ? '' : String(voucher.usageLimit),
       perUserLimit: String(voucher.perUserLimit ?? 1),
+      isPublic: voucher.isPublic !== false,
       startsAt: toDatetimeLocal(voucher.startsAt),
       endsAt: toDatetimeLocal(voucher.endsAt),
       status: voucher.status,
@@ -109,6 +159,7 @@ export default function MerchantPromotions() {
         minOrderAmount: Number(form.minOrderAmount),
         usageLimit: form.usageLimit === '' ? null : Number(form.usageLimit),
         perUserLimit: Number(form.perUserLimit),
+        isPublic: Boolean(form.isPublic),
       };
       if (editing) {
         await updateMerchantVoucherApi(editing.id, payload);
@@ -142,17 +193,93 @@ export default function MerchantPromotions() {
 
   return (
     <div className="space-y-base">
+      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Tăng trưởng</div>
-          <h1 className="text-display-lg text-ink">Khuyến mãi</h1>
+          <div className="text-caption-uppercase text-body">Tiếp thị & Khuyến mãi</div>
+          <h1 className="text-display-lg text-ink">Chương trình Khuyến mãi Quán</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Tạo mã giảm giá riêng, ưu đãi món ăn và chương trình tặng kèm để thu hút khách hàng mới và tăng đơn đặt lại.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-xs">
           <Badge tone="outline">Tổng {vouchers.length}</Badge>
           <Badge tone="success" dot>{summary.active} hoạt động</Badge>
           <Badge tone="warning" dot>{summary.paused} tạm dừng</Badge>
           <Badge tone="outline" dot>{summary.draft} nháp</Badge>
-          <Button leadingIcon="plus" onClick={openCreate}>
+        </div>
+      </div>
+
+      {/* Filter Bar / Toolbar */}
+      <div className="flex flex-col gap-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative w-full lg:w-72 shrink-0 h-9">
+          <Icon
+            name="search"
+            size={16}
+            className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+          />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Tìm theo mã hoặc tên voucher…"
+            aria-label="Tìm kiếm khuyến mãi"
+            className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-xs">
+          <Select
+            aria-label="Loại giảm giá"
+            className="w-full sm:w-auto md:w-36"
+            fieldClassName="!h-9 !px-sm text-caption"
+            value={discountTypeFilter}
+            onChange={(e) => setDiscountTypeFilter(e.target.value)}
+            options={[
+              { value: 'all', label: 'Mọi loại giảm' },
+              { value: 'percent', label: 'Giảm theo %' },
+              { value: 'fixed', label: 'Giảm cố định' },
+            ]}
+          />
+          <Select
+            aria-label="Lọc hiển thị"
+            className="w-full sm:w-auto md:w-36"
+            fieldClassName="!h-9 !px-sm text-caption"
+            value={publicFilter}
+            onChange={(e) => setPublicFilter(e.target.value)}
+            options={[
+              { value: 'all', label: 'Mọi hiển thị' },
+              { value: 'public', label: 'Công khai' },
+              { value: 'private', label: 'Riêng tư' },
+            ]}
+          />
+          <Select
+            aria-label="Lọc trạng thái"
+            className="w-full sm:w-auto md:w-36"
+            fieldClassName="!h-9 !px-sm text-caption"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            options={[
+              { value: 'all', label: 'Mọi trạng thái' },
+              { value: 'active', label: 'Hoạt động' },
+              { value: 'paused', label: 'Tạm dừng' },
+              { value: 'draft', label: 'Nháp' },
+              { value: 'expired', label: 'Đã hết hạn' },
+            ]}
+          />
+          <Select
+            aria-label="Sắp xếp"
+            className="w-full sm:w-auto md:w-40"
+            fieldClassName="!h-9 !px-sm text-caption"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            options={[
+              { value: 'newest', label: 'Mới nhất' },
+              { value: 'expiring_soon', label: 'Sắp hết hạn' },
+              { value: 'discount_high', label: 'Ưu đãi cao nhất' },
+              { value: 'min_order_low', label: 'Đơn tối thiểu thấp' },
+            ]}
+          />
+          <Button leadingIcon="plus" size="sm" onClick={openCreate}>
             Tạo voucher
           </Button>
         </div>
@@ -172,60 +299,95 @@ export default function MerchantPromotions() {
         </Card>
       ) : vouchers.length === 0 ? (
         <Card padded>
-          <div className="py-xl text-center">
-            <div className="text-title-md text-ink">Chưa có voucher nào</div>
-            <p className="mt-1 text-body text-body-sm">Tạo voucher quán để khách áp dụng khi đặt món.</p>
+          <div className="py-xl text-center space-y-sm">
+            <Button leadingIcon="plus" size="sm" onClick={openCreate}>Tạo voucher</Button>
+          </div>
+        </Card>
+      ) : filteredVouchers.length === 0 ? (
+        <Card padded>
+          <div className="py-xl text-center space-y-sm">
+            <div className="text-title-md text-ink">Không tìm thấy voucher phù hợp</div>
+            <p className="text-body text-body-sm">Thử thay đổi từ khóa tìm kiếm hoặc bỏ bớt bộ lọc.</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setQuery('');
+                setStatusFilter('all');
+                setPublicFilter('all');
+              }}
+            >
+              Đặt lại bộ lọc
+            </Button>
           </div>
         </Card>
       ) : (
         <div className="grid gap-base lg:grid-cols-2 xl:grid-cols-3">
-          {vouchers.map((voucher) => (
-            <Card key={voucher.id} padded className="flex flex-col gap-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-mono text-title-sm text-ink">{voucher.code}</div>
-                  <div className="text-body-sm font-semibold text-ink">{voucher.name}</div>
-                </div>
-                <Badge tone={voucher.status === 'active' ? 'success' : voucher.status === 'paused' ? 'warning' : 'outline'} dot>
-                  {voucher.status}
-                </Badge>
-              </div>
-              <p className="text-body-sm text-body">{voucher.description || 'Không có mô tả.'}</p>
-              <div className="grid grid-cols-2 gap-2 text-body-sm">
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Ưu đãi</div>
-                  <div className="text-ink">
-                    {voucher.discountType === 'percent'
-                      ? `Giảm ${voucher.discountValue}%${voucher.maxDiscountAmount ? ` tối đa ${formatVnd(voucher.maxDiscountAmount)}` : ''}`
-                      : `Giảm ${formatVnd(voucher.discountValue)}`}
+          {filteredVouchers.map((voucher) => {
+            const statusConfig = {
+              active: { label: 'Hoạt động', tone: 'success' },
+              paused: { label: 'Tạm dừng', tone: 'warning' },
+              draft: { label: 'Nháp', tone: 'outline' },
+            }[voucher.status] || { label: voucher.status, tone: 'outline' };
+
+            return (
+              <Card key={voucher.id} padded className="flex flex-col justify-between gap-sm">
+                <div className="space-y-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-title-sm font-bold text-ink">{voucher.code}</span>
+                        <Badge tone={voucher.isPublic ? 'outline' : 'default'}>
+                          {voucher.isPublic ? 'Công khai' : 'Riêng tư'}
+                        </Badge>
+                      </div>
+                      <h3 className="mt-1 text-body font-semibold text-ink">{voucher.name}</h3>
+                    </div>
+                    <Badge tone={statusConfig.tone} dot className="shrink-0">
+                      {statusConfig.label}
+                    </Badge>
+                  </div>
+
+                  <p className="text-body-sm text-body line-clamp-2 min-h-[38px]">{voucher.description || 'Không có mô tả thêm.'}</p>
+
+                  <div className="grid grid-cols-2 gap-2 text-body-sm">
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Ưu đãi</div>
+                      <div className="text-ink font-semibold mt-0.5">
+                        {voucher.discountType === 'percent'
+                          ? `Giảm ${voucher.discountValue}%${voucher.maxDiscountAmount ? ` tối đa ${formatVnd(voucher.maxDiscountAmount)}` : ''}`
+                          : `Giảm ${formatVnd(voucher.discountValue)}`}
+                      </div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Đơn tối thiểu</div>
+                      <div className="text-ink font-semibold mt-0.5">{voucher.minOrderAmount > 0 ? formatVnd(voucher.minOrderAmount) : 'Mọi đơn hàng'}</div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Từ ngày</div>
+                      <div className="text-ink mt-0.5">{new Date(voucher.startsAt).toLocaleDateString('vi-VN')}</div>
+                    </div>
+                    <div className="rounded-md bg-canvas-soft px-sm py-2">
+                      <div className="text-caption-uppercase text-body">Đến ngày</div>
+                      <div className="text-ink mt-0.5">{new Date(voucher.endsAt).toLocaleDateString('vi-VN')}</div>
+                    </div>
                   </div>
                 </div>
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Đơn tối thiểu</div>
-                  <div className="text-ink">{formatVnd(voucher.minOrderAmount)}</div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-sm mt-1">
+                  <div className="text-caption text-body">
+                    {voucher.usageLimit ? `Giới hạn ${voucher.usageLimit} lượt` : 'Không giới hạn lượt'}
+                    {' · '}
+                    Mỗi khách {voucher.perUserLimit} lần
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <IconButton icon="edit" label="Sửa voucher" size="sm" variant="secondary" onClick={() => openEdit(voucher)} />
+                    <IconButton icon="trash" label="Xóa voucher" size="sm" variant="secondary" className="text-error hover:!bg-error/10 hover:!border-error/30" onClick={() => setDeleteId(voucher.id)} />
+                  </div>
                 </div>
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Hiệu lực</div>
-                  <div className="text-ink">{new Date(voucher.startsAt).toLocaleDateString('vi-VN')}</div>
-                </div>
-                <div className="rounded-md bg-canvas-soft px-sm py-2">
-                  <div className="text-caption-uppercase text-body">Đến</div>
-                  <div className="text-ink">{new Date(voucher.endsAt).toLocaleDateString('vi-VN')}</div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline pt-sm">
-                <div className="text-caption text-body">
-                  {voucher.usageLimit ? `Giới hạn ${voucher.usageLimit} lượt` : 'Không giới hạn lượt'}
-                  {' · '}
-                  Mỗi khách {voucher.perUserLimit} lần
-                </div>
-                <div className="flex items-center gap-1">
-                  <IconButton icon="edit" label="Sửa voucher" size="sm" onClick={() => openEdit(voucher)} />
-                  <IconButton icon="trash" label="Xóa voucher" size="sm" onClick={() => setDeleteId(voucher.id)} />
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -250,8 +412,30 @@ export default function MerchantPromotions() {
         }
       >
         <form className="grid gap-sm md:grid-cols-2" onSubmit={submitVoucher}>
-          <Input label="Mã voucher" required value={form.code} onChange={(e) => setForm((cur) => ({ ...cur, code: e.target.value }))} />
-          <Input label="Tên voucher" required value={form.name} onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))} />
+          <Input
+            label="Mã voucher"
+            required
+            placeholder="VD: QUAN50, MONNGON20"
+            value={form.code}
+            onChange={(e) => setForm((cur) => ({ ...cur, code: e.target.value.toUpperCase() }))}
+          />
+          <Input
+            label="Tên voucher"
+            required
+            placeholder="VD: Giảm 20K cho đơn từ 100K"
+            value={form.name}
+            onChange={(e) => setForm((cur) => ({ ...cur, name: e.target.value }))}
+          />
+          <Select
+            label="Kênh phát hành"
+            required
+            value={form.isPublic ? 'public' : 'private'}
+            onChange={(e) => setForm((cur) => ({ ...cur, isPublic: e.target.value === 'public' }))}
+            options={[
+              { value: 'public', label: 'Công khai' },
+              { value: 'private', label: 'Riêng tư' },
+            ]}
+          />
           <Select
             label="Loại giảm giá"
             required
@@ -273,17 +457,59 @@ export default function MerchantPromotions() {
               { value: 'paused', label: 'Tạm dừng' },
             ]}
           />
-          <Input label="Giá trị giảm" required type="number" value={form.discountValue} onChange={(e) => setForm((cur) => ({ ...cur, discountValue: e.target.value }))} />
-          <Input label="Giảm tối đa" type="number" value={form.maxDiscountAmount} onChange={(e) => setForm((cur) => ({ ...cur, maxDiscountAmount: e.target.value }))} />
-          <Input label="Đơn tối thiểu" type="number" value={form.minOrderAmount} onChange={(e) => setForm((cur) => ({ ...cur, minOrderAmount: e.target.value }))} />
-          <Input label="Giới hạn lượt dùng" type="number" value={form.usageLimit} onChange={(e) => setForm((cur) => ({ ...cur, usageLimit: e.target.value }))} />
-          <Input label="Mỗi khách dùng" type="number" value={form.perUserLimit} onChange={(e) => setForm((cur) => ({ ...cur, perUserLimit: e.target.value }))} />
-          <Input label="Bắt đầu" type="datetime-local" value={form.startsAt} onChange={(e) => setForm((cur) => ({ ...cur, startsAt: e.target.value }))} />
-          <Input label="Kết thúc" type="datetime-local" value={form.endsAt} onChange={(e) => setForm((cur) => ({ ...cur, endsAt: e.target.value }))} />
+          <Input
+            label="Giá trị giảm"
+            required
+            type="number"
+            placeholder={form.discountType === 'percent' ? 'VD: 15 (nghĩa là 15%)' : 'VD: 30000'}
+            value={form.discountValue}
+            onChange={(e) => setForm((cur) => ({ ...cur, discountValue: e.target.value }))}
+          />
+          <Input
+            label="Giảm tối đa"
+            type="number"
+            placeholder="VD: 50000 (để trống nếu không giới hạn)"
+            value={form.maxDiscountAmount}
+            onChange={(e) => setForm((cur) => ({ ...cur, maxDiscountAmount: e.target.value }))}
+          />
+          <Input
+            label="Đơn tối thiểu"
+            type="number"
+            placeholder="VD: 80000 (0 là mọi đơn)"
+            value={form.minOrderAmount}
+            onChange={(e) => setForm((cur) => ({ ...cur, minOrderAmount: e.target.value }))}
+          />
+          <Input
+            label="Giới hạn lượt dùng"
+            type="number"
+            placeholder="VD: 50 (để trống nếu không giới hạn)"
+            value={form.usageLimit}
+            onChange={(e) => setForm((cur) => ({ ...cur, usageLimit: e.target.value }))}
+          />
+          <Input
+            label="Mỗi khách dùng"
+            type="number"
+            placeholder="VD: 1"
+            value={form.perUserLimit}
+            onChange={(e) => setForm((cur) => ({ ...cur, perUserLimit: e.target.value }))}
+          />
+          <Input
+            label="Bắt đầu"
+            type="datetime-local"
+            value={form.startsAt}
+            onChange={(e) => setForm((cur) => ({ ...cur, startsAt: e.target.value }))}
+          />
+          <Input
+            label="Kết thúc"
+            type="datetime-local"
+            value={form.endsAt}
+            onChange={(e) => setForm((cur) => ({ ...cur, endsAt: e.target.value }))}
+          />
           <div className="md:col-span-2">
             <Textarea
               label="Mô tả"
               rows={3}
+              placeholder="Nhập mô tả chi tiết, điều kiện áp dụng voucher..."
               value={form.description}
               onChange={(e) => setForm((cur) => ({ ...cur, description: e.target.value }))}
             />

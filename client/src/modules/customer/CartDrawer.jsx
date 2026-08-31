@@ -18,9 +18,7 @@ export default function CartDrawer() {
     setItemQty,
     removeFromCart,
     cartSubtotal,
-    deliveryFee,
     discount,
-    cartTotal,
     syncing,
     appliedPromo,
     setAppliedPromo,
@@ -104,10 +102,6 @@ export default function CartDrawer() {
               <span className="text-body">Tạm tính</span>
               <span className="nums text-ink">{formatVnd(cartSubtotal)}</span>
             </div>
-            <div className="flex items-center justify-between text-body-sm">
-              <span className="text-body">Phí giao hàng</span>
-              <span className="nums text-ink">{formatVnd(deliveryFee)}</span>
-            </div>
             {discount > 0 && (
               <div className="flex items-center justify-between text-body-sm">
                 <span className="text-success">Khuyến mãi</span>
@@ -115,8 +109,11 @@ export default function CartDrawer() {
               </div>
             )}
             <div className="flex items-center justify-between border-t border-hairline pt-sm">
-              <span className="text-title-sm text-ink">Tổng cộng</span>
-              <span className="nums text-display-sm text-ink">{formatVnd(cartTotal)}</span>
+              <div>
+                <span className="text-title-sm text-ink font-semibold">Tổng tạm tính</span>
+                <div className="text-[11px] text-body">Phí giao hàng được tính tại bước thanh toán</div>
+              </div>
+              <span className="nums text-display-sm text-ink">{formatVnd(Math.max(0, cartSubtotal - discount))}</span>
             </div>
             <Button
               className="mt-xs w-full"
@@ -126,7 +123,7 @@ export default function CartDrawer() {
               }}
               disabled={!shopAsCustomer}
             >
-              Thanh toán
+              Tiến hành thanh toán
             </Button>
           </div>
         ) : null
@@ -154,18 +151,18 @@ export default function CartDrawer() {
         )}
 
         {cart.items.length > 0 && restaurantName && (
-          <div className="flex items-center gap-sm rounded-md border border-hairline p-sm">
+          <div className="flex items-center gap-sm rounded-md border border-hairline p-sm bg-canvas-soft">
             {restaurantLogo && (
               <Image
                 src={restaurantLogo}
                 alt={restaurantName}
-                className="h-10 w-10 rounded-md"
+                className="h-10 w-10 rounded-md shrink-0"
                 ratio="1"
               />
             )}
             <div className="flex-1 min-w-0">
               <div className="text-body-sm font-semibold text-ink truncate">{restaurantName}</div>
-              <div className="text-caption text-body">phí giao {formatVnd(deliveryFee)}</div>
+              <div className="text-caption text-body">{cart.items.length} món đang chọn</div>
             </div>
           </div>
         )}
@@ -236,22 +233,46 @@ export default function CartDrawer() {
             ))}
           </div>
         ) : (
-          <EmptyState
-            icon="cart"
-            title="Giỏ hàng trống"
-            message="Thêm món từ bất kỳ quán ăn nào đang mở cửa để bắt đầu."
-            action={
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setCartOpen(false);
-                  nav('/app/search');
-                }}
-              >
-                Tiếp tục mua sắm
-              </Button>
-            }
-          />
+          <div className="flex flex-col items-center text-center py-base">
+            <EmptyState
+              icon="cart"
+              title="Giỏ hàng của bạn đang trống"
+              message="Thêm các món ăn nóng hổi từ bất kỳ quán ăn nào xung quanh bạn để bắt đầu đặt hàng."
+              action={
+                <div className="flex flex-col sm:flex-row gap-xs mt-sm w-full max-w-xs">
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    onClick={() => {
+                      setCartOpen(false);
+                      nav('/app/search');
+                    }}
+                  >
+                    Khám phá quán ăn
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => {
+                      setCartOpen(false);
+                      nav('/app/profile/promotions');
+                    }}
+                  >
+                    Xem kho voucher
+                  </Button>
+                </div>
+              }
+            />
+
+            <div className="mt-base w-full rounded-lg border border-hairline-strong bg-canvas-soft p-sm text-left">
+              <div className="flex items-start gap-2">
+                <Icon name="ticket" size={16} className="shrink-0 text-ink mt-0.5" />
+                <div className="text-caption text-body">
+                  <strong className="text-ink font-semibold">Ưu đãi hôm nay:</strong> Bạn có thể kiểm tra và lưu các voucher freeship, giảm giá trong kho mã trước khi tiến hành đặt món.
+                </div>
+              </div>
+            </div>
+          </div>
         )}
           </>
         )}

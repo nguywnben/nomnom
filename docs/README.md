@@ -1,5 +1,8 @@
 # Tài liệu NomNom
 
+> Phạm vi chính thức cho báo cáo 03/09/2026 chỉ gồm **Khách hàng — Nhà hàng — Admin**.
+> Các báo cáo Wave cũ là lịch sử triển khai, không phải mô tả phạm vi hiện hành.
+
 ## Project Identity
 
 NomNom is a graduation project developed at **FPT Polytechnic** by a six-member team led by **Nguyễn Công Ben**. The team also includes Hồ Minh Nhật, Nguyễn Văn Dĩ Khang, Ong Tuấn Nghĩa, Trần Minh Được, and Nguyễn Thị Như Ngọc.
@@ -20,6 +23,23 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 |----------|--------|
 | [AUTH.md](./AUTH.md) | Đăng nhập, JWT, OTP, seed user |
 | [RAILWAY.md](./RAILWAY.md) | Deploy server + MySQL trên Railway |
+| [RELEASE_RUNBOOK.md](./RELEASE_RUNBOOK.md) | Backup, quality gate, build, rollback và go/no-go |
+| [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) | Kịch bản báo cáo 8–12 phút và phương án dự phòng |
+| [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Rủi ro đã biết, cách kiểm soát và backlog sau báo cáo |
+| [RELEASE_EVIDENCE_2026-08-31.md](./RELEASE_EVIDENCE_2026-08-31.md) | Bằng chứng gate, database và browser trước báo cáo |
+
+## Bộ tài liệu báo cáo 03/09/2026
+
+| Tài liệu | Mục đích |
+|----------|----------|
+| [PRESENTATION_GUIDE.md](./PRESENTATION_GUIDE.md) | Flow, thời lượng, thao tác demo và chuyển giao của 6 thành viên |
+| [PRESENTATION_LIBRARY.md](./PRESENTATION_LIBRARY.md) | Nguồn tra cứu chung về logic, nghiệp vụ, dữ liệu, số liệu, kiến trúc và phản biện |
+| [01 — Ong Tuấn Nghĩa](./presentation/01-ong-tuan-nghia.md) | Phạm vi, xác thực, trang chủ và tìm kiếm |
+| [02 — Nguyễn Thị Như Ngọc](./presentation/02-nguyen-thi-nhu-ngoc.md) | Quán/món, hồ sơ, địa chỉ, voucher và giỏ |
+| [03 — Trần Minh Được](./presentation/03-tran-minh-duoc.md) | Checkout, vận chuyển, COD và VNPay |
+| [04 — Hồ Minh Nhật](./presentation/04-ho-minh-nhat.md) | Đơn, tracking, chat và đánh giá |
+| [05 — Nguyễn Văn Dĩ Khang](./presentation/05-nguyen-van-di-khang.md) | Vận hành nhà hàng |
+| [06 — Nguyễn Công Ben](./presentation/06-nguyen-cong-ben.md) | Admin, tài chính, audit và triển khai |
 
 ## Phân tích & thiết kế
 
@@ -28,8 +48,9 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 | [project-overview.md](./analysis/project-overview.md) | Tổng quan dự án, tech stack, module |
 | [erd.md](./analysis/erd.md) | ERD, mô tả bảng, hướng dẫn vẽ draw.io |
 | [usecase.md](./analysis/usecase.md) | Use case theo từng tác nhân |
+| [ADR-001](./decisions/ADR-001-three-role-delivery-model.md) | Quyết định mô hình giao hàng ba vai trò và legacy schema |
 
-## Kế hoạch làm việc nhóm
+## Lịch sử làm việc nhóm
 
 | Tài liệu | Mô tả |
 |----------|--------|
@@ -44,6 +65,7 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 | [issues-wave-5.md](./planning/issues-wave-5.md) | Wave 5 issue contracts and acceptance criteria |
 | [`tasks/plan.md`](../tasks/plan.md) | Thứ tự triển khai và dependency Wave 5 |
 | [`tasks/todo.md`](../tasks/todo.md) | Checklist khởi động, checkpoint và bàn giao Wave 5 |
+| [legacy-four-role](./archive/legacy-four-role/README.md) | Tài liệu thiết kế bốn vai trò đã ngừng sử dụng |
 
 ## Cơ sở dữ liệu
 
@@ -65,4 +87,7 @@ Migrations for Waves 4-5:
 mysql -u root -p nomnom < database/migrations/20260711_wave4_foundation.sql
 mysql -u root -p nomnom < database/migrations/20260803_wave4_completion.sql
 mysql -u root -p nomnom < database/migrations/20260804_wave5_completion.sql
+mysql -u root -p nomnom < database/migrations/20260831_checkout_idempotency.sql
+mysql -u root -p nomnom < database/migrations/20260831_upload_ownership.sql
+mysql -u root -p nomnom < database/migrations/20260831_reconcile_demo_finance.sql
 ```

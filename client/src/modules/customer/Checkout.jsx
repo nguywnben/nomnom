@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
@@ -43,6 +43,7 @@ const CHECKOUT_STEPS = [
 ];
 
 export default function CustomerCheckout() {
+  const checkoutKeyRef = useRef(null);
   const nav = useNavigate();
   const {
     cart,
@@ -130,9 +131,10 @@ export default function CustomerCheckout() {
     let bestCode = null;
 
     const processed = availableVouchers.map((v) => {
-      const meetsMinOrder = cartSubtotal >= v.min_order;
-      const meetsRestaurant = !v.restaurantId || v.restaurantId === cart.restaurantId;
-      const isEligible = meetsMinOrder && meetsRestaurant;
+      const isUsable = v.is_usable !== false && !v.is_expired && !v.is_out_of_quota;
+      const meetsMinOrder = cartSubtotal >= (v.min_order || 0);
+      const meetsRestaurant = !v.restaurantId || Number(v.restaurantId) === Number(cart.restaurantId);
+      const isEligible = isUsable && meetsMinOrder && meetsRestaurant;
 
       let potentialDiscount = 0;
       if (isEligible) {
@@ -152,10 +154,12 @@ export default function CustomerCheckout() {
       }
 
       let reason = '';
-      if (!meetsRestaurant) {
-        reason = 'Chỉ áp dụng cho quán ăn chỉ định';
+      if (!isUsable) {
+        reason = v.is_expired ? 'Mã đã hết hạn sử dụng' : v.is_out_of_quota ? 'Mã đã hết lượt dùng trên hệ thống' : 'Mã không còn hiệu lực';
+      } else if (!meetsRestaurant) {
+        reason = v.restaurantName ? `Chỉ áp dụng cho quán: ${v.restaurantName}` : 'Chỉ áp dụng cho quán ăn chỉ định';
       } else if (!meetsMinOrder) {
-        const needed = v.min_order - cartSubtotal;
+        const needed = (v.min_order || 0) - cartSubtotal;
         reason = `Mua thêm ${formatVnd(needed)} để dùng mã`;
       }
 
@@ -416,7 +420,7 @@ export default function CustomerCheckout() {
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [isAddingNewAddress, newLine1, selectedWardName, selectedProvinceName, newCoordinates, pushToast]);
 
-  if (!cart?.items?.length) {
+  if (!cart?.items?.length && !placing) {
     return (
       <div className="container-page py-section">
         <EmptyState
@@ -510,17 +514,28 @@ export default function CustomerCheckout() {
         return;
       }
 
+      // Giữ nguyên khóa qua các lần retry để server trả lại đúng đơn nếu response trước bị mất.
+      if (!checkoutKeyRef.current) {
+        checkoutKeyRef.current = globalThis.crypto?.randomUUID?.()
+          ?? `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+
       // Xử lý tạo Order
       const res = await apiPost('/api/v1/orders', {
         addressId: finalAddressId,
         paymentMethod: payment,
         customerNote: note,
         voucherCode: appliedPromo?.code || null,
+      }, {
+        headers: { 'Idempotency-Key': checkoutKeyRef.current },
       });
       if (payment === 'vnpay') {
         const payRes = await apiPost('/api/v1/payments/vnpay', { orderId: res.order.id });
+        checkoutKeyRef.current = null;
+        clearCart();
         window.location.href = payRes.paymentUrl;
       } else {
+        checkoutKeyRef.current = null;
         clearCart();
         nav('/app/order/success/' + res.order.order_code);
       }
@@ -694,7 +709,7 @@ export default function CustomerCheckout() {
                           if (phoneError) setPhoneError('');
                         }}
                         error={phoneError}
-                        hint="Tài xế sẽ gọi số này khi giao tới."
+                        hint="Nhân viên giao hàng của quán sẽ gọi số này khi giao tới."
                       />
                     </div>
 
@@ -929,15 +944,15 @@ export default function CustomerCheckout() {
                       onClick={() => selectVoucher(v)}
                       className={`relative flex items-center justify-between gap-sm p-sm rounded-lg border cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          ? 'border-ink bg-canvas-soft ring-1 ring-ink shadow-xs'
                           : 'border-hairline-strong bg-surface-card hover:border-ink/30 hover:bg-canvas-soft'
                       }`}
                     >
                       <div className="flex items-start gap-sm min-w-0 flex-1">
-                        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md ${
-                          isSelected ? 'bg-primary text-white' : 'bg-surface-strong text-ink'
+                        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border ${
+                          isSelected ? 'bg-ink text-on-dark border-ink' : 'bg-canvas-soft text-ink border-hairline-strong'
                         }`}>
-                          <Icon name="zap" size={18} />
+                          <Icon name={(v.code?.includes('SHIP') || v.name?.toLowerCase().includes('giao')) ? 'bike' : v.kind === 'percent' ? 'percent' : 'ticket'} size={18} />
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -954,7 +969,7 @@ export default function CustomerCheckout() {
                           <div className="mt-1 text-caption text-body truncate">
                             {v.name || v.description}
                           </div>
-                          <div className="mt-0.5 text-caption font-medium text-success">
+                          <div className="mt-0.5 text-caption font-medium text-success nums">
                             Tiết kiệm ước tính: {formatVnd(v.potentialDiscount)}
                           </div>
                         </div>
@@ -962,7 +977,7 @@ export default function CustomerCheckout() {
 
                       <div className="shrink-0 flex items-center">
                         <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          isSelected ? 'border-primary bg-primary text-white' : 'border-hairline-strong'
+                          isSelected ? 'border-ink bg-ink text-on-dark' : 'border-hairline-strong'
                         }`}>
                           {isSelected && <Icon name="check" size={12} />}
                         </div>
@@ -987,8 +1002,8 @@ export default function CustomerCheckout() {
                     className="flex items-start justify-between gap-sm p-sm rounded-lg border border-hairline bg-surface-card"
                   >
                     <div className="flex items-start gap-sm min-w-0 flex-1">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface-strong text-body">
-                        <Icon name="zap" size={18} />
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-hairline-strong bg-canvas-soft text-body">
+                        <Icon name={(v.code?.includes('SHIP') || v.name?.toLowerCase().includes('giao')) ? 'bike' : v.kind === 'percent' ? 'percent' : 'ticket'} size={18} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">

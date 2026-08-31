@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
+import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
-import Switch from '../../components/Switch.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import {
   cancelMerchantAddressChangeRequest,
@@ -35,12 +37,15 @@ const EMPTY = {
 };
 
 export default function MerchantSettings() {
-  const { pushToast } = useApp();
+  const { pushToast, setMerchantRestaurant, logout, user } = useApp();
+  const nav = useNavigate();
+  const outletCtx = useOutletContext();
   const [tab, setTab] = useState('profile');
   const [form, setForm] = useState(EMPTY);
-  const [saved, setSaved] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [error, setError] = useState('');
   const [addressChangeRequest, setAddressChangeRequest] = useState(null);
   const [addressModalOpen, setAddressModalOpen] = useState(false);
@@ -56,7 +61,6 @@ export default function MerchantSettings() {
     try {
       const response = await fetchMerchantSettingsApi();
       setForm(response.restaurant);
-      setSaved(response.restaurant);
       setAddressChangeRequest(response.addressChangeRequest ?? null);
       setError('');
     } catch (err) {
@@ -121,7 +125,10 @@ export default function MerchantSettings() {
       ['addressLine', 'ward', 'district', 'city', 'id', 'slug', 'commissionRate'].forEach((key) => delete editableSettings[key]);
       const response = await updateMerchantSettingsApi(editableSettings);
       setForm(response.restaurant);
-      setSaved(response.restaurant);
+      setMerchantRestaurant?.((prev) => (prev ? { ...prev, is_open_now: response.restaurant.isOpenNow } : prev));
+      if (outletCtx?.setRestaurantOpen) {
+        outletCtx.setRestaurantOpen(Boolean(response.restaurant.isOpenNow));
+      }
       setError('');
       pushToast({ kind: 'success', title: 'Đã lưu cài đặt', message: 'Thông tin mới đã được cập nhật.' });
     } catch (err) {
@@ -132,24 +139,39 @@ export default function MerchantSettings() {
     }
   };
 
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      nav('/login', { replace: true });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Đăng xuất thất bại', message: err.message || 'Vui lòng thử lại sau.' });
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   if (loading && !form.id) {
     return <div className="py-section text-center text-body-sm text-body" role="status">Đang tải cài đặt...</div>;
   }
 
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-end justify-between gap-sm">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Quản trị</div>
-          <h1 className="text-display-lg text-ink">Cài đặt quán</h1>
-          <p className="mt-xs text-body-sm text-body">Quản lý thông tin hiển thị, vận hành và tài khoản nhận tiền.</p>
+          <div className="text-caption-uppercase text-body">Hồ sơ & Hoạt động</div>
+          <h1 className="text-display-lg text-ink">Cài đặt Quán ăn</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Cập nhật thông tin thương hiệu, thiết lập thời gian chuẩn bị món và liên kết tài khoản ngân hàng nhận doanh thu.
+          </p>
         </div>
-        <Switch
-          checked={Boolean(form.isOpenNow)}
-          disabled={saving}
-          onChange={(checked) => set({ isOpenNow: checked })}
-          label={form.isOpenNow ? 'Đang nhận đơn' : 'Đang đóng cửa'}
-        />
+        <div className="flex flex-wrap items-center gap-xs">
+          <Badge tone={form.isOpenNow ? 'success' : 'warning'} dot>
+            {form.isOpenNow ? 'Đang mở cửa' : 'Đang đóng cửa'}
+          </Badge>
+          <Badge tone="outline">Hoa hồng {form.commissionRate}%</Badge>
+        </div>
       </div>
 
       {error && (
@@ -158,24 +180,35 @@ export default function MerchantSettings() {
         </div>
       )}
 
-      <Tabs
-        className="w-fit max-w-full"
-        items={[
-          { value: 'profile', label: 'Thông tin' },
-          { value: 'operations', label: 'Vận hành' },
-          { value: 'bank', label: 'Nhận tiền' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
+      {/* Toolbar: Tabs + Save button */}
+      <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
+        <Tabs
+          size="sm"
+          className="w-fit max-w-full"
+          items={[
+            { value: 'profile', label: 'Thông tin' },
+            { value: 'operations', label: 'Vận hành' },
+            { value: 'bank', label: 'Nhận tiền' },
+            { value: 'account', label: 'Tài khoản' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+
+        {tab !== 'account' && (
+          <Button leadingIcon="check" size="sm" onClick={save} loading={saving}>
+            Lưu thay đổi
+          </Button>
+        )}
+      </div>
 
       {tab === 'profile' && (
         <Card padded className="grid gap-sm md:grid-cols-2">
-          <Input id="merchant-name" label="Tên quán" required value={form.name} onChange={(event) => set({ name: event.target.value })} />
-          <Input id="merchant-phone" label="Số điện thoại" value={form.phone} onChange={(event) => set({ phone: event.target.value })} />
-          <Input id="merchant-tagline" label="Slogan" className="md:col-span-2" value={form.tagline} onChange={(event) => set({ tagline: event.target.value })} />
+          <Input id="merchant-name" label="Tên quán" placeholder="VD: Bếp Sông Quê, Pizza Napoli" required value={form.name} onChange={(event) => set({ name: event.target.value })} />
+          <Input id="merchant-phone" label="Số điện thoại" placeholder="VD: 0901234567" value={form.phone} onChange={(event) => set({ phone: event.target.value })} />
+          <Input id="merchant-tagline" label="Slogan" placeholder="VD: Hương vị đậm đà chuẩn vị truyền thống" className="md:col-span-2" value={form.tagline} onChange={(event) => set({ tagline: event.target.value })} />
           <div className="md:col-span-2">
-            <Textarea id="merchant-description" label="Giới thiệu" rows={4} value={form.description} onChange={(event) => set({ description: event.target.value })} />
+            <Textarea id="merchant-description" label="Giới thiệu" placeholder="Giới thiệu ngắn gọn về phong cách ẩm thực, cam kết vệ sinh và điểm đặc sắc của quán..." rows={4} value={form.description} onChange={(event) => set({ description: event.target.value })} />
           </div>
           <Input id="merchant-address" label="Địa chỉ" value={form.addressLine} disabled hint="Địa chỉ đang áp dụng để vận hành và tính phí giao hàng." />
           <Input id="merchant-ward" label="Phường/Xã" value={form.ward} disabled />
@@ -210,9 +243,9 @@ export default function MerchantSettings() {
 
       {tab === 'operations' && (
         <Card padded className="grid gap-sm md:grid-cols-2">
-          <Input id="min-order-amount" type="number" min="0" step="1000" label="Đơn tối thiểu (VND)" value={form.minOrderAmount} onChange={(event) => set({ minOrderAmount: Number(event.target.value) })} />
-          <Input id="avg-prep-time" type="number" min="1" max="300" label="Chuẩn bị trung bình (phút)" value={form.avgPrepTimeMin} onChange={(event) => set({ avgPrepTimeMin: Number(event.target.value) })} />
-          <div className="md:col-span-3 rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body">
+          <Input id="min-order-amount" type="number" min="0" step="1000" label="Đơn tối thiểu (VND)" placeholder="VD: 50000 (0 là mọi đơn)" value={form.minOrderAmount} onChange={(event) => set({ minOrderAmount: Number(event.target.value) })} />
+          <Input id="avg-prep-time" type="number" min="1" max="300" label="Chuẩn bị trung bình (phút)" placeholder="VD: 15" value={form.avgPrepTimeMin} onChange={(event) => set({ avgPrepTimeMin: Number(event.target.value) })} />
+          <div className="md:col-span-2 rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body">
             Hoa hồng hiện tại: <span className="font-semibold text-ink">{form.commissionRate}%</span>. Tỷ lệ này do quản trị viên cấu hình.
           </div>
         </Card>
@@ -221,26 +254,92 @@ export default function MerchantSettings() {
       {tab === 'bank' && (
         <Card padded className="grid gap-sm md:grid-cols-2">
           <Input id="bank-name" label="Tên ngân hàng" placeholder="Ví dụ: Vietcombank" value={form.bankName} onChange={(event) => set({ bankName: event.target.value })} />
-          <Input id="bank-account" label="Số tài khoản" inputMode="numeric" value={form.bankAccountNo} onChange={(event) => set({ bankAccountNo: event.target.value })} hint="Chỉ nhập từ 6 đến 40 chữ số." />
-          <Input id="bank-holder" label="Chủ tài khoản" className="md:col-span-2" value={form.bankAccountHolder} onChange={(event) => set({ bankAccountHolder: event.target.value.toUpperCase() })} />
+          <Input id="bank-account" label="Số tài khoản" placeholder="VD: 0123456789" inputMode="numeric" value={form.bankAccountNo} onChange={(event) => set({ bankAccountNo: event.target.value })} hint="Chỉ nhập từ 6 đến 40 chữ số." />
+          <Input id="bank-holder" label="Chủ tài khoản" placeholder="VD: NGUYEN VAN A" className="md:col-span-2" value={form.bankAccountHolder} onChange={(event) => set({ bankAccountHolder: event.target.value.toUpperCase() })} />
         </Card>
       )}
 
-      <div className="flex justify-end gap-xs">
-        <Button variant="secondary" onClick={() => { setForm(saved); setError(''); }} disabled={saving}>Đặt lại</Button>
-        <Button leadingIcon="check" onClick={save} loading={saving}>Lưu thay đổi</Button>
-      </div>
-      <Modal open={addressModalOpen} onClose={() => setAddressModalOpen(false)} title="Yêu cầu đổi địa chỉ quán" size="lg">
+      {tab === 'account' && (
+        <div className="space-y-base">
+          <Card padded>
+            <div className="text-caption-uppercase text-body">Tài khoản quản lý quán</div>
+            <div className="mt-sm flex items-center gap-sm">
+              <span className="grid h-10 w-10 place-items-center rounded-md bg-surface-strong text-ink">
+                <Icon name="user" size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-body-sm font-semibold text-ink">{user?.fullName || form.name}</div>
+                <div className="truncate text-caption text-body">{user?.email}</div>
+              </div>
+            </div>
+          </Card>
+
+          <Card padded>
+            <div className="text-caption-uppercase text-body">Phiên đăng nhập</div>
+            <p className="mt-xs text-body-sm text-body">
+              {user?.email ? `Đang đăng nhập với email: ${user.email}. ` : ''}Đăng xuất khỏi phiên làm việc hiện tại trên thiết bị này.
+            </p>
+          </Card>
+
+          <Button
+            variant="secondary"
+            className="!border-[#dc2626] !bg-white !font-normal !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+            onClick={() => setLogoutConfirmOpen(true)}
+          >
+            Đăng xuất
+          </Button>
+        </div>
+      )}
+
+      <Modal
+        open={addressModalOpen}
+        onClose={() => setAddressModalOpen(false)}
+        title="Yêu cầu đổi địa chỉ quán"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>
+              Hủy
+            </Button>
+            <Button size="sm" onClick={submitAddressChange} loading={addressSubmitting}>
+              Gửi yêu cầu
+            </Button>
+          </>
+        }
+      >
         <div className="grid gap-sm md:grid-cols-2">
-          <Input id="request-address-line" className="md:col-span-2" label="Địa chỉ cụ thể" required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
           <Select id="request-city" label="Tỉnh/Thành phố" required value={provinceCode} options={[{ value: '', label: 'Chọn Tỉnh/Thành phố' }, ...provinces.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = provinces.find((value) => value.code === event.target.value); setProvinceCode(event.target.value); setWardCode(''); setAddress({ city: item?.name ?? '', district: '', ward: '' }); }} />
           <Select id="request-ward" label="Phường/Xã" required value={wardCode} disabled={!provinceCode} options={[{ value: '', label: provinceCode ? 'Chọn Phường/Xã' : 'Chọn Tỉnh/Thành phố trước' }, ...wards.map((item) => ({ value: item.code, label: item.name }))]} onChange={(event) => { const item = wards.find((value) => value.code === event.target.value); setWardCode(event.target.value); setAddress({ ward: item?.name ?? '' }); }} />
+          <Input id="request-address-line" className="md:col-span-2" label="Số nhà, tên đường cụ thể" placeholder="Số nhà, tên đường cụ thể..." required value={addressForm.addressLine} onChange={(event) => setAddress({ addressLine: event.target.value })} />
           <p className="md:col-span-2 text-caption text-body">Địa chỉ mới chỉ có hiệu lực sau khi admin duyệt; trong lúc chờ, hệ thống vẫn dùng địa chỉ hiện tại.</p>
-          <div className="flex justify-end gap-2 md:col-span-2">
-            <Button variant="secondary" onClick={() => setAddressModalOpen(false)} disabled={addressSubmitting}>Hủy</Button>
-            <Button onClick={submitAddressChange} loading={addressSubmitting}>Gửi yêu cầu</Button>
-          </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(false)} disabled={loggingOut}>
+              Hủy
+            </Button>
+            <Button
+              variant="critical"
+              size="sm"
+              leadingIcon="logout"
+              onClick={handleLogout}
+              loading={loggingOut}
+            >
+              Đăng xuất
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi cổng quản trị quán đối tác không?
+        </p>
       </Modal>
     </div>
   );

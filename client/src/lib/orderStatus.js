@@ -8,8 +8,8 @@ export const ORDER_STATUS = {
   placed: { tone: 'warning', label: 'Đã đặt' },
   accepted: { tone: 'info', label: 'Đã nhận đơn' },
   preparing: { tone: 'warning', label: 'Đang chuẩn bị' },
-  ready_for_pickup: { tone: 'warning', label: 'Sẵn sàng lấy' },
-  picked_up: { tone: 'delivering', label: 'Tài xế đã lấy' },
+  ready_for_pickup: { tone: 'warning', label: 'Sẵn sàng giao' },
+  picked_up: { tone: 'delivering', label: 'Đã bàn giao' },
   delivering: { tone: 'delivering', label: 'Đang giao' },
   delivered: { tone: 'success', label: 'Đã giao' },
   cancelled: { tone: 'critical', label: 'Đã hủy' },
@@ -28,7 +28,6 @@ export function orderStatusLabel(status) {
 /** Các trạng thái "đang hoạt động" (chưa kết thúc). */
 export const ACTIVE_ORDER_STATUSES = [
   'pending_payment',
-  'payment_failed',
   'placed',
   'accepted',
   'preparing',

@@ -89,28 +89,48 @@ export default function NotificationsPage({ audience = 'customer' }) {
   };
 
   const customer = audience === 'customer';
+  const merchant = audience === 'merchant';
+  const admin = audience === 'admin';
+
+  const captionLabel = admin ? 'Quản trị viên' : merchant ? 'Quản trị quán' : 'Tài khoản';
+  const titleLabel = admin ? 'Thông báo Quản trị' : merchant ? 'Thông báo Quán ăn' : 'Thông báo';
+  const staticDesc = admin
+    ? 'Xem và xử lý toàn bộ thông báo vận hành hệ thống, tài chính và yêu cầu kiểm duyệt mới.'
+    : merchant
+      ? 'Theo dõi thông báo đơn hàng mới, cập nhật ví doanh thu và tin tức từ ban quản trị sàn.'
+      : 'Cập nhật trạng thái đơn đặt món, thông báo giao hàng và các ưu đãi đặc quyền dành cho bạn.';
+  const systemTabLabel = admin ? 'Hệ thống & Vận hành' : merchant ? 'Vận hành' : 'Hệ thống';
+
   return (
     <div className={customer ? 'container-page py-xl' : 'space-y-base'}>
-      <div className="flex flex-wrap items-end justify-between gap-sm">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">{customer ? 'Tài khoản' : 'Quản trị quán'}</div>
-          <h1 className={customer ? 'text-display-md text-ink md:text-display-lg' : 'text-display-lg text-ink'}>Thông báo</h1>
-          <p className="mt-xs text-body-sm text-body">{unreadCount ? 'Bạn có ' + unreadCount + ' thông báo chưa đọc.' : 'Bạn đã đọc tất cả thông báo.'}</p>
+          <div className="text-caption-uppercase text-body">{captionLabel}</div>
+          <h1 className={customer ? 'text-display-md text-ink md:text-display-lg' : 'text-display-lg text-ink'}>{titleLabel}</h1>
+          <p className="mt-xs text-body-sm text-body">{staticDesc}</p>
         </div>
-        <Button variant="secondary" leadingIcon="check" onClick={markAll} disabled={!unreadCount}>Đánh dấu đã đọc</Button>
       </div>
 
-      <Tabs
-        className={(customer ? 'mt-base ' : '') + 'w-fit max-w-full'}
-        items={[
-          { value: 'all', label: 'Tất cả' },
-          { value: 'unread', label: 'Chưa đọc' + (unreadCount ? ' (' + unreadCount + ')' : '') },
-          { value: 'order', label: 'Đơn hàng' },
-          { value: 'system', label: customer ? 'Hệ thống' : 'Vận hành' },
-        ]}
-        value={tab}
-        onChange={setTab}
-      />
+      {/* Toolbar: Tabs + Mark All Read */}
+      <div className={(customer ? 'mt-base ' : '') + 'flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between'}>
+        <Tabs
+          size="sm"
+          className="w-fit max-w-full"
+          items={[
+            { value: 'all', label: 'Tất cả' },
+            { value: 'unread', label: 'Chưa đọc' + (unreadCount ? ' (' + unreadCount + ')' : '') },
+            { value: 'order', label: 'Đơn hàng' },
+            { value: 'system', label: systemTabLabel },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+
+        <Button variant="secondary" size="sm" leadingIcon="check" onClick={markAll} disabled={!unreadCount}>
+          Đánh dấu đã đọc
+        </Button>
+      </div>
 
       {loading ? (
         <div className="py-section text-center text-body-sm text-body" role="status">Đang tải thông báo...</div>

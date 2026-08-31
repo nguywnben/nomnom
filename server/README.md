@@ -40,7 +40,8 @@ Yêu cầu header `Authorization: Bearer <accessToken>`.
 | POST | `/api/v1/me/change-password` | `{ currentPassword, newPassword }` |
 | POST | `/api/v1/auth/logout-all` | Thu hồi mọi refresh token (đăng xuất tất cả thiết bị) |
 
-Folder upload: `avatar`, `restaurant`, `menu`, `driver-kyc`, `review` (mặc định `avatar`).
+Folder upload: `avatar`, `restaurant`, `menu`, `cuisine`, `review` (mặc định `avatar`). Mỗi ảnh
+được ghi nhận chủ sở hữu; chỉ chủ sở hữu hoặc Admin có thể xóa.
 
 Biến môi trường (thêm vào `.env`):
 
@@ -63,9 +64,6 @@ Test nhanh bằng Postman: login → lấy token → POST file ảnh → nhận 
 | GET | `/api/v1/admin/restaurants/pending` | Danh sách quán chờ duyệt (ADM-03) |
 | POST | `/api/v1/admin/restaurants/:id/approve` | Duyệt quán → `active`, tạo wallet merchant |
 | POST | `/api/v1/admin/restaurants/:id/reject` | Từ chối quán — body `{ reason }` |
-| GET | `/api/v1/admin/drivers/pending` | Danh sách tài xế chờ duyệt (ADM-03) |
-| POST | `/api/v1/admin/drivers/:userId/approve` | Duyệt tài xế → tạo wallet driver |
-| POST | `/api/v1/admin/drivers/:userId/reject` | Từ chối tài xế — body `{ reason }` |
 
 Tất cả endpoint `/api/v1/admin/*` (trừ khi ghi chú khác) yêu cầu `Authorization: Bearer` và role `admin` trong `user_roles`.
 

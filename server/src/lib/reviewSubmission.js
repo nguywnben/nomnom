@@ -1,3 +1,5 @@
+const MAX_COMMENT_LENGTH = 500;
+
 function normalizeRating(value) {
   const rating = Number(value);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -8,6 +10,9 @@ function normalizeRating(value) {
 
 function normalizeComment(value) {
   const comment = String(value ?? '').trim();
+  if (comment.length > MAX_COMMENT_LENGTH) {
+    throw new Error(`Nội dung nhận xét không được vượt quá ${MAX_COMMENT_LENGTH} ký tự.`);
+  }
   return comment || null;
 }
 

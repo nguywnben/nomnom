@@ -7,10 +7,21 @@ export default function StarRating({
   onChange,
   size = 16,
   readOnly = !onChange,
+  allowClear = true,
   className,
 }) {
   const [hover, setHover] = useState(0);
   const display = hover || value;
+
+  const handleClick = (n) => {
+    if (!onChange || readOnly) return;
+    if (allowClear && value === n) {
+      onChange(0);
+    } else {
+      onChange(n);
+    }
+  };
+
   return (
     <div className={clsx('inline-flex items-center gap-0.5', className)}>
       {[1, 2, 3, 4, 5].map((n) => (
@@ -20,9 +31,10 @@ export default function StarRating({
           disabled={readOnly}
           onMouseEnter={() => !readOnly && setHover(n)}
           onMouseLeave={() => !readOnly && setHover(0)}
-          onClick={() => onChange && onChange(n)}
+          onClick={() => handleClick(n)}
+          title={!readOnly && value === n ? 'Nhấp để hủy đánh giá' : undefined}
           className={clsx(
-            'p-0.5 -m-0.5',
+            'p-0.5 -m-0.5 transition-transform active:scale-90',
             !readOnly && 'cursor-pointer',
             display >= n ? 'text-ink' : 'text-muted',
           )}

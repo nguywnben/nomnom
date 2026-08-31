@@ -388,9 +388,9 @@ router.get('/:id', async (req, res, next) => {
 
     let unavailableReason = null;
     if (item.restaurantStatus !== 'active') {
-      unavailableReason = 'Nhà hàng hiện tạm thời ngưng hoạt động.';
+      unavailableReason = 'Quán ăn hiện tạm thời ngưng hoạt động.';
     } else if (!Boolean(item.isOpenNow)) {
-      unavailableReason = 'Nhà hàng hiện đang đóng cửa.';
+      unavailableReason = 'Quán ăn hiện đang đóng cửa.';
     } else if (item.itemStatus !== 'active' || !Boolean(item.inStock)) {
       unavailableReason = 'Món ăn hiện tại đã hết hàng.';
     }

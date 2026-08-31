@@ -4,19 +4,34 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Input, { Select } from '../../components/Input.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import Icon from '../../components/Icon.jsx';
 import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
+import Tabs from '../../components/Tabs.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { downloadCsv } from '../../lib/csv.js';
+import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchAdminOrderDetail, fetchAdminOrders, cancelAdminOrder, updateAdminOrderShippingStatus } from '../../lib/api.js';
+
+const now = new Date();
+const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+const calcDateStr = (daysAgo) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const minDateStr = calcDateStr(90);
 
 const ORDER_STATUS = {
   pending_payment: { label: 'Chờ thanh toán', tone: 'warning' },
   placed: { label: 'Đã đặt', tone: 'default' },
   accepted: { label: 'Quán đã nhận', tone: 'live' },
   preparing: { label: 'Đang nấu', tone: 'live' },
-  ready_for_pickup: { label: 'Sẵn lấy', tone: 'live' },
-  picked_up: { label: 'Đã lấy', tone: 'live' },
+  ready_for_pickup: { label: 'Sẵn sàng giao', tone: 'live' },
+  picked_up: { label: 'Đã bàn giao', tone: 'live' },
   delivering: { label: 'Đang giao', tone: 'live' },
   delivered: { label: 'Đã giao', tone: 'success' },
   cancelled: { label: 'Đã hủy', tone: 'error' },
@@ -68,6 +83,30 @@ export default function AdminOrders() {
   const [status, setStatus] = useState('all');
   const [paymentMethod, setPaymentMethod] = useState('all');
   const [paymentStatus, setPaymentStatus] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [exporting, setExporting] = useState(false);
+
+  const setPreset = (daysAgo) => {
+    if (daysAgo === null) {
+      setFromDate('');
+      setToDate('');
+    } else {
+      setFromDate(calcDateStr(daysAgo));
+      setToDate(todayStr);
+    }
+    setPage(1);
+  };
+
+  const activePresetValue = (() => {
+    if (!fromDate && !toDate) return 'all';
+    if (toDate !== todayStr) return 'custom';
+    if (fromDate === todayStr) return 'today';
+    if (fromDate === calcDateStr(6)) return '7d';
+    if (fromDate === calcDateStr(29)) return '30d';
+    if (fromDate === minDateStr) return '90d';
+    return 'custom';
+  })();
 
   // Modal State
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -93,6 +132,8 @@ export default function AdminOrders() {
         paymentMethod,
         paymentStatus,
         q: debouncedSearch,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
         page,
       });
       setOrders(data.items || []);
@@ -106,7 +147,7 @@ export default function AdminOrders() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, page, paymentMethod, paymentStatus, pushToast, status]);
+  }, [debouncedSearch, fromDate, page, paymentMethod, paymentStatus, pushToast, status, toDate]);
 
   useEffect(() => {
     loadOrders();
@@ -137,7 +178,7 @@ export default function AdminOrders() {
       await updateAdminOrderShippingStatus(order.id, action);
       pushToast({
         kind: 'success',
-        title: action === 'picked_up' ? 'Đã xác nhận lấy hàng' : 'Đã cập nhật đang giao',
+        title: 'Đã cập nhật đang giao',
         message: `Đơn ${order.order_code} đã được cập nhật.`,
       });
       loadOrders();
@@ -170,30 +211,180 @@ export default function AdminOrders() {
     }
   };
 
+  const handleExportCsv = async () => {
+    try {
+      setExporting(true);
+      const data = await fetchAdminOrders({
+        status,
+        paymentMethod,
+        paymentStatus,
+        q: debouncedSearch,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+        page: 1,
+        limit: 10000,
+      });
+
+      const ordersToExport = data?.items || [];
+      if (!ordersToExport.length) {
+        pushToast({
+          kind: 'warning',
+          title: 'Không có dữ liệu',
+          message: 'Không tìm thấy đơn hàng nào phù hợp với bộ lọc hiện tại để xuất CSV.',
+        });
+        return;
+      }
+
+      const rows = ordersToExport.map((o) => ({
+        'Mã đơn': o.order_code,
+        'Khách hàng': o.customer_name,
+        'Email khách': o.customer_email || '',
+        'Quán ăn': o.restaurant_name,
+        'Tổng tiền (VND)': Number(o.total_amount),
+        'Trạng thái đơn': ORDER_STATUS[o.status]?.label || o.status,
+        'Phương thức': PAYMENT_METHODS[o.payment_method] || o.payment_method,
+        'Trạng thái thanh toán': PAY_STATUS[o.payment_status]?.label || o.payment_status,
+        'Ngày đặt': new Date(o.placed_at).toLocaleString('vi-VN'),
+      }));
+
+      const dateSuffix = fromDate && toDate
+        ? `${fromDate}_den_${toDate}`
+        : fromDate
+          ? `tu_${fromDate}`
+          : toDate
+            ? `den_${toDate}`
+            : new Date().toISOString().slice(0, 10);
+      downloadCsv(`nomnom-admin-orders-${dateSuffix}.csv`, rows);
+      pushToast({
+        kind: 'success',
+        title: 'Xuất CSV thành công',
+        message: `Đã xuất toàn bộ ${ordersToExport.length} đơn hàng theo bộ lọc.`,
+      });
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Xuất CSV thất bại',
+        message: err.message || 'Không thể tải toàn bộ danh sách đơn hàng.',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-end justify-between gap-sm">
-        <div>
-          <div className="text-caption-uppercase text-body">Vận hành</div>
-          <h1 className="text-display-lg text-ink">Đơn hàng toàn hệ thống</h1>
-          <p className="mt-xs text-body-sm text-body">
-            Theo dõi đơn theo trạng thái và thanh toán. Hỗ trợ tra cứu, can thiệp khi cần.
-          </p>
-        </div>
+      <div>
+        <div className="text-caption-uppercase text-body">Vận hành</div>
+        <h1 className="text-display-lg text-ink">Đơn hàng toàn hệ thống</h1>
+        <p className="mt-xs text-body-sm text-body">
+          Theo dõi đơn theo trạng thái, khoảng ngày và thanh toán. Hỗ trợ tra cứu, can thiệp khi cần.
+        </p>
       </div>
 
-      <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
-          <Input
-            className="w-full md:w-80"
-            leadingIcon="search"
-            placeholder="Tìm mã đơn, khách hoặc quán..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-          />
-          <div className="grid grid-cols-2 gap-sm md:flex md:w-auto">
+      <div className="flex flex-col gap-sm">
+        {/* Row 1: Left = Tabs + DatePicker, Right = Button Xuất CSV */}
+        <div className="flex flex-wrap items-center justify-between gap-sm">
+          <div className="flex flex-wrap items-center gap-xs">
+            <Tabs
+              size="sm"
+              items={[
+                { value: 'all', label: 'Tất cả' },
+                { value: 'today', label: 'Hôm nay' },
+                { value: '7d', label: '7 ngày' },
+                { value: '30d', label: '30 ngày' },
+                { value: '90d', label: '90 ngày' },
+              ]}
+              value={activePresetValue}
+              onChange={(val) => {
+                if (val === 'all') setPreset(null);
+                else if (val === 'today') setPreset(0);
+                else if (val === '7d') setPreset(6);
+                else if (val === '30d') setPreset(29);
+                else if (val === '90d') setPreset(90);
+              }}
+            />
+
+            {/* Direct date pickers */}
+            <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink shrink-0">
+              <Icon name="calendar" size={15} className="text-body shrink-0" />
+              <input
+                type="date"
+                value={fromDate}
+                min={minDateStr}
+                max={toDate || todayStr}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setPage(1);
+                }}
+                title="Từ ngày"
+                aria-label="Từ ngày"
+                className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
+              />
+              <span className="text-body text-caption font-medium">–</span>
+              <input
+                type="date"
+                value={toDate}
+                min={fromDate || minDateStr}
+                max={todayStr}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setPage(1);
+                }}
+                title="Đến ngày"
+                aria-label="Đến ngày"
+                className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
+              />
+              {(fromDate || toDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFromDate('');
+                    setToDate('');
+                    setPage(1);
+                  }}
+                  className="ml-1 text-caption text-body hover:text-ink font-bold"
+                  title="Xóa lọc ngày"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon="download"
+            onClick={handleExportCsv}
+            loading={exporting}
+            disabled={total === 0 || exporting}
+          >
+            Xuất CSV
+          </Button>
+        </div>
+
+        {/* Row 2: Left = Search Input, Right = 3 Select Dropdowns */}
+        <div className="flex flex-col gap-sm md:flex-row md:items-center md:justify-between">
+          <div className="relative w-full md:w-80 shrink-0 h-9">
+            <Icon
+              name="search"
+              size={16}
+              className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body"
+            />
+            <input
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Tìm mã đơn, khách hoặc quán…"
+              aria-label="Tìm kiếm đơn hàng"
+              className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-base text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-xs">
             <Select
               aria-label="Trạng thái đơn hàng"
-              className="min-w-0 md:w-48"
+              className="w-full sm:w-auto md:w-44"
+              fieldClassName="!h-9 !px-sm text-caption"
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
@@ -206,7 +397,8 @@ export default function AdminOrders() {
             />
             <Select
               aria-label="Phương thức thanh toán"
-              className="min-w-0 md:w-48"
+              className="w-full sm:w-auto md:w-36"
+              fieldClassName="!h-9 !px-sm text-caption"
               value={paymentMethod}
               onChange={(e) => {
                 setPaymentMethod(e.target.value);
@@ -220,7 +412,8 @@ export default function AdminOrders() {
             />
             <Select
               aria-label="Trạng thái thanh toán"
-              className="col-span-2 min-w-0 md:col-auto md:w-48"
+              className="w-full sm:w-auto md:w-36"
+              fieldClassName="!h-9 !px-sm text-caption"
               value={paymentStatus}
               onChange={(e) => {
                 setPaymentStatus(e.target.value);
@@ -232,9 +425,10 @@ export default function AdminOrders() {
               ]}
             />
           </div>
+        </div>
       </div>
 
-      {loading ? (
+      {shouldShowInitialLoader(loading, orders) ? (
         <Card padded className="text-center text-body py-xxl">
           Đang tải thông tin đơn hàng...
         </Card>
@@ -291,14 +485,9 @@ export default function AdminOrders() {
                           Hủy đơn
                         </Button>
                       )}
-                      {o.status === 'ready_for_pickup' && (
-                        <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'picked_up')}>
-                          Đã lấy hàng
-                        </Button>
-                      )}
-                      {o.status === 'picked_up' && (
+                      {['ready_for_pickup', 'picked_up'].includes(o.status) && (
                         <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'delivering')}>
-                          Đang giao
+                          Xác nhận đang giao
                         </Button>
                       )}
                     </div>
@@ -343,14 +532,9 @@ export default function AdminOrders() {
                       Hủy đơn
                     </Button>
                   )}
-                  {o.status === 'ready_for_pickup' && (
-                    <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'picked_up')}>
-                      Đã lấy hàng
-                    </Button>
-                  )}
-                  {o.status === 'picked_up' && (
+                  {['ready_for_pickup', 'picked_up'].includes(o.status) && (
                     <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'delivering')}>
-                      Đang giao
+                      Xác nhận đang giao
                     </Button>
                   )}
                 </div>
@@ -419,7 +603,10 @@ export default function AdminOrders() {
               <div>
                 <span className="text-caption text-body block">Khách hàng</span>
                 <span className="font-semibold text-ink block">{selectedOrder.customer_name}</span>
-                <span className="text-caption text-body">{selectedOrder.customer_email}</span>
+                <span className="text-caption text-body block">{selectedOrder.customer_email}</span>
+                {selectedOrder.customer_phone && selectedOrder.customer_phone !== 'null' && (
+                  <span className="text-caption text-body block">SĐT: {selectedOrder.customer_phone}</span>
+                )}
               </div>
               <div>
                 <span className="text-caption text-body block">Cửa hàng</span>

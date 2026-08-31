@@ -6,12 +6,19 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { apiGet } from '../../lib/api.js';
+import { useApp } from '../../context/AppContext.jsx';
 
 export default function OrderSuccess() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [error, setError] = useState('');
   const nav = useNavigate();
+  const { clearCart } = useApp();
+
+  useEffect(() => {
+    // Đảm bảo xóa sạch giỏ hàng khi người dùng đã đặt đơn thành công
+    clearCart({ localOnly: true });
+  }, [clearCart]);
 
   useEffect(() => {
     let active = true;
@@ -61,7 +68,7 @@ export default function OrderSuccess() {
         </span>
         <h1 className="mt-md text-display-lg text-ink">Đã đặt hàng.</h1>
         <p className="mt-xs text-body-md text-body">
-          Chúng tôi đã gửi đơn hàng của bạn đến nhà bếp và điều phối tài xế. Chúng tôi sẽ cập nhật cho bạn.
+          Chúng tôi đã gửi đơn hàng của bạn đến nhà hàng. Trạng thái chuẩn bị và giao hàng sẽ được cập nhật tại đây.
         </p>
 
         <Card padded hover={false} className="mt-xl text-left">

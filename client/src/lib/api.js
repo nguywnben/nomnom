@@ -5,6 +5,7 @@ import {
   saveTokens,
 } from './authStorage.js';
 import { getHomeViewerId } from './homeViewer.js';
+import { unwrapAdminCuisine, unwrapAdminCuisines } from './adminCuisines.js';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
@@ -71,10 +72,11 @@ export function apiGet(path) {
   return apiFetch(path);
 }
 
-export function apiPost(path, body) {
+export function apiPost(path, body, options = {}) {
   return apiFetch(path, {
+    ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...options.headers },
     body: JSON.stringify(body),
   });
 }
@@ -112,12 +114,19 @@ export function loginApi(email, password, rememberMe = true) {
   return apiPost('/api/v1/auth/login', { email, password, rememberMe });
 }
 
-export function fetchAdminOverview(range = 'month') {
-  const params = new URLSearchParams({ range });
+export function fetchAdminOverview(arg = 'month') {
+  const params = new URLSearchParams();
+  if (typeof arg === 'string') {
+    params.set('range', arg);
+  } else if (arg && typeof arg === 'object') {
+    if (arg.range) params.set('range', arg.range);
+    if (arg.fromDate) params.set('fromDate', arg.fromDate);
+    if (arg.toDate) params.set('toDate', arg.toDate);
+  }
   return apiGet(`/api/v1/admin/overview?${params.toString()}`);
 }
 
-export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20 } = {}) {
+export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1, limit = 20, export: isExport } = {}) {
   const params = new URLSearchParams({
     role,
     status,
@@ -125,6 +134,7 @@ export function queryAdminUsers({ role = 'all', status = 'all', q = '', page = 1
     page: String(page),
     limit: String(limit),
   });
+  if (isExport) params.set('export', '1');
   return apiGet(`/api/v1/admin/usersQuery?${params.toString()}`);
 }
 
@@ -215,6 +225,11 @@ export function fetchHomePromos() {
   return apiGet('/api/v1/home/promos');
 }
 
+/** Danh sách voucher công khai trên trang chủ — GET /api/v1/home/vouchers */
+export function fetchHomeVouchersApi() {
+  return apiGet('/api/v1/home/vouchers');
+}
+
 /** Đăng ký đối tác nhà hàng mới — POST /api/v1/merchant/apply */
 export function applyMerchantApi(data) {
   return apiPost('/api/v1/merchant/apply', data);
@@ -226,14 +241,21 @@ export function fetchMerchantRestaurantApi() {
 }
 
 /** Lấy thông tin KPI và thống kê cho Dashboard của merchant — GET /api/v1/merchant/me/dashboard */
-export function fetchMerchantDashboardApi(range = 'today') {
-  return apiGet(`/api/v1/merchant/me/dashboard?range=${range}`);
+export function fetchMerchantDashboardApi(params = 'today') {
+  const query = typeof params === 'string' ? { range: params } : (params || {});
+  const sp = new URLSearchParams();
+  if (query.range) sp.set('range', query.range);
+  if (query.fromDate) sp.set('fromDate', query.fromDate);
+  if (query.toDate) sp.set('toDate', query.toDate);
+  return apiGet(`/api/v1/merchant/me/dashboard?${sp.toString()}`);
 }
 
 /** Đơn hàng của quán — GET /api/v1/merchant/me/orders */
-export function fetchMerchantOrdersApi({ date, status } = {}) {
+export function fetchMerchantOrdersApi({ date, status, fromDate, toDate } = {}) {
   const params = new URLSearchParams();
   if (date) params.set('date', date);
+  if (fromDate) params.set('fromDate', fromDate);
+  if (toDate) params.set('toDate', toDate);
   if (status) params.set('status', status);
   const qs = params.toString();
   return apiGet(`/api/v1/merchant/me/orders${qs ? `?${qs}` : ''}`);
@@ -262,8 +284,8 @@ export function deleteMerchantVoucherApi(id) {
   return apiDelete(`/api/v1/merchant/me/vouchers/${encodeURIComponent(id)}`);
 }
 
-export function fetchMerchantReviewsApi({ page = 1, limit = 50, rating, replied = 'all' } = {}) {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit), replied });
+export function fetchMerchantReviewsApi({ page = 1, limit = 50, rating, replied = 'all', target = 'all' } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), replied, target });
   if (rating) params.set('rating', String(rating));
   return apiGet(`/api/v1/merchant/me/reviews?${params.toString()}`);
 }
@@ -279,6 +301,20 @@ export function fetchRestaurantVouchersApi(restaurantId) {
 /** Lấy danh sách các loại hình ẩm thực — GET /api/v1/home/cuisines */
 export function fetchCuisinesApi() {
   return apiGet('/api/v1/home/cuisines');
+}
+
+export function fetchAdminRestaurantsApi(params = {}) {
+  const query = new URLSearchParams();
+  if (params.q) query.set('q', params.q);
+  if (params.status) query.set('status', params.status);
+  if (params.cuisineId) query.set('cuisineId', params.cuisineId);
+  if (params.city) query.set('city', params.city);
+  const qStr = query.toString();
+  return apiGet(`/api/v1/admin/restaurants${qStr ? `?${qStr}` : ''}`);
+}
+
+export function updateAdminRestaurantStatusApi(restaurantId, body) {
+  return apiPatch(`/api/v1/admin/restaurants/${encodeURIComponent(restaurantId)}/status`, body);
 }
 
 export function fetchAdminPendingRestaurants() {
@@ -309,7 +345,7 @@ export function rejectAdminRestaurantAddressChangeRequest(requestId, reason) {
   return apiPost(`/api/v1/admin/restaurant-address-change-requests/${encodeURIComponent(requestId)}/reject`, { reason });
 }
 
-export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', page = 1 } = {}) {
+export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymentStatus = 'all', q = '', fromDate, toDate, page = 1, limit = 10 } = {}) {
   const params = new URLSearchParams({
     status,
     paymentMethod,
@@ -317,6 +353,9 @@ export function fetchAdminOrders({ status = 'all', paymentMethod = 'all', paymen
     q,
     page: String(page),
   });
+  if (fromDate) params.set('fromDate', fromDate);
+  if (toDate) params.set('toDate', toDate);
+  if (limit) params.set('limit', String(limit));
   return apiGet(`/api/v1/admin/orders?${params.toString()}`);
 }
 
@@ -341,14 +380,18 @@ export function cancelMyOrderApi(orderId) {
   return apiPost(`/api/v1/me/orders/${encodeURIComponent(orderId)}/cancel`, {});
 }
 
-export function fetchAdminReviews({ hidden = 'all', page = 1, q = '', ratingMax } = {}) {
-  const params = new URLSearchParams({ hidden, page: String(page), q });
-  if (ratingMax) params.set('ratingMax', String(ratingMax));
+export function fetchAdminReviews({ tab = 'all', hidden = 'all', page = 1, limit = 10, q = '', rating = 'all', targetType = 'all', export: isExport } = {}) {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit), q });
+  if (tab && tab !== 'all') params.set('tab', tab);
+  if (hidden && hidden !== 'all') params.set('hidden', hidden);
+  if (rating && rating !== 'all') params.set('rating', String(rating));
+  if (targetType && targetType !== 'all') params.set('targetType', targetType);
+  if (isExport) params.set('export', '1');
   return apiGet(`/api/v1/admin/reviews?${params.toString()}`);
 }
 
-export function updateAdminReviewHidden(reviewId, isHidden) {
-  return apiPatch(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}`, { isHidden });
+export function updateAdminReviewHidden(reviewId, isHidden, reason = '') {
+  return apiPatch(`/api/v1/admin/reviews/${encodeURIComponent(reviewId)}`, { isHidden, reason });
 }
 
 export function fetchRestaurants(params = {}) {
@@ -437,6 +480,42 @@ export function validateVoucherApi(code, subtotal) {
 
 export function fetchMyVouchersApi() {
   return apiGet('/api/v1/me/vouchers');
+}
+
+export function saveVoucherApi(payload) {
+  return apiPost('/api/v1/me/vouchers/save', payload);
+}
+
+export function deleteExpiredVouchersApi() {
+  return apiDelete('/api/v1/me/vouchers/expired');
+}
+
+export function deleteSavedVoucherApi(voucherId) {
+  return apiDelete(`/api/v1/me/vouchers/${encodeURIComponent(voucherId)}`);
+}
+
+export function fetchAdminVouchersApi(params = {}) {
+  const query = new URLSearchParams();
+  if (params.q) query.set('q', params.q);
+  if (params.status) query.set('status', params.status);
+  if (params.scope) query.set('scope', params.scope);
+  if (params.discountType) query.set('discountType', params.discountType);
+  if (params.isPublic) query.set('isPublic', params.isPublic);
+  if (params.sortBy) query.set('sortBy', params.sortBy);
+  const qStr = query.toString();
+  return apiGet(`/api/v1/admin/vouchers${qStr ? `?${qStr}` : ''}`);
+}
+
+export function createAdminVoucherApi(body) {
+  return apiPost('/api/v1/admin/vouchers', body);
+}
+
+export function updateAdminVoucherApi(id, body) {
+  return apiPatch(`/api/v1/admin/vouchers/${encodeURIComponent(id)}`, body);
+}
+
+export function deleteAdminVoucherApi(id) {
+  return apiDelete(`/api/v1/admin/vouchers/${encodeURIComponent(id)}`);
 }
 
 /** Top quán nổi bật — GET /api/v1/home/featured-restaurants */
@@ -547,8 +626,14 @@ export function updateAdminPayoutApi(id, body) {
   return apiPatch('/api/v1/admin/payouts/' + encodeURIComponent(id), body);
 }
 
-export function fetchAdminFinancialApi(range = 'month') {
-  return apiGet('/api/v1/admin/financial?range=' + encodeURIComponent(range));
+export function fetchAdminFinancialApi(params = 'month') {
+  let query = '';
+  if (typeof params === 'string') {
+    query = `range=${encodeURIComponent(params)}`;
+  } else if (params && typeof params === 'object') {
+    query = new URLSearchParams(params).toString();
+  }
+  return apiGet(`/api/v1/admin/financial?${query}`);
 }
 
 export function fetchAdminConfigApi() {
@@ -565,9 +650,15 @@ export function updateAdminCustomerHomeApi(config) { return apiPatch('/api/v1/ad
 
 export function fetchAdminUserDetailApi(id) { return apiGet('/api/v1/admin/users/' + encodeURIComponent(id)); }
 
-export function fetchAdminCuisinesApi() { return apiGet('/api/v1/admin/cuisines'); }
-export function createAdminCuisineApi(body) { return apiPost('/api/v1/admin/cuisines', body); }
-export function updateAdminCuisineApi(id, body) { return apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body); }
+export async function fetchAdminCuisinesApi() {
+  return unwrapAdminCuisines(await apiGet('/api/v1/admin/cuisines'));
+}
+export async function createAdminCuisineApi(body) {
+  return unwrapAdminCuisine(await apiPost('/api/v1/admin/cuisines', body));
+}
+export async function updateAdminCuisineApi(id, body) {
+  return unwrapAdminCuisine(await apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body));
+}
 export function deleteAdminCuisineApi(id) { return apiDelete('/api/v1/admin/cuisines/' + encodeURIComponent(id)); }
 export function reorderAdminCuisinesApi(ids) { return apiPatch('/api/v1/admin/cuisines/reorder', { ids }); }
 export function fetchAdminHomeBannersApi() { return apiGet('/api/v1/admin/home-banners'); }

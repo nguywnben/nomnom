@@ -29,6 +29,7 @@ const paths = {
   chevronRight: <path d="M9 6l6 6-6 6" {...stroke} />,
   chevronLeft: <path d="M15 6l-6 6 6 6" {...stroke} />,
   chevronDown: <path d="M6 9l6 6 6-6" {...stroke} />,
+  chevronUp: <path d="M18 15l-6-6-6 6" {...stroke} />,
   plus: <path d="M12 5v14M5 12h14" {...stroke} />,
   minus: <path d="M5 12h14" {...stroke} />,
   star: (
@@ -72,6 +73,12 @@ const paths = {
     <g {...stroke}>
       <path d="M12 3l10 18H2L12 3z" />
       <path d="M12 10v4M12 17h.01" />
+    </g>
+  ),
+  alertCircle: (
+    <g {...stroke}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4M12 16h.01" />
     </g>
   ),
   info: (
@@ -132,6 +139,23 @@ const paths = {
     </g>
   ),
   shield: <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" {...stroke} />,
+  printer: (
+    <g {...stroke}>
+      <path d="M6 9V3h12v6" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <path d="M6 14h12v7H6z" />
+    </g>
+  ),
+  grip: (
+    <g {...stroke}>
+      <circle cx="9" cy="5" r="1" fill="currentColor" />
+      <circle cx="9" cy="12" r="1" fill="currentColor" />
+      <circle cx="9" cy="19" r="1" fill="currentColor" />
+      <circle cx="15" cy="5" r="1" fill="currentColor" />
+      <circle cx="15" cy="12" r="1" fill="currentColor" />
+      <circle cx="15" cy="19" r="1" fill="currentColor" />
+    </g>
+  ),
   eye: (
     <g {...stroke}>
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
@@ -189,6 +213,25 @@ const paths = {
     </g>
   ),
   zap: <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" {...stroke} />,
+  ticket: (
+    <g {...stroke}>
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z" />
+      <path d="M13 5v2M13 11v2M13 17v2" />
+    </g>
+  ),
+  tag: (
+    <g {...stroke}>
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <circle cx="7" cy="7" r="1.5" />
+    </g>
+  ),
+  percent: (
+    <g {...stroke}>
+      <line x1="19" y1="5" x2="5" y2="19" />
+      <circle cx="6.5" cy="6.5" r="2.5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+    </g>
+  ),
   refresh: (
     <g {...stroke}>
       <path d="M21 12a9 9 0 0 1-15 6.7L3 17M3 12a9 9 0 0 1 15-6.7L21 7" />
@@ -228,6 +271,13 @@ const paths = {
       <rect x="2" y="6" width="20" height="12" rx="2" />
       <circle cx="12" cy="12" r="3" />
       <path d="M6 9h.01M18 15h.01" />
+    </g>
+  ),
+  logout: (
+    <g {...stroke}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </g>
   ),
 };

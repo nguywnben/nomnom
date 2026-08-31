@@ -340,7 +340,7 @@ export default function MerchantOnboarding() {
         return;
       }
       if (msg.includes('Số điện thoại') || msg.includes('phone')) {
-        setError('phone', { type: 'manual', message: 'Số điện thoại này đã được một nhà hàng khác sử dụng.' });
+        setError('phone', { type: 'manual', message: 'Số điện thoại này đã được một quán ăn khác sử dụng.' });
         setStepIdx(0); // Quay về step 1
       } else if (msg.includes('Tên quán') || msg.includes('name')) {
         setError('name', { type: 'manual', message: 'Tên quán ăn này đã tồn tại trên hệ thống.' });
@@ -478,16 +478,6 @@ export default function MerchantOnboarding() {
 
           {step.id === 'address' && (
             <div className="grid gap-sm md:grid-cols-2">
-              <Input
-                id="addressLine"
-                label="Số nhà, tên đường"
-                required
-                className="md:col-span-2"
-                placeholder="Số nhà, đường"
-                aria-label="Địa chỉ"
-                error={errors.addressLine?.message}
-                {...register('addressLine', { required: 'Vui lòng nhập số nhà, tên đường.' })}
-              />
               <Select
                 id="city"
                 label="Tỉnh / Thành phố"
@@ -514,6 +504,16 @@ export default function MerchantOnboarding() {
                 {...register('ward', {
                   required: 'Vui lòng chọn phường/xã.',
                 })}
+              />
+              <Input
+                id="addressLine"
+                label="Số nhà, tên đường"
+                required
+                className="md:col-span-2"
+                placeholder="Số nhà, tên đường cụ thể..."
+                aria-label="Địa chỉ"
+                error={errors.addressLine?.message}
+                {...register('addressLine', { required: 'Vui lòng nhập số nhà, tên đường.' })}
               />
               <div className="md:col-span-2">
                 <OnboardingInfoBanner>

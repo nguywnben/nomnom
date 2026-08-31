@@ -33,8 +33,25 @@ function formatSubmittedAt(value) {
 }
 
 function resolveView(restaurant) {
+  const rawStatus = String(restaurant.status ?? '').trim().toLowerCase();
   const status = normalizeMerchantRestaurantStatus(restaurant.status);
   const rejectionReason = restaurant.rejection_reason?.trim();
+
+  if (rawStatus === 'suspended') {
+    return {
+      key: 'suspended',
+      badge: { tone: 'error', label: 'Tạm khóa', dot: true },
+      icon: 'alert',
+      iconWrap: 'bg-[#fbeaea] text-error border-hairline',
+      title: 'Quán đang bị tạm khóa hoạt động',
+      message: rejectionReason || 'Quán ăn của bạn đã bị quản trị viên tạm khóa do vi phạm quy định vận hành.',
+      description:
+        'Vui lòng liên hệ bộ phận hỗ trợ đối tác hoặc quản trị viên NomNom để được giải đáp và hỗ trợ mở khóa lại quán.',
+      steps: null,
+      primaryAction: { to: '/app', label: 'Về trang khách hàng' },
+      secondaryAction: null,
+    };
+  }
 
   if (status === 'rejected' && rejectionReason) {
     return {
@@ -67,21 +84,6 @@ function resolveView(restaurant) {
         'Chúng tôi có thể gọi xác minh qua số điện thoại quán nếu cần.',
         'Bạn sẽ nhận thông báo trong ứng dụng ngay khi có kết quả.',
       ],
-      primaryAction: { to: '/app', label: 'Về trang khách hàng' },
-      secondaryAction: null,
-    };
-  }
-
-  if (status === 'rejected') {
-    return {
-      key: 'suspended',
-      badge: { tone: 'error', label: 'Tạm ngưng', dot: true },
-      icon: 'alert',
-      iconWrap: 'bg-[#fbeaea] text-error border-hairline',
-      title: 'Quán đang tạm ngưng hoạt động',
-      message: 'Quán ăn của bạn đã bị quản trị viên tạm ngưng trên hệ thống NomNom.',
-      description: 'Vui lòng liên hệ bộ phận hỗ trợ đối tác để được giải đáp và hỗ trợ mở lại.',
-      steps: null,
       primaryAction: { to: '/app', label: 'Về trang khách hàng' },
       secondaryAction: null,
     };
@@ -219,7 +221,7 @@ export default function MerchantPending() {
           <div className="text-caption-uppercase text-body">Đối tác NomNom</div>
           <h1 className="text-display-md text-ink md:text-display-lg">Trạng thái hồ sơ quán</h1>
           <p className="mt-xs text-body-md text-body">
-            Theo dõi tiến trình xét duyệt đối tác nhà hàng của bạn trên NomNom.
+            Theo dõi tiến trình xét duyệt đối tác quán ăn của bạn trên NomNom.
           </p>
         </div>
 

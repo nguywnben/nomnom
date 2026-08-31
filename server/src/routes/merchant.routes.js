@@ -16,7 +16,7 @@ function ensureMerchant(req, res, next) {
   if ((req.auth.roles ?? []).includes('merchant')) {
     return next();
   }
-  return res.status(403).json({ error: 'Bạn không có quyền truy cập khu vực đối tác nhà hàng.' });
+  return res.status(403).json({ error: 'Bạn không có quyền truy cập khu vực đối tác quán ăn.' });
 }
 
 async function loadOwnedRestaurant(userId) {
@@ -27,9 +27,9 @@ async function loadOwnedRestaurant(userId) {
   return rows[0] ?? null;
 }
 
-async function loadOrderForRestaurant(orderCode, restaurantId) {
-  const [rows] = await pool.query(
-    'SELECT * FROM orders WHERE order_code = ? AND restaurant_id = ? LIMIT 1',
+async function loadOrderForRestaurant(orderCode, restaurantId, db = pool, { forUpdate = false } = {}) {
+  const [rows] = await db.query(
+    `SELECT * FROM orders WHERE order_code = ? AND restaurant_id = ? LIMIT 1${forUpdate ? ' FOR UPDATE' : ''}`,
     [orderCode, restaurantId],
   );
   return rows[0] ?? null;
@@ -75,6 +75,7 @@ function serializeVoucher(row) {
     minOrderAmount: Number(row.min_order_amount ?? 0),
     usageLimit: row.usage_limit === null ? null : Number(row.usage_limit),
     perUserLimit: Number(row.per_user_limit ?? 1),
+    isPublic: Boolean(row.is_public ?? 1),
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     status: row.status,
@@ -93,6 +94,7 @@ function validateVoucherPayload(body) {
   const minOrderAmount = Number(body?.minOrderAmount ?? 0);
   const usageLimit = parseNullableNumber(body?.usageLimit);
   const perUserLimit = Number(body?.perUserLimit ?? 1);
+  const isPublic = body?.isPublic === false || body?.isPublic === 0 || body?.isPublic === 'false' ? 0 : 1;
   const startsAt = String(body?.startsAt ?? '').trim();
   const endsAt = String(body?.endsAt ?? '').trim();
   const status = String(body?.status ?? 'draft').trim().toLowerCase();
@@ -319,11 +321,11 @@ router.post('/apply', requireAuth, async (req, res, next) => {
       const rest = existingOwner[0];
       if (rest.status === 'active') {
         await conn.rollback();
-        return res.status(400).json({ error: 'Bạn đã sở hữu một nhà hàng đang hoạt động trên hệ thống.' });
+        return res.status(400).json({ error: 'Bạn đã sở hữu một quán ăn đang hoạt động trên hệ thống.' });
       }
       if (rest.status === 'pending') {
         await conn.rollback();
-        return res.status(400).json({ error: 'Yêu cầu đăng ký nhà hàng của bạn đang chờ xét duyệt.' });
+        return res.status(400).json({ error: 'Yêu cầu đăng ký quán ăn của bạn đang chờ xét duyệt.' });
       }
       // Nếu status là suspended hoặc closed, cho phép cập nhật lại thông tin để nộp lại đơn
       restaurantId = rest.id;
@@ -337,7 +339,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
     );
     if (existingPhone.length > 0) {
       await conn.rollback();
-      return res.status(400).json({ error: 'Số điện thoại này đã được một nhà hàng khác sử dụng.' });
+      return res.status(400).json({ error: 'Số điện thoại này đã được một quán ăn khác sử dụng.' });
     }
 
     // 4. Sinh unique slug từ name
@@ -458,7 +460,7 @@ router.post('/apply', requireAuth, async (req, res, next) => {
       [
         adminId,
         'Yêu cầu đăng ký quán ăn mới',
-        `Nhà hàng "${name.trim()}" vừa gửi yêu cầu duyệt hồ sơ đối tác.`,
+        `Quán ăn "${name.trim()}" vừa gửi yêu cầu duyệt hồ sơ đối tác.`,
         '/admin/restaurants'
       ]
     );
@@ -537,16 +539,44 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
     }
 
     if (!restaurantId) {
-      return res.status(404).json({ error: 'Không tìm thấy nhà hàng của đối tác này.' });
+      return res.status(404).json({ error: 'Không tìm thấy quán ăn của đối tác này.' });
     }
 
-    const range = ['today', 'week', 'month'].includes(req.query.range) ? req.query.range : 'today';
+    const range = ['today', 'yesterday', 'week', 'month', '90d', 'all', 'custom'].includes(req.query.range) ? req.query.range : 'today';
+    let { fromDate, toDate } = req.query;
 
     let dateConditionSql = 'placed_at >= CURDATE()';
-    if (range === 'week') {
+    let chartDaysCount = 7;
+    let chartEndDate = new Date();
+    let chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)';
+
+    if (fromDate && toDate) {
+      const fromLiteral = pool.escape(`${fromDate} 00:00:00`);
+      const toLiteral = pool.escape(`${toDate} 23:59:59`);
+      dateConditionSql = `placed_at >= ${fromLiteral} AND placed_at <= ${toLiteral}`;
+      
+      const diffMs = Math.abs(new Date(toDate) - new Date(fromDate));
+      chartDaysCount = Math.min(90, Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1));
+      chartEndDate = new Date(toDate);
+      chartDateConditionSql = `placed_at >= ${fromLiteral} AND placed_at <= ${toLiteral}`;
+    } else if (range === 'all') {
+      dateConditionSql = '1 = 1';
+      chartDateConditionSql = '1 = 1';
+    } else if (range === 'yesterday') {
+      dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 1 DAY) AND placed_at < CURDATE()';
+      chartDaysCount = 7;
+    } else if (range === 'week') {
       dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)';
+      chartDaysCount = 7;
+      chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)';
     } else if (range === 'month') {
       dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)';
+      chartDaysCount = 30;
+      chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)';
+    } else if (range === '90d') {
+      dateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 89 DAY)';
+      chartDaysCount = 90;
+      chartDateConditionSql = 'placed_at >= DATE_SUB(CURDATE(), INTERVAL 89 DAY)';
     }
 
     // 1. Summary
@@ -576,7 +606,7 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
        INNER JOIN orders o ON o.id = oi.order_id
        WHERE o.restaurant_id = ? 
          AND o.status = 'delivered'
-         AND o.${dateConditionSql}
+         AND ${dateConditionSql}
        GROUP BY oi.menu_item_id, oi.item_name_snapshot
        ORDER BY totalSold DESC, revenue DESC
        LIMIT 5`,
@@ -614,41 +644,61 @@ router.get('/me/dashboard', requireAuth, async (req, res, next) => {
       placedAt: o.placedAt
     }));
 
-    // 4. Chart (7 ngày gần nhất)
-    const chartData = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      chartData.push({
-        date: dateStr,
-        orderCount: 0,
-        revenue: 0
-      });
-    }
+    // 4. Chart
+    let chartData = [];
+    if (range === 'all') {
+      const [chartRows] = await pool.query(
+        `SELECT 
+           DATE_FORMAT(placed_at, '%Y-%m-%d') AS dateStr,
+           COUNT(*) AS orderCount,
+           COALESCE(SUM(total_amount), 0) AS revenue
+         FROM orders
+         WHERE restaurant_id = ? 
+           AND status = 'delivered'
+         GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
+         ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
+        [restaurantId]
+      );
+      chartData = chartRows.map(r => ({
+        date: r.dateStr,
+        orderCount: Number(r.orderCount),
+        revenue: Number(r.revenue)
+      }));
+    } else {
+      for (let i = chartDaysCount - 1; i >= 0; i--) {
+        const d = new Date(chartEndDate.getTime());
+        d.setDate(d.getDate() - i);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        chartData.push({
+          date: dateStr,
+          orderCount: 0,
+          revenue: 0
+        });
+      }
 
-    const [chartRows] = await pool.query(
-      `SELECT 
-         DATE_FORMAT(placed_at, '%Y-%m-%d') AS dateStr,
-         COUNT(*) AS orderCount,
-         COALESCE(SUM(total_amount), 0) AS revenue
-       FROM orders
-       WHERE restaurant_id = ? 
-         AND status = 'delivered'
-         AND placed_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-       GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
-       ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
-      [restaurantId]
-    );
+      const [chartRows] = await pool.query(
+        `SELECT 
+           DATE_FORMAT(placed_at, '%Y-%m-%d') AS dateStr,
+           COUNT(*) AS orderCount,
+           COALESCE(SUM(total_amount), 0) AS revenue
+         FROM orders
+         WHERE restaurant_id = ? 
+           AND status = 'delivered'
+           AND ${chartDateConditionSql}
+         GROUP BY DATE_FORMAT(placed_at, '%Y-%m-%d')
+         ORDER BY DATE_FORMAT(placed_at, '%Y-%m-%d') ASC`,
+        [restaurantId]
+      );
 
-    for (const row of chartRows) {
-      const match = chartData.find(c => c.date === row.dateStr);
-      if (match) {
-        match.orderCount = Number(row.orderCount);
-        match.revenue = Number(row.revenue);
+      for (const row of chartRows) {
+        const match = chartData.find(c => c.date === row.dateStr);
+        if (match) {
+          match.orderCount = Number(row.orderCount);
+          match.revenue = Number(row.revenue);
+        }
       }
     }
 
@@ -698,10 +748,21 @@ router.get('/me/orders', requireAuth, ensureMerchant, async (req, res, next) => 
       return res.status(404).json({ error: 'Không tìm thấy quán ăn của bạn.' });
     }
 
-    const date = parseOrderDate(req.query.date);
+    const { fromDate, toDate } = req.query;
     const status = req.query.status ? String(req.query.status).trim() : null;
 
-    const params = [restaurant.id, date];
+    let dateSql = '';
+    const params = [restaurant.id];
+
+    if (fromDate && toDate) {
+      dateSql = ' AND o.placed_at >= ? AND o.placed_at <= ?';
+      params.push(`${fromDate} 00:00:00`, `${toDate} 23:59:59`);
+    } else {
+      const date = parseOrderDate(req.query.date);
+      dateSql = ' AND DATE(o.placed_at) = ?';
+      params.push(date);
+    }
+
     let statusSql = '';
     if (status) {
       if (['pending_payment', 'payment_failed', 'expired'].includes(status)) {
@@ -718,7 +779,7 @@ router.get('/me/orders', requireAuth, ensureMerchant, async (req, res, next) => 
        FROM orders o
        JOIN users u ON u.id = o.customer_id
        WHERE o.restaurant_id = ?
-         AND DATE(o.placed_at) = ?
+         ${dateSql}
          ${statusSql}
        ORDER BY o.placed_at DESC`,
       params,
@@ -812,12 +873,15 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
       return res.status(400).json({ error: 'Thiếu orderCode hoặc action.' });
     }
 
-    const order = await loadOrderForRestaurant(orderCode, restaurant.id);
+    await conn.beginTransaction();
+    const order = await loadOrderForRestaurant(orderCode, restaurant.id, conn, { forUpdate: true });
     if (!order) {
+      await conn.rollback();
       return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
     }
 
     if (['pending_payment', 'payment_failed', 'expired'].includes(order.status)) {
+      await conn.rollback();
       return res.status(400).json({ error: 'Không thể cập nhật trạng thái của đơn hàng chưa thanh toán hoặc đã hết hạn.' });
     }
 
@@ -826,10 +890,9 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
       || 'Quán hủy đơn hàng.';
 
     if (transition.cancel && order.payment_status === 'paid') {
+      await conn.rollback();
       return res.status(409).json({ error: 'Paid orders must be refunded and cancelled by an administrator.' });
     }
-
-    await conn.beginTransaction();
 
     const updates = ['status = ?', 'updated_at = NOW()'];
     const values = [transition.to];
@@ -839,6 +902,9 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
     }
     if (transition.setReadyAt) {
       updates.push('ready_at = NOW()');
+    }
+    if (transition.setDeliveringAt) {
+      updates.push('delivering_at = NOW()');
     }
     if (transition.cancel) {
       updates.push('cancelled_at = NOW()', "cancelled_by_role = 'merchant'", 'cancel_reason = ?');
@@ -858,7 +924,8 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
     const noteByAction = {
       accept: 'Quán xác nhận đơn',
       start_preparing: 'Bắt đầu chuẩn bị',
-      ready: 'Sẵn sàng cho tài xế lấy',
+      ready: 'Sẵn sàng giao cho khách',
+      start_delivery: 'Nhà hàng bắt đầu giao đơn',
       cancel: cancelReason,
     };
 
@@ -1049,6 +1116,18 @@ router.post('/me/items', requireAuth, getMerchantRestaurant, async (req, res, ne
       return res.status(400).json({ error: 'Danh mục không hợp lệ hoặc không thuộc quán của bạn.' });
     }
 
+    if (isFeatured) {
+      const [[countRow]] = await pool.query(
+        'SELECT COUNT(*) as count FROM menu_items WHERE restaurant_id = ? AND is_featured = 1',
+        [restaurantId]
+      );
+      if (countRow?.count >= 5) {
+        return res.status(400).json({
+          error: 'Mỗi quán chỉ được đặt tối đa 5 món nổi bật. Vui lòng bỏ ghim bớt món trước khi chọn thêm.',
+        });
+      }
+    }
+
     const [result] = await pool.query(
       `INSERT INTO menu_items (
         restaurant_id, category_id, name, description, image_url, price, prep_time_min, is_featured, sort_order
@@ -1158,6 +1237,23 @@ router.patch('/me/items/:id', requireAuth, getMerchantRestaurant, async (req, re
       params.push(Number(prepTimeMin));
     }
     if (isFeatured !== undefined) {
+      if (isFeatured) {
+        const [[itemRow]] = await pool.query(
+          'SELECT is_featured FROM menu_items WHERE id = ?',
+          [itemId]
+        );
+        if (!itemRow?.is_featured) {
+          const [[countRow]] = await pool.query(
+            'SELECT COUNT(*) as count FROM menu_items WHERE restaurant_id = ? AND is_featured = 1',
+            [restaurantId]
+          );
+          if (countRow?.count >= 5) {
+            return res.status(400).json({
+              error: 'Mỗi quán chỉ được đặt tối đa 5 món nổi bật. Vui lòng bỏ ghim bớt món trước khi chọn thêm.',
+            });
+          }
+        }
+      }
       updates.push('is_featured = ?');
       params.push(isFeatured ? 1 : 0);
     }
@@ -1256,8 +1352,8 @@ router.post('/me/vouchers', requireAuth, ensureMerchant, async (req, res, next) 
       `INSERT INTO vouchers (
         restaurant_id, created_by_user_id, code, name, description,
         discount_type, discount_value, max_discount_amount, min_order_amount,
-        usage_limit, per_user_limit, starts_at, ends_at, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        usage_limit, per_user_limit, is_public, starts_at, ends_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       [
         restaurant.id,
         req.auth.userId,
@@ -1270,6 +1366,7 @@ router.post('/me/vouchers', requireAuth, ensureMerchant, async (req, res, next) 
         payload.minOrderAmount,
         payload.usageLimit,
         payload.perUserLimit,
+        payload.isPublic,
         payload.startsAt,
         payload.endsAt,
         payload.status,
@@ -1310,6 +1407,7 @@ router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, n
       minOrderAmount: current.min_order_amount,
       usageLimit: current.usage_limit,
       perUserLimit: current.per_user_limit,
+      isPublic: current.is_public,
       startsAt: current.starts_at,
       endsAt: current.ends_at,
       status: current.status,
@@ -1330,7 +1428,7 @@ router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, n
       `UPDATE vouchers SET
         code = ?, name = ?, description = ?, discount_type = ?, discount_value = ?,
         max_discount_amount = ?, min_order_amount = ?, usage_limit = ?, per_user_limit = ?,
-        starts_at = ?, ends_at = ?, status = ?
+        is_public = ?, starts_at = ?, ends_at = ?, status = ?
        WHERE id = ? AND restaurant_id = ?`,
       [
         payload.code,
@@ -1342,6 +1440,7 @@ router.patch('/me/vouchers/:id', requireAuth, ensureMerchant, async (req, res, n
         payload.minOrderAmount,
         payload.usageLimit,
         payload.perUserLimit,
+        payload.isPublic,
         payload.startsAt,
         payload.endsAt,
         payload.status,
@@ -1414,11 +1513,15 @@ router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) =>
     const offset = (page - 1) * limit;
     const rating = req.query.rating === undefined ? null : Number(req.query.rating);
     const replied = String(req.query.replied ?? 'all');
+    const target = String(req.query.target ?? 'all');
     if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
       return res.status(400).json({ error: 'rating must be an integer from 1 to 5.' });
     }
     if (!['all', 'true', 'false'].includes(replied)) {
       return res.status(400).json({ error: 'replied must be all, true, or false.' });
+    }
+    if (!['all', 'restaurant', 'dish'].includes(target)) {
+      return res.status(400).json({ error: 'target must be all, restaurant, or dish.' });
     }
 
     const filters = ['rv.restaurant_id = ?'];
@@ -1429,14 +1532,20 @@ router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) =>
     }
     if (replied === 'true') filters.push('rv.reply_text IS NOT NULL');
     if (replied === 'false') filters.push('rv.reply_text IS NULL');
+    if (target === 'restaurant') filters.push('rv.menu_item_id IS NULL');
+    if (target === 'dish') filters.push('rv.menu_item_id IS NOT NULL');
     const where = filters.join(' AND ');
 
     const [[countRow]] = await pool.query(
       'SELECT COUNT(*) AS total FROM reviews rv WHERE ' + where,
       params,
     );
+    const [[statsRow]] = await pool.query(
+      'SELECT COUNT(*) AS total, SUM(CASE WHEN rv.menu_item_id IS NULL THEN 1 ELSE 0 END) AS restaurant_count, SUM(CASE WHEN rv.menu_item_id IS NOT NULL THEN 1 ELSE 0 END) AS dish_count FROM reviews rv WHERE rv.restaurant_id = ?',
+      [restaurant.id],
+    );
     const [rows] = await pool.query(
-      'SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at, u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code FROM reviews rv INNER JOIN users u ON u.id = rv.customer_id INNER JOIN orders o ON o.id = rv.order_id WHERE ' + where + ' ORDER BY rv.created_at DESC, rv.id DESC LIMIT ? OFFSET ?',
+      'SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at, rv.menu_item_id, u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code, mi.name AS menu_item_name, mi.image_url AS menu_item_image FROM reviews rv INNER JOIN users u ON u.id = rv.customer_id INNER JOIN orders o ON o.id = rv.order_id LEFT JOIN menu_items mi ON mi.id = rv.menu_item_id WHERE ' + where + ' ORDER BY rv.created_at DESC, rv.id DESC LIMIT ? OFFSET ?',
       [...params, limit, offset],
     );
 
@@ -1452,8 +1561,16 @@ router.get('/me/reviews', requireAuth, ensureMerchant, async (req, res, next) =>
         createdAt: row.created_at,
         customerName: row.customer_name,
         customerAvatar: row.customer_avatar,
+        menuItemId: row.menu_item_id ? Number(row.menu_item_id) : null,
+        menuItemName: row.menu_item_name ?? null,
+        menuItemImage: row.menu_item_image ?? null,
       })),
       total: Number(countRow?.total ?? 0),
+      summary: {
+        total: Number(statsRow?.total ?? 0),
+        restaurantCount: Number(statsRow?.restaurant_count ?? 0),
+        dishCount: Number(statsRow?.dish_count ?? 0),
+      },
       page,
       limit,
     });
@@ -1492,7 +1609,7 @@ router.patch('/me/reviews/:reviewId/reply', requireAuth, ensureMerchant, async (
     );
 
     const [updatedRows] = await pool.query(
-      `SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at,
+      `SELECT rv.id, rv.order_id, rv.customer_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at,
               u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code
          FROM reviews rv
          INNER JOIN users u ON u.id = rv.customer_id
@@ -1503,6 +1620,18 @@ router.patch('/me/reviews/:reviewId/reply', requireAuth, ensureMerchant, async (
     );
 
     const row = updatedRows[0];
+    if (row?.customer_id) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url)
+         VALUES (?, 'system', 'Quán đã phản hồi đánh giá của bạn', ?, ?)`,
+        [
+          row.customer_id,
+          `Quán "${restaurant.name}" vừa phản hồi nhận xét của bạn về đơn ${row.order_code}.`,
+          `/app/reviews/${restaurant.id}`,
+        ],
+      );
+    }
+
     res.json({
       review: {
         id: Number(row.id),

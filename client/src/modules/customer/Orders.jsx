@@ -6,7 +6,6 @@ import Card from '../../components/Card.jsx';
 import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal.jsx';
-import Tabs from '../../components/Tabs.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Icon from '../../components/Icon.jsx';
 import { apiGet } from '../../lib/api.js';
@@ -92,44 +91,62 @@ export default function CustomerOrders() {
 
   return (
     <div className="container-page py-xl">
-      <div className="mb-base flex flex-col justify-between gap-base md:flex-row md:items-end">
-        <div>
-          <div className="text-caption-uppercase text-body">Lịch sử</div>
-          <h1 className="text-display-lg text-ink">Đơn hàng của bạn</h1>
-        </div>
-        <div className="shrink-0">
-          <Tabs
-            items={[
-              { value: 'all', label: 'Tất cả' },
-              { value: 'active', label: 'Đang giao' },
-              { value: 'delivered', label: 'Đã giao' },
-              { value: 'cancelled', label: 'Đã huỷ' },
-            ]}
-            value={filterStatus}
-            onChange={(val) => {
-              setFilterStatus(val);
-              setPage(1);
-            }}
-          />
-        </div>
+      {/* Page Header */}
+      <div className="mb-5">
+        <div className="text-caption-uppercase text-body font-medium">Lịch sử</div>
+        <h1 className="text-display-lg font-bold text-ink">Đơn hàng của bạn</h1>
       </div>
 
-      <div className="mb-base flex max-w-md items-center gap-xs">
-        <div className="relative flex-1">
+      {/* Unified Filter & Search Toolbar */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-sm">
+        {/* Status Filter Buttons */}
+        <div className="flex max-w-full items-center gap-xs overflow-x-auto no-scrollbar flex-1 min-w-0">
+          {[
+            { value: 'all', label: 'Tất cả' },
+            { value: 'pending', label: 'Chờ thanh toán' },
+            { value: 'active', label: 'Đang giao' },
+            { value: 'delivered', label: 'Đã giao' },
+            { value: 'cancelled', label: 'Đã huỷ' },
+          ].map((item) => (
+            <button
+              key={item.value}
+              onClick={() => {
+                setFilterStatus(item.value);
+                setPage(1);
+              }}
+              className={
+                'h-9 inline-flex items-center justify-center whitespace-nowrap rounded-md px-sm text-button transition-colors shrink-0 ' +
+                (filterStatus === item.value
+                  ? 'bg-primary text-on-primary shadow-xs'
+                  : 'bg-surface-card border border-hairline-strong text-ink hover:bg-canvas-soft')
+              }
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search input */}
+        <div className="relative w-full sm:w-72 md:w-80 shrink-0 h-9">
           <Icon name="search" size={16} className="pointer-events-none absolute left-sm top-1/2 -translate-y-1/2 text-body" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm theo mã đơn hoặc tên quán…"
             aria-label="Tìm đơn hàng"
-            className="h-11 w-full rounded-md border border-hairline-strong bg-surface-card pl-10 pr-base text-body-sm text-ink outline-none placeholder:text-muted"
+            className="h-full w-full rounded-md border border-hairline-strong bg-surface-card pl-9 pr-8 text-body-sm text-ink outline-none placeholder:text-muted focus:border-ink transition-colors"
           />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              aria-label="Xoá tìm kiếm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-body hover:text-ink"
+            >
+              <Icon name="close" size={12} />
+            </button>
+          )}
         </div>
-        {q && (
-          <Button variant="ghost" size="sm" onClick={() => setQ('')}>
-            Xoá
-          </Button>
-        )}
       </div>
 
       {loading ? (
@@ -152,70 +169,122 @@ export default function CustomerOrders() {
           {filtered.map((order) => {
             const cancellable = CANCELLABLE_ORDER_STATUSES.includes(order.status);
             const isDelivered = order.status === 'delivered';
+            const isUnpaid = order.status === 'pending_payment' || order.status === 'payment_failed';
             return (
-              <Card key={order.id} padded={false} hover={false} className="overflow-hidden">
-                <div className="flex items-center gap-base p-base">
-                  <button
-                    type="button"
-                    onClick={() => nav(`/app/track/${order.orderCode}`)}
-                    className="flex min-w-0 flex-1 items-center gap-base text-left"
-                    aria-label={`Theo dõi đơn ${order.orderCode}`}
-                  >
-                    <Image
-                      src={order.restaurantBanner}
-                      alt={order.restaurantName}
-                      className="h-20 w-24 shrink-0 rounded-md object-cover"
-                      ratio="4/3"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-title-md text-ink">{order.restaurantName || 'Quán ăn'}</span>
+              <Card key={order.id} padded className="flex flex-col md:flex-row md:items-stretch justify-between gap-base transition-shadow hover:shadow-soft">
+                <div
+                  onClick={() => nav(`/app/track/${order.orderCode}`)}
+                  className="flex min-w-0 flex-1 items-start sm:items-center gap-base cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      nav(`/app/track/${order.orderCode}`);
+                    }
+                  }}
+                  aria-label={`Theo dõi đơn ${order.orderCode}`}
+                >
+                  <Image
+                    src={order.restaurantBanner}
+                    alt={order.restaurantName}
+                    className="h-18 w-22 sm:h-20 sm:w-24 shrink-0 rounded-md object-cover"
+                    ratio="4/3"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-title-md font-semibold text-ink">{order.restaurantName || 'Quán ăn'}</span>
+                      <div className="md:hidden">
                         <Badge tone={orderStatusTone(order.status)} dot>
                           {orderStatusLabel(order.status)}
                         </Badge>
-                      </span>
-                      <span className="mt-1 block truncate text-body-sm text-body">
-                        {(order.items ?? []).map((item) => `${item.quantity}x ${item.name}`).join(', ')}
-                      </span>
-                      <span className="mt-2 flex flex-wrap items-center gap-x-base gap-y-1 text-caption text-body">
-                        <span>#{order.orderCode}</span>
-                        <span>{new Date(order.placedAt).toLocaleString('vi-VN')}</span>
-                        <span className="nums font-semibold text-ink">{formatVnd(Number(order.totalAmount))}</span>
-                      </span>
-                    </span>
-                  </button>
-                  <Icon name="chevronRight" size={18} className="shrink-0 text-body" />
+                      </div>
+                    </div>
+                    <div className="mt-1 truncate text-body-sm text-body">
+                      {(order.items ?? []).map((item) => `${item.quantity}x ${item.name}`).join(', ')}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-base gap-y-1 text-caption text-body">
+                      <span className="font-mono font-medium">#{order.orderCode}</span>
+                      <span>{new Date(order.placedAt).toLocaleString('vi-VN')}</span>
+                      <span className="nums font-bold text-ink">{formatVnd(Number(order.totalAmount))}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-xs border-t border-hairline bg-canvas-soft px-base py-sm">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    leadingIcon="refresh"
-                    loading={reorderingId === order.id}
-                    disabled={reorderingId !== null}
-                    onClick={() => reorder(order)}
-                  >
-                    Đặt lại
-                  </Button>
-                  {isDelivered && (
-                    <Button size="sm" variant="secondary" leadingIcon="starFilled" onClick={() => nav(`/app/reviews/write/${order.id}`)}>
-                      Đánh giá
-                    </Button>
-                  )}
-                  <Button size="sm" variant="secondary" onClick={() => nav(`/app/track/${order.orderCode}`)}>
-                    Theo dõi
-                  </Button>
-                  {cancellable && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      leadingIcon="x"
-                      className="!border-error/40 !text-error hover:!bg-[#fbeaea]"
-                      onClick={() => setCancelling(order)}
-                    >
-                      Hủy đơn
-                    </Button>
-                  )}
+
+                <div className="flex flex-col md:items-end md:justify-between gap-sm shrink-0 border-t border-hairline pt-sm md:border-t-0 md:pt-0">
+                  <div className="hidden md:block">
+                    <Badge tone={orderStatusTone(order.status)} dot>
+                      {orderStatusLabel(order.status)}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-xs">
+                    {isUnpaid ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        leadingIcon="wallet"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/app/track/${order.orderCode}`);
+                        }}
+                      >
+                        Thanh toán ngay
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leadingIcon="refresh"
+                        loading={reorderingId === order.id}
+                        disabled={reorderingId !== null}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reorder(order);
+                        }}
+                      >
+                        Đặt lại
+                      </Button>
+                    )}
+                    {isDelivered && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leadingIcon="starFilled"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/app/reviews/write/${order.id}`, { state: { from: '/app/orders' } });
+                        }}
+                      >
+                        Đánh giá
+                      </Button>
+                    )}
+                    {!isUnpaid && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          nav(`/app/track/${order.orderCode}`);
+                        }}
+                      >
+                        Theo dõi
+                      </Button>
+                    )}
+                    {cancellable && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leadingIcon="x"
+                        className="!border-error/40 !text-error hover:!bg-[#fbeaea]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCancelling(order);
+                        }}
+                      >
+                        Hủy đơn
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </Card>
             );

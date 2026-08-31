@@ -2,6 +2,7 @@ const ACTION_MAP = {
   accept: { from: 'placed', to: 'accepted', setAcceptedAt: true },
   start_preparing: { from: 'accepted', to: 'preparing' },
   ready: { from: 'preparing', to: 'ready_for_pickup', setReadyAt: true },
+  start_delivery: { from: 'ready_for_pickup', to: 'delivering', setDeliveringAt: true },
 };
 
 const CANCELLABLE = new Set(['placed', 'accepted', 'preparing', 'ready_for_pickup']);
@@ -102,7 +103,14 @@ export function customerNotificationForAction(action, orderCode, restaurantName)
       return {
         type: 'order_ready',
         title: 'Đơn sẵn sàng giao',
-        body: `Đơn ${orderCode} đã sẵn sàng — tài xế sẽ đến lấy hàng.`,
+        body: `${restaurantName} đã chuẩn bị xong đơn ${orderCode} và sẵn sàng giao.`,
+        linkUrl: trackLink,
+      };
+    case 'start_delivery':
+      return {
+        type: 'order_delivering',
+        title: 'Đơn hàng đang giao',
+        body: `Đơn ${orderCode} đang được giao đến bạn bởi ${restaurantName}.`,
         linkUrl: trackLink,
       };
     case 'cancel':
@@ -115,4 +123,49 @@ export function customerNotificationForAction(action, orderCode, restaurantName)
     default:
       return null;
   }
+}
+
+export async function creditMerchantForDeliveredOrder(conn, order) {
+  if (!order || Number(order.merchant_earning || 0) <= 0) return;
+
+  const [restaurantRows] = await conn.query(
+    'SELECT owner_user_id FROM restaurants WHERE id = ? LIMIT 1',
+    [order.restaurant_id],
+  );
+  const ownerUserId = restaurantRows[0]?.owner_user_id;
+  if (!ownerUserId) return;
+
+  // Đảm bảo ví merchant tồn tại
+  await conn.query(
+    "INSERT INTO wallets (user_id, owner_type) VALUES (?, 'merchant') ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+    [ownerUserId],
+  );
+  const [walletRows] = await conn.query(
+    "SELECT * FROM wallets WHERE user_id = ? AND owner_type = 'merchant' LIMIT 1 FOR UPDATE",
+    [ownerUserId],
+  );
+  const wallet = walletRows[0];
+  if (!wallet) return;
+
+  // Kiểm tra chống cộng trùng lặp giao dịch
+  const [existingTx] = await conn.query(
+    "SELECT id FROM wallet_transactions WHERE wallet_id = ? AND reference_type = 'order' AND reference_id = ? AND tx_type = 'order_earning' LIMIT 1",
+    [wallet.id, order.id],
+  );
+  if (existingTx.length > 0) return;
+
+  const amount = Number(order.merchant_earning);
+  const balanceAfter = Number(wallet.balance) + amount;
+
+  await conn.query(
+    'UPDATE wallets SET balance = balance + ?, total_earned = total_earned + ?, updated_at = NOW() WHERE id = ?',
+    [amount, amount, wallet.id],
+  );
+
+  await conn.query(
+    `INSERT INTO wallet_transactions (
+      wallet_id, direction, amount, balance_after, tx_type, reference_type, reference_id, description, created_at
+    ) VALUES (?, 'credit', ?, ?, 'order_earning', 'order', ?, ?, NOW())`,
+    [wallet.id, amount, balanceAfter, order.id, `Doanh thu đơn ${order.order_code}`],
+  );
 }

@@ -60,12 +60,12 @@ export default function AuthLayout({ title, subtitle, children, footer }) {
               Bữa ăn tiếp theo của bạn chỉ cách một lần đăng nhập.
             </div>
             <p className="mt-base text-body-md text-on-dark-soft">
-              Hơn 2.000 quán trong khu vực bạn ở — theo dõi đơn hàng từng bước,
-              thanh toán an toàn, giao nhanh trong 30 phút.
+              Khám phá các quán đang phục vụ quanh bạn, xem trước phí giao và thời gian dự kiến,
+              rồi theo dõi đơn hàng qua từng bước.
             </p>
           </div>
           <div className="text-caption text-on-dark-soft">
-            © 2026 NomNom · Bảo mật theo tiêu chuẩn.
+            © 2026 NomNom · Trải nghiệm đặt món rõ ràng, thuận tiện.
           </div>
         </div>
       </aside>

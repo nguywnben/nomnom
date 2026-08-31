@@ -274,6 +274,24 @@ async function processPaymentFailure(connection, payment, params) {
       "INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, note) VALUES (?, ?, 'payment_failed', 'system', 'VNPay payment failed')",
       [payment.order_id, payment.order_status],
     );
+
+    // Gửi thông báo đến khách hàng về việc giao dịch thanh toán chưa hoàn tất / đã hủy
+    const isCancelled = String(params.vnp_ResponseCode) === '24';
+    const notifTitle = isCancelled ? 'Giao dịch thanh toán đã hủy' : 'Thanh toán chưa thành công';
+    const notifBody = isCancelled
+      ? `Bạn đã hủy giao dịch thanh toán cho đơn hàng ${payment.order_code}. Đơn hàng vẫn được tạm giữ trong 30 phút để bạn có thể thanh toán lại.`
+      : `Giao dịch thanh toán cho đơn hàng ${payment.order_code} không thành công. Bạn có thể thanh toán lại trong 30 phút trong mục Đơn hàng.`;
+
+    await connection.query(
+      `INSERT INTO notifications (user_id, type, title, body, link_url)
+       VALUES (?, 'order_updated', ?, ?, ?)`,
+      [
+        payment.customer_id,
+        notifTitle,
+        notifBody,
+        `/app/track/${payment.order_code}`,
+      ],
+    );
   }
 }
 

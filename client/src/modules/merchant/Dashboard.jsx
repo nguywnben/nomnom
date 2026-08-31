@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  Bar,
-  BarChart,
 } from 'recharts';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -14,19 +15,63 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
 import StatCard from '../../components/StatCard.jsx';
+import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { orderStatusTone } from '../../lib/orderStatus.js';
 import { downloadCsv } from '../../lib/csv.js';
-import { fetchMerchantDashboardApi } from '../../lib/api.js';
+import { fetchMerchantDashboardApi, fetchMerchantOrdersApi } from '../../lib/api.js';
 
 let dashboardApiMissing = false;
 
 export default function MerchantDashboard() {
   const { currentMerchant } = useApp();
-  const [range, setRange] = useState('today');
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const minDateStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const calcDateStr = (daysAgo) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
+  const [rangeMode, setRangeMode] = useState('today');
+
+  const setPreset = (daysAgo, modeKey) => {
+    if (modeKey === 'all') {
+      setFromDate('');
+      setToDate('');
+      setRangeMode('all');
+      return;
+    }
+    if (daysAgo === 0) {
+      setFromDate(todayStr);
+      setToDate(todayStr);
+    } else {
+      setFromDate(calcDateStr(daysAgo));
+      setToDate(todayStr);
+    }
+    setRangeMode(modeKey);
+  };
+
+  const activePresetValue = (() => {
+    if (rangeMode && rangeMode !== 'custom') return rangeMode;
+    if (fromDate === todayStr && toDate === todayStr) return 'today';
+    if (fromDate === calcDateStr(6) && toDate === todayStr) return '7d';
+    if (fromDate === calcDateStr(29) && toDate === todayStr) return '30d';
+    if (fromDate === calcDateStr(89) && toDate === todayStr) return '90d';
+    return 'custom';
+  })();
+
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
   const [backendUnavailable, setBackendUnavailable] = useState(dashboardApiMissing);
   const requestSeq = useRef(0);
@@ -56,7 +101,8 @@ export default function MerchantDashboard() {
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchMerchantDashboardApi(range);
+        const query = rangeMode === 'all' ? { range: 'all' } : { fromDate, toDate };
+        const data = await fetchMerchantDashboardApi(query);
         if (active && requestSeq.current === currentRequest) {
           setDashboardData(data);
         }
@@ -80,10 +126,10 @@ export default function MerchantDashboard() {
     return () => {
       active = false;
     };
-  }, [backendUnavailable, range]);
+  }, [backendUnavailable, fromDate, toDate, rangeMode]);
 
-  const restaurantName = currentMerchant?.restaurantName ?? currentMerchant?.name ?? 'Nhà hàng của bạn';
-  const restaurantOpen = currentMerchant?.restaurantOpen;
+  const outletCtx = useOutletContext();
+  const restaurantOpen = outletCtx?.restaurantOpen ?? currentMerchant?.restaurantOpen;
 
   const DASHBOARD_STATUS_LABEL = {
     placed: 'Mới nhận',
@@ -109,21 +155,85 @@ export default function MerchantDashboard() {
     return `${parts[2]}/${parts[1]}`; // 'DD/MM'
   };
 
-  const exportCsv = () => {
-    if (dashboardData.recentOrders.length === 0) return;
-    downloadCsv(`nomnom-dashboard-${range}.csv`, dashboardData.recentOrders.map((o) => ({
-      'Mã đơn': o.orderCode,
-      'Khách hàng': o.customerName,
-      'Tổng thanh toán (VND)': o.totalAmount,
-      'Trạng thái': o.status,
-      'Thời điểm đặt': new Date(o.placedAt).toLocaleString('vi-VN'),
-    })));
+  const getRangeDisplay = () => {
+    if (rangeMode === 'all') return 'Toàn thời gian';
+    if (fromDate === todayStr && toDate === todayStr) return 'Hôm nay';
+    if (fromDate === calcDateStr(6) && toDate === todayStr) return '7 ngày qua';
+    if (fromDate === calcDateStr(29) && toDate === todayStr) return '30 ngày qua';
+    if (fromDate === minDateStr && toDate === todayStr) return '90 ngày qua';
+    if (fromDate && toDate) return `Từ ${formatDateLabel(fromDate)} đến ${formatDateLabel(toDate)}`;
+    return 'Khoảng thời gian đã chọn';
   };
 
-  const formattedChartData = dashboardData.chart.map((item) => ({
-    ...item,
-    formattedDate: formatDateLabel(item.date),
-  }));
+  const exportCsv = async () => {
+    try {
+      setExporting(true);
+      const res = await fetchMerchantOrdersApi(rangeMode === 'all' ? {} : { fromDate, toDate });
+      const ordersToExport = (res?.orders && res.orders.length > 0)
+        ? res.orders
+        : dashboardData.recentOrders;
+
+      if (!ordersToExport || ordersToExport.length === 0) {
+        return;
+      }
+
+      const rows = ordersToExport.map((o) => {
+        const itemsSummary = Array.isArray(o.items)
+          ? o.items.map((it) => `${it.quantity}x ${it.name}`).join(', ')
+          : '';
+        const statusLabel = DASHBOARD_STATUS_LABEL[o.status] ?? o.status;
+        const paymentLabel = o.paymentMethod === 'vnpay' ? 'VNPAY (Online)' : 'COD (Tiền mặt)';
+
+        return {
+          'Mã đơn hàng': o.orderCode,
+          'Thời điểm đặt': new Date(o.placedAt).toLocaleString('vi-VN'),
+          'Trạng thái': statusLabel,
+          'Khách hàng': o.customerName ?? 'Khách hàng',
+          'Số điện thoại': o.customerPhone ?? '',
+          'Địa chỉ giao hàng': o.deliveryAddressSnapshot ?? '',
+          'Danh sách món ăn': itemsSummary,
+          'Tạm tính món (VND)': o.subtotal ?? o.totalAmount,
+          'Phí giao hàng (VND)': o.deliveryFee ?? 0,
+          'Giảm giá (VND)': o.discountAmount ?? 0,
+          'Tổng thanh toán (VND)': o.totalAmount,
+          'Phương thức thanh toán': paymentLabel,
+        };
+      });
+
+      downloadCsv(`nomnom-don-hang-${rangeMode === 'all' ? 'toan-thoi-gian' : `${fromDate}_den_${toDate}`}.csv`, rows);
+    } catch (err) {
+      console.error('Error exporting CSV:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const formattedChartData = useMemo(() => {
+    const raw = dashboardData.chart || [];
+    if (raw.length > 0) {
+      return raw.map((item) => ({
+        ...item,
+        formattedDate: formatDateLabel(item.date),
+      }));
+    }
+    const fallback = [];
+    const count = rangeMode === 'today' ? 1 : rangeMode === '7d' ? 7 : 30;
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      fallback.push({
+        date: dateStr,
+        formattedDate: `${dd}/${mm}`,
+        orderCount: 0,
+        revenue: 0,
+      });
+    }
+    return fallback;
+  }, [dashboardData.chart, rangeMode]);
 
   if (backendUnavailable) {
     return (
@@ -131,27 +241,21 @@ export default function MerchantDashboard() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-caption-uppercase text-body">
-              {range === 'today' ? 'Hôm nay' : range === 'week' ? 'Tuần này' : 'Tháng này'}
+              {getRangeDisplay()}
             </div>
             <h1 className="text-display-lg text-ink">Bảng điều khiển</h1>
-            <p className="mt-xs text-body-sm text-body">{restaurantName}</p>
           </div>
-          <div className="flex items-center gap-sm">
-            <select
-              value={range}
-              onChange={(e) => setRange(e.target.value)}
-              className="rounded-md border border-hairline bg-canvas px-base py-2 text-body-sm text-ink outline-none hover:border-body focus:border-ink font-medium"
-            >
-              <option value="today">Hôm nay</option>
-              <option value="week">Tuần này</option>
-              <option value="month">Tháng này</option>
-            </select>
-            {restaurantOpen !== null && restaurantOpen !== undefined && (
-              <Badge tone={restaurantOpen ? 'success' : 'error'} dot>
-                {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
-              </Badge>
-            )}
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              dashboardApiMissing = false;
+              setBackendUnavailable(false);
+              setFromDate(todayStr);
+            }}
+          >
+            Thử tải lại
+          </Button>
         </div>
 
         <EmptyState
@@ -163,7 +267,7 @@ export default function MerchantDashboard() {
               onClick={() => {
                 dashboardApiMissing = false;
                 setBackendUnavailable(false);
-                setRange((cur) => cur);
+                setFromDate(todayStr);
               }}
               className="inline-flex h-12 items-center justify-center rounded-md border border-hairline-strong bg-surface-card px-base text-button text-ink hover:bg-canvas-soft"
             >
@@ -183,7 +287,7 @@ export default function MerchantDashboard() {
         <h3 className="mt-base text-title-md text-ink">Đã xảy ra lỗi</h3>
         <p className="mt-sm max-w-md text-body text-body-sm">{error}</p>
         <button
-          onClick={() => setRange(range)}
+          onClick={() => setFromDate((cur) => cur)}
           className="mt-xl rounded-md bg-primary px-base py-sm text-button text-on-primary hover:bg-opacity-90"
         >
           Tải lại dữ liệu
@@ -194,33 +298,93 @@ export default function MerchantDashboard() {
 
   return (
     <div className="space-y-base">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">
-            {range === 'today' ? 'Hôm nay' : range === 'week' ? 'Tuần này' : 'Tháng này'}
+          <div className="text-caption-uppercase text-body">Tổng quan & Kinh doanh</div>
+          <h1 className="text-display-lg text-ink">Bảng điều khiển Quán ăn</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Theo dõi kết quả bán hàng, doanh thu thực tế, tiến độ đơn hàng mới và các món ăn bán chạy nhất.
+          </p>
+        </div>
+
+        {restaurantOpen !== null && restaurantOpen !== undefined && (
+          <Badge tone={restaurantOpen ? 'success' : 'error'} dot className="h-9 px-3 flex items-center justify-center">
+            {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
+          </Badge>
+        )}
+      </div>
+
+      {/* Toolbar: Range Tabs + Date Pickers + Export CSV */}
+      <div className="flex flex-col gap-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-xs">
+          {/* Quick preset segmented tabs */}
+          <Tabs
+            size="sm"
+            items={[
+              { value: 'today', label: 'Hôm nay' },
+              { value: '7d', label: '7 ngày' },
+              { value: '30d', label: '30 ngày' },
+              { value: '90d', label: '90 ngày' },
+              { value: 'all', label: 'Toàn thời gian' },
+            ]}
+            value={activePresetValue}
+            onChange={(val) => {
+              if (val === 'today') setPreset(0, 'today');
+              else if (val === '7d') setPreset(6, '7d');
+              else if (val === '30d') setPreset(29, '30d');
+              else if (val === '90d') setPreset(89, '90d');
+              else if (val === 'all') setPreset(0, 'all');
+            }}
+          />
+
+          {/* Direct date pickers */}
+          <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink">
+            <Icon name="calendar" size={15} className="text-body shrink-0" />
+            <input
+              type="date"
+              value={fromDate}
+              min={minDateStr}
+              max={toDate || todayStr}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) return;
+                setFromDate(val < minDateStr ? minDateStr : val);
+                setRangeMode('custom');
+              }}
+              title="Từ ngày"
+              aria-label="Từ ngày"
+              className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
+            />
+            <span className="text-body text-caption font-medium">–</span>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || minDateStr}
+              max={todayStr}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) return;
+                setToDate(val > todayStr ? todayStr : val);
+                setRangeMode('custom');
+              }}
+              title="Đến ngày (tối đa hôm nay)"
+              aria-label="Đến ngày"
+              className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
+            />
           </div>
-          <h1 className="text-display-lg text-ink">Bảng điều khiển</h1>
-          <p className="mt-xs text-body-sm text-body">{restaurantName}</p>
         </div>
-        <div className="flex items-center gap-sm">
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            className="rounded-md border border-hairline bg-canvas px-base py-2 text-body-sm text-ink outline-none hover:border-body focus:border-ink font-medium"
-          >
-            <option value="today">Hôm nay</option>
-            <option value="week">Tuần này</option>
-            <option value="month">Tháng này</option>
-          </select>
-          <Button variant="secondary" size="sm" leadingIcon="download" onClick={exportCsv} disabled={!dashboardData.recentOrders.length}>
-            Xuất CSV
-          </Button>
-          {restaurantOpen !== null && restaurantOpen !== undefined && (
-            <Badge tone={restaurantOpen ? 'success' : 'error'} dot>
-              {restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
-            </Badge>
-          )}
-        </div>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          leadingIcon="download"
+          onClick={exportCsv}
+          loading={exporting}
+          disabled={exporting || (!dashboardData.recentOrders.length && !dashboardData.summary.orderCount)}
+        >
+          Xuất CSV
+        </Button>
       </div>
 
       {/* KPI Cards */}
@@ -269,40 +433,53 @@ export default function MerchantDashboard() {
             label="Đơn mới chờ duyệt"
             value={dashboardData.summary.newOrderCount}
             icon="bell"
-            delta={dashboardData.summary.newOrderCount > 0 ? 'Cần xử lý' : ''}
-            deltaTone={dashboardData.summary.newOrderCount > 0 ? 'error' : 'success'}
-            sub="Trạng thái placed"
+            delta={dashboardData.summary.newOrderCount > 0 ? 'Cần xử lý ngay' : undefined}
+            deltaTone={dashboardData.summary.newOrderCount > 0 ? 'error' : undefined}
+            sub={dashboardData.summary.newOrderCount === 0 ? 'Không có đơn chờ' : undefined}
           />
         </div>
       )}
 
       {/* Charts & Top Items */}
       <div className="grid gap-base lg:grid-cols-3">
-        {/* Bar Chart */}
+        {/* Area Chart */}
         <Card padded className="lg:col-span-2">
           <div className="mb-base flex items-center justify-between">
             <div>
-              <div className="text-caption-uppercase text-body">Xu hướng</div>
-              <div className="text-title-md text-ink">7 ngày vừa qua</div>
+              <div className="text-caption-uppercase text-body">Xu hướng doanh thu</div>
+              <div className="text-title-md text-ink">{getRangeDisplay()}</div>
             </div>
-            <Badge tone="outline">Đơn hàng đã giao</Badge>
+            {dashboardData.chart.length > 0 && (
+              <Badge tone="outline">
+                Tổng kỳ: {formatVnd(dashboardData.chart.reduce((s, p) => s + (p.revenue || 0), 0))}
+              </Badge>
+            )}
           </div>
           {loading ? (
             <div className="flex h-64 items-center justify-center bg-canvas-soft rounded-md">
               <Skeleton className="h-4/5 w-11/12" rounded="md" />
             </div>
-          ) : dashboardData.chart.length === 0 ? (
-            <div className="flex h-64 items-center justify-center bg-canvas-soft rounded-md text-body-sm text-body">
-              Chưa có dữ liệu thống kê biểu đồ.
-            </div>
           ) : (
             <div className="h-64 min-w-0">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <BarChart data={formattedChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={formattedChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="merchantRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#171717" stopOpacity={0.22} />
+                      <stop offset="95%" stopColor="#171717" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
                   <XAxis dataKey="formattedDate" stroke="#999999" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="left" orientation="left" stroke="#171717" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#ea580c" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    stroke="#999999"
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => {
+                      if (v >= 1000000) return `${(v / 1000000).toFixed(1)}Tr`;
+                      if (v >= 1000) return `${Math.round(v / 1000)}k`;
+                      return v;
+                    }}
+                  />
                   <Tooltip
                     contentStyle={{
                       border: '1px solid #dcdee0',
@@ -310,14 +487,21 @@ export default function MerchantDashboard() {
                       fontSize: 12,
                     }}
                     labelStyle={{ color: '#171717', fontWeight: 'bold' }}
-                    formatter={(value, name) => {
-                      if (name === 'Doanh thu') return [formatVnd(value), name];
-                      return [value, name];
-                    }}
+                    formatter={(value, name, item) => [
+                      `${formatVnd(item.payload.revenue)} (${item.payload.orderCount} đơn)`,
+                      'Doanh thu'
+                    ]}
                   />
-                  <Bar yAxisId="left" dataKey="revenue" fill="#171717" radius={[4, 4, 0, 0]} name="Doanh thu" />
-                  <Bar yAxisId="right" dataKey="orderCount" fill="#ea580c" radius={[4, 4, 0, 0]} name="Số đơn" />
-                </BarChart>
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Doanh thu"
+                    stroke="#171717"
+                    strokeWidth={2.5}
+                    fill="url(#merchantRevenue)"
+                    activeDot={{ r: 5, fill: '#171717', stroke: '#fff', strokeWidth: 2 }}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}

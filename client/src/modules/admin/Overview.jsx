@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Area,
@@ -14,22 +14,29 @@ import {
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
+import Icon from '../../components/Icon.jsx';
 import StatCard from '../../components/StatCard.jsx';
+import Tabs from '../../components/Tabs.jsx';
 import { fetchAdminOverview } from '../../lib/api.js';
 import { downloadCsv } from '../../lib/csv.js';
 import { formatVnd, formatVndAxisBillions } from '../../lib/formatVnd.js';
-
-const RANGE_OPTIONS = [
-  { value: 'today', label: 'Hôm nay' },
-  { value: 'week', label: '7 ngày' },
-  { value: 'month', label: '30 ngày' },
-];
 
 const ROLE_LABELS = {
   customer: 'Khách hàng',
   merchant: 'Chủ quán',
   admin: 'Quản trị',
 };
+
+const now = new Date();
+const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+const calcDateStr = (daysAgo) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const minDateStr = calcDateStr(90);
 
 function formatChartDate(isoDate) {
   if (!isoDate) return '';
@@ -49,16 +56,65 @@ function formatJoinedAt(value) {
 }
 
 export default function AdminOverview() {
-  const [range, setRange] = useState('month');
+  const [fromDate, setFromDate] = useState(() => calcDateStr(29));
+  const [toDate, setToDate] = useState(todayStr);
+  const [rangeMode, setRangeMode] = useState('30d');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const setPreset = (daysAgo, modeKey) => {
+    if (modeKey === 'all') {
+      setFromDate('');
+      setToDate('');
+      setRangeMode('all');
+      return;
+    }
+    setFromDate(calcDateStr(daysAgo));
+    setToDate(todayStr);
+    setRangeMode(modeKey);
+  };
+
+  const activePresetValue = (() => {
+    if (rangeMode && rangeMode !== 'custom') return rangeMode;
+    if (toDate !== todayStr) return 'custom';
+    if (fromDate === todayStr) return 'today';
+    if (fromDate === calcDateStr(6)) return '7d';
+    if (fromDate === calcDateStr(29)) return '30d';
+    if (fromDate === calcDateStr(89) || fromDate === minDateStr) return '90d';
+    return 'custom';
+  })();
+
+  const formatDateLabel = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    return `${parts[2]}/${parts[1]}`;
+  };
+
+  const getRangeDisplay = () => {
+    if (rangeMode === 'all') return 'Toàn thời gian';
+    if (fromDate === todayStr && toDate === todayStr) return 'Hôm nay';
+    if (fromDate === calcDateStr(6) && toDate === todayStr) return '7 ngày qua';
+    if (fromDate === calcDateStr(29) && toDate === todayStr) return '30 ngày qua';
+    if (fromDate === calcDateStr(89) && toDate === todayStr) return '90 ngày qua';
+    if (fromDate && toDate) return `Từ ${formatDateLabel(fromDate)} đến ${formatDateLabel(toDate)}`;
+    return 'Khoảng thời gian đã chọn';
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetchAdminOverview(range);
+      let params = {};
+      if (rangeMode === 'all') {
+        params = { range: 'all' };
+      } else if (fromDate && toDate) {
+        params = { fromDate, toDate };
+      } else {
+        params = { range: rangeMode };
+      }
+      const res = await fetchAdminOverview(params);
       setData(res);
     } catch (err) {
       setData(null);
@@ -66,7 +122,7 @@ export default function AdminOverview() {
     } finally {
       setLoading(false);
     }
-  }, [range]);
+  }, [fromDate, toDate, rangeMode]);
 
   useEffect(() => {
     load();
@@ -74,8 +130,29 @@ export default function AdminOverview() {
 
   const totals = data?.totals;
   const pending = data?.pendingApprovals;
-  const chart = data?.chart ?? [];
   const pendingTotal = pending?.restaurants ?? 0;
+
+  const chartData = useMemo(() => {
+    const rawChart = data?.chart ?? [];
+    if (rawChart.length > 0) return rawChart;
+    const fallback = [];
+    const count = rangeMode === 'today' ? 1 : rangeMode === '7d' ? 7 : 30;
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      fallback.push({
+        date: `${yyyy}-${mm}-${dd}`,
+        day: `${yyyy}-${mm}-${dd}`,
+        orders: 0,
+        gmv: 0,
+        platformFee: 0,
+      });
+    }
+    return fallback;
+  }, [data, rangeMode]);
 
   const exportCsv = () => {
     if (!data) return;
@@ -89,36 +166,93 @@ export default function AdminOverview() {
       'Doanh thu (VND)': totals?.gmv ?? '',
       'Số đơn': totals?.orderCount ?? '',
     });
-    downloadCsv(`nomnom-admin-overview-${range}.csv`, rows);
+    downloadCsv(`nomnom-admin-overview-${rangeMode === 'all' ? 'toan-thoi-gian' : `${fromDate}_den_${toDate}`}.csv`, rows);
   };
 
   return (
     <div className="space-y-base">
+      {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-base">
         <div>
-          <div className="text-caption-uppercase text-body">Bảng điều khiển</div>
-          <h1 className="text-display-lg text-ink">Tình trạng nền tảng</h1>
+          <div className="text-caption-uppercase text-body">Tổng quan & Vận hành</div>
+          <h1 className="text-display-lg text-ink">Tình trạng Nền tảng</h1>
+          <p className="mt-xs text-body-sm text-body">
+            Theo dõi tổng quan chỉ số tăng trưởng, quy mô người dùng, đơn hàng và các hoạt động cần phê duyệt trên sàn.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setRange(opt.value)}
-              className={
-                'rounded-pill px-3 py-1.5 text-body-sm transition-colors ' +
-                (range === opt.value
-                  ? 'bg-ink text-on-dark'
-                  : 'border border-hairline bg-surface-card text-body hover:text-ink')
-              }
-            >
-              {opt.label}
-            </button>
-          ))}
-          <Button variant="secondary" size="sm" leadingIcon="download" onClick={exportCsv} disabled={!data}>
-            Xuất CSV
-          </Button>
+
+        {pendingTotal > 0 && (
+          <div className="flex items-center gap-xs">
+            <Badge tone="live" dot>
+              {pendingTotal} quán ăn chờ duyệt
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      {/* Toolbar: Range Tabs + Date Pickers + Export CSV */}
+      <div className="flex flex-col gap-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-xs">
+          {/* Quick preset segmented tabs */}
+          <Tabs
+            size="sm"
+            items={[
+              { value: 'today', label: 'Hôm nay' },
+              { value: '7d', label: '7 ngày' },
+              { value: '30d', label: '30 ngày' },
+              { value: '90d', label: '90 ngày' },
+              { value: 'all', label: 'Toàn thời gian' },
+            ]}
+            value={activePresetValue}
+            onChange={(val) => {
+              if (val === 'today') setPreset(0, 'today');
+              else if (val === '7d') setPreset(6, '7d');
+              else if (val === '30d') setPreset(29, '30d');
+              else if (val === '90d') setPreset(89, '90d');
+              else if (val === 'all') setPreset(0, 'all');
+            }}
+          />
+
+          {/* Direct date pickers */}
+          <div className="inline-flex h-9 items-center gap-1.5 rounded-md border border-hairline-strong bg-surface-card px-sm text-caption text-ink">
+            <Icon name="calendar" size={15} className="text-body shrink-0" />
+            <input
+              type="date"
+              value={fromDate}
+              min={minDateStr}
+              max={toDate || todayStr}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) return;
+                setFromDate(val < minDateStr ? minDateStr : val);
+                setRangeMode('custom');
+              }}
+              title="Từ ngày"
+              aria-label="Từ ngày"
+              className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
+            />
+            <span className="text-body text-caption font-medium">–</span>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || minDateStr}
+              max={todayStr}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) return;
+                setToDate(val > todayStr ? todayStr : val);
+                setRangeMode('custom');
+              }}
+              title="Đến ngày (tối đa hôm nay)"
+              aria-label="Đến ngày"
+              className="bg-transparent text-ink text-caption font-medium outline-none cursor-pointer"
+            />
+          </div>
         </div>
+
+        <Button variant="secondary" size="sm" leadingIcon="download" onClick={exportCsv} disabled={!data}>
+          Xuất CSV
+        </Button>
       </div>
 
       {error && (
@@ -178,23 +312,18 @@ export default function AdminOverview() {
                 <div>
                   <div className="text-caption-uppercase text-body">Xu hướng GMV</div>
                   <div className="text-title-md text-ink">
-                    {RANGE_OPTIONS.find((o) => o.value === range)?.label}
+                    {getRangeDisplay()}
                   </div>
                 </div>
-                {chart.length > 0 && (
+                {(data?.chart?.length ?? 0) > 0 && (
                   <Badge tone="outline">
-                    Tổng: {formatVnd(chart.reduce((s, p) => s + p.gmv, 0))}
+                    Tổng: {formatVnd(data.chart.reduce((s, p) => s + p.gmv, 0))}
                   </Badge>
                 )}
               </div>
               <div className="h-64 min-w-0">
-                {chart.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-body-sm text-body">
-                    Chưa có đơn trong kỳ này.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                    <AreaChart data={chart}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                  <AreaChart data={chartData}>
                       <defs>
                         <linearGradient id="adminGmv" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#171717" stopOpacity={0.22} />
@@ -231,7 +360,6 @@ export default function AdminOverview() {
                       />
                     </AreaChart>
                   </ResponsiveContainer>
-                )}
               </div>
             </Card>
 
@@ -243,7 +371,7 @@ export default function AdminOverview() {
               <ul className="space-y-sm">
                 <li className="flex items-center justify-between rounded-md border border-hairline px-sm py-sm">
                   <div>
-                    <div className="text-body-sm font-medium text-ink">Nhà hàng</div>
+                    <div className="text-body-sm font-medium text-ink">Quán ăn</div>
                     <div className="text-caption text-body">Đăng ký mới chờ duyệt</div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -268,33 +396,27 @@ export default function AdminOverview() {
               <div className="text-title-md text-ink">Theo ngày trong kỳ</div>
             </div>
             <div className="h-56 min-w-0">
-              {chart.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-body-sm text-body">
-                  Chưa có đơn trong kỳ này.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <BarChart data={chart}>
-                    <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="date"
-                      stroke="#999999"
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={formatChartDate}
-                    />
-                    <YAxis stroke="#999999" tick={{ fontSize: 12 }} />
-                    <Tooltip
-                      contentStyle={{
-                        border: '1px solid #dcdee0',
-                        borderRadius: 8,
-                        fontSize: 13,
-                      }}
-                      labelFormatter={formatChartDate}
-                    />
-                    <Bar dataKey="orders" fill="#171717" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <BarChart data={chartData}>
+                  <CartesianGrid stroke="#f0f0f3" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#999999"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={formatChartDate}
+                  />
+                  <YAxis stroke="#999999" tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{
+                      border: '1px solid #dcdee0',
+                      borderRadius: 8,
+                      fontSize: 13,
+                    }}
+                    labelFormatter={formatChartDate}
+                  />
+                  <Bar dataKey="orders" fill="#171717" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </Card>
 

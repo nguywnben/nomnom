@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import Avatar from '../../components/Avatar.jsx';
@@ -7,20 +7,34 @@ import Button, { IconButton } from '../../components/Button.jsx';
 import Drawer from '../../components/Drawer.jsx';
 import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
+import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
+import { scheduleRoutePreload } from '../../lib/routePreload.js';
+
+const ADMIN_ROUTE_PRELOADERS = [
+  () => import('./Overview.jsx'),
+  () => import('./Orders.jsx'),
+  () => import('./RestaurantApprovals.jsx'),
+  () => import('./Accounts.jsx'),
+  () => import('./Promotions.jsx'),
+  () => import('./ReviewsModeration.jsx'),
+  () => import('./Financial.jsx'),
+  () => import('./ContentManagement.jsx'),
+  () => import('./System.jsx'),
+  () => import('./Notifications.jsx'),
+];
 
 const links = [
-  { to: '/admin/customer-home', label: 'Trang chủ', icon: 'image' },
-  { to: '/admin/cuisines', label: 'Loại ẩm thực', icon: 'grid' },
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
-  { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
-  { to: '/admin/restaurants', label: 'Duyệt quán', icon: 'store' },
   { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
-  { to: '/admin/payouts', label: 'Rút tiền', icon: 'cash' },
+  { to: '/admin/restaurants', label: 'Quán ăn', icon: 'store' },
+  { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
+  { to: '/admin/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/admin/reviews', label: 'Đánh giá', icon: 'starFilled' },
   { to: '/admin/financial', label: 'Tài chính', icon: 'wallet' },
-  { to: '/admin/config', label: 'Cấu hình', icon: 'cog' },
-  { to: '/admin/audit-logs', label: 'Lịch sử', icon: 'list' },
+  { to: '/admin/content', label: 'Nội dung', icon: 'image' },
+  { to: '/admin/system', label: 'Hệ thống', icon: 'cog' },
 ];
 
 const sidebarOrder = [
@@ -28,13 +42,11 @@ const sidebarOrder = [
   '/admin/orders',
   '/admin/restaurants',
   '/admin/accounts',
+  '/admin/promotions',
   '/admin/reviews',
   '/admin/financial',
-  '/admin/payouts',
-  '/admin/customer-home',
-  '/admin/cuisines',
-  '/admin/config',
-  '/admin/audit-logs',
+  '/admin/content',
+  '/admin/system',
 ];
 
 links.sort((left, right) => sidebarOrder.indexOf(left.to) - sidebarOrder.indexOf(right.to));
@@ -50,6 +62,24 @@ export default function AdminLayout() {
   const { currentAdmin, logout } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const notifCount = useUnreadNotificationCount(Boolean(currentAdmin));
+
+  useEffect(() => scheduleRoutePreload(ADMIN_ROUTE_PRELOADERS), []);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      nav('/login', { replace: true });
+    } catch {
+      // ignore
+    } finally {
+      setLoggingOut(false);
+      setLogoutConfirmOpen(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-canvas-soft">
@@ -76,13 +106,11 @@ export default function AdminLayout() {
           </div>
         )}
         <SidebarLinks collapsed={collapsed} />
-        {!collapsed && (
-          <SidebarFooter
-            currentAdmin={currentAdmin}
-            onSwitchRole={() => nav('/app')}
-            onLogout={() => logout()}
-          />
-        )}
+        <SidebarFooter
+          currentAdmin={currentAdmin}
+          collapsed={collapsed}
+          onLogout={() => setLogoutConfirmOpen(true)}
+        />
       </aside>
 
       {/* Mobile drawer sidebar */}
@@ -96,8 +124,11 @@ export default function AdminLayout() {
         <SidebarLinks collapsed={false} onItemClick={() => setDrawerOpen(false)} />
         <SidebarFooter
           currentAdmin={currentAdmin}
-          onSwitchRole={() => nav('/app')}
-          onLogout={() => logout()}
+          onItemClick={() => setDrawerOpen(false)}
+          onLogout={() => {
+            setDrawerOpen(false);
+            setLogoutConfirmOpen(true);
+          }}
         />
       </Drawer>
 
@@ -111,11 +142,18 @@ export default function AdminLayout() {
             className="grid h-11 w-11 place-items-center -ml-2 rounded-md text-ink hover:bg-canvas-soft"
           >
             <Icon name="menu" size={18} />
-          </button>          <div className="flex-1 leading-tight">
+          </button>
+          <div className="flex-1 leading-tight">
             <div className="text-caption-uppercase text-body">Quản trị viên</div>
             <div className="text-body-sm font-semibold text-ink">Tổng quan nền tảng</div>
           </div>
-          <IconButton icon="bell" label="Thông báo" size="sm" onClick={() => nav('/app/notifications')} />
+          <IconButton
+            icon="bell"
+            label="Thông báo"
+            size="sm"
+            badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+            onClick={() => nav('/admin/notifications')}
+          />
         </header>
 
         {/* Desktop header */}
@@ -125,11 +163,16 @@ export default function AdminLayout() {
             <div className="text-title-md text-ink">Tổng quan nền tảng</div>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-xs">
-            <IconButton icon="bell" variant="secondary" label="Thông báo" onClick={() => nav('/app/notifications')} />
+            <IconButton
+              icon="bell"
+              variant="secondary"
+              label="Thông báo"
+              badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+              onClick={() => nav('/admin/notifications')}
+            />
             <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ
             </Button>
-            <Button leadingIcon="cog" onClick={() => nav('/admin/config')}>Cài đặt</Button>
           </div>
         </header>
 
@@ -137,13 +180,40 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      <Modal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(false)} disabled={loggingOut}>
+              Ở lại
+            </Button>
+            <Button
+              variant="critical"
+              size="sm"
+              leadingIcon="logout"
+              loading={loggingOut}
+              onClick={handleLogout}
+            >
+              Đăng xuất
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi cổng quản trị viên NomNom không?
+        </p>
+      </Modal>
     </div>
   );
 }
 
 function SidebarLinks({ collapsed, onItemClick }) {
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-sm py-2">
+    <nav className="flex-1 px-sm py-2 overflow-y-auto no-scrollbar">
       {links.map((l) => (
         <NavLink
           key={l.to}
@@ -165,37 +235,40 @@ function SidebarLinks({ collapsed, onItemClick }) {
   );
 }
 
-function SidebarFooter({ currentAdmin, onSwitchRole, onLogout }) {
+function SidebarFooter({ currentAdmin, collapsed = false, onItemClick, onLogout }) {
+  const name = currentAdmin?.name || 'Quản trị viên';
+  const role = currentAdmin?.role || 'Quản trị';
+  const avatar = currentAdmin?.avatar;
+
   return (
-    <div className="border-t border-hairline p-sm">
+    <div className="border-t border-hairline p-sm space-y-2">
+      <NavLink
+        to="/app"
+        onClick={onItemClick}
+        className="flex h-10 items-center gap-2 rounded-md border border-hairline-strong bg-canvas-soft px-sm text-button text-ink transition-colors hover:bg-canvas hover:border-ink/40"
+      >
+        <Icon name="user" size={16} className="shrink-0" />
+        {!collapsed && <span className="flex-1 truncate">Trang khách hàng</span>}
+        {!collapsed && <Icon name="chevronRight" size={14} className="text-body shrink-0" />}
+      </NavLink>
       <div className="flex items-center gap-sm">
-        <Avatar src={currentAdmin.avatar} name={currentAdmin.name} />
-        <div className="min-w-0 flex-1">
-          <div className="text-body-sm font-semibold text-ink truncate">{currentAdmin.name}</div>
-          <div className="text-caption text-body truncate">{currentAdmin.role}</div>
-        </div>
-        <div className="flex shrink-0 gap-0.5">
-          <button
-            type="button"
-            onClick={onSwitchRole}
-            className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
-            aria-label="Chuyển vai trò"
-            title="Chuyển vai trò"
-          >
-            <Icon name="refresh" size={14} />
-          </button>
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="grid h-9 w-9 place-items-center rounded-md text-error hover:bg-canvas-soft"
-              aria-label="Đăng xuất"
-              title="Đăng xuất"
-            >
-              <Icon name="x" size={14} />
-            </button>
-          )}
-        </div>
+        <Avatar src={avatar} name={name} />
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <div className="text-body-sm font-semibold text-ink truncate">{name}</div>
+            <div className="text-caption text-body truncate">{role}</div>
+          </div>
+        )}
+        {!collapsed && (
+          <IconButton
+            icon="logout"
+            size="sm"
+            label="Đăng xuất"
+            variant="ghost"
+            className="text-body hover:bg-canvas hover:text-error transition-colors"
+            onClick={onLogout}
+          />
+        )}
       </div>
     </div>
   );

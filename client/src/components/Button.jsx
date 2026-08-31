@@ -11,11 +11,12 @@ import Icon from './Icon.jsx';
 //
 // States: Default / Hover / Active / Disabled.
 
-// Sizes — 48px+ touch targets on mobile, editorial tighter on desktop.
+// Sizes — Chuẩn hóa 36px (h-9) làm tiêu chuẩn giao diện NomNom
 const sizeStyles = {
+  xs: 'h-7 px-2 text-caption',
   sm: 'h-9 px-sm text-button',
-  md: 'h-12 md:h-10 px-base text-button',
-  lg: 'h-14 md:h-12 px-md text-button',
+  md: 'h-9 px-base text-button',
+  lg: 'h-11 px-md text-button',
 };
 
 const variantStyles = {
@@ -30,6 +31,8 @@ const variantStyles = {
   dark:
     'bg-surface-dark text-on-dark border border-surface-dark hover:bg-surface-dark-elevated disabled:opacity-50',
   critical:
+    'bg-error text-white border border-error hover:bg-[#b91c1c] active:bg-[#b91c1c] disabled:bg-muted-soft disabled:border-muted-soft disabled:text-canvas',
+  danger:
     'bg-error text-white border border-error hover:bg-[#b91c1c] active:bg-[#b91c1c] disabled:bg-muted-soft disabled:border-muted-soft disabled:text-canvas',
 };
 
@@ -75,7 +78,7 @@ const Button = forwardRef(function Button(
 
 export default Button;
 
-export function IconButton({ icon, label, variant = 'ghost', size = 'md', className, ...props }) {
+export function IconButton({ icon, label, variant = 'ghost', size = 'md', badge, className, ...props }) {
   // 44px+ default for mobile reach; sm stays 32 for dense table rows.
   const dim =
     size === 'sm'
@@ -88,7 +91,7 @@ export function IconButton({ icon, label, variant = 'ghost', size = 'md', classN
       aria-label={label}
       title={label}
       className={clsx(
-        'inline-flex items-center justify-center rounded-md transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
+        'relative inline-flex items-center justify-center rounded-md transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
         dim,
         variant === 'primary'
           ? 'bg-primary text-on-primary hover:bg-primary-active'
@@ -100,6 +103,11 @@ export function IconButton({ icon, label, variant = 'ghost', size = 'md', classN
       {...props}
     >
       <Icon name={icon} size={size === 'sm' ? 16 : 18} />
+      {Boolean(badge) && (
+        <span className="pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold leading-none text-white shadow-xs">
+          {badge}
+        </span>
+      )}
     </button>
   );
 }

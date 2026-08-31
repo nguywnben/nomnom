@@ -5,6 +5,7 @@ import db from '../db/pool.js';
 import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
 import { geocodeVietnamAddress } from '../lib/addressGeocoding.js';
+import { validateCustomerCancellation } from '../lib/customerCancellation.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -408,8 +409,10 @@ router.get('/orders', ensureCustomer, async (req, res, next) => {
     let queryConds = ['o.customer_id = ?'];
     let queryParams = [userId];
 
-    if (status === 'active') {
-      queryConds.push("o.status IN ('pending_payment', 'payment_failed', 'placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
+    if (status === 'pending' || status === 'unpaid') {
+      queryConds.push("o.status IN ('pending_payment', 'payment_failed')");
+    } else if (status === 'active') {
+      queryConds.push("o.status IN ('placed', 'accepted', 'preparing', 'ready_for_pickup', 'picked_up', 'delivering')");
     } else if (status === 'delivered') {
       queryConds.push("o.status = 'delivered'");
     } else if (status === 'cancelled') {
@@ -488,46 +491,75 @@ router.get('/orders', ensureCustomer, async (req, res, next) => {
 });
 
 router.post('/orders/:id/cancel', ensureCustomer, async (req, res, next) => {
+  const orderId = Number(req.params.id);
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({ error: 'Mã đơn hàng không hợp lệ.' });
+  }
+
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 500)
+    || 'Khách hàng chủ động hủy trước khi quán xử lý.';
+  const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
-    const { id } = req.params;
-
-    // Get order and check ownership
-    const [orders] = await db.query(
-      'SELECT * FROM orders WHERE id = ? AND customer_id = ?',
-      [id, userId]
+    await connection.beginTransaction();
+    const [orders] = await connection.query(
+      'SELECT * FROM orders WHERE id = ? AND customer_id = ? FOR UPDATE',
+      [orderId, userId],
     );
 
     if (orders.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
     }
 
     const order = orders[0];
+    validateCustomerCancellation(order);
 
-    // Check cancellation constraints
-    if (order.status !== 'pending_payment' && order.status !== 'placed') {
-      return res.status(400).json({
-        error: 'Đơn hàng đang chuẩn bị hoặc đã vận chuyển, không thể hủy'
-      });
-    }
-
-    // Update status to cancelled
-    await db.query(
-      "UPDATE orders SET status = 'cancelled' WHERE id = ?",
-      [id]
+    await connection.query(
+      `UPDATE orders
+       SET status = 'cancelled', cancelled_at = NOW(), cancelled_by_role = 'customer', cancel_reason = ?
+       WHERE id = ?`,
+      [reason, order.id],
     );
+    await connection.query(
+      "UPDATE payments SET status = 'cancelled', failure_reason = 'Order cancelled by customer' WHERE order_id = ? AND status IN ('initiated', 'pending')",
+      [order.id],
+    );
+    await connection.query(
+      "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status = 'reserved'",
+      [order.id],
+    );
+    await connection.query(
+      "INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note) VALUES (?, ?, 'cancelled', 'customer', ?, ?)",
+      [order.id, order.status, userId, reason],
+    );
+    await connection.query(
+      `INSERT INTO notifications (user_id, type, title, body, link_url)
+       SELECT r.owner_user_id, 'order_cancelled', ?, ?, '/merchant/orders'
+       FROM restaurants r WHERE r.id = ? AND r.owner_user_id IS NOT NULL`,
+      [
+        `Đơn hàng ${order.order_code} đã bị hủy`,
+        `Khách hàng đã hủy đơn ${order.order_code} trước khi quán xử lý.`,
+        order.restaurant_id,
+      ],
+    );
+
+    await connection.commit();
 
     res.json({ success: true, message: 'Hủy đơn hàng thành công' });
   } catch (err) {
+    await connection.rollback();
     next(err);
+  } finally {
+    connection.release();
   }
 });
 
 router.get('/vouchers', ensureCustomer, async (req, res, next) => {
   try {
-    const now = new Date();
+    const customerId = req.auth.userId;
     const [rows] = await db.query(
-      `SELECT v.id, v.restaurant_id, v.code, v.name, v.description,
+      `SELECT v.id, v.restaurant_id, r.name AS restaurant_name, v.code, v.name, v.description,
               v.discount_type AS kind,
               v.discount_value AS amount,
               v.min_order_amount AS min_order,
@@ -537,39 +569,210 @@ router.get('/vouchers', ensureCustomer, async (req, res, next) => {
               v.usage_limit,
               v.per_user_limit,
               v.status,
+              v.is_public,
               v.created_at,
+              (csv.id IS NOT NULL) AS is_saved,
               COALESCE((
                 SELECT COUNT(*)
                 FROM voucher_redemptions vr
                 WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
-              ), 0) AS used_count
+              ), 0) AS used_count,
+              COALESCE((
+                SELECT COUNT(*)
+                FROM voucher_redemptions vr
+                WHERE vr.voucher_id = v.id AND vr.customer_id = ? AND vr.status IN ('reserved', 'redeemed')
+              ), 0) AS customer_used_count
        FROM vouchers v
+       LEFT JOIN restaurants r ON r.id = v.restaurant_id
+       LEFT JOIN customer_saved_vouchers csv ON csv.voucher_id = v.id AND csv.customer_id = ?
+       LEFT JOIN customer_dismissed_vouchers cdv ON cdv.voucher_id = v.id AND cdv.customer_id = ?
        WHERE v.status = 'active'
-         AND v.starts_at <= ? AND v.ends_at >= ?
+         AND cdv.id IS NULL
+         AND (
+           (v.is_public = 1 AND v.restaurant_id IS NULL)
+           OR csv.id IS NOT NULL
+         )
        ORDER BY v.created_at DESC`,
-      [now, now]
+      [customerId, customerId, customerId]
     );
 
-    const formattedVouchers = rows.map((v) => ({
-      id: v.id,
-      restaurantId: v.restaurant_id,
-      code: v.code,
-      name: v.name,
-      description: v.description,
-      kind: v.kind,
-      amount: Number(v.amount),
-      min_order: Number(v.min_order),
-      max_discount: v.max_discount !== null ? Number(v.max_discount) : null,
-      valid_from: v.valid_from,
-      valid_to: v.valid_to,
-      usage_limit: v.usage_limit !== null ? Number(v.usage_limit) : null,
-      used_count: Number(v.used_count || 0),
-      per_user_limit: Number(v.per_user_limit || 1),
-      is_active: v.status === 'active',
-      created_at: v.created_at,
-    }));
+    const now = new Date();
+    const formattedVouchers = rows.map((v) => {
+      const isExpired = new Date(v.valid_to) < now || new Date(v.valid_from) > now;
+      const isOutOfQuota = v.usage_limit !== null && Number(v.used_count) >= Number(v.usage_limit);
+      const isCustomerLimitReached = Number(v.customer_used_count) >= Number(v.per_user_limit || 1);
+
+      return {
+        id: v.id,
+        restaurantId: v.restaurant_id,
+        restaurantName: v.restaurant_name ?? null,
+        code: v.code,
+        name: v.name,
+        description: v.description,
+        kind: v.kind,
+        amount: Number(v.amount),
+        min_order: Number(v.min_order),
+        max_discount: v.max_discount !== null ? Number(v.max_discount) : null,
+        valid_from: v.valid_from,
+        valid_to: v.valid_to,
+        usage_limit: v.usage_limit !== null ? Number(v.usage_limit) : null,
+        used_count: Number(v.used_count || 0),
+        customer_used_count: Number(v.customer_used_count || 0),
+        per_user_limit: Number(v.per_user_limit || 1),
+        is_saved: Boolean(v.is_saved),
+        is_public: Boolean(v.is_public ?? 1),
+        is_expired: isExpired,
+        is_out_of_quota: isOutOfQuota,
+        is_limit_reached: isCustomerLimitReached,
+        is_usable: !isExpired && !isOutOfQuota && !isCustomerLimitReached,
+        created_at: v.created_at,
+      };
+    });
 
     res.json(formattedVouchers);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/vouchers/save', ensureCustomer, async (req, res, next) => {
+  try {
+    const customerId = req.auth.userId;
+    const { code, voucherId } = req.body || {};
+
+    let query = 'SELECT * FROM vouchers WHERE ';
+    let params = [];
+
+    if (code) {
+      query += 'BINARY UPPER(code) = UPPER(?) LIMIT 1';
+      params.push(String(code).trim());
+    } else if (voucherId) {
+      query += 'id = ? LIMIT 1';
+      params.push(Number(voucherId));
+    } else {
+      return res.status(400).json({ error: 'Mã voucher hoặc ID voucher là bắt buộc.' });
+    }
+
+    const [voucherRows] = await db.query(query, params);
+    const voucher = voucherRows[0];
+
+    if (!voucher || voucher.status !== 'active') {
+      return res.status(404).json({ error: 'Mã giảm giá không tồn tại hoặc chưa được kích hoạt.' });
+    }
+
+    const now = new Date();
+    if (new Date(voucher.starts_at) > now) {
+      return res.status(400).json({ error: 'Mã giảm giá này chưa đến thời gian áp dụng.' });
+    }
+    if (new Date(voucher.ends_at) < now) {
+      return res.status(400).json({ error: 'Mã giảm giá này đã hết hạn sử dụng.' });
+    }
+
+    // Check usage limits
+    const [[usageRow]] = await db.query(
+      "SELECT COUNT(*) AS totalUsage FROM voucher_redemptions WHERE voucher_id = ? AND status IN ('reserved', 'redeemed')",
+      [voucher.id]
+    );
+    if (voucher.usage_limit !== null && Number(usageRow.totalUsage) >= Number(voucher.usage_limit)) {
+      return res.status(400).json({ error: 'Mã giảm giá đã hết lượt sử dụng sớm.' });
+    }
+
+    // Re-enable if dismissed
+    await db.query(
+      'DELETE FROM customer_dismissed_vouchers WHERE customer_id = ? AND voucher_id = ?',
+      [customerId, voucher.id]
+    );
+
+    // Check if already saved
+    const [savedRows] = await db.query(
+      'SELECT id FROM customer_saved_vouchers WHERE customer_id = ? AND voucher_id = ? LIMIT 1',
+      [customerId, voucher.id]
+    );
+    if (savedRows.length > 0) {
+      return res.json({ success: true, message: 'Mã này đã có sẵn trong kho của bạn.', voucherId: voucher.id, alreadySaved: true });
+    }
+
+    await db.query(
+      'INSERT INTO customer_saved_vouchers (customer_id, voucher_id, saved_at) VALUES (?, ?, NOW())',
+      [customerId, voucher.id]
+    );
+
+    res.json({ success: true, message: `Đã lưu mã ${voucher.code} vào kho voucher của bạn!`, voucherId: voucher.id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/vouchers/expired', ensureCustomer, async (req, res, next) => {
+  try {
+    const customerId = req.auth.userId;
+    // 1) Xóa khỏi customer_saved_vouchers
+    const [result] = await db.query(
+      `DELETE csv FROM customer_saved_vouchers csv
+       JOIN vouchers v ON v.id = csv.voucher_id
+       WHERE csv.customer_id = ?
+         AND (
+           v.ends_at < NOW()
+           OR (v.usage_limit IS NOT NULL AND (
+             SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
+           ) >= v.usage_limit)
+           OR (
+             (SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.customer_id = ? AND vr.status IN ('reserved', 'redeemed')) >= COALESCE(v.per_user_limit, 1)
+           )
+         )`,
+      [customerId, customerId]
+    );
+
+    // 2) Đưa tất cả các voucher hết hiệu lực (kể cả voucher toàn sàn) vào danh sách ẩn của user
+    const [expiredVouchers] = await db.query(
+      `SELECT v.id
+       FROM vouchers v
+       WHERE v.status = 'active'
+         AND (
+           v.ends_at < NOW()
+           OR (v.usage_limit IS NOT NULL AND (
+             SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.status IN ('reserved', 'redeemed')
+           ) >= v.usage_limit)
+           OR (
+             (SELECT COUNT(*) FROM voucher_redemptions vr WHERE vr.voucher_id = v.id AND vr.customer_id = ? AND vr.status IN ('reserved', 'redeemed')) >= COALESCE(v.per_user_limit, 1)
+           )
+         )`,
+      [customerId]
+    );
+
+    for (const v of expiredVouchers) {
+      await db.query(
+        `INSERT INTO customer_dismissed_vouchers (customer_id, voucher_id, dismissed_at)
+         VALUES (?, ?, NOW())
+         ON DUPLICATE KEY UPDATE dismissed_at = NOW()`,
+        [customerId, v.id]
+      );
+    }
+
+    res.json({ success: true, message: 'Đã dọn dẹp các mã voucher hết hiệu lực.', deletedCount: result.affectedRows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/vouchers/:voucherId', ensureCustomer, async (req, res, next) => {
+  try {
+    const customerId = req.auth.userId;
+    const { voucherId } = req.params;
+
+    await db.query(
+      'DELETE FROM customer_saved_vouchers WHERE customer_id = ? AND voucher_id = ?',
+      [customerId, Number(voucherId)]
+    );
+
+    await db.query(
+      `INSERT INTO customer_dismissed_vouchers (customer_id, voucher_id, dismissed_at)
+       VALUES (?, ?, NOW())
+       ON DUPLICATE KEY UPDATE dismissed_at = NOW()`,
+      [customerId, Number(voucherId)]
+    );
+
+    res.json({ success: true, message: 'Đã xóa mã voucher khỏi kho của bạn.' });
   } catch (err) {
     next(err);
   }

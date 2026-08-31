@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-08-31",
+  "scope": "Only order_code LIKE DEMO-% with no driver allocation",
+  "orders": [
+    { "id": 2001, "orderCode": "DEMO-2608-001", "merchantEarning": 113900, "platformFee": 20100 },
+    { "id": 2002, "orderCode": "DEMO-2608-002", "merchantEarning": 232880, "platformFee": 51120 },
+    { "id": 2003, "orderCode": "DEMO-2608-003", "merchantEarning": 151300, "platformFee": 26700 },
+    { "id": 2004, "orderCode": "DEMO-2608-004", "merchantEarning": 82720, "platformFee": 11280 },
+    { "id": 2005, "orderCode": "DEMO-2608-005", "merchantEarning": 100300, "platformFee": 17700 },
+    { "id": 2006, "orderCode": "DEMO-2608-006", "merchantEarning": 63360, "platformFee": 8640 },
+    { "id": 2007, "orderCode": "DEMO-2608-007", "merchantEarning": 79200, "platformFee": 10800 },
+    { "id": 2008, "orderCode": "DEMO-2608-008", "merchantEarning": 91800, "platformFee": 16200 },
+    { "id": 2009, "orderCode": "DEMO-2608-009", "merchantEarning": 106250, "platformFee": 18750 },
+    { "id": 2010, "orderCode": "DEMO-2608-010", "merchantEarning": 76560, "platformFee": 10440 },
+    { "id": 2011, "orderCode": "DEMO-LIVE-001", "merchantEarning": 173400, "platformFee": 30600 },
+    { "id": 2012, "orderCode": "DEMO-LIVE-002", "merchantEarning": 127500, "platformFee": 22500 },
+    { "id": 2013, "orderCode": "DEMO-LIVE-003", "merchantEarning": 142800, "platformFee": 25200 },
+    { "id": 2014, "orderCode": "DEMO-LIVE-004", "merchantEarning": 85000, "platformFee": 15000 },
+    { "id": 2015, "orderCode": "DEMO-TODAY-001", "merchantEarning": 173400, "platformFee": 30600 },
+    { "id": 2016, "orderCode": "DEMO-TODAY-002", "merchantEarning": 156400, "platformFee": 27600 }
+  ]
+}

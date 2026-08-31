@@ -215,7 +215,18 @@ export function AppProvider({ children }) {
   // Chats
   const [chats, setChats] = useState(initialChats);
   const [chatOpen, setChatOpen] = useState(false);
-  const [activeChatId, setActiveChatId] = useState(initialChats[0]?.id ?? null);
+  const [activeChatId, setActiveChatId] = useState(null);
+
+  const openChatPopup = useCallback((conversationId = null) => {
+    if (conversationId) {
+      setActiveChatId(conversationId);
+    }
+    setChatOpen(true);
+  }, []);
+
+  const closeChatPopup = useCallback(() => {
+    setChatOpen(false);
+  }, []);
 
   // ---- Cart helpers ----
   const cartCount = useMemo(
@@ -515,7 +526,7 @@ export function AppProvider({ children }) {
       });
       return null;
     },
-    [emptyCart, normalizeCart, permittedRoles.customer, pushToast, user],
+    [cart, emptyCart, normalizeCart, permittedRoles.customer, pushToast, user],
   );
 
   const removeFromCart = useCallback(
@@ -1076,6 +1087,8 @@ export function AppProvider({ children }) {
     setChatOpen,
     activeChatId,
     setActiveChatId,
+    openChatPopup,
+    closeChatPopup,
 
     currentCustomer,
     currentMerchant,
@@ -1085,6 +1098,7 @@ export function AppProvider({ children }) {
     setDeliveryAddress,
     currentAdmin,
     merchantRestaurant,
+    setMerchantRestaurant,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

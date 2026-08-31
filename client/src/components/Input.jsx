@@ -57,11 +57,11 @@ const Input = forwardRef(function Input(
 export default Input;
 
 export const Textarea = forwardRef(function Textarea(
-  { className, id, hint, label, required, rows = 4, error, ...props },
+  { className, fieldClassName, id, hint, label, required, rows = 4, error, ...props },
   ref,
 ) {
   return (
-    <div className="flex flex-col gap-xxs">
+    <div className={clsx('flex flex-col gap-xxs', className)}>
       {label && (
         <label htmlFor={id} className="text-body-sm font-semibold text-ink">
           {label}
@@ -76,7 +76,7 @@ export const Textarea = forwardRef(function Textarea(
           'w-full rounded-md border bg-surface-card px-base py-sm text-body-md text-ink',
           'placeholder:text-muted outline-none transition-colors',
           error ? 'border-error' : 'border-hairline-strong',
-          className,
+          fieldClassName,
         )}
         {...props}
       />
@@ -87,11 +87,11 @@ export const Textarea = forwardRef(function Textarea(
 });
 
 export const Select = forwardRef(function Select(
-  { className, id, options = [], hint, label, required, error, ...props },
+  { className, fieldClassName, id, options = [], hint, label, required, error, ...props },
   ref,
 ) {
   return (
-    <div className="flex flex-col gap-xxs">
+    <div className={clsx('flex flex-col gap-xxs', className)}>
       {label && (
         <label htmlFor={id} className="text-body-sm font-semibold text-ink">
           {label}
@@ -106,7 +106,7 @@ export const Select = forwardRef(function Select(
             'w-full appearance-none rounded-md border bg-surface-card px-base pr-10 text-body-md text-ink',
             'h-12 md:h-11 outline-none transition-colors',
             error ? 'border-error' : 'border-hairline-strong',
-            className,
+            fieldClassName,
           )}
           {...props}
         >

@@ -5,6 +5,7 @@ import Button from '../../components/Button.jsx';
 import Logo from '../../components/Logo.jsx';
 import Icon from '../../components/Icon.jsx';
 import Avatar from '../../components/Avatar.jsx';
+import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { loginHref, ROLE_HOME } from '../../lib/auth.js';
 import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
@@ -38,6 +39,7 @@ export default function TopNav() {
   const returnTo = pathname + search;
   const { cartCount, setCartOpen, shopAsCustomer, user, logout } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmLogoutModal, setConfirmLogoutModal] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const menuRef = useRef(null);
 
@@ -209,26 +211,29 @@ export default function TopNav() {
                         >
                           <Icon name="user" size={16} className="shrink-0 text-body" />
                           Hồ sơ tài khoản
-                        </Link>                        {shopAsCustomer && (
-                          <Link
-                            to="/app/orders"
-                            role="menuitem"
-                            className={MENU_ITEM}
-                            onClick={() => setMenuOpen(false)}
-                          >
-                            <Icon name="package" size={16} className="shrink-0 text-body" />
-                            Đơn hàng của tôi
-                          </Link>
-                        )}
-                        <Link
-                          to="/app/profile/settings"
-                          role="menuitem"
-                          className={MENU_ITEM}
-                          onClick={() => setMenuOpen(false)}
-                        >
-                          <Icon name="cog" size={16} className="shrink-0 text-body" />
-                          Cài đặt
                         </Link>
+                        {shopAsCustomer && (
+                          <>
+                            <Link
+                              to="/app/orders"
+                              role="menuitem"
+                              className={MENU_ITEM}
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              <Icon name="package" size={16} className="shrink-0 text-body" />
+                              Đơn hàng của tôi
+                            </Link>
+                            <Link
+                              to="/app/profile/promotions"
+                              role="menuitem"
+                              className={MENU_ITEM}
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              <Icon name="zap" size={16} className="shrink-0 text-body" />
+                              Kho voucher của tôi
+                            </Link>
+                          </>
+                        )}
                       </>
                     )}
                   </div>
@@ -236,9 +241,9 @@ export default function TopNav() {
                     <button
                       type="button"
                       role="menuitem"
-                      onClick={async () => {
+                      onClick={() => {
                         setMenuOpen(false);
-                        await logout();
+                        setConfirmLogoutModal(true);
                       }}
                       className={clsx(
                         MENU_ITEM,
@@ -268,6 +273,33 @@ export default function TopNav() {
         </div>
       </div>
 
+      {/* Modal xác nhận đăng xuất */}
+      <Modal
+        open={confirmLogoutModal}
+        onClose={() => setConfirmLogoutModal(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmLogoutModal(false)}>
+              Ở lại
+            </Button>
+            <Button
+              variant="critical"
+              onClick={async () => {
+                setConfirmLogoutModal(false);
+                await logout();
+              }}
+            >
+              Đăng xuất
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi tài khoản NomNom không?
+        </p>
+      </Modal>
     </header>
   );
 }

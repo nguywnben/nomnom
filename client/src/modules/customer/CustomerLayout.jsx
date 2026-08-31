@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -9,6 +10,17 @@ import MobileBottomNav from './MobileBottomNav.jsx';
 import Footer from './Footer.jsx';
 import CartDrawer from './CartDrawer.jsx';
 import ChatWidget from '../chat/ChatWidget.jsx';
+import { scheduleRoutePreload } from '../../lib/routePreload.js';
+
+const CUSTOMER_ROUTE_PRELOADERS = [
+  () => import('./Home.jsx'),
+  () => import('./Search.jsx'),
+  () => import('./Orders.jsx'),
+  () => import('./Tracking.jsx'),
+  () => import('./Checkout.jsx'),
+  () => import('./Profile.jsx'),
+  () => import('./Notifications.jsx'),
+];
 
 // ---------------------------------------------------------------------------
 // CustomerLayout — responsive shell.
@@ -33,6 +45,8 @@ export default function CustomerLayout() {
   const geoLocalityLine = useGeolocationLocalityLabel();
   const { deliveryAddress } = useApp();
 
+  useEffect(() => scheduleRoutePreload(CUSTOMER_ROUTE_PRELOADERS), []);
+
   const deliveryLocalityLine = deliveryAddress
     ? [deliveryAddress.line1, deliveryAddress.ward, deliveryAddress.district, deliveryAddress.city]
         .filter(Boolean)
@@ -47,7 +61,7 @@ export default function CustomerLayout() {
     pathname.startsWith('/app/track/');
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
+    <div className="flex min-h-screen flex-col bg-canvas overflow-x-clip">
       {/* Desktop top nav — hidden on mobile */}
       <TopNav />
 
@@ -56,7 +70,7 @@ export default function CustomerLayout() {
 
       <main
         className={clsx(
-          'flex-1',
+          'flex-1 min-w-0',
           // Add headroom on mobile so content doesn't sit under the fixed
           // bottom nav (16 + safe-area).
           !isFocusedFlow && 'pb-20 md:pb-0',

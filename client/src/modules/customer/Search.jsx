@@ -448,13 +448,13 @@ export default function CustomerSearch() {
           ) : loading && visibleResults === 0 ? (
             view === 'grid' ? (
               <div className="grid grid-cols-2 gap-base xl:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
+                {Array.from({ length: SEARCH_PAGE_SIZE }).map((_, i) => (
                   <SkeletonCard key={i} />
                 ))}
               </div>
             ) : (
               <div className="flex flex-col divide-y divide-hairline rounded-lg border border-hairline-strong bg-surface-card">
-                {Array.from({ length: 5 }).map((_, i) => (
+                {Array.from({ length: SEARCH_PAGE_SIZE }).map((_, i) => (
                   <SkeletonRow key={i} />
                 ))}
               </div>

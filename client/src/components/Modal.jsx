@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import Icon from './Icon.jsx';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock.js';
@@ -80,7 +81,8 @@ export default function Modal({ open, onClose, title, children, footer, size = '
   }, [open]);
 
   if (!open) return null;
-  return (
+
+  const modalElement = (
     <div className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center">
       {/* Backdrop — fills upper area on mobile, full-screen behind on desktop */}
       <button
@@ -138,4 +140,8 @@ export default function Modal({ open, onClose, title, children, footer, size = '
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalElement, document.body)
+    : modalElement;
 }

@@ -7,22 +7,35 @@ import Button, { IconButton } from '../../components/Button.jsx';
 import Drawer from '../../components/Drawer.jsx';
 import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
+import Modal from '../../components/Modal.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantOrdersApi, fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
+import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
 import {
   isMerchantRestaurantApproved,
 } from '../../lib/merchantStatus.js';
+import { scheduleRoutePreload } from '../../lib/routePreload.js';
+
+const MERCHANT_ROUTE_PRELOADERS = [
+  () => import('./Dashboard.jsx'),
+  () => import('./Orders.jsx'),
+  () => import('./Menu.jsx'),
+  () => import('./Promotions.jsx'),
+  () => import('./Reviews.jsx'),
+  () => import('./Wallet.jsx'),
+  () => import('./Settings.jsx'),
+  () => import('./Notifications.jsx'),
+];
 
 const links = [
-  { to: '/merchant', label: 'Bảng điều khiển', icon: 'grid', end: true },
+  { to: '/merchant', label: 'Tổng quan', icon: 'grid', end: true },
   { to: '/merchant/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/merchant/menu', label: 'Thực đơn', icon: 'list' },
   { to: '/merchant/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/merchant/reviews', label: 'Đánh giá', icon: 'starFilled' },
-  { to: '/merchant/wallet', label: 'Ví & rút tiền', icon: 'wallet' },
-  { to: '/merchant/notifications', label: 'Thông báo', icon: 'bell' },
-  { to: '/merchant/settings', label: 'Cài đặt quán', icon: 'cog' },
+  { to: '/merchant/wallet', label: 'Ví tiền', icon: 'wallet' },
+  { to: '/merchant/settings', label: 'Cài đặt', icon: 'cog' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -34,7 +47,7 @@ const links = [
 // ---------------------------------------------------------------------------
 export default function MerchantLayout() {
   const nav = useNavigate();
-  const { currentMerchant, pushToast, logout } = useApp();
+  const { currentMerchant, pushToast, logout, setMerchantRestaurant } = useApp();
   const [checkingRestaurant, setCheckingRestaurant] = useState(true);
   const [restaurantOpen, setRestaurantOpen] = useState(true);
   const [restaurantProfile, setRestaurantProfile] = useState(null);
@@ -43,6 +56,9 @@ export default function MerchantLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [newCount, setNewCount] = useState(0);
   const prevNewCount = useRef(0);
+  const notifCount = useUnreadNotificationCount(Boolean(currentMerchant));
+
+  useEffect(() => scheduleRoutePreload(MERCHANT_ROUTE_PRELOADERS), []);
 
   useEffect(() => {
     let active = true;
@@ -56,6 +72,7 @@ export default function MerchantLayout() {
           return;
         }
         setRestaurantProfile(data.restaurant);
+        setMerchantRestaurant?.(data.restaurant);
         const ordersResponse = await fetchMerchantOrdersApi({ status: 'placed' });
         if (!active) return;
         const ordersArray = Array.isArray(ordersResponse?.orders)
@@ -90,7 +107,7 @@ export default function MerchantLayout() {
         pushToast({
           kind: 'error',
           title: 'Lỗi kết nối',
-          message: 'Không thể xác thực trạng thái nhà hàng.',
+          message: 'Không thể xác thực trạng thái quán ăn.',
         });
       } finally {
         if (active) setCheckingRestaurant(false);
@@ -100,11 +117,29 @@ export default function MerchantLayout() {
     return () => {
       active = false;
     };
-  }, [logout, nav, pushToast]);
+  }, [logout, nav, pushToast, setMerchantRestaurant]);
+
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      nav('/login', { replace: true });
+    } catch {
+      // ignore
+    } finally {
+      setLoggingOut(false);
+      setLogoutConfirmOpen(false);
+    }
+  };
 
   const changeOpenStatus = async (value) => {
     const previous = restaurantOpen;
     setRestaurantOpen(value);
+    setRestaurantProfile((prev) => (prev ? { ...prev, is_open_now: value } : prev));
+    setMerchantRestaurant?.((prev) => (prev ? { ...prev, is_open_now: value } : prev));
     setChangingOpen(true);
     try {
       await updateMerchantSettingsApi({ isOpenNow: value });
@@ -115,6 +150,8 @@ export default function MerchantLayout() {
       });
     } catch (error) {
       setRestaurantOpen(previous);
+      setRestaurantProfile((prev) => (prev ? { ...prev, is_open_now: previous } : prev));
+      setMerchantRestaurant?.((prev) => (prev ? { ...prev, is_open_now: previous } : prev));
       pushToast({ kind: 'error', title: 'Không thể cập nhật', message: error.message || 'Vui lòng thử lại.' });
     } finally {
       setChangingOpen(false);
@@ -147,11 +184,11 @@ export default function MerchantLayout() {
       {/* Desktop sidebar — persistent */}
       <DesktopSidebar
         currentMerchant={merchantIdentity}
+        restaurantSlug={restaurantProfile?.slug || restaurantProfile?.id}
         newCount={newCount}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((value) => !value)}
-        onSwitchRole={() => nav('/app')}
-        onLogout={() => logout()}
+        onLogout={() => setLogoutConfirmOpen(true)}
       />
 
       {/* Mobile drawer sidebar — off-canvas */}
@@ -164,10 +201,13 @@ export default function MerchantLayout() {
       >
         <SidebarContent
           currentMerchant={merchantIdentity}
+          restaurantSlug={restaurantProfile?.slug || restaurantProfile?.id}
           newCount={newCount}
           onItemClick={() => setDrawerOpen(false)}
-          onSwitchRole={() => nav('/app')}
-          onLogout={() => logout()}
+          onLogout={() => {
+            setDrawerOpen(false);
+            setLogoutConfirmOpen(true);
+          }}
         />
       </Drawer>
 
@@ -189,7 +229,13 @@ export default function MerchantLayout() {
             </div>
           </div>
           {newCount > 0 && <Badge tone="live" dot>{newCount}</Badge>}
-          <IconButton icon="bell" label="Thông báo" size="sm" onClick={() => nav('/merchant/notifications')} />
+          <IconButton
+            icon="bell"
+            label="Thông báo"
+            size="sm"
+            badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+            onClick={() => nav('/merchant/notifications')}
+          />
         </header>
 
         {/* Desktop top header (hidden md:flex) */}
@@ -203,7 +249,7 @@ export default function MerchantLayout() {
             <Switch
               checked={restaurantOpen}
               onChange={changeOpenStatus}
-            disabled={changingOpen}
+              disabled={changingOpen}
               label={restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
               hint={restaurantOpen ? 'Khách hàng có thể đặt hàng' : 'Chuyển đổi để nhận đơn'}
             />
@@ -214,19 +260,19 @@ export default function MerchantLayout() {
                 {newCount} đơn hàng mới
               </Badge>
             )}
-            <IconButton icon="bell" label="Thông báo" variant="secondary" onClick={() => nav('/merchant/notifications')} />
+            <IconButton
+              icon="bell"
+              label="Thông báo"
+              variant="secondary"
+              badge={notifCount > 0 ? (notifCount > 9 ? '9+' : notifCount) : undefined}
+              onClick={() => nav('/merchant/notifications')}
+            />
             <Button
               variant="secondary"
               leadingIcon="chat"
               onClick={() => nav('/chat/inbox')}
             >
-              Trò chuyện với khách hàng
-            </Button>
-            <Button
-              leadingIcon="arrowRight"
-              onClick={() => nav('/app/restaurant/' + encodeURIComponent(restaurantProfile?.slug || restaurantProfile?.id))}
-            >
-              Xem quán ăn
+              Trò chuyện
             </Button>
           </div>
         </header>
@@ -236,7 +282,7 @@ export default function MerchantLayout() {
           <Switch
             checked={restaurantOpen}
             onChange={changeOpenStatus}
-              disabled={changingOpen}
+            disabled={changingOpen}
             label={restaurantOpen ? 'Mở cửa' : 'Đóng cửa'}
             size="sm"
           />
@@ -250,9 +296,36 @@ export default function MerchantLayout() {
         </div>
 
         <main className="flex-1 overflow-y-auto p-base md:p-xl">
-          <Outlet />
+          <Outlet context={{ restaurantOpen, setRestaurantOpen, changeOpenStatus, restaurantProfile }} />
         </main>
       </div>
+
+      <Modal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(false)} disabled={loggingOut}>
+              Ở lại
+            </Button>
+            <Button
+              variant="critical"
+              size="sm"
+              leadingIcon="logout"
+              loading={loggingOut}
+              onClick={handleLogout}
+            >
+              Đăng xuất
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi cổng quản trị quán đối tác không?
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -279,7 +352,7 @@ function playNewOrderBeep() {
   }
 }
 
-function DesktopSidebar({ currentMerchant, newCount, collapsed, onToggleCollapse, onSwitchRole, onLogout }) {
+function DesktopSidebar({ currentMerchant, restaurantSlug, newCount, collapsed, onToggleCollapse, onLogout }) {
   return (
     <aside
       className={clsx(
@@ -305,19 +378,19 @@ function DesktopSidebar({ currentMerchant, newCount, collapsed, onToggleCollapse
       )}
       <SidebarContent
         currentMerchant={currentMerchant}
+        restaurantSlug={restaurantSlug}
         newCount={newCount}
         collapsed={collapsed}
-        onSwitchRole={onSwitchRole}
         onLogout={onLogout}
       />
     </aside>
   );
 }
 
-function SidebarContent({ currentMerchant, newCount, collapsed = false, onItemClick, onSwitchRole, onLogout }) {
+function SidebarContent({ currentMerchant, restaurantSlug, newCount, collapsed = false, onItemClick, onLogout }) {
   return (
     <>
-      <nav className="flex-1 px-sm py-2">
+      <nav className="flex-1 px-sm py-2 overflow-y-auto no-scrollbar">
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -341,37 +414,38 @@ function SidebarContent({ currentMerchant, newCount, collapsed = false, onItemCl
           </NavLink>
         ))}
       </nav>
-      {!collapsed && <div className="border-t border-hairline p-sm">
+      <div className="border-t border-hairline p-sm space-y-2">
+        {restaurantSlug && (
+          <NavLink
+            to={`/app/restaurant/${encodeURIComponent(restaurantSlug)}`}
+            onClick={onItemClick}
+            className="flex h-10 items-center gap-2 rounded-md border border-hairline-strong bg-canvas-soft px-sm text-button text-ink transition-colors hover:bg-canvas hover:border-ink/40"
+          >
+            <Icon name="store" size={16} className="shrink-0" />
+            {!collapsed && <span className="flex-1 truncate">Xem quán ăn</span>}
+            {!collapsed && <Icon name="chevronRight" size={14} className="text-body shrink-0" />}
+          </NavLink>
+        )}
         <div className="flex items-center gap-sm">
           <Avatar src={currentMerchant.avatar} name={currentMerchant.name} />
-          <div className="min-w-0 flex-1">
-            <div className="text-body-sm font-semibold text-ink truncate">{currentMerchant.name}</div>
-            <div className="text-caption text-body truncate">{currentMerchant.email}</div>
-          </div>
-          <div className="flex shrink-0 gap-0.5">
-            <button
-              type="button"
-              onClick={onSwitchRole}
-              className="grid h-9 w-9 place-items-center rounded-md text-body hover:bg-canvas-soft hover:text-ink"
-              aria-label="Chuyển vai trò"
-              title="Chuyển vai trò"
-            >
-              <Icon name="refresh" size={14} />
-            </button>
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="grid h-9 w-9 place-items-center rounded-md text-error hover:bg-canvas-soft"
-                aria-label="Đăng xuất"
-                title="Đăng xuất"
-              >
-                <Icon name="x" size={14} />
-              </button>
-            )}
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="text-body-sm font-semibold text-ink truncate">{currentMerchant.name}</div>
+              <div className="text-caption text-body truncate">{currentMerchant.email}</div>
+            </div>
+          )}
+          {!collapsed && (
+            <IconButton
+              icon="logout"
+              size="sm"
+              label="Đăng xuất"
+              variant="ghost"
+              className="text-body hover:bg-canvas hover:text-error transition-colors"
+              onClick={onLogout}
+            />
+          )}
         </div>
-      </div>}
+      </div>
     </>
   );
 }
