@@ -5,6 +5,7 @@ import db from '../db/pool.js';
 import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
 import { geocodeVietnamAddress } from '../lib/addressGeocoding.js';
+import { validateCustomerCancellation } from '../lib/customerCancellation.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -490,38 +491,67 @@ router.get('/orders', ensureCustomer, async (req, res, next) => {
 });
 
 router.post('/orders/:id/cancel', ensureCustomer, async (req, res, next) => {
+  const orderId = Number(req.params.id);
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({ error: 'Mã đơn hàng không hợp lệ.' });
+  }
+
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 500)
+    || 'Khách hàng chủ động hủy trước khi quán xử lý.';
+  const connection = await db.getConnection();
   try {
     const { userId } = req.auth;
-    const { id } = req.params;
-
-    // Get order and check ownership
-    const [orders] = await db.query(
-      'SELECT * FROM orders WHERE id = ? AND customer_id = ?',
-      [id, userId]
+    await connection.beginTransaction();
+    const [orders] = await connection.query(
+      'SELECT * FROM orders WHERE id = ? AND customer_id = ? FOR UPDATE',
+      [orderId, userId],
     );
 
     if (orders.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
     }
 
     const order = orders[0];
+    validateCustomerCancellation(order);
 
-    // Check cancellation constraints
-    if (order.status !== 'pending_payment' && order.status !== 'placed') {
-      return res.status(400).json({
-        error: 'Đơn hàng đang chuẩn bị hoặc đã vận chuyển, không thể hủy'
-      });
-    }
-
-    // Update status to cancelled
-    await db.query(
-      "UPDATE orders SET status = 'cancelled' WHERE id = ?",
-      [id]
+    await connection.query(
+      `UPDATE orders
+       SET status = 'cancelled', cancelled_at = NOW(), cancelled_by_role = 'customer', cancel_reason = ?
+       WHERE id = ?`,
+      [reason, order.id],
     );
+    await connection.query(
+      "UPDATE payments SET status = 'cancelled', failure_reason = 'Order cancelled by customer' WHERE order_id = ? AND status IN ('initiated', 'pending')",
+      [order.id],
+    );
+    await connection.query(
+      "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status = 'reserved'",
+      [order.id],
+    );
+    await connection.query(
+      "INSERT INTO order_status_logs (order_id, from_status, to_status, changed_by_role, changed_by_user_id, note) VALUES (?, ?, 'cancelled', 'customer', ?, ?)",
+      [order.id, order.status, userId, reason],
+    );
+    await connection.query(
+      `INSERT INTO notifications (user_id, type, title, body, link_url)
+       SELECT r.owner_user_id, 'order_cancelled', ?, ?, '/merchant/orders'
+       FROM restaurants r WHERE r.id = ? AND r.owner_user_id IS NOT NULL`,
+      [
+        `Đơn hàng ${order.order_code} đã bị hủy`,
+        `Khách hàng đã hủy đơn ${order.order_code} trước khi quán xử lý.`,
+        order.restaurant_id,
+      ],
+    );
+
+    await connection.commit();
 
     res.json({ success: true, message: 'Hủy đơn hàng thành công' });
   } catch (err) {
+    await connection.rollback();
     next(err);
+  } finally {
+    connection.release();
   }
 });
 
