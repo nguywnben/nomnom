@@ -1,21 +1,43 @@
-# 🍽️ KỊCH BẢN BÁO CÁO DỰ ÁN NOMNOM (DEMO WALKTHROUGH GUIDE)
+# Kịch bản báo cáo dự án NomNom — 03/09/2026
 
-> **Mục tiêu:** Bản hướng dẫn này phân chia toàn bộ **100% các trang và tính năng** của nền tảng NomNom cho **6 thành viên**, đảm bảo khối lượng đồng đều và luồng trình bày diễn ra tự nhiên như một kịch bản trải nghiệm người dùng thực tế (End-to-End User Journey).
+> **Mục tiêu:** Phân chia toàn bộ phạm vi NomNom cho 6 thành viên theo một hành trình end-to-end. Nhóm kiểm kê 100% trang/chức năng nhưng chỉ demo trực tiếp các điểm chứng minh nghiệp vụ; không chạy tuần tự mọi màn hình.
+
+## Cách sử dụng bộ tài liệu
+
+1. Cả nhóm đọc phần 1–8 và 12 trong [`PRESENTATION_LIBRARY.md`](./PRESENTATION_LIBRARY.md).
+2. Mỗi người học sâu cẩm nang riêng trong `docs/presentation/`.
+3. Khi diễn tập, dùng tài khoản và dữ liệu đã chuẩn bị; không tạo/xóa hàng loạt dữ liệu seed.
+4. COD là luồng chính ổn định. VNPay dùng live chỉ khi preflight thành công, nếu không dùng slide/video.
+5. Không nói “WebSocket/realtime tức thời”: Tracking, Chat và Merchant Orders hiện cập nhật gần thời gian thực bằng polling.
+
+## Thông điệp mở đầu bắt buộc
+
+NomNom vận hành với **Admin – Khách hàng – Nhà hàng**. Nhà hàng tự giao hoặc thuê đối tác ngoài; NomNom không có marketplace tài xế. Luồng chuẩn là:
+
+```text
+Khách chọn món → Checkout → Nhà hàng nhận/chuẩn bị/bắt đầu giao
+→ Khách xác nhận nhận hàng → Ví nhà hàng/đối soát → Admin audit
+```
 
 ---
 
-## 🧭 TỔNG QUAN LUỒNG BÁO CÁO 6 BƯỚC
+## Tổng quan luồng báo cáo 6 bước
 
 ```
-[1. Khám phá & Xác thực] ➔ [2. Tài khoản & Giỏ hàng] ➔ [3. Phí Ship & Thanh toán] ➔ [4. Theo dõi, Chat & Đánh giá] ➔ [5. Vận hành Quán ăn] ➔ [6. Quản trị & Đối soát Admin]
+[1. Phạm vi, Auth & Khám phá] → [2. Quán, Hồ sơ & Giỏ]
+→ [3. Checkout, Ship & Thanh toán] → [4. Theo dõi, Chat & Đánh giá]
+→ [5. Vận hành Nhà hàng] → [6. Admin, Đối soát & Hạ tầng]
 ```
+
+Mỗi phần gồm 3 lớp: thao tác nhìn thấy trên UI, quy tắc backend bảo vệ nghiệp vụ và bảng dữ liệu tạo bằng chứng. Thời lượng toàn bài mục tiêu 23–25 phút, cộng thời gian hỏi đáp.
 
 ---
 
-## 👤 NGƯỜI 1: LANDING PAGE, XÁC THỰC & KHÁM PHÁ QUÁN ĂN
+## Người 1 — Ong Tuấn Nghĩa: Phạm vi, xác thực và khám phá
 
-* **Phân công gợi ý:** **Ong Tuấn Nghĩa** *(hoặc Nguyễn Văn Dĩ Khang)*
-* **Thời lượng dự kiến:** 3.5 – 4 phút
+* **Phân công:** **Ong Tuấn Nghĩa**
+* **Thời lượng:** 3 phút 30 giây
+* **Cẩm nang:** [`presentation/01-ong-tuan-nghia.md`](./presentation/01-ong-tuan-nghia.md)
 * **Mục tiêu:** Giới thiệu nền tảng, cơ chế bảo mật xác thực tài khoản và trải nghiệm tìm kiếm, lựa chọn món ăn của khách hàng.
 
 ### Các trang phụ trách review:
@@ -29,33 +51,36 @@
    - `/forgot-password`, `/verify-otp`, `/reset-password` — Luồng khôi phục mật khẩu bảo mật qua Email OTP.
 3. **Khám phá Trang chủ Khách hàng:**
    - `/app` — **Customer Home**: Banner khuyến mãi động, Danh mục ẩm thực (Cuisines), Danh sách quán ăn gần bạn, Món ăn thịnh hành (Trending).
-4. **Tìm kiếm & Thực đơn quán:**
+4. **Tìm kiếm và chọn quán để bàn giao:**
    - `/app/search` — **Tìm kiếm & Bộ lọc nâng cao**: Tìm theo tên món/quán, lọc theo khoảng giá, đánh giá sao, loại ẩm thực.
-   - `/app/restaurant/:id` — **Chi tiết quán ăn**: Thông tin quán, thời gian hoạt động, thực đơn phân loại theo danh mục.
-   - `/app/dish/:id` & `/app/dish/:id/reviews` — **Chi tiết món ăn & Đánh giá riêng của món**.
+   - Chọn một quán phù hợp và bàn giao; Người 2 trình bày sâu chi tiết quán/món.
 
 🎙️ **Lời thoại chuyển giao (Transition):**
 > *"Sau khi khách hàng đã tìm kiếm và lựa chọn được các món ăn ưng ý từ quán, xin mời bạn **[Tên Người 2]** tiếp tục trình bày về phân hệ quản lý tài khoản, sổ địa chỉ nhận hàng và thao tác đưa món vào giỏ hàng."*
 
 ---
 
-## 👤 NGƯỜI 2: HỒ SƠ KHÁCH HÀNG, SỔ ĐỊA CHỈ & GIỎ HÀNG
+## Người 2 — Nguyễn Thị Như Ngọc: Quán, hồ sơ, địa chỉ và giỏ hàng
 
-* **Phân công gợi ý:** **Nguyễn Thị Như Ngọc** (`ngoc-2912`)
-* **Thời lượng dự kiến:** 3.5 – 4 phút
+* **Phân công:** **Nguyễn Thị Như Ngọc**
+* **Thời lượng:** 3 phút 30 giây
+* **Cẩm nang:** [`presentation/02-nguyen-thi-nhu-ngoc.md`](./presentation/02-nguyen-thi-nhu-ngoc.md)
 * **Mục tiêu:** Quản lý thông tin cá nhân khách hàng, thiết lập địa chỉ nhận hàng và cơ chế giỏ hàng đồng bộ cơ sở dữ liệu.
 
 ### Các trang phụ trách review:
-1. **Quản lý Hồ sơ Khách hàng:**
+1. **Chi tiết quán và món:**
+   - `/app/restaurant/:id` — thông tin, trạng thái mở cửa/phạm vi, voucher và menu theo danh mục.
+   - `/app/dish/:id`, `/app/dish/:id/reviews`, `/app/reviews/:id` — chi tiết món, đánh giá món và quán.
+2. **Quản lý Hồ sơ Khách hàng:**
    - `/app/profile` — **Trung tâm cá nhân**: Xem thông tin tổng quan, vai trò hiện tại, lối tắt quản lý.
    - `/app/profile/edit` — **Chỉnh sửa hồ sơ**: Thay đổi họ tên, số điện thoại, tải ảnh đại diện lên Cloudinary.
    - `/app/profile/settings` — **Cài đặt tài khoản**: Đổi mật khẩu, cài đặt bảo mật và thông báo.
-2. **Sổ địa chỉ Giao hàng:**
+3. **Sổ địa chỉ Giao hàng:**
    - `/app/profile/addresses` — **Quản lý sổ địa chỉ**: Thêm địa chỉ mới, chỉnh sửa/xóa địa chỉ, gắn nhãn (Nhà riêng / Công ty), tính năng tự động nhận diện tọa độ định vị vị trí, chọn địa chỉ mặc định.
-3. **Kho khuyến mãi cá nhân & Thông báo:**
+4. **Kho khuyến mãi cá nhân & Thông báo:**
    - `/app/profile/promotions` — **Kho voucher**: Xem các voucher đang sở hữu và điều kiện áp dụng.
    - `/app/notifications` — **Trung tâm thông báo**: Danh sách thông báo cập nhật đơn hàng và khuyến mãi.
-4. **Vận hành Giỏ hàng:**
+5. **Vận hành Giỏ hàng:**
    - `CartDrawer` (Ngăn kéo giỏ hàng) — Thêm món ăn vào giỏ, tùy chỉnh tăng/giảm số lượng, thêm ghi chú cho món ăn, cơ chế cảnh báo khi thêm món từ quán khác, chứng minh giỏ hàng được lưu đồng bộ trong Database (reload trang không bị mất).
 
 🎙️ **Lời thoại chuyển giao (Transition):**
@@ -63,18 +88,19 @@
 
 ---
 
-## 👤 NGƯỜI 3: PHÍ VẬN CHUYỂN, VOUCHER & THANH TOÁN VNPAY / COD
+## Người 3 — Trần Minh Được: Checkout, vận chuyển và thanh toán
 
-* **Phân công gợi ý:** **Trần Minh Được** (`Tokary2006`)
-* **Thời lượng dự kiến:** 3.5 – 4 phút
+* **Phân công:** **Trần Minh Được**
+* **Thời lượng:** 4 phút
+* **Cẩm nang:** [`presentation/03-tran-minh-duoc.md`](./presentation/03-tran-minh-duoc.md)
 * **Mục tiêu:** Trình bày quy trình Checkout toàn diện, cơ chế tính phí ship động theo bản đồ thực tế và tích hợp cổng thanh toán trực tuyến.
 
 ### Các trang phụ trách review:
 1. **Trang Checkout Đặt hàng:**
    - `/app/checkout` — **Xác nhận đặt hàng**: Kiểm tra danh sách món, người nhận, số điện thoại, ghi chú giao hàng.
-2. **Tính phí Vận chuyển Động (OpenRouteService API):**
-   - Giải thuật và giao diện tính khoảng cách thực tế (km) từ tọa độ Quán ăn đến Địa chỉ nhận hàng của khách.
-   - Tự động tính toán mức phí vận chuyển dựa trên cấu hình cước phí sàn.
+2. **Tính phí Vận chuyển Động:**
+   - Ưu tiên OpenRouteService; nếu dịch vụ route gián đoạn và đã có tọa độ, dùng ước lượng Haversine × 1,3.
+   - Phạm vi tối đa 12 km; công thức hiện tại `min(50.000, 15.000 + ceil(km) × 5.000)`.
 3. **Áp dụng Mã giảm giá (Voucher Management):**
    - Modal chọn voucher khả dụng (giảm theo %, giảm số tiền cố định).
    - Kiểm tra điều kiện đơn tối thiểu, mức giảm tối đa và cập nhật tổng tiền thanh toán ngay lập tức.
@@ -90,20 +116,21 @@
 
 ---
 
-## 👤 NGƯỜI 4: THEO DÕI ĐƠN REALTIME, CHAT 1-1 & ĐÁNH GIÁ
+## Người 4 — Hồ Minh Nhật: Theo dõi, chat và đánh giá
 
-* **Phân công gợi ý:** **Hồ Minh Nhật**
-* **Thời lượng dự kiến:** 3.5 – 4 phút
+* **Phân công:** **Hồ Minh Nhật**
+* **Thời lượng:** 3 phút 30 giây
+* **Cẩm nang:** [`presentation/04-ho-minh-nhat.md`](./presentation/04-ho-minh-nhat.md)
 * **Mục tiêu:** Trải nghiệm sau khi đặt hàng, vòng đời trạng thái đơn, kênh liên lạc tức thời và hệ thống đánh giá chất lượng.
 
 ### Các trang phụ trách review:
 1. **Lịch sử & Quản lý Đơn hàng:**
    - `/app/orders` — **Danh sách đơn hàng của tôi**: Lọc theo trạng thái (Tất cả / Đang xử lý / Hoàn tất / Đã hủy), xem chi tiết đơn cũ.
-2. **Theo dõi Đơn hàng Thời gian thực (Realtime Tracking):**
+2. **Theo dõi Đơn hàng gần thời gian thực:**
    - `/app/track/:id` — **Theo dõi hành trình đơn**: Stepper tiến trình trực quan (Chờ thanh toán $\rightarrow$ Đã đặt $\rightarrow$ Quán nhận $\rightarrow$ Đang nấu $\rightarrow$ Sẵn sàng giao $\rightarrow$ Đang giao $\rightarrow$ Đã giao).
    - Hiển thị thông tin quán ăn, dự kiến thời gian giao và chi tiết đơn hàng.
 3. **Hệ thống Nhắn tin Chat 1-1:**
-   - `/chat/:id` & `ChatWidget` — **Kênh chat trực tiếp giữa Khách hàng và Quán ăn**: Nhắn tin trao đổi về yêu cầu món ăn, thời gian nhận hàng, lưu trữ lịch sử tin nhắn.
+   - `/chat/:id` & `ChatWidget` — chat giữa các bên thuộc đơn; lịch sử lưu DB, polling hội thoại/tin nhắn định kỳ.
 4. **Đánh giá & Phản hồi (Reviews & Rating):**
    - `/app/reviews/write/:id` — **Viết đánh giá đơn hàng**: Đánh giá số sao cho quán, đánh giá riêng từng món ăn kèm nhận xét chi tiết.
    - `/app/reviews/:id` — **Trang tổng hợp đánh giá của quán**: Xem điểm sao trung bình, biểu đồ phân bố sao và các bình luận từ cộng đồng.
@@ -113,10 +140,11 @@
 
 ---
 
-## 👤 NGƯỜI 5: VẬN HÀNH TOÀN DIỆN ĐỐI TÁC QUÁN ĂN (MERCHANT)
+## Người 5 — Nguyễn Văn Dĩ Khang: Vận hành nhà hàng
 
-* **Phân công gợi ý:** **Nguyễn Văn Dĩ Khang** *(hoặc Hồ Minh Nhật)*
-* **Thời lượng dự kiến:** 3.5 – 4 phút
+* **Phân công:** **Nguyễn Văn Dĩ Khang**
+* **Thời lượng:** 4 phút
+* **Cẩm nang:** [`presentation/05-nguyen-van-di-khang.md`](./presentation/05-nguyen-van-di-khang.md)
 * **Mục tiêu:** Giới thiệu luồng đăng ký đối tác, quản lý thực đơn món ăn, quy trình xử lý đơn hàng trên Kanban và ví tài chính của quán.
 
 ### Các trang phụ trách review:
@@ -128,7 +156,7 @@
 3. **Quản lý Thực đơn (Menu Management):**
    - `/merchant/menu` — Quản lý danh mục món ăn, thêm món mới (tên, giá, mô tả, tải ảnh Cloudinary), chuyển đổi trạng thái Bật/Tắt món (hết hàng/còn hàng).
 4. **Xử lý Đơn hàng (Order Kanban Flow):**
-   - `/merchant/orders` — Giao diện bảng Kanban xử lý đơn hàng theo thời gian thực: Nhận đơn mới $\rightarrow$ Chấp nhận/Từ chối $\rightarrow$ Đang nấu $\rightarrow$ Báo sẵn sàng giao $\rightarrow$ Bàn giao giao hàng.
+   - `/merchant/orders` — Kanban polling: Nhận đơn → Chấp nhận/Từ chối → Đang nấu → Sẵn sàng → Nhà hàng bắt đầu tự giao/thuê ngoài.
 5. **Khuyến mãi, Đánh giá & Cài đặt:**
    - `/merchant/promotions` — Tạo và quản lý mã khuyến mãi riêng cho quán.
    - `/merchant/reviews` — Theo dõi các đánh giá của thực khách và gửi phản hồi.
@@ -142,10 +170,11 @@
 
 ---
 
-## 👤 NGƯỜI 6: QUẢN TRỊ VIÊN HỆ THỐNG, ĐỐI SOÁT & HẠ TẦNG (ADMIN)
+## Người 6 — Nguyễn Công Ben: Admin, đối soát và hạ tầng
 
-* **Phân công gợi ý:** **Nguyễn Công Ben** *(Trưởng nhóm)*
-* **Thời lượng dự kiến:** 4 phút
+* **Phân công:** **Nguyễn Công Ben**
+* **Thời lượng:** 4 phút 30 giây
+* **Cẩm nang:** [`presentation/06-nguyen-cong-ben.md`](./presentation/06-nguyen-cong-ben.md)
 * **Mục tiêu:** Quản trị toàn diện sàn thương mại điện tử, kiểm duyệt đối tác, đối soát tài chính, cấu hình hệ thống, nhật ký kiểm toán và báo cáo triển khai.
 
 ### Các trang phụ trách review:
@@ -158,26 +187,58 @@
 4. **Giám sát Đơn hàng & Kiểm duyệt Đánh giá:**
    - `/admin/orders` — Tra cứu toàn bộ đơn hàng trên toàn hệ thống, can thiệp hủy đơn khẩn cấp nếu có sự cố.
    - `/admin/reviews` — Kiểm duyệt các bình luận, xử lý đánh giá xấu/spam vi phạm tiêu chuẩn cộng đồng.
+   - `/admin/promotions` — CRUD voucher toàn sàn và giám sát voucher của quán.
 5. **Đối soát Tài chính & Rút tiền (Finance & Payouts):**
    - `/admin/financial` — Thống kê doanh thu toàn sàn, dòng tiền vào/ra, hoa hồng trích lập.
-   - `/admin/payouts` — Danh sách yêu cầu rút tiền của các chủ quán $\rightarrow$ Thao tác Phê duyệt / Từ chối lệnh chi tiền.
+   - `/admin/financial?tab=payouts` — Danh sách yêu cầu rút tiền; phê duyệt/từ chối có kiểm tra số dư và audit.
 6. **Cấu hình Hệ thống & Bố cục Trang chủ:**
-   - `/admin/cuisines` — Quản lý danh mục ẩm thực (Thêm, sửa, đổi icon, sắp xếp thứ tự hiển thị).
-   - `/admin/customer-home` — Chỉnh sửa banner quảng cáo trang chủ, cấu hình các khối hiển thị cho khách hàng.
-   - `/admin/config` — Cấu hình thông số sàn (Tỷ lệ phí hoa hồng %, bán kính giao hàng tối đa, cước phí giao hàng).
+   - `/admin/content?tab=cuisines` — Quản lý danh mục ẩm thực.
+   - `/admin/content?tab=home` — Banner và cấu hình khối trang chủ.
+   - `/admin/system?tab=config` — Cấu hình thông số sàn có validate.
 7. **Nhật ký Kiểm toán & Tổng kết Hạ tầng:**
-   - `/admin/audit-logs` — **Audit Logs**: Nhật ký lưu vết toàn bộ thao tác nhạy cảm của Admin (Duyệt quán, khóa tài khoản, duyệt tiền, hủy đơn) để đảm bảo tính minh bạch.
+   - `/admin/system?tab=logs` — Audit log thao tác nhạy cảm.
+   - `/admin/notifications` — Thông báo quản trị.
    - **Báo cáo Hạ tầng Triển khai:** Tóm tắt kiến trúc đã deploy thực tế (**Vercel** cho React Frontend + **Railway** cho Express API & MySQL Database).
 
 ---
 
-## 📊 BẢNG TỔNG HỢP PHÂN CHIA TRANG & THỜI LƯỢNG
+## Bảng tổng hợp phạm vi và thời lượng
 
 | Người | Vai trò phụ trách | Danh sách các Routes chính | Thời lượng |
 | :---: | :--- | :--- | :---: |
-| **1** | Landing, Auth & Khám phá | `/`, `/faq`, `/terms-of-service`, `/privacy-policy`, `/login`, `/register`, `/forgot-password`, `/app`, `/app/search`, `/app/restaurant/:id`, `/app/dish/:id` | 3.5 – 4m |
-| **2** | Hồ sơ, Sổ địa chỉ & Giỏ hàng | `/app/profile`, `/app/profile/edit`, `/app/profile/settings`, `/app/profile/addresses`, `/app/profile/promotions`, `/app/notifications`, `CartDrawer` | 3.5 – 4m |
-| **3** | Phí Ship, Voucher & VNPay | `/app/checkout`, `Tính phí ship ORS`, `Mã giảm giá`, `VNPay Sandbox Gateway`, `/app/checkout/vnpay/return`, `/app/order/success/:id` | 3.5 – 4m |
-| **4** | Theo dõi đơn, Chat & Đánh giá | `/app/orders`, `/app/track/:id`, `/chat/:id`, `ChatWidget`, `/app/reviews/write/:id`, `/app/reviews/:id` | 3.5 – 4m |
-| **5** | Vận hành Đối tác Quán ăn | `/merchant/onboarding`, `/merchant/pending`, `/merchant`, `/merchant/orders` (Kanban), `/merchant/menu`, `/merchant/promotions`, `/merchant/reviews`, `/merchant/wallet`, `/merchant/settings`, `/merchant/notifications` | 3.5 – 4m |
-| **6** | Quản trị Sàn, Đối soát & Deploy | `/admin`, `/admin/restaurants`, `/admin/accounts`, `/admin/orders`, `/admin/reviews`, `/admin/financial`, `/admin/payouts`, `/admin/cuisines`, `/admin/customer-home`, `/admin/config`, `/admin/audit-logs`, `Deploy Vercel & Railway` | 4m |
+| **1 – Nghĩa** | Phạm vi, Landing, Auth, Home, Search | Công khai + khám phá | 3m30 |
+| **2 – Ngọc** | Quán/món, Profile, Address, Voucher, Notification, Cart | Chuẩn bị giỏ hợp lệ | 3m30 |
+| **3 – Được** | Checkout, ORS/fallback, Voucher validation, COD/VNPay | Tạo đơn an toàn | 4m |
+| **4 – Nhật** | Orders, Tracking, Chat, Confirm delivery, Review | Hậu đặt hàng | 3m30 |
+| **5 – Khang** | Onboarding, Dashboard, Menu, Orders, Wallet, Settings | Vận hành nhà hàng | 4m |
+| **6 – Ben** | Admin, Finance, Content/System, Audit, Quality, Deploy | Quản trị và tổng kết | 4m30 |
+
+## Nguyên tắc cân bằng trình bày
+
+- Cân bằng theo độ khó và thời gian, không theo số route.
+- Người 1 không mở từng trang pháp lý/auth; Người 5 và 6 demo sâu tối đa 4–5 màn hình.
+- Các chức năng phụ được kiểm kê trên slide và giải thích trong cẩm nang, không thao tác CRUD dài dòng.
+- Người 3 và 6 có thêm thời gian vì thanh toán/tài chính là phần dễ bị phản biện.
+
+## Checklist diễn tập chung
+
+### Trước báo cáo
+
+- [ ] Chạy release gate, health check và smoke đăng nhập ba vai trò.
+- [ ] Reset/import đúng seed, backup trước mọi import; xác nhận số liệu trong thư viện.
+- [ ] Mở ba cửa sổ riêng Customer/Merchant/Admin và đúng đơn cho từng trạng thái.
+- [ ] Preflight VNPay, SMTP, Cloudinary, ORS; nếu lỗi chuyển COD/video.
+- [ ] Chuẩn bị ERD, architecture, video offline và bản build dự phòng.
+
+### Trong báo cáo
+
+- [ ] Một đơn duy nhất được theo từ Customer → Merchant → Customer → Admin/Wallet.
+- [ ] Mỗi người nói đủ UI → quy tắc backend → bảng dữ liệu.
+- [ ] Không gọi polling là WebSocket; không nhắc tài xế như vai trò runtime.
+- [ ] Không tạo refund/payout hoặc xóa dữ liệu đang dùng nếu chưa preflight.
+- [ ] Nêu giới hạn trung thực và phân biệt release candidate với production SLA.
+
+### Sau khi demo
+
+- [ ] Người 6 chốt số liệu, gate chất lượng và kế hoạch rollback.
+- [ ] Mỗi người sẵn sàng trả lời 10 câu bắt buộc trong thư viện chung.

@@ -28,6 +28,19 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Rủi ro đã biết, cách kiểm soát và backlog sau báo cáo |
 | [RELEASE_EVIDENCE_2026-08-31.md](./RELEASE_EVIDENCE_2026-08-31.md) | Bằng chứng gate, database và browser trước báo cáo |
 
+## Bộ tài liệu báo cáo 03/09/2026
+
+| Tài liệu | Mục đích |
+|----------|----------|
+| [PRESENTATION_GUIDE.md](./PRESENTATION_GUIDE.md) | Flow, thời lượng, thao tác demo và chuyển giao của 6 thành viên |
+| [PRESENTATION_LIBRARY.md](./PRESENTATION_LIBRARY.md) | Nguồn tra cứu chung về logic, nghiệp vụ, dữ liệu, số liệu, kiến trúc và phản biện |
+| [01 — Ong Tuấn Nghĩa](./presentation/01-ong-tuan-nghia.md) | Phạm vi, xác thực, trang chủ và tìm kiếm |
+| [02 — Nguyễn Thị Như Ngọc](./presentation/02-nguyen-thi-nhu-ngoc.md) | Quán/món, hồ sơ, địa chỉ, voucher và giỏ |
+| [03 — Trần Minh Được](./presentation/03-tran-minh-duoc.md) | Checkout, vận chuyển, COD và VNPay |
+| [04 — Hồ Minh Nhật](./presentation/04-ho-minh-nhat.md) | Đơn, tracking, chat và đánh giá |
+| [05 — Nguyễn Văn Dĩ Khang](./presentation/05-nguyen-van-di-khang.md) | Vận hành nhà hàng |
+| [06 — Nguyễn Công Ben](./presentation/06-nguyen-cong-ben.md) | Admin, tài chính, audit và triển khai |
+
 ## Phân tích & thiết kế
 
 | Tài liệu | Mô tả |
