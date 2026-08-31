@@ -11,31 +11,27 @@ import { useApp } from '../../context/AppContext.jsx';
 import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
 
 const links = [
-  { to: '/admin/customer-home', label: 'Trang chủ', icon: 'image' },
-  { to: '/admin/cuisines', label: 'Loại ẩm thực', icon: 'grid' },
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
+  { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
+  { to: '/admin/restaurants', label: 'Quán ăn', icon: 'store' },
   { to: '/admin/promotions', label: 'Khuyến mãi', icon: 'zap' },
   { to: '/admin/accounts', label: 'Tài khoản', icon: 'user' },
-  { to: '/admin/restaurants', label: 'Quán ăn', icon: 'store' },
-  { to: '/admin/orders', label: 'Đơn hàng', icon: 'package' },
   { to: '/admin/reviews', label: 'Đánh giá', icon: 'starFilled' },
   { to: '/admin/financial', label: 'Tài chính', icon: 'wallet' },
-  { to: '/admin/config', label: 'Cấu hình', icon: 'cog' },
-  { to: '/admin/audit-logs', label: 'Lịch sử', icon: 'list' },
+  { to: '/admin/content', label: 'Nội dung', icon: 'image' },
+  { to: '/admin/system', label: 'Hệ thống', icon: 'cog' },
 ];
 
 const sidebarOrder = [
   '/admin',
   '/admin/orders',
-  '/admin/promotions',
   '/admin/restaurants',
+  '/admin/promotions',
   '/admin/accounts',
   '/admin/reviews',
   '/admin/financial',
-  '/admin/customer-home',
-  '/admin/cuisines',
-  '/admin/config',
-  '/admin/audit-logs',
+  '/admin/content',
+  '/admin/system',
 ];
 
 links.sort((left, right) => sidebarOrder.indexOf(left.to) - sidebarOrder.indexOf(right.to));
