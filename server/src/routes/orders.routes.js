@@ -6,6 +6,12 @@ import { buildShippingQuote } from '../lib/shippingQuote.js';
 import crypto from 'crypto';
 import { normalizeReviewSubmission, refreshReviewStats } from '../lib/reviewSubmission.js';
 import { creditMerchantForDeliveredOrder } from '../lib/merchantOrders.js';
+import { validateCheckoutAvailability } from '../lib/checkoutValidation.js';
+import {
+  buildCheckoutRequestHash,
+  normalizeIdempotencyKey,
+} from '../lib/checkoutIdempotency.js';
+import { calculateOrderFinance } from '../lib/orderFinance.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -36,12 +42,43 @@ router.post('/', requireAuth, async (req, res, next) => {
   try {
     const { userId: customerId } = req.auth;
     const { addressId, paymentMethod, customerNote, voucherCode } = req.body;
+    const idempotencyKey = normalizeIdempotencyKey(req.get('Idempotency-Key'));
+    const requestHash = buildCheckoutRequestHash({ addressId, paymentMethod, customerNote, voucherCode });
 
     if (!['cod', 'vnpay'].includes(paymentMethod)) {
       return res.status(400).json({ error: 'Phương thức thanh toán không hợp lệ' });
     }
 
     await connection.beginTransaction();
+
+    await connection.query(
+      `INSERT INTO order_checkout_idempotency (customer_id, idempotency_key, request_hash)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`,
+      [customerId, idempotencyKey, requestHash],
+    );
+    const [[checkoutAttempt]] = await connection.query(
+      `SELECT request_hash, order_id
+       FROM order_checkout_idempotency
+       WHERE customer_id = ? AND idempotency_key = ?
+       FOR UPDATE`,
+      [customerId, idempotencyKey],
+    );
+    if (checkoutAttempt.request_hash !== requestHash) {
+      await connection.rollback();
+      return res.status(409).json({
+        error: 'Khóa đặt hàng đã được dùng cho một yêu cầu khác.',
+        code: 'IDEMPOTENCY_KEY_REUSED',
+      });
+    }
+    if (checkoutAttempt.order_id) {
+      const [[existingOrder]] = await connection.query(
+        'SELECT * FROM orders WHERE id = ? AND customer_id = ? LIMIT 1',
+        [checkoutAttempt.order_id, customerId],
+      );
+      await connection.commit();
+      return res.status(200).json({ order: existingOrder, idempotent: true });
+    }
 
     // 1. Đọc cart
     const cart = await getActiveCart(connection, customerId);
@@ -52,7 +89,8 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // Lấy cart items + menu items info
     const [cartItems] = await connection.query(
-      `SELECT ci.*, m.name as item_name, m.price, m.prep_time_min
+      `SELECT ci.*, m.name as item_name, m.price, m.prep_time_min,
+              m.restaurant_id AS menu_restaurant_id, m.status AS menu_status, m.in_stock
        FROM cart_items ci
        JOIN menu_items m ON ci.menu_item_id = m.id
        WHERE ci.cart_id = ?`,
@@ -88,10 +126,12 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     // 3. Thông tin nhà hàng
     const [rests] = await connection.query(
-      `SELECT * FROM restaurants WHERE id = ?`,
+      `SELECT * FROM restaurants WHERE id = ? FOR UPDATE`,
       [cart.restaurant_id]
     );
     const restaurant = rests[0];
+
+    validateCheckoutAvailability(restaurant, cartItems);
 
     let shippingQuote;
     try {
@@ -157,14 +197,17 @@ router.post('/', requireAuth, async (req, res, next) => {
     // HẠCH TOÁN DOANH THU & DÒNG TIỀN CHUẨN:
     // Nếu mã do Quán ăn tạo (voucher.restaurant_id !== null) -> Quán tự chịu phần giảm giá.
     // Nếu mã do Sàn tài trợ (voucher.restaurant_id === null) -> Sàn chi trả khuyến mãi, Quán hưởng trọn giá gốc món.
-    const isMerchantVoucher = voucher && voucher.restaurant_id !== null;
-    const merchantBillableSubtotal = isMerchantVoucher
-      ? Math.max(0, subtotal - discount_amount)
-      : subtotal;
-    const platform_commission = Math.floor(merchantBillableSubtotal * Number(restaurant.commission_rate) / 100);
-    const merchant_earning = merchantBillableSubtotal - platform_commission;
-    // Phí dịch vụ nền tảng (hoa hồng sàn + phí giao hàng)
-    const platform_fee = platform_commission + delivery_fee;
+    const isMerchantVoucher = Boolean(voucher && voucher.restaurant_id !== null);
+    const finance = calculateOrderFinance({
+      subtotal,
+      deliveryFee: delivery_fee,
+      discountAmount: discount_amount,
+      commissionRate: Number(restaurant.commission_rate),
+      isMerchantVoucher,
+    });
+    const merchant_earning = finance.merchantEarning;
+    // Phí nền tảng = hoa hồng + phí dùng để chi trả vận chuyển bên ngoài NomNom.
+    const platform_fee = finance.platformFee;
 
     // 5. Tính toán khoảng cách và thời gian giao hàng dự kiến
     let distance_km = shippingQuote.distanceKm;
@@ -224,6 +267,13 @@ router.post('/', requireAuth, async (req, res, next) => {
     );
 
     const orderId = orderResult.insertId;
+
+    await connection.query(
+      `UPDATE order_checkout_idempotency
+       SET order_id = ?
+       WHERE customer_id = ? AND idempotency_key = ?`,
+      [orderId, customerId, idempotencyKey],
+    );
 
     // 7. Tạo order items
     for (const item of cartItems) {

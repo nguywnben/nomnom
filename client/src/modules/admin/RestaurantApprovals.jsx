@@ -4,12 +4,13 @@ import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
-import Input, { Select, Textarea } from '../../components/Input.jsx';
+import { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { shouldLoadContentSection, shouldShowInitialLoader } from '../../lib/contentTabs.js';
 import {
   approveAdminRestaurant,
   approveAdminRestaurantAddressChangeRequest,
@@ -32,11 +33,13 @@ export default function AdminRestaurantApprovals() {
   // Pending Onboarding State
   const [pendingItems, setPendingItems] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(true);
+  const [pendingLoaded, setPendingLoaded] = useState(false);
   const [qPending, setQPending] = useState('');
 
   // Address Change Requests State
   const [addressItems, setAddressItems] = useState([]);
   const [addressLoading, setAddressLoading] = useState(false);
+  const [addressLoaded, setAddressLoaded] = useState(false);
   const [addressRejectOpen, setAddressRejectOpen] = useState(false);
   const [addressRejectReason, setAddressRejectReason] = useState('');
   const [selectedAddressRequest, setSelectedAddressRequest] = useState(null);
@@ -44,6 +47,7 @@ export default function AdminRestaurantApprovals() {
   // All Restaurants Directory State
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [allLoading, setAllLoading] = useState(false);
+  const [loadedAllKey, setLoadedAllKey] = useState('');
   const [qAll, setQAll] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [cuisineFilter, setCuisineFilter] = useState('all');
@@ -86,6 +90,7 @@ export default function AdminRestaurantApprovals() {
     try {
       const res = await fetchAdminPendingRestaurants();
       setPendingItems(res.items ?? []);
+      setPendingLoaded(true);
     } catch (err) {
       pushToast({
         kind: 'error',
@@ -103,6 +108,7 @@ export default function AdminRestaurantApprovals() {
     try {
       const response = await fetchAdminRestaurantAddressChangeRequests();
       setAddressItems(response.items ?? []);
+      setAddressLoaded(true);
     } catch (err) {
       pushToast({
         kind: 'error',
@@ -125,6 +131,7 @@ export default function AdminRestaurantApprovals() {
         city: cityFilter,
       });
       setAllRestaurants(res.items ?? []);
+      setLoadedAllKey(`${qAll}|${statusFilter}|${cuisineFilter}|${cityFilter}`);
       if (res.summary) {
         setSummary(res.summary);
       }
@@ -139,16 +146,27 @@ export default function AdminRestaurantApprovals() {
     }
   }, [qAll, statusFilter, cuisineFilter, cityFilter, pushToast]);
 
+  const allKey = `${qAll}|${statusFilter}|${cuisineFilter}|${cityFilter}`;
+
   // Reload data when active tab changes
   useEffect(() => {
-    if (activeTab === 'pending') {
+    if (shouldLoadContentSection(activeTab, 'pending', pendingLoaded)) {
       loadPendingItems();
-    } else if (activeTab === 'addresses') {
+    } else if (shouldLoadContentSection(activeTab, 'addresses', addressLoaded)) {
       loadAddressItems();
-    } else if (activeTab === 'all') {
+    } else if (shouldLoadContentSection(activeTab, 'all', loadedAllKey === allKey)) {
       loadAllRestaurants();
     }
-  }, [activeTab, loadPendingItems, loadAddressItems, loadAllRestaurants]);
+  }, [
+    activeTab,
+    addressLoaded,
+    allKey,
+    loadAddressItems,
+    loadAllRestaurants,
+    loadPendingItems,
+    loadedAllKey,
+    pendingLoaded,
+  ]);
 
   // Initial load of summary data
   useEffect(() => {
@@ -429,7 +447,7 @@ export default function AdminRestaurantApprovals() {
             </div>
           </div>
 
-          {pendingLoading ? (
+          {shouldShowInitialLoader(pendingLoading, pendingItems) ? (
             <div className="flex min-h-[30vh] items-center justify-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
@@ -483,7 +501,7 @@ export default function AdminRestaurantApprovals() {
       {/* TAB 2: ĐỔI ĐỊA CHỈ */}
       {activeTab === 'addresses' && (
         <div className="space-y-base">
-          {addressLoading ? (
+          {shouldShowInitialLoader(addressLoading, addressItems) ? (
             <div className="flex min-h-[30vh] items-center justify-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
@@ -613,7 +631,7 @@ export default function AdminRestaurantApprovals() {
           </div>
 
           {/* Directory List */}
-          {allLoading ? (
+          {shouldShowInitialLoader(allLoading, allRestaurants) ? (
             <div className="flex min-h-[30vh] items-center justify-center">
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>

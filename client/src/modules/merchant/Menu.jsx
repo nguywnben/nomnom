@@ -1015,8 +1015,8 @@ function CategoryEditor({ open, onClose, onSave, category }) {
   );
 }
 
-function ItemEditor({ open, onClose, onSave, item, categories, featuredCount = 0 }) {
-  const createEmptyItem = () => ({
+function createEmptyMenuItem(item, categories) {
+  return {
     id: 'new',
     categoryId: item?.categoryId ? String(item.categoryId) : (categories[0]?.id ? String(categories[0].id) : ''),
     name: '',
@@ -1028,19 +1028,22 @@ function ItemEditor({ open, onClose, onSave, item, categories, featuredCount = 0
     inStock: true,
     sortOrder: 0,
     status: 'active',
-  });
-  const [draft, setDraft] = useState(createEmptyItem);
+  };
+}
+
+function ItemEditor({ open, onClose, onSave, item, categories, featuredCount = 0 }) {
+  const [draft, setDraft] = useState(() => createEmptyMenuItem(item, categories));
 
   useEffect(() => {
     if (!open) return;
     setDraft(
       item
         ? {
-            ...createEmptyItem(),
+            ...createEmptyMenuItem(item, categories),
             ...item,
             categoryId: String(item.categoryId ?? (categories[0]?.id ? String(categories[0].id) : '')),
           }
-        : createEmptyItem(),
+        : createEmptyMenuItem(item, categories),
     );
   }, [open, item, categories]);
 

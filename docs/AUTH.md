@@ -1,6 +1,7 @@
 # NomNom — Xác thực người dùng (tài liệu nội bộ)
 
-> Cập nhật theo code hiện tại. Chỉ **khách hàng (customer)** qua **email**. Merchant/driver/admin: đăng nhập email/MK có, đăng ký riêng chưa.
+> Cập nhật theo phạm vi ba vai trò. Chỉ **khách hàng (customer)** tự đăng ký qua **email**.
+> Merchant/Admin đăng nhập bằng tài khoản được cấp; onboarding nhà hàng có quy trình riêng.
 
 ---
 
@@ -57,7 +58,7 @@
 
 **Body:** `{ fullName, email, password }`
 
-1. Chỉ role `customer` (không cho merchant/driver ở form này)
+1. Chỉ role `customer` (không cho merchant/admin ở form này)
 2. Email chưa có trong `users`
 3. Lưu tạm **`registration_pending`**: email, tên, `password_hash`, avatar Dicebear (`seed = fullName`), hết hạn **30 phút**
 4. Tạo OTP `purpose=register`, gửi email
@@ -97,7 +98,7 @@
 | Bật | `localStorage` | `JWT_REFRESH_DAYS` (mặc định 30) |
 | Tắt | `sessionStorage` | `JWT_REFRESH_SESSION_DAYS` (mặc định 1) |
 
-**Sau login:** `resolveLoginRedirect(next, user)` — `next` hợp role thì dùng, không thì `/app` | `/merchant` | `/driver` | `/admin`.
+**Sau login:** `resolveLoginRedirect(next, user)` — `next` hợp role thì dùng, không thì `/app` | `/merchant` | `/admin`.
 
 **Chưa làm:** tab đăng nhập SĐT / OTP.
 
@@ -157,7 +158,7 @@
 | Guard | Khi nào |
 |-------|---------|
 | `RedirectIfAuthed` | Đã login mà vào `/login`, `/register`, `/forgot-password`, `/verify-otp`, `/reset-password` → **`/app`** |
-| `RequireAuth role=...` | Chưa login vào `/merchant/*`, `/driver/*`, `/admin/*` → **`/login?next=...`** |
+| `RequireAuth role=...` | Chưa login vào `/merchant/*`, `/admin/*` → **`/login?next=...`** |
 
 Trang pháp lý (`/terms-of-service`, `/privacy-policy`): không chặn.
 
@@ -168,7 +169,7 @@ Trang pháp lý (`/terms-of-service`, `/privacy-policy`): không chặn.
 | Bảng | Dùng cho |
 |------|----------|
 | `users` | Tài khoản, `password_hash`, `email_verified_at` (set khi đăng ký OTP xong) |
-| `user_roles` | `customer`, `merchant`, `driver`, `admin` |
+| `user_roles` | Runtime dùng `customer`, `merchant`, `admin`; giá trị `driver` chỉ còn trong dữ liệu legacy |
 | `customer_profiles` | Tạo khi đăng ký customer |
 | `registration_pending` | Form đăng ký chờ OTP (PK: `email`) |
 | `otp_codes` | Mã OTP (hash), `purpose`, `destination` = email |
@@ -201,7 +202,7 @@ SMTP_FROM=NomNom       # Tên hiển thị (địa chỉ gửi = SMTP_USER)
 ## 8. Chưa làm (auth)
 
 - OTP đăng nhập / quên MK **SMS**
-- Đăng ký merchant / driver
+- Tự đăng ký tài khoản Admin (không hỗ trợ); merchant đi qua onboarding nhà hàng
 - Đổi mật khẩu trong profile (đã login)
 - Rate limit OTP / login
 - `requireAuth` trên API nghiệp vụ (orders, checkout, …) — hiện chỉ `/me`

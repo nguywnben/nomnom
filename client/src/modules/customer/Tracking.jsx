@@ -14,8 +14,8 @@ const STEPS = [
   { id: 'placed', label: 'Đã đặt', icon: 'check' },
   { id: 'accepted', label: 'Đã nhận đơn', icon: 'store' },
   { id: 'preparing', label: 'Đang chuẩn bị', icon: 'package' },
-  { id: 'ready_for_pickup', label: 'Sẵn sàng lấy', icon: 'package' },
-  { id: 'picked_up', label: 'Đã lấy hàng', icon: 'bike' },
+  { id: 'ready_for_pickup', label: 'Sẵn sàng giao', icon: 'package' },
+  { id: 'picked_up', label: 'Đã bàn giao', icon: 'package' },
   { id: 'delivering', label: 'Đang giao', icon: 'bike' },
   { id: 'delivered', label: 'Đã giao', icon: 'check' },
 ];
@@ -68,7 +68,6 @@ export default function CustomerTracking() {
   const [paying, setPaying] = useState(false);
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [etaLeft, setEtaLeft] = useState(0);
   const [chatting, setChatting] = useState(false);
 
   useEffect(() => {

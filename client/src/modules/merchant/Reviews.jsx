@@ -6,11 +6,12 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
-import { Select, Textarea } from '../../components/Input.jsx';
+import { Textarea } from '../../components/Input.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantReviewsApi, replyMerchantReviewApi } from '../../lib/api.js';
+import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 
 const PAGE_SIZE = 10;
 
@@ -224,11 +225,11 @@ export default function MerchantReviews() {
         </Card>
 
         <div className="space-y-base">
-          {loading ? (
+          {shouldShowInitialLoader(loading, items) ? (
             <Card padded>
               <div className="py-xl text-center text-body">Đang tải đánh giá...</div>
             </Card>
-          ) : error ? (
+          ) : error && items.length === 0 ? (
             <Card padded>
               <div className="space-y-sm text-center">
                 <div className="text-title-md text-ink">Không thể tải đánh giá</div>

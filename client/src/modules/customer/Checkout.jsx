@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button, { IconButton } from '../../components/Button.jsx';
@@ -43,6 +43,7 @@ const CHECKOUT_STEPS = [
 ];
 
 export default function CustomerCheckout() {
+  const checkoutKeyRef = useRef(null);
   const nav = useNavigate();
   const {
     cart,
@@ -513,18 +514,28 @@ export default function CustomerCheckout() {
         return;
       }
 
+      // Giữ nguyên khóa qua các lần retry để server trả lại đúng đơn nếu response trước bị mất.
+      if (!checkoutKeyRef.current) {
+        checkoutKeyRef.current = globalThis.crypto?.randomUUID?.()
+          ?? `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+
       // Xử lý tạo Order
       const res = await apiPost('/api/v1/orders', {
         addressId: finalAddressId,
         paymentMethod: payment,
         customerNote: note,
         voucherCode: appliedPromo?.code || null,
+      }, {
+        headers: { 'Idempotency-Key': checkoutKeyRef.current },
       });
       if (payment === 'vnpay') {
         const payRes = await apiPost('/api/v1/payments/vnpay', { orderId: res.order.id });
+        checkoutKeyRef.current = null;
         clearCart();
         window.location.href = payRes.paymentUrl;
       } else {
+        checkoutKeyRef.current = null;
         clearCart();
         nav('/app/order/success/' + res.order.order_code);
       }
@@ -698,7 +709,7 @@ export default function CustomerCheckout() {
                           if (phoneError) setPhoneError('');
                         }}
                         error={phoneError}
-                        hint="Tài xế sẽ gọi số này khi giao tới."
+                        hint="Nhân viên giao hàng của quán sẽ gọi số này khi giao tới."
                       />
                     </div>
 

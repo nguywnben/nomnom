@@ -23,18 +23,26 @@ import locationsRoutes from './routes/locations.routes.js';
 import { ensureWave5Schema } from './lib/wave5Schema.js';
 import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
 import { creditMerchantForDeliveredOrder } from './lib/merchantOrders.js';
+import { canAutomaticallyCancelOrder } from './lib/orderExpiry.js';
+import { normalizeWorkerBatchSize } from './lib/workerBatch.js';
 import pool, { verifyDbConnection } from './db/pool.js';
+import { createRateLimiter, securityHeaders } from './middleware/security.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
+const authRateLimit = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 60 });
+const orderExpiryBatchSize = normalizeWorkerBatchSize(process.env.ORDER_EXPIRY_BATCH_SIZE);
+let orderExpiryWorkerRunning = false;
 
+app.disable('x-powered-by');
+app.use(securityHeaders);
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
     credentials: true,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'nomnom-api' });
@@ -44,7 +52,7 @@ app.use('/api/v1/home', homeRoutes);
 app.use('/api/v1/me/notifications', notificationsRoutes);
   app.use('/api/v1/admin', adminFinanceRoutes);
   app.use('/api/v1/chat', chatRoutes);
-  app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/auth', authRateLimit, authRoutes);
   app.use('/api/v1/merchant', merchantRoutes);
   app.use('/api/v1/merchant/me', merchantFinanceRoutes);
 app.use('/api/v1/me', meRoutes);
@@ -317,6 +325,8 @@ async function ensureRestaurantBankColumns() {
 async function startOrderExpiryWorker() {
   console.log('[Expiry Worker] Khởi tạo worker tự động hủy đơn hết hạn thanh toán (30 phút)');
   setInterval(async () => {
+    if (orderExpiryWorkerRunning) return;
+    orderExpiryWorkerRunning = true;
     try {
       const connection = await pool.getConnection();
       try {
@@ -327,7 +337,9 @@ async function startOrderExpiryWorker() {
           `SELECT id, status FROM orders 
            WHERE status IN ('pending_payment', 'payment_failed') 
              AND created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
-           FOR UPDATE`
+           ORDER BY id
+           LIMIT ${orderExpiryBatchSize}
+           FOR UPDATE SKIP LOCKED`
         );
 
           for (const order of expiredOrders) {
@@ -364,7 +376,9 @@ async function startOrderExpiryWorker() {
              FROM orders
              WHERE status = 'delivering'
                AND delivering_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)
-             FOR UPDATE`,
+             ORDER BY id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of deliveringOrders) {
             await connection.query(
@@ -391,14 +405,18 @@ async function startOrderExpiryWorker() {
              JOIN restaurants r ON r.id = o.restaurant_id
              WHERE o.status = 'placed'
                AND o.created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-             FOR UPDATE`,
+             ORDER BY o.id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of stalePlacedOrders) {
+            if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
+              continue;
+            }
             console.log(`[Expiry Worker] Tự động hủy đơn ID ${order.id} (${order.order_code}) do quán không xác nhận sau 10 phút`);
-            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
             await connection.query(
-              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không xác nhận sau 10 phút', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
-              [paymentStatus, order.id],
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không xác nhận sau 10 phút', cancelled_at = NOW() WHERE id = ?",
+              [order.id],
             );
             await connection.query(
               "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
@@ -412,7 +430,7 @@ async function startOrderExpiryWorker() {
             await connection.query(
               `INSERT INTO notifications (user_id, type, title, body, link_url)
                VALUES (?, 'order_cancelled', 'Đơn hàng tự động hủy', ?, '/app/orders')`,
-              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán không kịp xác nhận. Tiền thanh toán và mã giảm giá (nếu có) đã được hoàn lại.`],
+              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán không kịp xác nhận. Mã giảm giá (nếu có) đã được hoàn lại.`],
             );
             if (order.merchant_user_id) {
               await connection.query(
@@ -430,14 +448,18 @@ async function startOrderExpiryWorker() {
              JOIN restaurants r ON r.id = o.restaurant_id
              WHERE o.status IN ('accepted', 'preparing')
                AND o.created_at < DATE_SUB(NOW(), INTERVAL 60 MINUTE)
-             FOR UPDATE`,
+             ORDER BY o.id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of stalePreparingOrders) {
+            if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
+              continue;
+            }
             console.log(`[Expiry Worker] Tự động hủy đơn ID ${order.id} (${order.order_code}) do quán treo làm món quá 60 phút`);
-            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
             await connection.query(
-              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không hoàn thành chế biến sau 60 phút', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
-              [paymentStatus, order.id],
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động hủy do quán không hoàn thành chế biến sau 60 phút', cancelled_at = NOW() WHERE id = ?",
+              [order.id],
             );
             await connection.query(
               "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
@@ -451,7 +473,7 @@ async function startOrderExpiryWorker() {
             await connection.query(
               `INSERT INTO notifications (user_id, type, title, body, link_url)
                VALUES (?, 'order_cancelled', 'Đơn hàng tự động hủy', ?, '/app/orders')`,
-              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán chuẩn bị quá lâu (>60 phút). Tiền thanh toán và mã giảm giá (nếu có) đã được hoàn lại.`],
+              [order.customer_id, `Đơn hàng #${order.order_code} đã bị hủy do quán chuẩn bị quá lâu (>60 phút). Mã giảm giá (nếu có) đã được hoàn lại.`],
             );
             if (order.merchant_user_id) {
               await connection.query(
@@ -468,13 +490,17 @@ async function startOrderExpiryWorker() {
              FROM orders o
              WHERE o.status IN ('accepted', 'preparing', 'ready_for_pickup')
                AND o.created_at < DATE_SUB(NOW(), INTERVAL 12 HOUR)
-             FOR UPDATE`,
+             ORDER BY o.id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of staleOvernightOrders) {
-            const paymentStatus = order.payment_status === 'paid' ? 'refunded' : order.payment_status;
+            if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
+              continue;
+            }
             await connection.query(
-              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động đóng đơn do quá hạn xử lý trong ngày (quá 12 giờ)', cancelled_at = NOW(), payment_status = ? WHERE id = ?",
-              [paymentStatus, order.id],
+              "UPDATE orders SET status = 'cancelled', cancelled_by_role = 'system', cancel_reason = 'Tự động đóng đơn do quá hạn xử lý trong ngày (quá 12 giờ)', cancelled_at = NOW() WHERE id = ?",
+              [order.id],
             );
             await connection.query(
               "UPDATE voucher_redemptions SET status = 'released', released_at = NOW() WHERE order_id = ? AND status IN ('reserved', 'redeemed')",
@@ -496,6 +522,8 @@ async function startOrderExpiryWorker() {
       }
     } catch (err) {
       console.error('[Expiry Worker Connection Error]', err);
+    } finally {
+      orderExpiryWorkerRunning = false;
     }
   }, 60000); // Chạy mỗi 60 giây
 }
@@ -533,6 +561,39 @@ async function ensureOrderDeliveryTimestamp() {
   }
 }
 
+async function ensureCheckoutIdempotencySchema() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS order_checkout_idempotency (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    customer_id BIGINT UNSIGNED NOT NULL,
+    idempotency_key VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    request_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    order_id BIGINT UNSIGNED DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_checkout_customer_key (customer_id, idempotency_key),
+    KEY idx_checkout_order (order_id),
+    CONSTRAINT fk_checkout_customer FOREIGN KEY (customer_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT fk_checkout_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE SET NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+}
+
+async function ensureUploadOwnershipSchema() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS uploaded_assets (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    owner_user_id BIGINT UNSIGNED NOT NULL,
+    public_id VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    secure_url VARCHAR(1000) NOT NULL,
+    folder VARCHAR(40) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_uploaded_assets_public_id (public_id),
+    KEY idx_uploaded_assets_owner (owner_user_id, deleted_at),
+    CONSTRAINT fk_uploaded_assets_owner FOREIGN KEY (owner_user_id) REFERENCES users (id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+}
+
 async function ensureDeliveryNotificationType() {
   const [columns] = await pool.query("SHOW COLUMNS FROM notifications LIKE 'type'");
   const type = String(columns[0]?.Type ?? '');
@@ -567,6 +628,8 @@ async function start() {
   try {
     await verifyDbConnection();
     await ensureOrderDeliveryTimestamp();
+    await ensureCheckoutIdempotencySchema();
+    await ensureUploadOwnershipSchema();
     await ensureDeliveryNotificationType();
     await ensureSuspensionColumn();
     await ensureSuspensionReasonColumn();

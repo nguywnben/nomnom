@@ -2,6 +2,7 @@ const ACTION_MAP = {
   accept: { from: 'placed', to: 'accepted', setAcceptedAt: true },
   start_preparing: { from: 'accepted', to: 'preparing' },
   ready: { from: 'preparing', to: 'ready_for_pickup', setReadyAt: true },
+  start_delivery: { from: 'ready_for_pickup', to: 'delivering', setDeliveringAt: true },
 };
 
 const CANCELLABLE = new Set(['placed', 'accepted', 'preparing', 'ready_for_pickup']);
@@ -102,7 +103,14 @@ export function customerNotificationForAction(action, orderCode, restaurantName)
       return {
         type: 'order_ready',
         title: 'Đơn sẵn sàng giao',
-        body: `Đơn ${orderCode} đã sẵn sàng — tài xế sẽ đến lấy hàng.`,
+        body: `${restaurantName} đã chuẩn bị xong đơn ${orderCode} và sẵn sàng giao.`,
+        linkUrl: trackLink,
+      };
+    case 'start_delivery':
+      return {
+        type: 'order_delivering',
+        title: 'Đơn hàng đang giao',
+        body: `Đơn ${orderCode} đang được giao đến bạn bởi ${restaurantName}.`,
         linkUrl: trackLink,
       };
     case 'cancel':

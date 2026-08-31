@@ -130,10 +130,10 @@ export default function AdminOverview() {
 
   const totals = data?.totals;
   const pending = data?.pendingApprovals;
-  const rawChart = data?.chart ?? [];
   const pendingTotal = pending?.restaurants ?? 0;
 
   const chartData = useMemo(() => {
+    const rawChart = data?.chart ?? [];
     if (rawChart.length > 0) return rawChart;
     const fallback = [];
     const count = rangeMode === 'today' ? 1 : rangeMode === '7d' ? 7 : 30;
@@ -152,7 +152,7 @@ export default function AdminOverview() {
       });
     }
     return fallback;
-  }, [rawChart, rangeMode]);
+  }, [data, rangeMode]);
 
   const exportCsv = () => {
     if (!data) return;
@@ -315,9 +315,9 @@ export default function AdminOverview() {
                     {getRangeDisplay()}
                   </div>
                 </div>
-                {rawChart.length > 0 && (
+                {(data?.chart?.length ?? 0) > 0 && (
                   <Badge tone="outline">
-                    Tổng: {formatVnd(rawChart.reduce((s, p) => s + p.gmv, 0))}
+                    Tổng: {formatVnd(data.chart.reduce((s, p) => s + p.gmv, 0))}
                   </Badge>
                 )}
               </div>

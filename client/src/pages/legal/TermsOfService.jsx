@@ -3,10 +3,10 @@ import LegalLayout, { LegalSection } from './LegalLayout.jsx';
 
 export default function TermsOfServicePage() {
   return (
-    <LegalLayout title="Điều khoản sử dụng" updatedAt="30 tháng 5, 2026">
+    <LegalLayout title="Điều khoản sử dụng" updatedAt="31 tháng 8, 2026">
       <LegalSection title="1. NomNom là gì?">
         <p>
-          NomNom là nền tảng đặt món giao hàng: kết nối bạn với quán ăn đối tác và tài xế giao hàng.
+          NomNom là nền tảng đặt món giao hàng, kết nối bạn với các nhà hàng đối tác.
           Khi dùng website hoặc ứng dụng NomNom (“Dịch vụ”), bạn đồng ý với các điều khoản dưới đây và{' '}
           <Link to="/privacy-policy" className="text-text-link hover:underline">
             Chính sách bảo mật
@@ -14,15 +14,15 @@ export default function TermsOfServicePage() {
           của chúng tôi.
         </p>
         <p>
-          NomNom không tự nấu món. Mỗi đơn hàng do quán đối tác chuẩn bị; phần giao hàng do tài xế đối
-          tác thực hiện. Chúng tôi hỗ trợ theo dõi đơn và xử lý khiếu nại khi cần.
+          NomNom không tự nấu món. Mỗi đơn hàng do nhà hàng đối tác chuẩn bị và tự tổ chức giao hàng
+          hoặc thuê đơn vị vận chuyển bên ngoài. Chúng tôi hỗ trợ theo dõi đơn và xử lý khiếu nại.
         </p>
       </LegalSection>
 
       <LegalSection title="2. Ai được dùng NomNom?">
         <p>
           Dịch vụ dành cho người từ 18 tuổi trở lên (hoặc có sự đồng ý của người giám hộ hợp pháp).
-          Khách hàng đăng ký bằng email và mật khẩu. Chủ quán và tài xế có luồng đăng ký riêng, được
+          Khách hàng đăng ký bằng email và mật khẩu. Chủ nhà hàng có luồng đăng ký riêng và được
           NomNom xét duyệt trước khi vận hành.
         </p>
       </LegalSection>
@@ -45,8 +45,8 @@ export default function TermsOfServicePage() {
           công.
         </p>
         <p>
-          Hiện tại NomNom hỗ trợ thanh toán khi nhận hàng (COD). Các hình thức thanh toán online sẽ
-          được bổ sung và thông báo khi sẵn sàng.
+          NomNom hỗ trợ thanh toán khi nhận hàng (COD) và VNPay. Giao dịch online chỉ được xác nhận
+          khi cổng thanh toán trả kết quả hợp lệ.
         </p>
         <p>
           Bạn có thể đặt món khi chưa đăng nhập (giỏ lưu trên thiết bị); để hoàn tất đơn cần đăng nhập
@@ -56,8 +56,8 @@ export default function TermsOfServicePage() {
 
       <LegalSection title="5. Giao hàng, hủy đơn và hoàn tiền">
         <p>
-          Thời gian giao là ước tính — có thể thay đổi theo thời tiết, giao thông hoặc tải đơn của quán
-          và tài xế. Bạn theo dõi trạng thái đơn trong ứng dụng.
+          Thời gian giao là ước tính — có thể thay đổi theo thời tiết, giao thông, tải đơn của quán
+          hoặc đơn vị vận chuyển bên ngoài. Bạn theo dõi trạng thái đơn trong ứng dụng.
         </p>
         <p>
           Hủy đơn và hoàn tiền (nếu áp dụng) theo chính sách từng thời điểm và phương thức thanh toán
@@ -68,7 +68,7 @@ export default function TermsOfServicePage() {
       <LegalSection title="6. Điều không được phép">
         <ul className="list-disc space-y-1 pl-5">
           <li>Giả mạo danh tính, lạm dụng mã giảm giá hoặc gian lận thanh toán.</li>
-          <li>Quấy rối tài xế, nhân viên quán hoặc đội hỗ trợ NomNom.</li>
+          <li>Quấy rối nhân viên giao hàng, nhân viên quán hoặc đội hỗ trợ NomNom.</li>
           <li>Can thiệp trái phép vào hệ thống, dữ liệu hoặc trải nghiệm người dùng khác.</li>
         </ul>
       </LegalSection>

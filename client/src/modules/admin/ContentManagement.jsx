@@ -20,6 +20,7 @@ import {
   updateAdminCuisineApi,
   updateAdminCustomerHomeApi,
 } from '../../lib/api.js';
+import { resolveContentTab, shouldLoadContentSection } from '../../lib/contentTabs.js';
 import HomeBannersEditor from './HomeBannersEditor.jsx';
 import HomeMoodsEditor from './HomeMoodsEditor.jsx';
 
@@ -32,19 +33,10 @@ function toCuisineDraft(cuisine) {
 export default function ContentManagement() {
   const { pushToast } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // Active Main Tab: 'home' | 'cuisines'
-  const initialTab = searchParams.get('tab') === 'cuisines' ? 'cuisines' : 'home';
-  const [activeTab, setActiveTab] = useState(initialTab);
-
-  useEffect(() => {
-    const current = searchParams.get('tab');
-    if (current === 'cuisines' && activeTab !== 'cuisines') setActiveTab('cuisines');
-    else if ((!current || current === 'home') && activeTab !== 'home') setActiveTab('home');
-  }, [searchParams, activeTab]);
+  const activeTab = resolveContentTab(searchParams);
 
   const handleTabChange = (newTab) => {
-    setActiveTab(newTab);
+    if (newTab === activeTab) return;
     setSearchParams({ tab: newTab });
   };
 
@@ -53,6 +45,7 @@ export default function ContentManagement() {
   // ---------------------------------------------------------------------------
   const [homeConfig, setHomeConfig] = useState(null);
   const [homeLoading, setHomeLoading] = useState(true);
+  const [homeLoaded, setHomeLoaded] = useState(false);
   const [homeSaving, setHomeSaving] = useState(false);
   const [draggedSectionId, setDraggedSectionId] = useState(null);
 
@@ -61,6 +54,7 @@ export default function ContentManagement() {
     try {
       const result = await fetchAdminCustomerHomeApi();
       setHomeConfig(result.config);
+      setHomeLoaded(true);
     } catch (error) {
       pushToast({ kind: 'error', title: 'Không thể tải trang chủ', message: error.message });
     } finally {
@@ -69,10 +63,10 @@ export default function ContentManagement() {
   }, [pushToast]);
 
   useEffect(() => {
-    if (activeTab === 'home') {
+    if (shouldLoadContentSection(activeTab, 'home', homeLoaded)) {
       loadHome();
     }
-  }, [activeTab, loadHome]);
+  }, [activeTab, homeLoaded, loadHome]);
 
   const setHero = (key, value) =>
     setHomeConfig((current) => ({
@@ -124,6 +118,7 @@ export default function ContentManagement() {
   // ---------------------------------------------------------------------------
   const [cuisines, setCuisines] = useState([]);
   const [cuisinesLoading, setCuisinesLoading] = useState(true);
+  const [cuisinesLoaded, setCuisinesLoaded] = useState(false);
   const [cuisinesError, setCuisinesError] = useState('');
   const [cuisineEditor, setCuisineEditor] = useState(null);
   const [cuisineDraft, setCuisineDraft] = useState(EMPTY_CUISINE);
@@ -138,6 +133,7 @@ export default function ContentManagement() {
     try {
       const data = await fetchAdminCuisinesApi();
       setCuisines(data);
+      setCuisinesLoaded(true);
       setCuisinesError('');
     } catch (err) {
       setCuisinesError(err.message || 'Không thể tải loại hình ẩm thực.');
@@ -147,10 +143,10 @@ export default function ContentManagement() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'cuisines') {
+    if (shouldLoadContentSection(activeTab, 'cuisines', cuisinesLoaded)) {
       loadCuisines();
     }
-  }, [activeTab, loadCuisines]);
+  }, [activeTab, cuisinesLoaded, loadCuisines]);
 
   const openCreateCuisine = () => {
     setCuisineDraft(EMPTY_CUISINE);
@@ -298,7 +294,12 @@ export default function ContentManagement() {
 
       {/* TAB 1: BỐ CỤC TRANG CHỦ */}
       {activeTab === 'home' && (
-        <div className="space-y-base">
+        <div
+          id="tabpanel-home"
+          role="tabpanel"
+          aria-labelledby="tab-home"
+          className="space-y-base"
+        >
           {homeLoading || !homeConfig ? (
             <div className="py-section text-center text-body-sm text-body">
               Đang tải cấu hình trang chủ...
@@ -384,7 +385,12 @@ export default function ContentManagement() {
 
       {/* TAB 2: LOẠI HÌNH ẨM THỰC */}
       {activeTab === 'cuisines' && (
-        <div className="space-y-base">
+        <div
+          id="tabpanel-cuisines"
+          role="tabpanel"
+          aria-labelledby="tab-cuisines"
+          className="space-y-base"
+        >
           {/* Toolbar */}
           <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:w-72 shrink-0 h-9">

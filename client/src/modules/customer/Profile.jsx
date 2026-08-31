@@ -25,7 +25,6 @@ export default function CustomerProfile() {
     user,
     permittedRoles,
     shopAsCustomer,
-    logout,
   } = useApp();
   const [orders, setOrders] = useState([]);
   const [defaultAddress, setDefaultAddress] = useState(null);

@@ -6,6 +6,8 @@ import {
   normalizeUploadFolder,
   uploadImageBuffer,
 } from '../lib/cloudinary.js';
+import pool from '../db/pool.js';
+import { canDeleteUpload, normalizeOwnedPublicId } from '../lib/uploadOwnership.js';
 
 const router = Router();
 
@@ -70,6 +72,17 @@ router.post('/', requireAuth, handleUpload, async (req, res, next) => {
     const folder = normalizeUploadFolder(req.body?.folder ?? req.query?.folder);
     const result = await uploadImageBuffer({ buffer: file.buffer, folder });
 
+    try {
+      await pool.query(
+        `INSERT INTO uploaded_assets (owner_user_id, public_id, secure_url, folder)
+         VALUES (?, ?, ?, ?)`,
+        [req.auth.userId, result.public_id, result.secure_url, folder],
+      );
+    } catch (error) {
+      await deleteUploadedImage(result.public_id).catch(() => {});
+      throw error;
+    }
+
     return res.status(201).json({
       url: result.secure_url,
       publicId: result.public_id,
@@ -81,12 +94,27 @@ router.post('/', requireAuth, handleUpload, async (req, res, next) => {
 
 router.delete('/', requireAuth, async (req, res, next) => {
   try {
-    const publicId = String(req.query.publicId ?? '').trim();
-    if (!publicId) {
-      return res.status(400).json({ error: 'Query publicId là bắt buộc.' });
+    const publicId = normalizeOwnedPublicId(req.query.publicId);
+    const [[asset]] = await pool.query(
+      `SELECT id, owner_user_id
+       FROM uploaded_assets
+       WHERE public_id = ? AND deleted_at IS NULL
+       LIMIT 1`,
+      [publicId],
+    );
+    if (!asset) {
+      return res.status(404).json({ error: 'Không tìm thấy ảnh thuộc phạm vi quản lý.' });
+    }
+    if (!canDeleteUpload({
+      ownerUserId: asset.owner_user_id,
+      actorUserId: req.auth.userId,
+      actorRoles: req.auth.roles,
+    })) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa ảnh này.' });
     }
 
     const result = await deleteUploadedImage(publicId);
+    await pool.query('UPDATE uploaded_assets SET deleted_at = NOW() WHERE id = ?', [asset.id]);
     return res.json({ ok: true, result });
   } catch (error) {
     next(error);

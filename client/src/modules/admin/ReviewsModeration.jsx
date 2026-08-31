@@ -4,7 +4,7 @@ import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
-import Input, { Select, Textarea } from '../../components/Input.jsx';
+import { Select, Textarea } from '../../components/Input.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
@@ -13,6 +13,7 @@ import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchAdminReviews, updateAdminReviewHidden } from '../../lib/api.js';
 import { downloadCsv } from '../../lib/csv.js';
+import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 
 const PAGE_SIZE = 10;
 
@@ -338,7 +339,7 @@ export default function AdminReviewsModeration() {
       </div>
 
       {/* Review List View */}
-      {loading ? (
+      {shouldShowInitialLoader(loading, reviews) ? (
         <Card padded className="text-center text-body py-xxl">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-2" />
           Đang tải dữ liệu đánh giá...

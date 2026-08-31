@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import Avatar from '../../components/Avatar.jsx';
@@ -10,6 +10,20 @@ import Logo from '../../components/Logo.jsx';
 import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
+import { scheduleRoutePreload } from '../../lib/routePreload.js';
+
+const ADMIN_ROUTE_PRELOADERS = [
+  () => import('./Overview.jsx'),
+  () => import('./Orders.jsx'),
+  () => import('./RestaurantApprovals.jsx'),
+  () => import('./Accounts.jsx'),
+  () => import('./Promotions.jsx'),
+  () => import('./ReviewsModeration.jsx'),
+  () => import('./Financial.jsx'),
+  () => import('./ContentManagement.jsx'),
+  () => import('./System.jsx'),
+  () => import('./Notifications.jsx'),
+];
 
 const links = [
   { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
@@ -51,6 +65,8 @@ export default function AdminLayout() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const notifCount = useUnreadNotificationCount(Boolean(currentAdmin));
+
+  useEffect(() => scheduleRoutePreload(ADMIN_ROUTE_PRELOADERS), []);
 
   const handleLogout = async () => {
     setLoggingOut(true);

@@ -5,7 +5,6 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
-import Tabs from '../../components/Tabs.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import {
   createMerchantVoucherApi,

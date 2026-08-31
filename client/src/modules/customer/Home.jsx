@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
-import clsx from 'clsx';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -66,7 +65,6 @@ export default function CustomerHome() {
   const [pageConfig, setPageConfig] = useState(null);
   const [heroQuery, setHeroQuery] = useState('');
   const heroSuggestions = useSearchSuggestions(heroQuery, { limit: 4 });
-  const { pushToast } = useApp();
 
   useEffect(() => {
     fetchHomePageConfigApi().then((response) => setPageConfig(response.config ?? null)).catch(() => {});
@@ -532,7 +530,7 @@ export default function CustomerHome() {
             <div>
               <div className="text-title-md text-ink">Hợp tác với NomNom</div>
               <div className="text-body-sm text-body">
-                Bạn có quán ăn hoặc muốn giao hàng? Hãy tham gia nền tảng.
+                Bạn có quán ăn? Hãy tham gia nền tảng để tiếp cận thêm khách hàng.
               </div>
             </div>
           </div>

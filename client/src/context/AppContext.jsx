@@ -526,7 +526,7 @@ export function AppProvider({ children }) {
       });
       return null;
     },
-    [emptyCart, normalizeCart, permittedRoles.customer, pushToast, user],
+    [cart, emptyCart, normalizeCart, permittedRoles.customer, pushToast, user],
   );
 
   const removeFromCart = useCallback(

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
-import Button, { IconButton } from '../../components/Button.jsx';
+import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
@@ -11,6 +11,7 @@ import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { downloadCsv } from '../../lib/csv.js';
+import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 import {
   queryAdminUsers,
   fetchAdminUserDetailApi,
@@ -487,7 +488,7 @@ export default function AdminAccounts() {
       </div>
 
       {/* Table / Content View */}
-      {loading ? (
+      {shouldShowInitialLoader(loading, users) ? (
         <Card padded className="text-center text-body py-xxl">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-2" />
           Đang tải danh sách tài khoản...

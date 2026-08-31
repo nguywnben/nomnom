@@ -28,6 +28,7 @@ import {
 } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { downloadCsv } from '../../lib/csv.js';
+import { resolveQueryTab } from '../../lib/contentTabs.js';
 
 const PAYOUT_STATUS = {
   pending: { label: 'Chờ duyệt', tone: 'warning' },
@@ -63,22 +64,10 @@ function formatChartDate(isoDate) {
 export default function AdminFinancial() {
   const { pushToast } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') === 'payouts' ? 'payouts' : 'overview';
-
-  const [activeMainTab, setActiveMainTab] = useState(currentTab);
-
-  // Sync state with URL params
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam === 'payouts' && activeMainTab !== 'payouts') {
-      setActiveMainTab('payouts');
-    } else if (tabParam !== 'payouts' && activeMainTab === 'payouts') {
-      setActiveMainTab('overview');
-    }
-  }, [searchParams]);
+  const activeMainTab = resolveQueryTab(searchParams, ['overview', 'payouts'], 'overview');
 
   const handleMainTabChange = (newTab) => {
-    setActiveMainTab(newTab);
+    if (newTab === activeMainTab) return;
     if (newTab === 'payouts') {
       setSearchParams({ tab: 'payouts' });
     } else {
@@ -172,8 +161,10 @@ export default function AdminFinancial() {
   }, [payoutStatus, payoutQuery, payoutPage]);
 
   useEffect(() => {
-    loadFinancial();
-  }, [loadFinancial]);
+    if (activeMainTab === 'overview') {
+      loadFinancial();
+    }
+  }, [activeMainTab, loadFinancial]);
 
   useEffect(() => {
     if (activeMainTab === 'payouts') {
@@ -234,7 +225,7 @@ export default function AdminFinancial() {
       });
     }
     return fallback;
-  }, [data?.series, rangeMode]);
+  }, [data, rangeMode]);
 
   // --- Payout Handlers ---
   const closePayoutDialog = () => {

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -9,6 +10,17 @@ import MobileBottomNav from './MobileBottomNav.jsx';
 import Footer from './Footer.jsx';
 import CartDrawer from './CartDrawer.jsx';
 import ChatWidget from '../chat/ChatWidget.jsx';
+import { scheduleRoutePreload } from '../../lib/routePreload.js';
+
+const CUSTOMER_ROUTE_PRELOADERS = [
+  () => import('./Home.jsx'),
+  () => import('./Search.jsx'),
+  () => import('./Orders.jsx'),
+  () => import('./Tracking.jsx'),
+  () => import('./Checkout.jsx'),
+  () => import('./Profile.jsx'),
+  () => import('./Notifications.jsx'),
+];
 
 // ---------------------------------------------------------------------------
 // CustomerLayout — responsive shell.
@@ -32,6 +44,8 @@ export default function CustomerLayout() {
   const { pathname } = useLocation();
   const geoLocalityLine = useGeolocationLocalityLabel();
   const { deliveryAddress } = useApp();
+
+  useEffect(() => scheduleRoutePreload(CUSTOMER_ROUTE_PRELOADERS), []);
 
   const deliveryLocalityLine = deliveryAddress
     ? [deliveryAddress.line1, deliveryAddress.ward, deliveryAddress.district, deliveryAddress.city]

@@ -10,6 +10,7 @@ import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { resolveQueryTab } from '../../lib/contentTabs.js';
 import {
   fetchAdminAuditLogs,
   fetchAdminConfigApi,
@@ -95,19 +96,10 @@ function formatTimestamp(isoString) {
 export default function System() {
   const { pushToast } = useApp();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // Active Main Tab: 'config' | 'logs'
-  const initialTab = searchParams.get('tab') === 'logs' ? 'logs' : 'config';
-  const [activeTab, setActiveTab] = useState(initialTab);
-
-  useEffect(() => {
-    const current = searchParams.get('tab');
-    if (current === 'logs' && activeTab !== 'logs') setActiveTab('logs');
-    else if ((!current || current === 'config') && activeTab !== 'config') setActiveTab('config');
-  }, [searchParams, activeTab]);
+  const activeTab = resolveQueryTab(searchParams, ['config', 'logs'], 'config');
 
   const handleTabChange = (newTab) => {
-    setActiveTab(newTab);
+    if (newTab === activeTab) return;
     setSearchParams({ tab: newTab });
   };
 

@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
+import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Tabs from '../../components/Tabs.jsx';
@@ -41,7 +42,6 @@ export default function MerchantSettings() {
   const outletCtx = useOutletContext();
   const [tab, setTab] = useState('profile');
   const [form, setForm] = useState(EMPTY);
-  const [saved, setSaved] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -61,7 +61,6 @@ export default function MerchantSettings() {
     try {
       const response = await fetchMerchantSettingsApi();
       setForm(response.restaurant);
-      setSaved(response.restaurant);
       setAddressChangeRequest(response.addressChangeRequest ?? null);
       setError('');
     } catch (err) {
@@ -126,7 +125,6 @@ export default function MerchantSettings() {
       ['addressLine', 'ward', 'district', 'city', 'id', 'slug', 'commissionRate'].forEach((key) => delete editableSettings[key]);
       const response = await updateMerchantSettingsApi(editableSettings);
       setForm(response.restaurant);
-      setSaved(response.restaurant);
       setMerchantRestaurant?.((prev) => (prev ? { ...prev, is_open_now: response.restaurant.isOpenNow } : prev));
       if (outletCtx?.setRestaurantOpen) {
         outletCtx.setRestaurantOpen(Boolean(response.restaurant.isOpenNow));
