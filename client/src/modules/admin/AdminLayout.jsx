@@ -7,6 +7,7 @@ import Button, { IconButton } from '../../components/Button.jsx';
 import Drawer from '../../components/Drawer.jsx';
 import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
+import Modal from '../../components/Modal.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCount.js';
 
@@ -47,7 +48,22 @@ export default function AdminLayout() {
   const { currentAdmin, logout } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const notifCount = useUnreadNotificationCount(Boolean(currentAdmin));
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      nav('/login', { replace: true });
+    } catch {
+      // ignore
+    } finally {
+      setLoggingOut(false);
+      setLogoutConfirmOpen(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-canvas-soft">
@@ -77,6 +93,7 @@ export default function AdminLayout() {
         <SidebarFooter
           currentAdmin={currentAdmin}
           collapsed={collapsed}
+          onLogout={() => setLogoutConfirmOpen(true)}
         />
       </aside>
 
@@ -92,6 +109,10 @@ export default function AdminLayout() {
         <SidebarFooter
           currentAdmin={currentAdmin}
           onItemClick={() => setDrawerOpen(false)}
+          onLogout={() => {
+            setDrawerOpen(false);
+            setLogoutConfirmOpen(true);
+          }}
         />
       </Drawer>
 
@@ -105,7 +126,8 @@ export default function AdminLayout() {
             className="grid h-11 w-11 place-items-center -ml-2 rounded-md text-ink hover:bg-canvas-soft"
           >
             <Icon name="menu" size={18} />
-          </button>          <div className="flex-1 leading-tight">
+          </button>
+          <div className="flex-1 leading-tight">
             <div className="text-caption-uppercase text-body">Quản trị viên</div>
             <div className="text-body-sm font-semibold text-ink">Tổng quan nền tảng</div>
           </div>
@@ -135,6 +157,15 @@ export default function AdminLayout() {
             <Button variant="secondary" leadingIcon="chat" onClick={() => nav('/chat/inbox')}>
               Hỗ trợ
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leadingIcon="logout"
+              className="!border-[#dc2626] !bg-white !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+              onClick={() => setLogoutConfirmOpen(true)}
+            >
+              Đăng xuất
+            </Button>
           </div>
         </header>
 
@@ -142,6 +173,33 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      <Modal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(false)} disabled={loggingOut}>
+              Ở lại
+            </Button>
+            <Button
+              variant="critical"
+              size="sm"
+              leadingIcon="logout"
+              loading={loggingOut}
+              onClick={handleLogout}
+            >
+              Đăng xuất
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi cổng quản trị viên NomNom không?
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -170,7 +228,7 @@ function SidebarLinks({ collapsed, onItemClick }) {
   );
 }
 
-function SidebarFooter({ currentAdmin, collapsed = false, onItemClick }) {
+function SidebarFooter({ currentAdmin, collapsed = false, onItemClick, onLogout }) {
   const name = currentAdmin?.name || 'Quản trị viên';
   const role = currentAdmin?.role || 'Quản trị';
   const avatar = currentAdmin?.avatar;
@@ -193,6 +251,16 @@ function SidebarFooter({ currentAdmin, collapsed = false, onItemClick }) {
             <div className="text-body-sm font-semibold text-ink truncate">{name}</div>
             <div className="text-caption text-body truncate">{role}</div>
           </div>
+        )}
+        {!collapsed && (
+          <IconButton
+            icon="logout"
+            size="sm"
+            label="Đăng xuất"
+            variant="secondary"
+            className="!border-[#dc2626] !bg-white !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+            onClick={onLogout}
+          />
         )}
       </div>
     </div>

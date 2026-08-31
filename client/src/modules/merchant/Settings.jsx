@@ -191,14 +191,17 @@ export default function MerchantSettings() {
             { value: 'profile', label: 'Thông tin' },
             { value: 'operations', label: 'Vận hành' },
             { value: 'bank', label: 'Nhận tiền' },
+            { value: 'account', label: 'Tài khoản' },
           ]}
           value={tab}
           onChange={setTab}
         />
 
-        <Button leadingIcon="check" size="sm" onClick={save} loading={saving}>
-          Lưu thay đổi
-        </Button>
+        {tab !== 'account' && (
+          <Button leadingIcon="check" size="sm" onClick={save} loading={saving}>
+            Lưu thay đổi
+          </Button>
+        )}
       </div>
 
       {tab === 'profile' && (
@@ -258,26 +261,37 @@ export default function MerchantSettings() {
         </Card>
       )}
 
-      <div className="pt-base border-t border-hairline">
-        <Card padded className="border-hairline-strong">
-          <div className="flex flex-wrap items-center justify-between gap-sm">
-            <div>
-              <div className="text-body-sm font-semibold text-ink">Đăng xuất tài khoản</div>
-              <p className="mt-xs text-caption text-body">
-                {user?.email ? `Đang đăng nhập với email: ${user.email}. ` : ''}Đăng xuất khỏi phiên làm việc hiện tại trên thiết bị này.
-              </p>
+      {tab === 'account' && (
+        <div className="space-y-base">
+          <Card padded>
+            <div className="text-caption-uppercase text-body">Tài khoản quản lý quán</div>
+            <div className="mt-sm flex items-center gap-sm">
+              <span className="grid h-10 w-10 place-items-center rounded-md bg-surface-strong text-ink">
+                <Icon name="user" size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-body-sm font-semibold text-ink">{user?.fullName || form.name}</div>
+                <div className="truncate text-caption text-body">{user?.email}</div>
+              </div>
             </div>
-            <Button
-              variant="critical"
-              size="sm"
-              leadingIcon="logout"
-              onClick={() => setLogoutConfirmOpen(true)}
-            >
-              Đăng xuất
-            </Button>
-          </div>
-        </Card>
-      </div>
+          </Card>
+
+          <Card padded>
+            <div className="text-caption-uppercase text-body">Phiên đăng nhập</div>
+            <p className="mt-xs text-body-sm text-body">
+              {user?.email ? `Đang đăng nhập với email: ${user.email}. ` : ''}Đăng xuất khỏi phiên làm việc hiện tại trên thiết bị này.
+            </p>
+          </Card>
+
+          <Button
+            variant="secondary"
+            className="!border-[#dc2626] !bg-white !font-normal !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+            onClick={() => setLogoutConfirmOpen(true)}
+          >
+            Đăng xuất
+          </Button>
+        </div>
+      )}
 
       <Modal
         open={addressModalOpen}

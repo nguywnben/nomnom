@@ -7,6 +7,7 @@ import Button, { IconButton } from '../../components/Button.jsx';
 import Drawer from '../../components/Drawer.jsx';
 import Icon from '../../components/Icon.jsx';
 import Logo from '../../components/Logo.jsx';
+import Modal from '../../components/Modal.jsx';
 import Switch from '../../components/Switch.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantOrdersApi, fetchMerchantRestaurantApi, updateMerchantSettingsApi } from '../../lib/api.js';
@@ -104,6 +105,22 @@ export default function MerchantLayout() {
     };
   }, [logout, nav, pushToast, setMerchantRestaurant]);
 
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      nav('/login', { replace: true });
+    } catch {
+      // ignore
+    } finally {
+      setLoggingOut(false);
+      setLogoutConfirmOpen(false);
+    }
+  };
+
   const changeOpenStatus = async (value) => {
     const previous = restaurantOpen;
     setRestaurantOpen(value);
@@ -157,6 +174,7 @@ export default function MerchantLayout() {
         newCount={newCount}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((value) => !value)}
+        onLogout={() => setLogoutConfirmOpen(true)}
       />
 
       {/* Mobile drawer sidebar — off-canvas */}
@@ -172,6 +190,10 @@ export default function MerchantLayout() {
           restaurantSlug={restaurantProfile?.slug || restaurantProfile?.id}
           newCount={newCount}
           onItemClick={() => setDrawerOpen(false)}
+          onLogout={() => {
+            setDrawerOpen(false);
+            setLogoutConfirmOpen(true);
+          }}
         />
       </Drawer>
 
@@ -213,7 +235,7 @@ export default function MerchantLayout() {
             <Switch
               checked={restaurantOpen}
               onChange={changeOpenStatus}
-            disabled={changingOpen}
+              disabled={changingOpen}
               label={restaurantOpen ? 'Mở cửa nhận đơn' : 'Đóng cửa'}
               hint={restaurantOpen ? 'Khách hàng có thể đặt hàng' : 'Chuyển đổi để nhận đơn'}
             />
@@ -236,7 +258,16 @@ export default function MerchantLayout() {
               leadingIcon="chat"
               onClick={() => nav('/chat/inbox')}
             >
-              Trò chuyện với khách hàng
+              Trò chuyện
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leadingIcon="logout"
+              className="!border-[#dc2626] !bg-white !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+              onClick={() => setLogoutConfirmOpen(true)}
+            >
+              Đăng xuất
             </Button>
           </div>
         </header>
@@ -246,7 +277,7 @@ export default function MerchantLayout() {
           <Switch
             checked={restaurantOpen}
             onChange={changeOpenStatus}
-              disabled={changingOpen}
+            disabled={changingOpen}
             label={restaurantOpen ? 'Mở cửa' : 'Đóng cửa'}
             size="sm"
           />
@@ -263,6 +294,33 @@ export default function MerchantLayout() {
           <Outlet context={{ restaurantOpen, setRestaurantOpen, changeOpenStatus, restaurantProfile }} />
         </main>
       </div>
+
+      <Modal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+        title="Xác nhận đăng xuất"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={() => setLogoutConfirmOpen(false)} disabled={loggingOut}>
+              Ở lại
+            </Button>
+            <Button
+              variant="critical"
+              size="sm"
+              leadingIcon="logout"
+              loading={loggingOut}
+              onClick={handleLogout}
+            >
+              Đăng xuất
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đăng xuất khỏi cổng quản trị quán đối tác không?
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -289,7 +347,7 @@ function playNewOrderBeep() {
   }
 }
 
-function DesktopSidebar({ currentMerchant, restaurantSlug, newCount, collapsed, onToggleCollapse }) {
+function DesktopSidebar({ currentMerchant, restaurantSlug, newCount, collapsed, onToggleCollapse, onLogout }) {
   return (
     <aside
       className={clsx(
@@ -318,12 +376,13 @@ function DesktopSidebar({ currentMerchant, restaurantSlug, newCount, collapsed, 
         restaurantSlug={restaurantSlug}
         newCount={newCount}
         collapsed={collapsed}
+        onLogout={onLogout}
       />
     </aside>
   );
 }
 
-function SidebarContent({ currentMerchant, restaurantSlug, newCount, collapsed = false, onItemClick }) {
+function SidebarContent({ currentMerchant, restaurantSlug, newCount, collapsed = false, onItemClick, onLogout }) {
   return (
     <>
       <nav className="flex-1 px-sm py-2 overflow-y-auto no-scrollbar">
@@ -369,6 +428,16 @@ function SidebarContent({ currentMerchant, restaurantSlug, newCount, collapsed =
               <div className="text-body-sm font-semibold text-ink truncate">{currentMerchant.name}</div>
               <div className="text-caption text-body truncate">{currentMerchant.email}</div>
             </div>
+          )}
+          {!collapsed && (
+            <IconButton
+              icon="logout"
+              size="sm"
+              label="Đăng xuất"
+              variant="secondary"
+              className="!border-[#dc2626] !bg-white !text-[#dc2626] hover:!bg-[#fef2f2] active:!bg-[#fee2e2]"
+              onClick={onLogout}
+            />
           )}
         </div>
       </div>
