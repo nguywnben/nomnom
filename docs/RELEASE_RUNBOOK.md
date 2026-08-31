@@ -29,6 +29,16 @@ Khôi phục khi cần (cần MySQL CLI trên máy vận hành):
 mysql -u root -p nomnom < backups/nomnom-YYYYMMDDTHHMMSSZ.sql
 ```
 
+Nếu máy không có MySQL CLI, kiểm chứng backup mới nhất bằng database tạm với driver của dự án:
+
+```powershell
+cd server
+npm run verify:restore
+```
+
+Script chỉ chấp nhận file backup chuẩn trong `backups/`, tự tạo database tạm có tên ngẫu nhiên,
+đối chiếu số bảng/dòng rồi xóa database tạm; không ghi vào database `nomnom` đang chạy.
+
 Luôn khôi phục thử vào database tạm trước; không ghi đè database đang chạy khi chưa có
 backup mới và người phụ trách xác nhận.
 

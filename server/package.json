@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "test": "node --test --test-isolation=none",
     "smoke:roles": "node scripts/smoke-three-roles.mjs",
-    "backup:db": "node scripts/backup-database.mjs"
+    "backup:db": "node scripts/backup-database.mjs",
+    "verify:restore": "node scripts/verify-backup-restore.mjs"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

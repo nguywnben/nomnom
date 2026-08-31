@@ -10,6 +10,7 @@ import Pagination from '../../components/Pagination.jsx';
 import ReviewCard from '../../components/ReviewCard.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import { fetchMenuItemReviewsApi } from '../../lib/api.js';
+import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 
 const PAGE_SIZE = 10;
 
@@ -178,9 +179,9 @@ export default function DishReviews() {
 
           {/* Danh sách thẻ đánh giá */}
           <div>
-            {loading ? (
+            {shouldShowInitialLoader(loading, reviews) ? (
               <div className="py-xxl text-center text-body">Đang tải đánh giá...</div>
-            ) : error ? (
+            ) : error && reviews.length === 0 ? (
               <EmptyState icon="alert" title="Không tải được đánh giá" message={error} />
             ) : reviews.length === 0 ? (
               <EmptyState

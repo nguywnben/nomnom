@@ -14,6 +14,7 @@ import {
   updateAdminVoucherApi,
 } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
+import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 
 function toDatetimeLocal(value) {
   if (!value) return '';
@@ -273,11 +274,11 @@ export default function AdminPromotions() {
       </div>
 
       {/* List */}
-      {loading ? (
+      {shouldShowInitialLoader(loading, vouchers) ? (
         <Card padded>
           <div className="py-xl text-center text-body">Đang tải danh sách voucher…</div>
         </Card>
-      ) : error ? (
+      ) : error && vouchers.length === 0 ? (
         <Card padded>
           <div className="py-xl text-center space-y-sm">
             <div className="text-title-md text-ink">Không thể tải voucher</div>

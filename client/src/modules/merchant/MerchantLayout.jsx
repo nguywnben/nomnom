@@ -15,6 +15,18 @@ import { useUnreadNotificationCount } from '../../hooks/useUnreadNotificationCou
 import {
   isMerchantRestaurantApproved,
 } from '../../lib/merchantStatus.js';
+import { scheduleRoutePreload } from '../../lib/routePreload.js';
+
+const MERCHANT_ROUTE_PRELOADERS = [
+  () => import('./Dashboard.jsx'),
+  () => import('./Orders.jsx'),
+  () => import('./Menu.jsx'),
+  () => import('./Promotions.jsx'),
+  () => import('./Reviews.jsx'),
+  () => import('./Wallet.jsx'),
+  () => import('./Settings.jsx'),
+  () => import('./Notifications.jsx'),
+];
 
 const links = [
   { to: '/merchant', label: 'Tổng quan', icon: 'grid', end: true },
@@ -45,6 +57,8 @@ export default function MerchantLayout() {
   const [newCount, setNewCount] = useState(0);
   const prevNewCount = useRef(0);
   const notifCount = useUnreadNotificationCount(Boolean(currentMerchant));
+
+  useEffect(() => scheduleRoutePreload(MERCHANT_ROUTE_PRELOADERS), []);
 
   useEffect(() => {
     let active = true;

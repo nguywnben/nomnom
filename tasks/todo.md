@@ -46,7 +46,7 @@
 - [ ] Chrome desktop/mobile pass; Edge và Firefox smoke pass.
 - [x] Không có console error/network error bất ngờ trong các màn công khai đã kiểm tra.
 - [ ] Reset demo DB tạo đúng account/dữ liệu ba vai trò.
-- [ ] Backup DB và build artifact đã lưu; rollback đã thử. *(backup đã lưu; artifact/restore rehearsal còn lại)*
+- [x] Backup DB và build artifact đã lưu; rollback đã thử bằng restore vào database tạm.
 - [ ] Kịch bản demo 8–12 phút + Q&A + video offline hoàn tất. *(runbook đã có; video/rehearsal còn lại)*
 - [x] Ghi accepted risks còn lại với owner và lý do.
 - [ ] Freeze code/schema lúc 18:00; sau đó chỉ nhận P0 có regression test.
@@ -63,7 +63,7 @@
 ## Go/No-Go
 
 - [ ] GO: tất cả gate bắt buộc xanh, không còn P0/P1 chưa chấp nhận.
-- [ ] GO WITH KNOWN LIMITATIONS: chỉ lỗi P2, đã ghi rõ và không nằm trên luồng demo.
+- [x] GO WITH KNOWN LIMITATIONS: chỉ giới hạn thủ công đã ghi rõ và không nằm trên luồng demo COD local.
 - [ ] NO-GO: refund/đơn trùng/sai quyền/sai số tiền/màn trắng/tài liệu bốn vai trò còn xuất hiện.
 
 ## Sau báo cáo

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import pool from '../src/db/pool.js';
+import { getInsertableColumnNames, serializeBackupValue } from '../src/lib/databaseBackup.js';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const backupDirectory = path.join(repositoryRoot, 'backups');
@@ -52,10 +53,13 @@ try {
   for (const table of tableNames) {
     const [[createRow]] = await connection.query(`SHOW CREATE TABLE ${quoteIdentifier(table)}`);
     const createStatement = createRow['Create Table'];
-    const [rows] = await connection.query(`SELECT * FROM ${quoteIdentifier(table)}`);
+    const [columnRows] = await connection.query(`SHOW COLUMNS FROM ${quoteIdentifier(table)}`);
+    const insertableColumns = getInsertableColumnNames(columnRows);
+    const selectColumns = insertableColumns.map(quoteIdentifier).join(', ');
+    const [rows] = await connection.query(`SELECT ${selectColumns} FROM ${quoteIdentifier(table)}`);
     totalRows += rows.length;
     sql.push('', `DROP TABLE IF EXISTS ${quoteIdentifier(table)};`, `${createStatement};`);
-    sql.push(...insertStatements(table, rows, (value) => connection.escape(value)));
+    sql.push(...insertStatements(table, rows, (value) => serializeBackupValue(value, connection.escape.bind(connection))));
   }
 
   sql.push('', 'COMMIT;', 'SET FOREIGN_KEY_CHECKS = 1;', '');

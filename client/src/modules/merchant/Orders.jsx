@@ -8,6 +8,7 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal.jsx';
 import { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
+import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 import { createOrderConversationApi, fetchMerchantOrdersApi, updateMerchantOrderStatusApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 
@@ -297,7 +298,7 @@ export default function MerchantOrders() {
         </div>
       )}
 
-      {loading ? (
+      {shouldShowInitialLoader(loading, orders) ? (
         <div className="py-xl text-center text-body-md text-body">Đang tải đơn hàng…</div>
       ) : (
         <div className="-mx-base flex gap-base overflow-x-auto px-base pb-2 scrollbar-hide md:mx-0 md:px-0 md:overflow-visible lg:grid lg:grid-cols-4">
