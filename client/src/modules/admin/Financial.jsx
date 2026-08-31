@@ -69,13 +69,8 @@ export default function AdminFinancial() {
 
   // Sync state with URL params
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam === 'payouts' && activeMainTab !== 'payouts') {
-      setActiveMainTab('payouts');
-    } else if (tabParam !== 'payouts' && activeMainTab === 'payouts') {
-      setActiveMainTab('overview');
-    }
-  }, [searchParams]);
+    setActiveMainTab(currentTab);
+  }, [currentTab]);
 
   const handleMainTabChange = (newTab) => {
     setActiveMainTab(newTab);
@@ -234,7 +229,7 @@ export default function AdminFinancial() {
       });
     }
     return fallback;
-  }, [data?.series, rangeMode]);
+  }, [data, rangeMode]);
 
   // --- Payout Handlers ---
   const closePayoutDialog = () => {

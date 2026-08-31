@@ -6,7 +6,7 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
-import { Select, Textarea } from '../../components/Input.jsx';
+import { Textarea } from '../../components/Input.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import { useApp } from '../../context/AppContext.jsx';

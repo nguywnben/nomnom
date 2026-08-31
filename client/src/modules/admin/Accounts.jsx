@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '../../components/Avatar.jsx';
 import Badge from '../../components/Badge.jsx';
-import Button, { IconButton } from '../../components/Button.jsx';
+import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';

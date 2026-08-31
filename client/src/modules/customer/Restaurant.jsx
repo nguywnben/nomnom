@@ -26,30 +26,30 @@ export default function CustomerRestaurant() {
   const [menuQuery, setMenuQuery] = useState('');
   const [vouchers, setVouchers] = useState([]);
   const voucherScroll = useHorizontalDragScroll();
+  const voucherScrollRef = voucherScroll.ref;
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const checkVoucherScroll = () => {
-    const el = voucherScroll.ref.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 5);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
-  };
-
   useEffect(() => {
-    checkVoucherScroll();
-    const el = voucherScroll.ref.current;
+    const el = voucherScrollRef.current;
     if (!el) return;
-    el.addEventListener('scroll', checkVoucherScroll, { passive: true });
-    window.addEventListener('resize', checkVoucherScroll);
-    return () => {
-      el.removeEventListener('scroll', checkVoucherScroll);
-      window.removeEventListener('resize', checkVoucherScroll);
+
+    const updateVoucherScrollState = () => {
+      setCanScrollLeft(el.scrollLeft > 5);
+      setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
     };
-  }, [vouchers]);
+
+    updateVoucherScrollState();
+    el.addEventListener('scroll', updateVoucherScrollState, { passive: true });
+    window.addEventListener('resize', updateVoucherScrollState);
+    return () => {
+      el.removeEventListener('scroll', updateVoucherScrollState);
+      window.removeEventListener('resize', updateVoucherScrollState);
+    };
+  }, [vouchers, voucherScrollRef]);
 
   const scrollVouchers = (direction) => {
-    const el = voucherScroll.ref.current;
+    const el = voucherScrollRef.current;
     if (!el) return;
     const scrollAmount = (el.clientWidth / 3) * 2;
     el.scrollBy({
@@ -173,23 +173,7 @@ export default function CustomerRestaurant() {
   }
 
   if (restaurantLoading) {
-    return (
-      <div className="bg-canvas min-h-screen">
-        <div className="relative h-52 w-full bg-canvas-soft animate-pulse md:h-64 lg:h-72" />
-        <div className="container-page py-xl">
-          <div className="flex gap-base">
-            <div className="flex-1 space-y-4">
-              <div className="h-8 w-48 rounded bg-hairline animate-pulse" />
-              <div className="grid grid-cols-1 gap-base sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-48 rounded-lg bg-surface-card border border-hairline animate-pulse" />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <RestaurantSkeleton />;
   }
 
   if (!restaurant) return null;
@@ -387,7 +371,7 @@ export default function CustomerRestaurant() {
                 </div>
               </div>
               <div
-                ref={voucherScroll.ref}
+                ref={voucherScrollRef}
                 onMouseDown={voucherScroll.onMouseDown}
                 onClickCapture={voucherScroll.onClickCapture}
                 className="flex max-w-full cursor-grab gap-2 overflow-x-auto no-scrollbar pb-1 active:cursor-grabbing select-none"
@@ -395,7 +379,6 @@ export default function CustomerRestaurant() {
                 aria-label="Ưu đãi từ quán — kéo cuộn ngang hoặc bấm mũi tên"
               >
                 {vouchers.map((v) => {
-                  const maxDiscount = v.maxDiscountAmount;
                   const discountLabel = v.discountType === 'percent'
                     ? `Giảm ${v.discountValue}%`
                     : `Giảm ${formatVnd(v.discountValue)}`;

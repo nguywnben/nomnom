@@ -18,7 +18,7 @@ export default function CustomerDishDetail() {
   const { id } = useParams();
   const nav = useNavigate();
   const location = useLocation();
-  const { addToCart, setCartOpen, shopAsCustomer, currentLocation } = useApp();
+  const { addToCart, shopAsCustomer, currentLocation } = useApp();
 
   const goBack = () => {
     if (location.state?.from && !location.state.from.includes(`/dish/${id}/reviews`)) {
