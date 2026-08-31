@@ -27,9 +27,9 @@ async function loadOwnedRestaurant(userId) {
   return rows[0] ?? null;
 }
 
-async function loadOrderForRestaurant(orderCode, restaurantId) {
-  const [rows] = await pool.query(
-    'SELECT * FROM orders WHERE order_code = ? AND restaurant_id = ? LIMIT 1',
+async function loadOrderForRestaurant(orderCode, restaurantId, db = pool, { forUpdate = false } = {}) {
+  const [rows] = await db.query(
+    `SELECT * FROM orders WHERE order_code = ? AND restaurant_id = ? LIMIT 1${forUpdate ? ' FOR UPDATE' : ''}`,
     [orderCode, restaurantId],
   );
   return rows[0] ?? null;
@@ -873,12 +873,15 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
       return res.status(400).json({ error: 'Thiếu orderCode hoặc action.' });
     }
 
-    const order = await loadOrderForRestaurant(orderCode, restaurant.id);
+    await conn.beginTransaction();
+    const order = await loadOrderForRestaurant(orderCode, restaurant.id, conn, { forUpdate: true });
     if (!order) {
+      await conn.rollback();
       return res.status(404).json({ error: 'Không tìm thấy đơn hàng.' });
     }
 
     if (['pending_payment', 'payment_failed', 'expired'].includes(order.status)) {
+      await conn.rollback();
       return res.status(400).json({ error: 'Không thể cập nhật trạng thái của đơn hàng chưa thanh toán hoặc đã hết hạn.' });
     }
 
@@ -887,10 +890,9 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
       || 'Quán hủy đơn hàng.';
 
     if (transition.cancel && order.payment_status === 'paid') {
+      await conn.rollback();
       return res.status(409).json({ error: 'Paid orders must be refunded and cancelled by an administrator.' });
     }
-
-    await conn.beginTransaction();
 
     const updates = ['status = ?', 'updated_at = NOW()'];
     const values = [transition.to];
@@ -900,6 +902,9 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
     }
     if (transition.setReadyAt) {
       updates.push('ready_at = NOW()');
+    }
+    if (transition.setDeliveringAt) {
+      updates.push('delivering_at = NOW()');
     }
     if (transition.cancel) {
       updates.push('cancelled_at = NOW()', "cancelled_by_role = 'merchant'", 'cancel_reason = ?');
@@ -919,7 +924,8 @@ router.patch('/me/orders/:orderCode/status', requireAuth, ensureMerchant, async 
     const noteByAction = {
       accept: 'Quán xác nhận đơn',
       start_preparing: 'Bắt đầu chuẩn bị',
-      ready: 'Sẵn sàng cho tài xế lấy',
+      ready: 'Sẵn sàng giao cho khách',
+      start_delivery: 'Nhà hàng bắt đầu giao đơn',
       cancel: cancelReason,
     };
 

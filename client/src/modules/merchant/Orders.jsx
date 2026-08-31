@@ -18,13 +18,14 @@ const COLUMNS = [
   { key: 'new', label: 'Mới', tone: 'warning', statuses: ['placed'] },
   { key: 'preparing', label: 'Đang làm', tone: 'default', statuses: ['accepted', 'preparing'] },
   { key: 'ready', label: 'Sẵn sàng giao', tone: 'success', statuses: ['ready_for_pickup'] },
-  { key: 'completed', label: 'Đã giao', tone: 'outline', statuses: ['picked_up', 'delivering', 'delivered'] },
+  { key: 'completed', label: 'Giao / hoàn tất', tone: 'outline', statuses: ['picked_up', 'delivering', 'delivered'] },
 ];
 
 const ACTIONS = {
   placed: { action: 'accept', label: 'Nhận đơn' },
   accepted: { action: 'start_preparing', label: 'Bắt đầu nấu' },
   preparing: { action: 'ready', label: 'Sẵn sàng giao' },
+  ready_for_pickup: { action: 'start_delivery', label: 'Bắt đầu giao' },
 };
 
 function todayIsoDate() {
@@ -260,7 +261,7 @@ export default function MerchantOrders() {
           <div className="text-caption-uppercase text-body">Vận hành & Đơn hàng</div>
           <h1 className="text-display-lg text-ink">Quản lý Đơn hàng</h1>
           <p className="mt-xs text-body-sm text-body">
-            Tiếp nhận, xác nhận chế biến, bàn giao món ăn cho tài xế và theo dõi tiến độ đơn theo thời gian thực.
+            Tiếp nhận, chuẩn bị và tổ chức giao món đến khách hàng theo thời gian thực.
           </p>
         </div>
 
@@ -504,7 +505,7 @@ function formatTimeAgo(timestamp) {
 }
 
 function useTimeAgo(timestamp) {
-  const [now, setNow] = useState(() => Date.now());
+  const [, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(t);

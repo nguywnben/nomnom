@@ -29,8 +29,8 @@ const ORDER_STATUS = {
   placed: { label: 'Đã đặt', tone: 'default' },
   accepted: { label: 'Quán đã nhận', tone: 'live' },
   preparing: { label: 'Đang nấu', tone: 'live' },
-  ready_for_pickup: { label: 'Sẵn lấy', tone: 'live' },
-  picked_up: { label: 'Đã lấy', tone: 'live' },
+  ready_for_pickup: { label: 'Sẵn sàng giao', tone: 'live' },
+  picked_up: { label: 'Đã bàn giao', tone: 'live' },
   delivering: { label: 'Đang giao', tone: 'live' },
   delivered: { label: 'Đã giao', tone: 'success' },
   cancelled: { label: 'Đã hủy', tone: 'error' },
@@ -177,7 +177,7 @@ export default function AdminOrders() {
       await updateAdminOrderShippingStatus(order.id, action);
       pushToast({
         kind: 'success',
-        title: action === 'picked_up' ? 'Đã xác nhận lấy hàng' : 'Đã cập nhật đang giao',
+        title: 'Đã cập nhật đang giao',
         message: `Đơn ${order.order_code} đã được cập nhật.`,
       });
       loadOrders();
@@ -484,14 +484,9 @@ export default function AdminOrders() {
                           Hủy đơn
                         </Button>
                       )}
-                      {o.status === 'ready_for_pickup' && (
-                        <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'picked_up')}>
-                          Đã lấy hàng
-                        </Button>
-                      )}
-                      {o.status === 'picked_up' && (
+                      {['ready_for_pickup', 'picked_up'].includes(o.status) && (
                         <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'delivering')}>
-                          Đang giao
+                          Xác nhận đang giao
                         </Button>
                       )}
                     </div>
@@ -536,14 +531,9 @@ export default function AdminOrders() {
                       Hủy đơn
                     </Button>
                   )}
-                  {o.status === 'ready_for_pickup' && (
-                    <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'picked_up')}>
-                      Đã lấy hàng
-                    </Button>
-                  )}
-                  {o.status === 'picked_up' && (
+                  {['ready_for_pickup', 'picked_up'].includes(o.status) && (
                     <Button variant="secondary" size="sm" onClick={() => handleShippingStatus(o, 'delivering')}>
-                      Đang giao
+                      Xác nhận đang giao
                     </Button>
                   )}
                 </div>
