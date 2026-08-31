@@ -22,6 +22,7 @@ import shippingRoutes from './routes/shipping.routes.js';
 import locationsRoutes from './routes/locations.routes.js';
 import { ensureWave5Schema } from './lib/wave5Schema.js';
 import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
+import { creditMerchantForDeliveredOrder } from './lib/merchantOrders.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 
 const app = express();
@@ -359,7 +360,7 @@ async function startOrderExpiryWorker() {
           }
 
           const [deliveringOrders] = await connection.query(
-            `SELECT id, order_code, customer_id, restaurant_id
+            `SELECT id, order_code, customer_id, restaurant_id, merchant_earning
              FROM orders
              WHERE status = 'delivering'
                AND delivering_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)
@@ -375,6 +376,7 @@ async function startOrderExpiryWorker() {
                VALUES (?, 'delivering', 'delivered', 'system', 'Hệ thống tự động hoàn tất sau 2 giờ đang giao.')`,
               [order.id],
             );
+            await creditMerchantForDeliveredOrder(connection, order);
             await connection.query(
               `INSERT INTO notifications (user_id, type, title, body, link_url)
                VALUES (?, 'order_delivered', 'Đơn hàng đã hoàn tất', ?, ?)`,

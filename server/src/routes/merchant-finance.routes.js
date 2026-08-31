@@ -12,7 +12,7 @@ const router = Router();
 router.use(requireAuth);
 router.use((req, res, next) => {
   if ((req.auth.roles || []).includes('merchant')) return next();
-  return res.status(403).json({ error: 'Merchant access is required.' });
+  return res.status(403).json({ error: 'Yêu cầu quyền truy cập dành cho đối tác quán ăn.' });
 });
 
 async function loadRestaurant(conn, userId, lock = false) {
@@ -93,7 +93,7 @@ router.get('/wallet', async (req, res, next) => {
     const restaurant = await loadRestaurant(connection, req.auth.userId);
     if (!restaurant) {
       await connection.rollback();
-      return res.status(404).json({ error: 'Merchant restaurant not found.' });
+      return res.status(404).json({ error: 'Không tìm thấy thông tin quán ăn của bạn.' });
     }
     const wallet = await ensureMerchantWallet(connection, req.auth.userId);
     const [[reservedRow]] = await connection.query(
@@ -176,11 +176,11 @@ router.post('/payouts', async (req, res, next) => {
     const restaurant = await loadRestaurant(connection, req.auth.userId, true);
     if (!restaurant) {
       await connection.rollback();
-      return res.status(404).json({ error: 'Merchant restaurant not found.' });
+      return res.status(404).json({ error: 'Không tìm thấy thông tin quán ăn của bạn.' });
     }
     if (!restaurant.bank_account_no || !restaurant.bank_name || !restaurant.bank_account_holder) {
       await connection.rollback();
-      return res.status(409).json({ error: 'Configure a complete payout bank account before requesting a payout.' });
+      return res.status(409).json({ error: 'Vui lòng cài đặt đầy đủ thông tin tài khoản ngân hàng trước khi gửi yêu cầu rút tiền.' });
     }
     const wallet = await ensureMerchantWallet(connection, req.auth.userId);
     const [openPayouts] = await connection.query(
@@ -203,7 +203,13 @@ router.post('/payouts', async (req, res, next) => {
     });
     if (!validation.ok) {
       await connection.rollback();
-      return res.status(400).json({ error: 'Payout request is not valid.', reason: validation.reason, minAmount: validation.minAmount, availableBalance: validation.availableBalance });
+      let errorMsg = 'Yêu cầu rút tiền không hợp lệ.';
+      if (validation.reason === 'invalid_amount') errorMsg = 'Số tiền rút không hợp lệ.';
+      else if (validation.reason === 'wallet_locked') errorMsg = 'Ví của bạn đang bị tạm khóa. Vui lòng liên hệ quản trị viên.';
+      else if (validation.reason === 'below_minimum') errorMsg = `Số tiền rút tối thiểu là ${validation.minAmount?.toLocaleString('vi-VN')} VND.`;
+      else if (validation.reason === 'insufficient_balance') errorMsg = 'Số dư khả dụng không đủ để rút số tiền này.';
+
+      return res.status(400).json({ error: errorMsg, reason: validation.reason, minAmount: validation.minAmount, availableBalance: validation.availableBalance });
     }
     const [result] = await connection.query(
       "INSERT INTO payout_requests (wallet_id, user_id, amount, bank_account_no, bank_name, bank_account_holder, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
@@ -211,8 +217,8 @@ router.post('/payouts', async (req, res, next) => {
     );
     await connection.query('UPDATE wallets SET pending_balance = pending_balance + ? WHERE id = ?', [validation.amount, wallet.id]);
     await connection.query(
-      "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'payout_status', 'Payout request received', ?, '/merchant/wallet')",
-      [req.auth.userId, 'Your payout request for ' + validation.amount + ' VND is waiting for review.'],
+      "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'payout_status', 'Đã tiếp nhận yêu cầu rút tiền', ?, '/merchant/wallet')",
+      [req.auth.userId, `Yêu cầu rút ${validation.amount.toLocaleString('vi-VN')} đ của bạn đang chờ Admin xét duyệt.`],
     );
     const [rows] = await connection.query('SELECT * FROM payout_requests WHERE id = ?', [result.insertId]);
     await connection.commit();
@@ -228,7 +234,7 @@ router.post('/payouts', async (req, res, next) => {
 router.get('/settings', async (req, res, next) => {
   try {
     const restaurant = await loadRestaurant(pool, req.auth.userId);
-    if (!restaurant) return res.status(404).json({ error: 'Merchant restaurant not found.' });
+    if (!restaurant) return res.status(404).json({ error: 'Không tìm thấy thông tin quán ăn của bạn.' });
     const addressChangeRequest = await loadLatestAddressChangeRequest(pool, restaurant.id);
     return res.json({
       restaurant: serializeSettings(restaurant),
@@ -389,6 +395,17 @@ router.patch('/settings', async (req, res, next) => {
       minOrderAmount: ['min_order_amount', 0, 100000000],
       avgPrepTimeMin: ['avg_prep_time_min', 1, 300],
     };
+    const fieldLabels = {
+      name: 'Tên quán phải có từ 2 đến 160 ký tự.',
+      phone: 'Số điện thoại không được vượt quá 20 ký tự.',
+      tagline: 'Slogan không được vượt quá 255 ký tự.',
+      description: 'Giới thiệu quán không được vượt quá 5000 ký tự.',
+      bankAccountNo: 'Số tài khoản ngân hàng không hợp lệ.',
+      bankName: 'Tên ngân hàng không được vượt quá 120 ký tự.',
+      bankAccountHolder: 'Tên chủ tài khoản không được vượt quá 120 ký tự.',
+      minOrderAmount: 'Giá trị đơn tối thiểu không hợp lệ (từ 0 đến 100.000.000đ).',
+      avgPrepTimeMin: 'Thời gian chuẩn bị phải từ 1 đến 300 phút.',
+    };
     const updates = [];
     const values = [];
     for (const [key, rule] of Object.entries(textRules)) {
@@ -396,13 +413,13 @@ router.patch('/settings', async (req, res, next) => {
       let value = String(body[key] || '').trim();
       if (value.length < rule[1] || value.length > rule[2]) {
         await connection.rollback();
-        return res.status(400).json({ error: key + ' has an invalid length.' });
+        return res.status(400).json({ error: fieldLabels[key] || `Trường ${key} có độ dài không hợp lệ.` });
       }
       if (key === 'bankAccountNo' && value) {
         value = value.replace(/\s+/g, '');
         if (!/^[0-9]{6,40}$/.test(value)) {
           await connection.rollback();
-          return res.status(400).json({ error: 'Bank account number must contain 6 to 40 digits.' });
+          return res.status(400).json({ error: 'Số tài khoản ngân hàng chỉ được chứa từ 6 đến 40 chữ số.' });
         }
       }
       updates.push(rule[0] + ' = ?');
@@ -413,7 +430,7 @@ router.patch('/settings', async (req, res, next) => {
       const value = Number(body[key]);
       if (!Number.isSafeInteger(value) || value < rule[1] || value > rule[2]) {
         await connection.rollback();
-        return res.status(400).json({ error: key + ' is outside the allowed range.' });
+        return res.status(400).json({ error: fieldLabels[key] || `Trường ${key} nằm ngoài phạm vi cho phép.` });
       }
       updates.push(rule[0] + ' = ?');
       values.push(value);
@@ -424,7 +441,7 @@ router.patch('/settings', async (req, res, next) => {
     }
     if (!updates.length) {
       await connection.rollback();
-      return res.status(400).json({ error: 'No supported settings were supplied.' });
+      return res.status(400).json({ error: 'Không có thông tin cài đặt nào được gửi lên.' });
     }
     const bank = {
       account: body.bankAccountNo === undefined ? restaurant.bank_account_no : String(body.bankAccountNo || '').trim(),
@@ -434,7 +451,7 @@ router.patch('/settings', async (req, res, next) => {
     const configuredBankFields = [bank.account, bank.name, bank.holder].filter(Boolean).length;
     if (configuredBankFields > 0 && configuredBankFields < 3) {
       await connection.rollback();
-      return res.status(400).json({ error: 'Bank name, account number, and account holder must be configured together.' });
+      return res.status(400).json({ error: 'Tên ngân hàng, số tài khoản và tên chủ tài khoản phải được điền cùng nhau.' });
     }
     values.push(restaurant.id);
     await connection.query('UPDATE restaurants SET ' + updates.join(', ') + ' WHERE id = ?', values);

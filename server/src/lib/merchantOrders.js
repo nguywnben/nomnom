@@ -116,3 +116,48 @@ export function customerNotificationForAction(action, orderCode, restaurantName)
       return null;
   }
 }
+
+export async function creditMerchantForDeliveredOrder(conn, order) {
+  if (!order || Number(order.merchant_earning || 0) <= 0) return;
+
+  const [restaurantRows] = await conn.query(
+    'SELECT owner_user_id FROM restaurants WHERE id = ? LIMIT 1',
+    [order.restaurant_id],
+  );
+  const ownerUserId = restaurantRows[0]?.owner_user_id;
+  if (!ownerUserId) return;
+
+  // Đảm bảo ví merchant tồn tại
+  await conn.query(
+    "INSERT INTO wallets (user_id, owner_type) VALUES (?, 'merchant') ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)",
+    [ownerUserId],
+  );
+  const [walletRows] = await conn.query(
+    "SELECT * FROM wallets WHERE user_id = ? AND owner_type = 'merchant' LIMIT 1 FOR UPDATE",
+    [ownerUserId],
+  );
+  const wallet = walletRows[0];
+  if (!wallet) return;
+
+  // Kiểm tra chống cộng trùng lặp giao dịch
+  const [existingTx] = await conn.query(
+    "SELECT id FROM wallet_transactions WHERE wallet_id = ? AND reference_type = 'order' AND reference_id = ? AND tx_type = 'order_earning' LIMIT 1",
+    [wallet.id, order.id],
+  );
+  if (existingTx.length > 0) return;
+
+  const amount = Number(order.merchant_earning);
+  const balanceAfter = Number(wallet.balance) + amount;
+
+  await conn.query(
+    'UPDATE wallets SET balance = balance + ?, total_earned = total_earned + ?, updated_at = NOW() WHERE id = ?',
+    [amount, amount, wallet.id],
+  );
+
+  await conn.query(
+    `INSERT INTO wallet_transactions (
+      wallet_id, direction, amount, balance_after, tx_type, reference_type, reference_id, description, created_at
+    ) VALUES (?, 'credit', ?, ?, 'order_earning', 'order', ?, ?, NOW())`,
+    [wallet.id, amount, balanceAfter, order.id, `Doanh thu đơn ${order.order_code}`],
+  );
+}

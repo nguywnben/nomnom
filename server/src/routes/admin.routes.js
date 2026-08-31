@@ -1414,10 +1414,25 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
       "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'order_cancelled', ?, ?, '/app/orders')",
       [
         order.customer_id,
-        'Don hang ' + order.order_code + ' da bi huy',
-        'Don hang ' + order.order_code + ' da bi quan tri vien huy. Ly do: ' + reason,
+        `Đơn hàng ${order.order_code} đã bị hủy`,
+        `Đơn hàng ${order.order_code} đã bị quản trị viên hủy. Lý do: ${reason}`,
       ],
     );
+
+    const [restaurantRows] = await connection.query(
+      'SELECT owner_user_id, name FROM restaurants WHERE id = ? LIMIT 1',
+      [order.restaurant_id],
+    );
+    if (restaurantRows[0]?.owner_user_id) {
+      await connection.query(
+        "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'order_cancelled', ?, ?, '/merchant/orders')",
+        [
+          restaurantRows[0].owner_user_id,
+          `Đơn hàng ${order.order_code} đã bị hủy`,
+          `Đơn hàng ${order.order_code} đã bị quản trị viên hủy. Lý do: ${reason}`,
+        ],
+      );
+    }
 
     await logAudit(connection, {
       adminId: req.auth.userId,

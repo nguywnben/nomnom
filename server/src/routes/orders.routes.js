@@ -5,6 +5,7 @@ import { evaluateVoucher } from '../lib/voucher.js';
 import { buildShippingQuote } from '../lib/shippingQuote.js';
 import crypto from 'crypto';
 import { normalizeReviewSubmission, refreshReviewStats } from '../lib/reviewSubmission.js';
+import { creditMerchantForDeliveredOrder } from '../lib/merchantOrders.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -466,6 +467,7 @@ router.post('/:idOrCode/confirm-delivery', requireAuth, ensureCustomer, async (r
        VALUES (?, 'delivering', 'delivered', 'customer', ?, 'Khách hàng xác nhận đã nhận hàng.')`,
       [order.id, userId],
     );
+    await creditMerchantForDeliveredOrder(connection, order);
     const [restaurantRows] = await connection.query('SELECT owner_user_id, name FROM restaurants WHERE id = ? LIMIT 1', [order.restaurant_id]);
     if (restaurantRows[0]) {
       await connection.query(
@@ -572,6 +574,21 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
       restaurantId: order.restaurant_id,
       menuItemIds: submission.dishReviews.map((review) => review.menuItemId),
     });
+
+    const [restaurantOwner] = await connection.query(
+      'SELECT owner_user_id FROM restaurants WHERE id = ? LIMIT 1',
+      [order.restaurant_id],
+    );
+    if (restaurantOwner[0]?.owner_user_id) {
+      await connection.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url)
+         VALUES (?, 'system', 'Đánh giá mới từ khách hàng', ?, '/merchant/reviews')`,
+        [
+          restaurantOwner[0].owner_user_id,
+          `Khách hàng vừa gửi đánh giá cho đơn hàng ${order.order_code}.`,
+        ],
+      );
+    }
 
     await connection.commit();
 

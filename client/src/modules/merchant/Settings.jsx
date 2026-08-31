@@ -4,7 +4,6 @@ import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
-import Switch from '../../components/Switch.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import {
   cancelMerchantAddressChangeRequest,
@@ -144,18 +143,10 @@ export default function MerchantSettings() {
 
   return (
     <div className="space-y-base">
-      <div className="flex flex-wrap items-end justify-between gap-sm">
-        <div>
-          <div className="text-caption-uppercase text-body">Quản trị</div>
-          <h1 className="text-display-lg text-ink">Cài đặt quán</h1>
-          <p className="mt-xs text-body-sm text-body">Quản lý thông tin hiển thị, vận hành và tài khoản nhận tiền.</p>
-        </div>
-        <Switch
-          checked={Boolean(form.isOpenNow)}
-          disabled={saving}
-          onChange={(checked) => set({ isOpenNow: checked })}
-          label={form.isOpenNow ? 'Đang nhận đơn' : 'Đang đóng cửa'}
-        />
+      <div>
+        <div className="text-caption-uppercase text-body">Quản trị</div>
+        <h1 className="text-display-lg text-ink">Cài đặt quán</h1>
+        <p className="mt-xs text-body-sm text-body">Quản lý thông tin hiển thị, vận hành và tài khoản nhận tiền.</p>
       </div>
 
       {error && (
@@ -218,7 +209,7 @@ export default function MerchantSettings() {
         <Card padded className="grid gap-sm md:grid-cols-2">
           <Input id="min-order-amount" type="number" min="0" step="1000" label="Đơn tối thiểu (VND)" value={form.minOrderAmount} onChange={(event) => set({ minOrderAmount: Number(event.target.value) })} />
           <Input id="avg-prep-time" type="number" min="1" max="300" label="Chuẩn bị trung bình (phút)" value={form.avgPrepTimeMin} onChange={(event) => set({ avgPrepTimeMin: Number(event.target.value) })} />
-          <div className="md:col-span-3 rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body">
+          <div className="md:col-span-2 rounded-md border border-hairline-strong bg-canvas-soft p-base text-body-sm text-body">
             Hoa hồng hiện tại: <span className="font-semibold text-ink">{form.commissionRate}%</span>. Tỷ lệ này do quản trị viên cấu hình.
           </div>
         </Card>

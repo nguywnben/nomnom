@@ -1585,7 +1585,7 @@ router.patch('/me/reviews/:reviewId/reply', requireAuth, ensureMerchant, async (
     );
 
     const [updatedRows] = await pool.query(
-      `SELECT rv.id, rv.order_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at,
+      `SELECT rv.id, rv.order_id, rv.customer_id, rv.rating, rv.comment, rv.reply_text, rv.reply_at, rv.created_at,
               u.full_name AS customer_name, u.avatar_url AS customer_avatar, o.order_code
          FROM reviews rv
          INNER JOIN users u ON u.id = rv.customer_id
@@ -1596,6 +1596,18 @@ router.patch('/me/reviews/:reviewId/reply', requireAuth, ensureMerchant, async (
     );
 
     const row = updatedRows[0];
+    if (row?.customer_id) {
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, title, body, link_url)
+         VALUES (?, 'system', 'Quán đã phản hồi đánh giá của bạn', ?, ?)`,
+        [
+          row.customer_id,
+          `Quán "${restaurant.name}" vừa phản hồi nhận xét của bạn về đơn ${row.order_code}.`,
+          `/app/reviews/${restaurant.id}`,
+        ],
+      );
+    }
+
     res.json({
       review: {
         id: Number(row.id),

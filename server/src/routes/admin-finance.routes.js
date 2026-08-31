@@ -101,7 +101,7 @@ router.patch('/payouts/:id', async (req, res, next) => {
     const transition = resolvePayoutTransition(payout.status, action);
     if (!transition.ok) {
       await connection.rollback();
-      return res.status(409).json({ error: 'Payout transition is not allowed.', reason: transition.reason });
+      return res.status(409).json({ error: 'Thao tác chuyển trạng thái rút tiền không được phép.' });
     }
     if (transition.idempotent) {
       const [existing] = await connection.query(PAYOUT_SELECT + ' WHERE pr.id = ?', [payout.id]);
@@ -110,11 +110,11 @@ router.patch('/payouts/:id', async (req, res, next) => {
     }
     if (action === 'reject' && reason.length < 3) {
       await connection.rollback();
-      return res.status(400).json({ error: 'A rejection reason of at least 3 characters is required.' });
+      return res.status(400).json({ error: 'Vui lòng nhập lý do từ chối tối thiểu 3 ký tự.' });
     }
     if (action === 'complete' && externalRef.length < 3) {
       await connection.rollback();
-      return res.status(400).json({ error: 'A bank transfer reference is required to complete a payout.' });
+      return res.status(400).json({ error: 'Vui lòng nhập mã tham chiếu giao dịch ngân hàng để hoàn tất rút tiền.' });
     }
     const [openPayouts] = await connection.query(
       "SELECT id, amount FROM payout_requests WHERE wallet_id = ? AND status IN ('pending', 'approved') FOR UPDATE",
@@ -141,7 +141,7 @@ router.patch('/payouts/:id', async (req, res, next) => {
     } else if (action === 'complete') {
       if (Number(payout.balance) < Number(payout.amount)) {
         await connection.rollback();
-        return res.status(409).json({ error: 'Wallet balance is insufficient to complete this payout.' });
+        return res.status(409).json({ error: 'Số dư ví không đủ để hoàn tất yêu cầu rút tiền này.' });
       }
       const balanceAfter = Number(payout.balance) - Number(payout.amount);
       await connection.query(
@@ -154,15 +154,15 @@ router.patch('/payouts/:id', async (req, res, next) => {
       );
       await connection.query(
         "INSERT INTO wallet_transactions (wallet_id, direction, amount, balance_after, tx_type, reference_type, reference_id, description, performed_by_user_id) VALUES (?, 'debit', ?, ?, 'withdrawal', 'payout', ?, ?, ?)",
-        [payout.wallet_id, payout.amount, balanceAfter, payout.id, 'Payout PYT-' + String(payout.id).padStart(4, '0') + ' completed', req.auth.userId],
+        [payout.wallet_id, payout.amount, balanceAfter, payout.id, 'Rút tiền PYT-' + String(payout.id).padStart(4, '0') + ' đã hoàn tất', req.auth.userId],
       );
     }
-    const title = action === 'approve' ? 'Payout request approved' : action === 'reject' ? 'Payout request rejected' : 'Payout completed';
+    const title = action === 'approve' ? 'Yêu cầu rút tiền đã được duyệt' : action === 'reject' ? 'Yêu cầu rút tiền bị từ chối' : 'Rút tiền thành công';
     const body = action === 'reject'
-      ? 'Your payout request was rejected: ' + reason.slice(0, 300)
+      ? 'Yêu cầu rút tiền của bạn bị từ chối. Lý do: ' + reason.slice(0, 300)
       : action === 'approve'
-        ? 'Your payout request has been approved and is waiting for transfer.'
-        : 'Your payout was transferred with reference ' + externalRef.slice(0, 120) + '.';
+        ? 'Yêu cầu rút tiền của bạn đã được duyệt và đang chờ ngân hàng chuyển khoản.'
+        : 'Tiền đã được chuyển vào tài khoản ngân hàng của bạn. Mã giao dịch: ' + externalRef.slice(0, 120);
     await connection.query(
       "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'payout_status', ?, ?, '/merchant/wallet')",
       [payout.user_id, title, body],
