@@ -5,6 +5,7 @@ import {
   saveTokens,
 } from './authStorage.js';
 import { getHomeViewerId } from './homeViewer.js';
+import { unwrapAdminCuisine, unwrapAdminCuisines } from './adminCuisines.js';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:3000' : '');
 
@@ -649,9 +650,15 @@ export function updateAdminCustomerHomeApi(config) { return apiPatch('/api/v1/ad
 
 export function fetchAdminUserDetailApi(id) { return apiGet('/api/v1/admin/users/' + encodeURIComponent(id)); }
 
-export function fetchAdminCuisinesApi() { return apiGet('/api/v1/admin/cuisines'); }
-export function createAdminCuisineApi(body) { return apiPost('/api/v1/admin/cuisines', body); }
-export function updateAdminCuisineApi(id, body) { return apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body); }
+export async function fetchAdminCuisinesApi() {
+  return unwrapAdminCuisines(await apiGet('/api/v1/admin/cuisines'));
+}
+export async function createAdminCuisineApi(body) {
+  return unwrapAdminCuisine(await apiPost('/api/v1/admin/cuisines', body));
+}
+export async function updateAdminCuisineApi(id, body) {
+  return unwrapAdminCuisine(await apiPatch('/api/v1/admin/cuisines/' + encodeURIComponent(id), body));
+}
 export function deleteAdminCuisineApi(id) { return apiDelete('/api/v1/admin/cuisines/' + encodeURIComponent(id)); }
 export function reorderAdminCuisinesApi(ids) { return apiPatch('/api/v1/admin/cuisines/reorder', { ids }); }
 export function fetchAdminHomeBannersApi() { return apiGet('/api/v1/admin/home-banners'); }
