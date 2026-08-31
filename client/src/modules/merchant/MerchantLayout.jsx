@@ -326,7 +326,7 @@ function DesktopSidebar({ currentMerchant, restaurantSlug, newCount, collapsed, 
 function SidebarContent({ currentMerchant, restaurantSlug, newCount, collapsed = false, onItemClick }) {
   return (
     <>
-      <nav className="flex-1 px-sm py-2 overflow-y-auto no-scrollbar">
+      <nav className="flex flex-1 flex-col gap-1 px-sm py-2 overflow-y-auto no-scrollbar">
         {links.map((link) => (
           <NavLink
             key={link.to}
