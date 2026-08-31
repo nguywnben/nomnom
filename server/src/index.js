@@ -24,12 +24,15 @@ import { ensureWave5Schema } from './lib/wave5Schema.js';
 import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
 import { creditMerchantForDeliveredOrder } from './lib/merchantOrders.js';
 import { canAutomaticallyCancelOrder } from './lib/orderExpiry.js';
+import { normalizeWorkerBatchSize } from './lib/workerBatch.js';
 import pool, { verifyDbConnection } from './db/pool.js';
 import { createRateLimiter, securityHeaders } from './middleware/security.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 const authRateLimit = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 60 });
+const orderExpiryBatchSize = normalizeWorkerBatchSize(process.env.ORDER_EXPIRY_BATCH_SIZE);
+let orderExpiryWorkerRunning = false;
 
 app.disable('x-powered-by');
 app.use(securityHeaders);
@@ -322,6 +325,8 @@ async function ensureRestaurantBankColumns() {
 async function startOrderExpiryWorker() {
   console.log('[Expiry Worker] Khởi tạo worker tự động hủy đơn hết hạn thanh toán (30 phút)');
   setInterval(async () => {
+    if (orderExpiryWorkerRunning) return;
+    orderExpiryWorkerRunning = true;
     try {
       const connection = await pool.getConnection();
       try {
@@ -332,7 +337,9 @@ async function startOrderExpiryWorker() {
           `SELECT id, status FROM orders 
            WHERE status IN ('pending_payment', 'payment_failed') 
              AND created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
-           FOR UPDATE`
+           ORDER BY id
+           LIMIT ${orderExpiryBatchSize}
+           FOR UPDATE SKIP LOCKED`
         );
 
           for (const order of expiredOrders) {
@@ -369,7 +376,9 @@ async function startOrderExpiryWorker() {
              FROM orders
              WHERE status = 'delivering'
                AND delivering_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)
-             FOR UPDATE`,
+             ORDER BY id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of deliveringOrders) {
             await connection.query(
@@ -396,7 +405,9 @@ async function startOrderExpiryWorker() {
              JOIN restaurants r ON r.id = o.restaurant_id
              WHERE o.status = 'placed'
                AND o.created_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-             FOR UPDATE`,
+             ORDER BY o.id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of stalePlacedOrders) {
             if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
@@ -437,7 +448,9 @@ async function startOrderExpiryWorker() {
              JOIN restaurants r ON r.id = o.restaurant_id
              WHERE o.status IN ('accepted', 'preparing')
                AND o.created_at < DATE_SUB(NOW(), INTERVAL 60 MINUTE)
-             FOR UPDATE`,
+             ORDER BY o.id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of stalePreparingOrders) {
             if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
@@ -477,7 +490,9 @@ async function startOrderExpiryWorker() {
              FROM orders o
              WHERE o.status IN ('accepted', 'preparing', 'ready_for_pickup')
                AND o.created_at < DATE_SUB(NOW(), INTERVAL 12 HOUR)
-             FOR UPDATE`,
+             ORDER BY o.id
+             LIMIT ${orderExpiryBatchSize}
+             FOR UPDATE SKIP LOCKED`,
           );
           for (const order of staleOvernightOrders) {
             if (!canAutomaticallyCancelOrder({ paymentStatus: order.payment_status })) {
@@ -507,6 +522,8 @@ async function startOrderExpiryWorker() {
       }
     } catch (err) {
       console.error('[Expiry Worker Connection Error]', err);
+    } finally {
+      orderExpiryWorkerRunning = false;
     }
   }, 60000); // Chạy mỗi 60 giây
 }
