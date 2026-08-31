@@ -4,6 +4,7 @@ import pool from '../db/pool.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendAdminResetPasswordEmail, sendAccountSuspensionEmail } from '../lib/mail.js';
 import { buildRefundPayload, formatVnpayDate, verifyRefundResponse } from '../lib/vnpay.js';
+import { classifyRefundGatewayResult, classifyRefundTransportError } from '../lib/refundState.js';
 import { logAudit } from '../lib/audit.js';
 import { hasValidCoordinates } from '../lib/geo.js';
 import { serializeAddressChangeRequest } from '../lib/restaurantAddressChanges.js';
@@ -1583,7 +1584,7 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
         orderInfo: 'Hoan tien don hang ' + order.order_code,
       });
 
-      let refundFailure = null;
+      let refundOutcome;
       try {
         const gatewayResult = await fetch(refundConfig.apiUrl, {
           method: 'POST',
@@ -1597,38 +1598,46 @@ router.post('/orders/:id/cancel', async (req, res, next) => {
         } catch {
           refundResponse = { rawText: rawText.slice(0, 2000) };
         }
-        const signatureValid = verifyRefundResponse(refundResponse, refundConfig.secret);
-        const gatewaySucceeded = gatewayResult.ok
-          && signatureValid
-          && refundResponse.vnp_ResponseCode === '00'
-          && refundResponse.vnp_TransactionStatus === '00';
-        if (!gatewaySucceeded) {
-          refundFailure = signatureValid
-            ? String(refundResponse.vnp_Message || refundResponse.vnp_ResponseCode || 'Cổng VNPay từ chối yêu cầu hoàn tiền.')
-            : 'Chữ ký phản hồi từ VNPay không hợp lệ.';
-        }
+        refundOutcome = classifyRefundGatewayResult({
+          httpOk: gatewayResult.ok,
+          signatureValid: verifyRefundResponse(refundResponse, refundConfig.secret),
+          response: refundResponse,
+        });
       } catch (error) {
-        refundFailure = error.name === 'TimeoutError'
-          ? 'Yêu cầu hoàn tiền VNPay đã hết thời gian chờ (timeout).'
-          : 'Yêu cầu hoàn tiền VNPay thất bại: ' + error.message;
-        refundResponse = { error: refundFailure };
+        refundOutcome = classifyRefundTransportError(error);
+        refundResponse = { error: refundOutcome.reason };
       }
 
-      if (refundFailure) {
+      if (refundOutcome.status === 'initiated') {
+        await connection.query(
+          'UPDATE payment_refunds SET failure_reason = ?, raw_response = ? WHERE id = ?',
+          [refundOutcome.reason.slice(0, 500), JSON.stringify(refundResponse), refundResult.insertId],
+        );
+        await connection.commit();
+        return res.status(202).json({
+          error: 'Kết quả hoàn tiền chưa chắc chắn. Đơn hàng chưa bị hủy và đang chờ đối soát.',
+          code: 'REFUND_RECONCILIATION_REQUIRED',
+          refund: { status: 'initiated', requestId },
+          reason: refundOutcome.reason,
+        });
+      }
+
+      if (refundOutcome.status === 'failed') {
         await connection.query(
           "UPDATE payment_refunds SET status = 'failed', failure_reason = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
-          [refundFailure.slice(0, 500), JSON.stringify(refundResponse), refundResult.insertId],
+          [refundOutcome.reason.slice(0, 500), JSON.stringify(refundResponse), refundResult.insertId],
         );
         await connection.commit();
         return res.status(502).json({
-          error: 'Cổng thanh toán không xác nhận hoàn tiền. Đơn hàng chưa bị hủy.',
-          reason: refundFailure,
+          error: 'Cổng thanh toán từ chối hoàn tiền. Đơn hàng chưa bị hủy.',
+          code: 'REFUND_REJECTED',
+          reason: refundOutcome.reason,
         });
       }
 
       await connection.query(
         "UPDATE payment_refunds SET status = 'succeeded', gateway_txn_id = ?, raw_response = ?, completed_at = NOW() WHERE id = ?",
-        [refundResponse.vnp_TransactionNo || null, JSON.stringify(refundResponse), refundResult.insertId],
+        [refundOutcome.transactionNo, JSON.stringify(refundResponse), refundResult.insertId],
       );
       paymentStatus = 'refunded';
     }
