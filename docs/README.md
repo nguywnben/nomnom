@@ -23,6 +23,9 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 |----------|--------|
 | [AUTH.md](./AUTH.md) | Đăng nhập, JWT, OTP, seed user |
 | [RAILWAY.md](./RAILWAY.md) | Deploy server + MySQL trên Railway |
+| [RELEASE_RUNBOOK.md](./RELEASE_RUNBOOK.md) | Backup, quality gate, build, rollback và go/no-go |
+| [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) | Kịch bản báo cáo 8–12 phút và phương án dự phòng |
+| [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) | Rủi ro đã biết, cách kiểm soát và backlog sau báo cáo |
 
 ## Phân tích & thiết kế
 

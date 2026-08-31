@@ -192,6 +192,8 @@ Run commands from the relevant package directory.
 | Server | `npm run dev` | Start the API with Node watch mode |
 | Server | `npm start` | Start the API without watch mode |
 | Server | `npm test` | Run VNPay and voucher regression tests |
+| Server | `npm run smoke:roles` | Verify three-role access and cross-role denial |
+| Server | `npm run backup:db` | Create a consistent SQL backup in `backups/` |
 
 ## Demo Accounts
 
@@ -223,6 +225,15 @@ Get-ChildItem src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullN
 Regression tests cover checkout validation/idempotency, order transitions, VNPay signatures/refund
 contracts, vouchers, payout, security limits and upload ownership. Also smoke-test all three authenticated
 role flows. Live VNPay payment and refund checks require sandbox credentials.
+
+For the final local gate, set `NOMNOM_DEMO_PASSWORD` without committing it and run:
+
+```bash
+node scripts/verify-release.mjs --rounds 2 --smoke
+```
+
+See [release operations](./docs/RELEASE_RUNBOOK.md), the [8–12 minute demo](./docs/DEMO_RUNBOOK.md),
+and [known limitations](./docs/KNOWN_LIMITATIONS.md) before the defense.
 
 ## API and Project Documentation
 
