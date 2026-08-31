@@ -709,7 +709,7 @@ export default function CustomerCheckout() {
                           if (phoneError) setPhoneError('');
                         }}
                         error={phoneError}
-                        hint="Tài xế sẽ gọi số này khi giao tới."
+                        hint="Nhân viên giao hàng của quán sẽ gọi số này khi giao tới."
                       />
                     </div>
 

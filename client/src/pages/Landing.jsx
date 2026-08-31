@@ -88,7 +88,7 @@ const EXPERIENCE_PRINCIPLES = [
   },
 ];
 
-/** Cuộn mượt. Các khối CTA (đối tác / tài xế) căn giữa khung nhìn; "Cách hoạt động" cuộn tự nhiên từ đầu section. */
+/** Cuộn mượt. Các khối CTA đối tác căn giữa khung nhìn; "Cách hoạt động" cuộn tự nhiên từ đầu section. */
 function scrollToSection(id) {
   const block = id === 'cach-hoat-dong' ? 'start' : 'center';
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block });

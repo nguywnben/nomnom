@@ -25,7 +25,7 @@ const RESTRICTION_BY_PARTNER = {
   legacy_partner: {
     title: 'Không thể đặt món',
     message:
-      'Tài khoản tài xế không dùng để đặt đồ ăn trên NomNom. Hãy dùng khu vực tài xế hoặc đăng xuất và dùng tài khoản khách hàng khác.',
+      'Tài khoản đối tác hoặc quản trị không dùng để đặt món. Hãy đăng xuất và dùng tài khoản khách hàng.',
   },
 };
 

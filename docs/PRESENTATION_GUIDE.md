@@ -101,7 +101,7 @@
    - `/app/orders` — **Danh sách đơn hàng của tôi**: Lọc theo trạng thái (Tất cả / Đang xử lý / Hoàn tất / Đã hủy), xem chi tiết đơn cũ.
 2. **Theo dõi Đơn hàng Thời gian thực (Realtime Tracking):**
    - `/app/track/:id` — **Theo dõi hành trình đơn**: Stepper tiến trình trực quan (Chờ thanh toán $\rightarrow$ Đã đặt $\rightarrow$ Quán nhận $\rightarrow$ Đang nấu $\rightarrow$ Sẵn sàng giao $\rightarrow$ Đang giao $\rightarrow$ Đã giao).
-   - Hiển thị thông tin tài xế/quán ăn, dự kiến thời gian giao và chi tiết đơn hàng.
+   - Hiển thị thông tin quán ăn, dự kiến thời gian giao và chi tiết đơn hàng.
 3. **Hệ thống Nhắn tin Chat 1-1:**
    - `/chat/:id` & `ChatWidget` — **Kênh chat trực tiếp giữa Khách hàng và Quán ăn**: Nhắn tin trao đổi về yêu cầu món ăn, thời gian nhận hàng, lưu trữ lịch sử tin nhắn.
 4. **Đánh giá & Phản hồi (Reviews & Rating):**

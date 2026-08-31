@@ -3,7 +3,7 @@ import LegalLayout, { LegalSection } from './LegalLayout.jsx';
 
 export default function PrivacyPolicyPage() {
   return (
-    <LegalLayout title="Chính sách bảo mật" updatedAt="30 tháng 5, 2026">
+    <LegalLayout title="Chính sách bảo mật" updatedAt="31 tháng 8, 2026">
       <LegalSection title="1. Cam kết của NomNom">
         <p>
           NomNom tôn trọng quyền riêng tư của bạn. Chính sách này giải thích dữ liệu chúng tôi thu thập
@@ -51,14 +51,14 @@ export default function PrivacyPolicyPage() {
           <li>Xác thực đăng ký, đăng nhập và phòng chống gian lận (mã OTP qua email).</li>
           <li>Gửi thông báo trạng thái đơn và cập nhật quan trọng về tài khoản.</li>
           <li>Cải thiện trải nghiệm — ví dụ gợi ý quán, tối ưu thời gian giao.</li>
-          <li>Xét duyệt hồ sơ đối tác (quán ăn, tài xế) theo quy trình nội bộ.</li>
+          <li>Xét duyệt hồ sơ nhà hàng đối tác theo quy trình nội bộ.</li>
         </ul>
       </LegalSection>
 
       <LegalSection title="4. Chia sẻ với ai?">
         <p>Chúng tôi chỉ chia sẻ dữ liệu cần thiết để hoàn thành đơn hoặc vận hành dịch vụ:</p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>Quán đối tác và tài xế — thông tin cần để chuẩn bị và giao món.</li>
+          <li>Nhà hàng đối tác — thông tin cần để chuẩn bị và tổ chức giao món.</li>
           <li>Nhà cung cấp dịch vụ — lưu trữ ảnh, gửi email xác thực, xử lý thanh toán (khi có).</li>
           <li>Cơ quan nhà nước — khi có yêu cầu hợp pháp.</li>
         </ul>

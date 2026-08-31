@@ -1,6 +1,7 @@
-# NomNom — Premium Food Delivery Ecosystem
+# NomNom — Nền tảng đặt và giao đồ ăn ba vai trò
 
-NomNom is a comprehensive, multi-sided food delivery platform designed with a modern, editorial-feel UI/UX. It provides a seamless experience for all participants in the food delivery lifecycle through specialized modules.
+NomNom là nền tảng đặt món gồm Khách hàng, Nhà hàng và Admin, với giao diện hiện đại và
+quy trình đơn hàng có kiểm soát. Nhà hàng tự giao hoặc thuê đơn vị vận chuyển bên ngoài NomNom.
 
 ## Academic Project
 
@@ -48,7 +49,7 @@ NomNom is a graduation project developed at **FPT Polytechnic** by a six-member 
 | Waves 1-3: discovery, COD ordering, merchant operations | Complete |
 | Wave 4: VNPay, vouchers, merchant promotions, moderation | Implementation complete; sandbox acceptance pending credentials |
 | Wave 5: merchant finance, configuration, notifications, and chat | Complete and locally verified |
-| Driver delivery operations | Planned after Waves 4-5 |
+| Final three-role scope and delivery flow | Complete and locally verified |
 
 See [completed-wave documentation](./docs/README.md), the [Wave 4 report](./docs/wave-4-completed.md), and the [Wave 5 report](./docs/wave-5-completed.md) for verified scope and remaining acceptance checks.
 
@@ -66,7 +67,7 @@ nomnom/
 
 | Path | Description |
 |------|-------------|
-| [client/](./client) | Customer, Merchant, Driver, and Admin UI |
+| [client/](./client) | Customer, Merchant, and Admin UI |
 | [server/](./server) | REST API, auth, uploads, admin |
 | [database/](./database) | MySQL schema and seed data |
 | [docs/](./docs) | Auth guide, planning waves, ERD, use cases |
@@ -82,7 +83,7 @@ nomnom/
 
 ```mermaid
 flowchart LR
-    U["Customer / Merchant / Driver / Admin"] --> C["React + Vite client"]
+    U["Customer / Merchant / Admin"] --> C["React + Vite client"]
     C -->|"REST /api/v1"| A["Express API"]
     A --> D[("MySQL 8")]
     A --> I["Cloudinary"]
@@ -126,7 +127,8 @@ mysql -u root -p nomnom < database/migrations/20260803_wave4_completion.sql
 mysql -u root -p nomnom < database/migrations/20260804_wave5_completion.sql
 ```
 
-The API also performs idempotent startup checks for the Wave 4 and Wave 5 additions. Review [database migrations](./database/migrations/) before applying migrations to an existing shared database.
+The API also performs idempotent startup checks for the Wave 4-5 additions, checkout idempotency,
+and upload ownership. Review [database migrations](./database/migrations/) before applying migrations to an existing shared database.
 
 ### 3. Configure and run the API
 
@@ -166,6 +168,7 @@ Copy the committed example files; never commit real `.env` files.
 | `CLOUDINARY_*` | For uploads | Cloudinary credentials |
 | `SMTP_*` | For real email | SMTP transport; development logs OTP when omitted |
 | `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | For VNPay | Sandbox merchant credentials; never commit them |
+| `ORDER_EXPIRY_BATCH_SIZE` | No | Worker batch size, defaults to 100 and caps at 500 |
 
 ### Client
 
@@ -217,7 +220,9 @@ npm test
 Get-ChildItem src -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-Waves 4-5 add focused server regression tests for VNPay, voucher, payout transition, and platform configuration rules. Also smoke-test the affected authenticated role flows. Live VNPay payment and refund checks require sandbox credentials.
+Regression tests cover checkout validation/idempotency, order transitions, VNPay signatures/refund
+contracts, vouchers, payout, security limits and upload ownership. Also smoke-test all three authenticated
+role flows. Live VNPay payment and refund checks require sandbox credentials.
 
 ## API and Project Documentation
 
@@ -237,9 +242,8 @@ Waves 4-5 add focused server regression tests for VNPay, voucher, payout transit
 
 ## Roadmap
 
-- Wave 5: merchant finance, platform configuration, notifications, and contextual chat
-- Driver assignment, pickup, delivery, proof, and earnings flow
-- Broader automated API, browser, concurrency, and CI quality gates
+- Browser E2E and broader concurrency/load coverage
+- Post-defense contract migration for unused legacy driver schema
 - Production security, reliability, observability, and deployment hardening
 
 Detailed planning lives in [docs/planning](./docs/planning/) and [tasks](./tasks/).

@@ -7,7 +7,7 @@ The frontend application for the NomNom food delivery platform.
 The client is built using a module-based architecture:
 - `src/modules/customer`: Customer-facing app and landing page.
 - `src/modules/merchant`: Portal for restaurant owners.
-- `src/modules/driver`: Application for delivery riders.
+- Restaurant-managed delivery is part of `src/modules/merchant`; there is no driver portal.
 - `src/modules/admin`: Platform administration dashboard.
 - `src/modules/chat`: Real-time communication module.
 
