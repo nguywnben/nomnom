@@ -11,6 +11,10 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const seedPath = path.join(repositoryRoot, 'database', 'nomnom.sql');
 const defenseAt = '2026-09-03 08:00:00';
 const latestAllowedAt = '2026-09-01 23:59:59';
+const locationAnchors = [
+  { key: 'defense', label: 'điểm báo cáo', latitude: 9.984536, longitude: 105.788976 },
+  { key: 'current', label: 'vị trí hiện tại', latitude: 10.249957, longitude: 105.868037 },
+];
 
 function quoteIdentifier(value) {
   return `\`${String(value).replace(/`/g, '``')}\``;
@@ -181,6 +185,58 @@ try {
   requireCondition(await scalar('SELECT COUNT(*) FROM menu_items WHERE in_stock = 0') >= 1, 'Thiếu món tạm hết hàng để trình diễn nghiệp vụ.');
   requireCondition(await scalar("SELECT COUNT(*) FROM menu_items WHERE status = 'hidden'") >= 1, 'Thiếu món tạm ẩn để trình diễn quản trị menu.');
 
+  const locationCoverage = {};
+  for (const anchor of locationAnchors) {
+    const [coverageRows] = await connection.query(`
+      SELECT
+        COUNT(*) AS restaurant_count,
+        COALESCE(SUM(active_menu_items), 0) AS menu_item_count,
+        ROUND(MIN(distance_km), 2) AS nearest_distance_km,
+        ROUND(MAX(distance_km), 2) AS farthest_distance_km
+      FROM (
+        SELECT
+          r.id,
+          6371 * ACOS(LEAST(1, GREATEST(-1,
+            COS(RADIANS(?)) * COS(RADIANS(r.latitude))
+            * COS(RADIANS(r.longitude) - RADIANS(?))
+            + SIN(RADIANS(?)) * SIN(RADIANS(r.latitude))
+          ))) AS distance_km,
+          (
+            SELECT COUNT(*) FROM menu_items mi
+            WHERE mi.restaurant_id = r.id
+              AND mi.status = 'active'
+              AND mi.in_stock = 1
+          ) AS active_menu_items
+        FROM restaurants r
+        WHERE r.status = 'active'
+          AND r.is_open_now = 1
+          AND r.latitude IS NOT NULL
+          AND r.longitude IS NOT NULL
+      ) nearby
+      WHERE distance_km <= 8
+        AND active_menu_items > 0
+    `, [anchor.latitude, anchor.longitude, anchor.latitude]);
+    const coverage = coverageRows[0];
+    locationCoverage[anchor.key] = {
+      restaurants: Number(coverage.restaurant_count),
+      activeMenuItems: Number(coverage.menu_item_count),
+      nearestDistanceKm: coverage.nearest_distance_km === null ? null : Number(coverage.nearest_distance_km),
+      farthestDistanceKm: coverage.farthest_distance_km === null ? null : Number(coverage.farthest_distance_km),
+    };
+    requireCondition(locationCoverage[anchor.key].restaurants >= 3, `${anchor.label} chỉ có ${locationCoverage[anchor.key].restaurants}/3 nhà hàng hoạt động trong bán kính 8 km.`);
+    requireCondition(locationCoverage[anchor.key].activeMenuItems >= 9, `${anchor.label} chỉ có ${locationCoverage[anchor.key].activeMenuItems}/9 món đang bán trong bán kính 8 km.`);
+  }
+  const savedPresentationAddresses = await scalar(`
+    SELECT COUNT(*) FROM customer_addresses
+    WHERE customer_id = 2
+      AND (
+        (label = 'Điểm báo cáo' AND ABS(latitude - 9.984536) < 0.000001 AND ABS(longitude - 105.788976) < 0.000001)
+        OR
+        (label = 'Vị trí tiện dùng' AND ABS(latitude - 10.249957) < 0.000001 AND ABS(longitude - 105.868037) < 0.000001)
+      )
+  `);
+  requireCondition(savedPresentationAddresses === 2, `Thiếu địa chỉ tiện dùng cho tài khoản khách hàng trình diễn (${savedPresentationAddresses}/2).`);
+
   const summary = {
     seedPath,
     tables: tableCount,
@@ -193,6 +249,8 @@ try {
     reviews: await scalar('SELECT COUNT(*) FROM reviews'),
     orderStatuses,
     paymentStatuses,
+    locationCoverage,
+    savedPresentationAddresses,
   };
 
   if (failures.length) {
