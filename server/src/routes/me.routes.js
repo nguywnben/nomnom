@@ -359,7 +359,7 @@ router.delete('/addresses/:id', ensureCustomer, async (req, res, next) => {
 
     // 1. Tách liên kết khỏi customer_profiles nếu đang là default_address_id
     await connection.query(
-      'UPDATE customer_profiles SET default_address_id = NULL WHERE customer_id = ? AND default_address_id = ?',
+      'UPDATE customer_profiles SET default_address_id = NULL WHERE user_id = ? AND default_address_id = ?',
       [userId, id]
     );
 
@@ -384,7 +384,7 @@ router.delete('/addresses/:id', ensureCustomer, async (req, res, next) => {
           [remaining[0].id]
         );
         await connection.query(
-          'UPDATE customer_profiles SET default_address_id = ? WHERE customer_id = ?',
+          'UPDATE customer_profiles SET default_address_id = ? WHERE user_id = ?',
           [remaining[0].id, userId]
         );
       }
@@ -419,6 +419,7 @@ router.post('/addresses/:id/default', ensureCustomer, async (req, res, next) => 
 
     await connection.query('UPDATE customer_addresses SET is_default = 0 WHERE customer_id = ?', [userId]);
     await connection.query('UPDATE customer_addresses SET is_default = 1 WHERE id = ?', [id]);
+    await connection.query('UPDATE customer_profiles SET default_address_id = ? WHERE user_id = ?', [id, userId]);
     
     await connection.commit();
     res.json({ success: true });
