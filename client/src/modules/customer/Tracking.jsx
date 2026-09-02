@@ -503,7 +503,7 @@ export default function CustomerTracking() {
                 </div>
               </div>
               <div><div className="text-caption-uppercase text-body">Thanh toán</div><div className="mt-1 text-ink">{(order.payment_method ?? order.paymentMethod) === 'vnpay' ? 'VNPay' : 'Thanh toán khi nhận hàng'}</div></div>
-              <div><div className="text-caption-uppercase text-body">Giao đến</div><div className="mt-1 text-ink">{order.delivery_address ?? order.deliveryAddress ?? 'Địa chỉ đã chọn khi đặt đơn'}</div></div>
+              <div><div className="text-caption-uppercase text-body">Giao đến</div><div className="mt-1 text-ink">{order.delivery_address_snapshot ?? order.deliveryAddressSnapshot ?? order.delivery_address ?? order.deliveryAddress ?? 'Địa chỉ đã chọn khi đặt đơn'}</div></div>
             </div>
             <div className="mt-base space-y-2 border-t border-hairline pt-base text-body-sm">
               {subtotal > 0 && <div className="flex justify-between gap-base"><span className="text-body">Tạm tính</span><span className="nums text-ink">{formatVnd(subtotal)}</span></div>}

@@ -50,7 +50,7 @@ function printOrderReceipt(order) {
         </tr>`,
     )
     .join('');
-  const address = order.deliveryAddress || order.customerAddress;
+  const address = order.deliveryAddressSnapshot || order.delivery_address_snapshot || order.deliveryAddress || order.customerAddress;
   w.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8" />
   <title>Phiếu chế biến ${order.orderCode}</title>
   <style>

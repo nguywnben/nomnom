@@ -19,6 +19,29 @@ import { useApp } from '../../context/AppContext.jsx';
 
 const locationsApi = createAdministrativeLocationsApi(apiGet);
 
+function normalizeLocationName(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/^(thanh pho|tp\.|tinh|quan|huyen|thi xa|phuong|xa|thi tran)\s+/i, '')
+    .trim();
+}
+
+function findMatchingLocation(list, targetName) {
+  if (!list?.length || !targetName) return null;
+  const targetNorm = normalizeLocationName(targetName);
+  let found = list.find((item) => normalizeLocationName(item.name) === targetNorm);
+  if (found) return found;
+  found = list.find(
+    (item) =>
+      normalizeLocationName(item.name).includes(targetNorm) ||
+      targetNorm.includes(normalizeLocationName(item.name))
+  );
+  return found || null;
+}
+
 const EMPTY = {
   name: '',
   phone: '',
@@ -78,9 +101,7 @@ export default function MerchantSettings() {
   useEffect(() => { locationsApi.getProvinces().then(setProvinces).catch(() => setProvinces([])); }, []);
   useEffect(() => { if (!provinceCode) { setWards([]); return; } locationsApi.getWards(provinceCode).then(setWards).catch(() => setWards([])); }, [provinceCode]);
 
-  const openAddressModal = () => {
-    setProvinceCode('');
-    setWardCode('');
+  const openAddressModal = async () => {
     setAddressForm({
       addressLine: form.addressLine || '',
       ward: form.ward || '',
@@ -88,6 +109,37 @@ export default function MerchantSettings() {
       city: form.city || '',
     });
     setAddressModalOpen(true);
+
+    let provList = provinces;
+    if (!provList.length) {
+      try {
+        provList = await locationsApi.getProvinces();
+        setProvinces(provList);
+      } catch {
+        provList = [];
+      }
+    }
+
+    const matchedProvince = findMatchingLocation(provList, form.city);
+    if (matchedProvince) {
+      setProvinceCode(matchedProvince.code);
+      try {
+        const wardList = await locationsApi.getWards(matchedProvince.code);
+        setWards(wardList);
+        const matchedWard = findMatchingLocation(wardList, form.ward);
+        if (matchedWard) {
+          setWardCode(matchedWard.code);
+        } else {
+          setWardCode('');
+        }
+      } catch {
+        setWards([]);
+        setWardCode('');
+      }
+    } else {
+      setProvinceCode('');
+      setWardCode('');
+    }
   };
 
   const submitAddressChange = async () => {

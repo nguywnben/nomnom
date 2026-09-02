@@ -36,17 +36,10 @@ export default function Modal({ open, onClose, title, children, footer, size = '
     const dialog = dialogRef.current;
     if (!dialog) return undefined;
 
-    // Chỉ tự động focus một lần khi mở modal nếu con trỏ chưa nằm trong modal
+    // Chỉ tự động focus khi mở modal nếu con trỏ chưa nằm trong modal
     if (!dialog.contains(document.activeElement)) {
       const autoEl = dialog.querySelector('[autofocus]:not([disabled])');
-      const inputEl = dialog.querySelector(
-        'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled])'
-      );
-      const contentAction = dialog.querySelector(
-        '.overflow-y-auto button:not([disabled]), footer button:not([disabled])'
-      );
-      const firstEl = dialog.querySelector(FOCUSABLE);
-      (autoEl || inputEl || contentAction || firstEl || dialog)?.focus?.();
+      (autoEl || dialog)?.focus?.();
     }
 
     const onKey = (e) => {

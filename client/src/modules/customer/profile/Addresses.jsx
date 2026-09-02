@@ -27,12 +27,36 @@ const EMPTY_FORM = {
 };
 
 
+function normalizeLocationName(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/^(thanh pho|tp\.|tinh|quan|huyen|thi xa|phuong|xa|thi tran)\s+/i, '')
+    .trim();
+}
+
+function findMatchingLocation(list, targetName) {
+  if (!list?.length || !targetName) return null;
+  const targetNorm = normalizeLocationName(targetName);
+  let found = list.find((item) => normalizeLocationName(item.name) === targetNorm);
+  if (found) return found;
+  found = list.find(
+    (item) =>
+      normalizeLocationName(item.name).includes(targetNorm) ||
+      targetNorm.includes(normalizeLocationName(item.name))
+  );
+  return found || null;
+}
+
 export default function Addresses() {
   const { pushToast, permittedRoles } = useApp();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editor, setEditor] = useState({ open: false, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmDefault, setConfirmDefault] = useState(null);
   const [provinces, setProvinces] = useState([]);
   const [wards, setWards] = useState([]);
   const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
@@ -66,10 +90,7 @@ export default function Addresses() {
     setEditor({ open: true, mode: 'create', id: null, values: EMPTY_FORM, submitting: false, fieldErrors: {} });
   };
 
-  const openEdit = (addr) => {
-    setSelectedProvinceCode('');
-    setSelectedWardCode('');
-
+  const openEdit = async (addr) => {
     setEditor({
       open: true,
       mode: 'edit',
@@ -87,6 +108,37 @@ export default function Addresses() {
       submitting: false,
       fieldErrors: {}
     });
+
+    let provList = provinces;
+    if (!provList.length) {
+      try {
+        provList = await locationsApi.getProvinces();
+        setProvinces(provList);
+      } catch {
+        provList = [];
+      }
+    }
+
+    const matchedProvince = findMatchingLocation(provList, addr.city);
+    if (matchedProvince) {
+      setSelectedProvinceCode(matchedProvince.code);
+      try {
+        const wardList = await locationsApi.getWards(matchedProvince.code);
+        setWards(wardList);
+        const matchedWard = findMatchingLocation(wardList, addr.ward);
+        if (matchedWard) {
+          setSelectedWardCode(matchedWard.code);
+        } else {
+          setSelectedWardCode('');
+        }
+      } catch {
+        setWards([]);
+        setSelectedWardCode('');
+      }
+    } else {
+      setSelectedProvinceCode('');
+      setSelectedWardCode('');
+    }
   };
 
   const close = () => setEditor((c) => ({ ...c, open: false }));
@@ -267,7 +319,7 @@ export default function Addresses() {
 
               <div className="mt-sm flex flex-wrap items-center justify-end gap-xs">
                 {!a.isDefault && (
-                  <Button size="sm" variant="secondary" onClick={() => setDefault(a.id)}>
+                  <Button size="sm" variant="secondary" onClick={() => setConfirmDefault(a.id)}>
                     Đặt mặc định
                   </Button>
                 )}
@@ -368,6 +420,38 @@ export default function Addresses() {
             />
           </div>
         </form>
+      </Modal>
+
+      {/* Set Default confirmation */}
+      <Modal
+        open={Boolean(confirmDefault)}
+        onClose={() => setConfirmDefault(null)}
+        title="Đặt làm địa chỉ mặc định"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmDefault(null)}>
+              Hủy
+            </Button>
+            <Button
+              onClick={async () => {
+                const id = confirmDefault;
+                setConfirmDefault(null);
+                await setDefault(id);
+              }}
+            >
+              Xác nhận
+            </Button>
+          </>
+        }
+      >
+        <p className="text-body-sm text-body">
+          Bạn có chắc chắn muốn đặt địa chỉ{' '}
+          <strong className="text-ink">
+            {list.find((x) => x.id === confirmDefault)?.label || 'này'}
+          </strong>{' '}
+          làm địa chỉ mặc định cho các đơn hàng tiếp theo không?
+        </p>
       </Modal>
 
       {/* Delete confirmation */}
