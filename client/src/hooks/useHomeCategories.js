@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchHomeCategories } from '../lib/api.js';
 
 export function useHomeCategories(currentLocation) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!hasLoadedRef.current) {
+      setLoading(true);
+    }
 
     (async () => {
       try {
@@ -15,11 +20,14 @@ export function useHomeCategories(currentLocation) {
         if (!cancelled) {
           setCategories(data ?? []);
           setError(null);
+          hasLoadedRef.current = true;
         }
       } catch (e) {
         if (!cancelled) {
           setError(e.message ?? 'Không tải được danh mục');
-          setCategories([]);
+          if (!hasLoadedRef.current) {
+            setCategories([]);
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);

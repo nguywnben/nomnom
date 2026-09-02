@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchRestaurantDetail } from '../lib/api.js';
 
 export function useRestaurantDetail(idOrSlug, currentLocation) {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const lastIdRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -13,13 +14,18 @@ export function useRestaurantDetail(idOrSlug, currentLocation) {
       setRestaurant(null);
       setError({ status: 404, message: 'Không tìm thấy quán' });
       setLoading(false);
+      lastIdRef.current = null;
       return () => {
         cancelled = true;
       };
     }
 
-    setLoading(true);
-    setError(null);
+    const isDifferentRestaurant = lastIdRef.current !== idOrSlug;
+    if (isDifferentRestaurant) {
+      lastIdRef.current = idOrSlug;
+      setLoading(true);
+      setError(null);
+    }
 
     (async () => {
       try {
@@ -30,7 +36,9 @@ export function useRestaurantDetail(idOrSlug, currentLocation) {
         }
       } catch (e) {
         if (!cancelled) {
-          setRestaurant(null);
+          if (isDifferentRestaurant) {
+            setRestaurant(null);
+          }
           setError(e);
         }
       } finally {

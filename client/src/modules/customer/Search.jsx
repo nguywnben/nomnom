@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/Button.jsx';
 import Card from '../../components/Card.jsx';
@@ -64,6 +64,7 @@ export default function CustomerSearch() {
   const [data, setData] = useState({ restaurants: [], menuItems: [], pagination: { totalRestaurants: 0, totalMenuItems: 0 } });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const lastSearchKeyRef = useRef(null);
 
   // Fetch cuisines list
   useEffect(() => {
@@ -105,8 +106,14 @@ export default function CustomerSearch() {
   // Perform search query
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    setError(null);
+    const filterKey = `${debouncedQ}|${cuisineSlugs.join(',')}|${openOnly}|${hideOutsideRange}|${minPrice}|${maxPrice}|${rating}|${sort}|${page}`;
+    const isFilterChange = lastSearchKeyRef.current !== filterKey;
+
+    if (isFilterChange) {
+      lastSearchKeyRef.current = filterKey;
+      setLoading(true);
+      setError(null);
+    }
 
     searchExploreApi({
       q: debouncedQ,
@@ -128,7 +135,11 @@ export default function CustomerSearch() {
         }
       })
       .catch((err) => {
-        if (mounted) setError(err.message || 'Có lỗi xảy ra khi tìm kiếm.');
+        if (mounted) {
+          if (isFilterChange) {
+            setError(err.message || 'Có lỗi xảy ra khi tìm kiếm.');
+          }
+        }
       })
       .finally(() => {
         if (mounted) setLoading(false);

@@ -8,6 +8,7 @@ import { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { shouldLoadContentSection, shouldShowInitialLoader } from '../../lib/contentTabs.js';
@@ -448,9 +449,7 @@ export default function AdminRestaurantApprovals() {
           </div>
 
           {shouldShowInitialLoader(pendingLoading, pendingItems) ? (
-            <div className="flex min-h-[30vh] items-center justify-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
+            <TableSkeleton rows={5} cols={4} />
           ) : filteredPending.length === 0 ? (
             <EmptyState
               icon="store"
@@ -502,9 +501,7 @@ export default function AdminRestaurantApprovals() {
       {activeTab === 'addresses' && (
         <div className="space-y-base">
           {shouldShowInitialLoader(addressLoading, addressItems) ? (
-            <div className="flex min-h-[30vh] items-center justify-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
+            <TableSkeleton rows={4} cols={4} />
           ) : addressItems.length === 0 ? (
             <EmptyState
               icon="store"
@@ -632,9 +629,7 @@ export default function AdminRestaurantApprovals() {
 
           {/* Directory List */}
           {shouldShowInitialLoader(allLoading, allRestaurants) ? (
-            <div className="flex min-h-[30vh] items-center justify-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
+            <TableSkeleton rows={6} cols={4} />
           ) : allRestaurants.length === 0 ? (
             <EmptyState
               icon="store"

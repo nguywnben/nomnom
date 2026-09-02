@@ -7,6 +7,7 @@ import EmptyState from '../../../components/EmptyState.jsx';
 import Icon from '../../../components/Icon.jsx';
 import Input, { Select } from '../../../components/Input.jsx';
 import Modal from '../../../components/Modal.jsx';
+import Skeleton from '../../../components/Skeleton.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import ProfileSubHeader from './ProfileSubHeader.jsx';
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../../lib/api.js';
@@ -213,7 +214,23 @@ export default function Addresses() {
           </p>
         </Card>
       ) : loading ? (
-        <div className="flex justify-center p-xl text-body">Đang tải...</div>
+        <div className="flex flex-col gap-sm">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i} padded>
+              <div className="flex items-start gap-sm">
+                <Skeleton className="h-10 w-10 shrink-0 rounded-md" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-16 rounded-pill" />
+                  </div>
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3.5 w-64" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
       ) : list.length === 0 ? (
         <EmptyState
           icon="pin"

@@ -67,7 +67,19 @@ const ChatScreen = lazy(() => import('./modules/chat/ChatScreen.jsx'));
 
 function SuspenseRoute({ children }) {
   return (
-    <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center p-xl text-body">Đang tải…</div>}>
+    <Suspense
+      fallback={
+        <div className="container-page py-xl space-y-base animate-pulse">
+          <div className="h-6 w-48 rounded-md bg-hairline-soft" />
+          <div className="h-32 w-full rounded-lg bg-hairline-soft" />
+          <div className="grid gap-base md:grid-cols-3">
+            <div className="h-24 rounded-lg bg-hairline-soft" />
+            <div className="h-24 rounded-lg bg-hairline-soft" />
+            <div className="h-24 rounded-lg bg-hairline-soft" />
+          </div>
+        </div>
+      }
+    >
       {children}
     </Suspense>
   );

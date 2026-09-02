@@ -9,6 +9,7 @@ import Image from '../../components/Image.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import ReviewCard from '../../components/ReviewCard.jsx';
 import StarRating from '../../components/StarRating.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 import { fetchMenuItemReviewsApi } from '../../lib/api.js';
 import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
 
@@ -180,7 +181,21 @@ export default function DishReviews() {
           {/* Danh sách thẻ đánh giá */}
           <div>
             {shouldShowInitialLoader(loading, reviews) ? (
-              <div className="py-xxl text-center text-body">Đang tải đánh giá...</div>
+              <div className="grid gap-base md:grid-cols-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i} padded className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="space-y-1.5 flex-1">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </Card>
+                ))}
+              </div>
             ) : error && reviews.length === 0 ? (
               <EmptyState icon="alert" title="Không tải được đánh giá" message={error} />
             ) : reviews.length === 0 ? (

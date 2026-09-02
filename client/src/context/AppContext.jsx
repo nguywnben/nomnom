@@ -70,10 +70,19 @@ export function AppProvider({ children }) {
     }
     const watchId = navigator.geolocation.watchPosition(
       ({ coords }) => {
-        setCurrentLocation({ latitude: coords.latitude, longitude: coords.longitude });
-        setLocationStatus('available');
+        setCurrentLocation((prev) => {
+          if (
+            prev &&
+            Math.abs(prev.latitude - coords.latitude) < 0.00001 &&
+            Math.abs(prev.longitude - coords.longitude) < 0.00001
+          ) {
+            return prev;
+          }
+          return { latitude: coords.latitude, longitude: coords.longitude };
+        });
+        setLocationStatus((prev) => (prev === 'available' ? prev : 'available'));
       },
-      () => setLocationStatus('unavailable'),
+      () => setLocationStatus((prev) => (prev === 'unavailable' ? prev : 'unavailable')),
       { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);

@@ -9,6 +9,7 @@ import Avatar from '../../components/Avatar.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import StarRating from '../../components/StarRating.jsx';
 import Pagination from '../../components/Pagination.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 import { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { apiGet, apiPatch } from '../../lib/api.js';
@@ -131,7 +132,7 @@ export default function RestaurantReviews() {
   }, [currentCustomer, id, reviewPage, reviewRating, reviewSort, target]);
 
   if (loading) {
-    return <div className="container-page py-section text-center">Đang tải danh sách đánh giá...</div>;
+    return <RestaurantReviewsSkeleton />;
   }
 
   if (error || !restaurant) {
@@ -526,6 +527,54 @@ export default function RestaurantReviews() {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+function RestaurantReviewsSkeleton() {
+  return (
+    <div className="container-page py-xl space-y-base">
+      <Skeleton className="h-5 w-36" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <Skeleton className="h-9 w-32 rounded-lg" />
+      </div>
+
+      <div className="grid gap-base md:grid-cols-3">
+        <Card padded className="space-y-3">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-10 w-20" />
+          <Skeleton className="h-4 w-32" />
+        </Card>
+        <Card padded className="space-y-2 md:col-span-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-3 flex-1 rounded-full" />
+              <Skeleton className="h-4 w-8" />
+            </div>
+          ))}
+        </Card>
+      </div>
+
+      <div className="grid gap-base md:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} padded className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="space-y-1.5 flex-1">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { downloadCsv } from '../../lib/csv.js';
 import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
@@ -489,10 +490,7 @@ export default function AdminAccounts() {
 
       {/* Table / Content View */}
       {shouldShowInitialLoader(loading, users) ? (
-        <Card padded className="text-center text-body py-xxl">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-2" />
-          Đang tải danh sách tài khoản...
-        </Card>
+        <TableSkeleton rows={6} cols={5} />
       ) : users.length === 0 ? (
         <EmptyState
           icon="user"

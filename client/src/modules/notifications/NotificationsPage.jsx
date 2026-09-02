@@ -6,6 +6,7 @@ import Card from '../../components/Card.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import Tabs from '../../components/Tabs.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 import { fetchNotificationsApi, markAllNotificationsReadApi, markNotificationReadApi } from '../../lib/api.js';
 import { useApp } from '../../context/AppContext.jsx';
 import { announceNotificationsChanged } from '../../hooks/useUnreadNotificationCount.js';
@@ -133,7 +134,23 @@ export default function NotificationsPage({ audience = 'customer' }) {
       </div>
 
       {loading ? (
-        <div className="py-section text-center text-body-sm text-body" role="status">Đang tải thông báo...</div>
+        <Card padded={false} className="mt-base overflow-hidden">
+          <ul className="divide-y divide-hairline">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <li key={i} className="flex items-start gap-sm p-base md:p-md">
+                <Skeleton className="h-10 w-10 shrink-0 rounded-md" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3.5 w-2/3" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
       ) : error ? (
         <Card padded className="mt-base"><div className="text-title-sm text-ink">Không thể tải thông báo</div><p className="mt-1 text-body-sm text-body">{error}</p><Button className="mt-sm" variant="secondary" onClick={() => load()}>Thử lại</Button></Card>
       ) : filtered.length === 0 ? (

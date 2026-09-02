@@ -19,6 +19,8 @@ import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import Tabs from '../../components/Tabs.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import {
   fetchAdminFinancialApi,
@@ -407,10 +409,21 @@ export default function AdminFinancial() {
           )}
 
           {loading && !data && (
-            <Card padded className="text-center text-body py-xxl">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-2" />
-              Đang tổng hợp dữ liệu tài chính...
-            </Card>
+            <div className="space-y-base">
+              <div className="grid gap-base sm:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i} padded className="space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-8 w-36" />
+                    <Skeleton className="h-3.5 w-24" />
+                  </Card>
+                ))}
+              </div>
+              <Card padded className="h-72 space-y-3">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-56 w-full rounded-md" />
+              </Card>
+            </div>
           )}
 
           {data && (
@@ -742,9 +755,7 @@ export default function AdminFinancial() {
           )}
 
           {payoutLoading && !payoutItems.length ? (
-            <div className="py-section text-center text-body-sm text-body" role="status">
-              Đang tải yêu cầu rút tiền...
-            </div>
+            <TableSkeleton rows={5} cols={5} />
           ) : !payoutItems.length ? (
             <EmptyState
               icon="wallet"

@@ -7,6 +7,8 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Input from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Tabs from '../../components/Tabs.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { fetchMerchantWalletApi, requestMerchantPayoutApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { useApp } from '../../context/AppContext.jsx';
@@ -54,13 +56,13 @@ export default function MerchantWallet() {
       pushToast({ kind: 'success', title: 'Đã gửi yêu cầu rút tiền', message: 'Admin sẽ xem xét yêu cầu trong danh sách payout.' });
       await load();
     } catch (err) {
-      pushToast({ kind: 'error', title: 'Không thể rút tiền', message: err.message || 'Vui lòng kiểm tra số dư và thử lại.' });
+      pushToast({ kind: 'error', title: 'Yêu cầu thất bại', message: err.message });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading && !data) return <div className="py-section text-center text-body-sm text-body" role="status">Đang tải ví...</div>;
+  if (loading && !data) return <MerchantWalletSkeleton />;
   if (error && !data) return <Card padded><div className="text-title-md text-ink">Không thể tải ví</div><p className="mt-1 text-body-sm text-body">{error}</p><Button className="mt-sm" variant="secondary" onClick={load}>Thử lại</Button></Card>;
 
   const { wallet, settings, stats } = data;
@@ -216,4 +218,34 @@ export default function MerchantWallet() {
 
 function Kpi({ title, value, hint }) {
   return <Card padded><div className="text-caption-uppercase text-body">{title}</div><div className="mt-1 text-display-sm text-ink nums">{value}</div><div className="mt-1 text-caption text-body">{hint}</div></Card>;
+}
+
+function MerchantWalletSkeleton() {
+  return (
+    <div className="space-y-base">
+      <div className="flex flex-wrap items-end justify-between gap-base">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-28 rounded-md" />
+          <Skeleton className="h-9 w-28 rounded-md" />
+        </div>
+      </div>
+
+      <div className="grid gap-base sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} padded className="space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-3.5 w-24" />
+          </Card>
+        ))}
+      </div>
+
+      <TableSkeleton rows={5} cols={5} />
+    </div>
+  );
 }

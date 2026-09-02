@@ -10,6 +10,7 @@ import Tabs from '../../components/Tabs.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Modal from '../../components/Modal.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchAdminReviews, updateAdminReviewHidden } from '../../lib/api.js';
 import { downloadCsv } from '../../lib/csv.js';
@@ -340,10 +341,7 @@ export default function AdminReviewsModeration() {
 
       {/* Review List View */}
       {shouldShowInitialLoader(loading, reviews) ? (
-        <Card padded className="text-center text-body py-xxl">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-2" />
-          Đang tải dữ liệu đánh giá...
-        </Card>
+        <TableSkeleton rows={5} cols={4} />
       ) : reviews.length === 0 ? (
         <EmptyState
           icon="starFilled"

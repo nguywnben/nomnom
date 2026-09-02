@@ -9,6 +9,7 @@ import Icon from '../../components/Icon.jsx';
 import { Textarea } from '../../components/Input.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import StarRating from '../../components/StarRating.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { fetchMerchantReviewsApi, replyMerchantReviewApi } from '../../lib/api.js';
 import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
@@ -226,9 +227,22 @@ export default function MerchantReviews() {
 
         <div className="space-y-base">
           {shouldShowInitialLoader(loading, items) ? (
-            <Card padded>
-              <div className="py-xl text-center text-body">Đang tải đánh giá...</div>
-            </Card>
+            <div className="space-y-sm">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} padded className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-1.5 flex-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-5 w-20 rounded-pill" />
+                  </div>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </Card>
+              ))}
+            </div>
           ) : error && items.length === 0 ? (
             <Card padded>
               <div className="space-y-sm text-center">

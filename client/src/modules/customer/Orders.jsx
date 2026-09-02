@@ -7,6 +7,7 @@ import Image from '../../components/Image.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 import Icon from '../../components/Icon.jsx';
 import { apiGet } from '../../lib/api.js';
 import { cancelMyOrderApi } from '../../lib/api.js';
@@ -150,7 +151,7 @@ export default function CustomerOrders() {
       </div>
 
       {loading ? (
-        <div className="text-center py-section">Đang tải...</div>
+        <CustomerOrdersSkeleton />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon="package"
@@ -322,6 +323,32 @@ export default function CustomerOrders() {
           Bạn có chắc muốn hủy đơn <strong className="text-ink">#{cancelling?.orderCode}</strong>? Hành động này không thể hoàn tác.
         </p>
       </Modal>
+    </div>
+  );
+}
+
+function CustomerOrdersSkeleton() {
+  return (
+    <div className="flex flex-col gap-base">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i} padded className="flex flex-col md:flex-row md:items-center justify-between gap-base">
+          <div className="flex min-w-0 flex-1 items-center gap-base">
+            <Skeleton className="h-16 w-16 shrink-0 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-5 w-20 rounded-pill" />
+              </div>
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3.5 w-28" />
+            </div>
+          </div>
+          <div className="flex items-center justify-between md:flex-col md:items-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-hairline">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-8 w-28 rounded-md" />
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }

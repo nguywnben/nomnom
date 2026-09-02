@@ -59,6 +59,7 @@ export default function CustomerHome() {
   const [nearbyDishes, setNearbyDishes] = useState([]);
   const [nearbyLoading, setNearbyLoading] = useState(true);
   const nearbySeed = useRef(`${Date.now()}${Math.random().toString(36).slice(2)}`);
+  const hasLoadedHomeRef = useRef(false);
 
   const [orderAgainList, setOrderAgainList] = useState([]);
   const [quickViewDish, setQuickViewDish] = useState(null);
@@ -78,6 +79,12 @@ export default function CustomerHome() {
 
   useEffect(() => {
     let mounted = true;
+
+    if (!hasLoadedHomeRef.current) {
+      setFeaturedLoading(true);
+      setTrendingLoading(true);
+      setNearbyLoading(true);
+    }
 
     fetchFeaturedRestaurantsApi(currentLocation)
       .then((res) => {
@@ -106,7 +113,10 @@ export default function CustomerHome() {
       })
       .catch((err) => console.error('Failed fetching nearby dishes:', err))
       .finally(() => {
-        if (mounted) setNearbyLoading(false);
+        if (mounted) {
+          setNearbyLoading(false);
+          hasLoadedHomeRef.current = true;
+        }
       });
 
     if (canViewOrderAgain) {

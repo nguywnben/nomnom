@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Badge from '../../components/Badge.jsx';
 import Button from '../../components/Button.jsx';
@@ -37,17 +37,24 @@ export default function CustomerDishDetail() {
   const [data, setData] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [reviewData, setReviewData] = useState(null);
+  const lastDishIdRef = useRef(null);
 
   useEffect(() => {
     const dishId = Number(id);
     if (!dishId || isNaN(dishId)) {
       setError({ status: 404, message: 'ID món ăn không hợp lệ.' });
       setLoading(false);
+      lastDishIdRef.current = null;
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    const isDifferentDish = lastDishIdRef.current !== dishId;
+    if (isDifferentDish) {
+      lastDishIdRef.current = dishId;
+      setLoading(true);
+      setError(null);
+    }
+
     Promise.all([
       fetchMenuItemDetailApi(dishId, currentLocation),
       fetchMenuItemReviewsApi(dishId, { limit: 4 }),
@@ -61,7 +68,9 @@ export default function CustomerDishDetail() {
       })
       .catch((err) => {
         console.error('Error fetching dish details:', err);
-        setError(err);
+        if (isDifferentDish) {
+          setError(err);
+        }
       })
       .finally(() => {
         setLoading(false);
