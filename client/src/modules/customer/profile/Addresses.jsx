@@ -229,7 +229,7 @@ export default function Addresses() {
     
     try {
       await apiDelete(`/api/v1/me/addresses/${target.id}`);
-      setList((cur) => cur.filter((a) => a.id !== target.id));
+      await loadAddresses();
       pushToast({ kind: 'info', title: 'Đã xoá địa chỉ', message: target.label });
     } catch {
       pushToast({ kind: 'error', title: 'Lỗi', message: 'Không thể xoá địa chỉ.' });
@@ -288,7 +288,6 @@ export default function Addresses() {
           icon="pin"
           title="Chưa có địa chỉ nào"
           message="Thêm địa chỉ đầu tiên để có trải nghiệm thanh toán liền mạch."
-          action={<Button onClick={openCreate}>Thêm địa chỉ</Button>}
         />
       ) : (
         <div className="flex flex-col gap-sm">

@@ -19,6 +19,8 @@ Chứng minh nhà hàng có thể gia nhập, vận hành catalog và hoàn thà
 
 ## Kịch bản demo
 
+> 📋 **Kho dữ liệu copy-paste sẵn:** Mở [`./00-KHO-DU-LIEU-COPY-PASTE.md`](./00-KHO-DU-LIEU-COPY-PASTE.md#nguoi-5-nguyen-van-di-khang--van-hanh-nha-hang-merchant) để lấy hồ sơ onboarding mẫu, thêm món ăn mới (kèm ảnh), tạo voucher quán và tạo lệnh rút tiền ví.
+
 1. Dùng slide tóm tắt onboarding → Admin duyệt; không nộp hồ sơ thật trong buổi demo.
 2. Mở Dashboard và giải thích KPI lấy từ orders/payments.
 3. Mở Menu: trạng thái hết hàng/ẩn và quản lý danh mục; không tạo/xóa dài dòng.

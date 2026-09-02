@@ -19,6 +19,8 @@ Frontend có thể hiển thị giá và cảnh báo, nhưng checkout backend v�
 
 ## Kịch bản demo
 
+> 📋 **Kho dữ liệu copy-paste sẵn:** Mở [`./00-KHO-DU-LIEU-COPY-PASTE.md`](./00-KHO-DU-LIEU-COPY-PASTE.md#nguoi-2-nguyen-thi-nhu-ngoc--quan-ho-so-dia-chi--gio-hang) để lấy ghi chú món, thông tin sửa hồ sơ, thêm địa chỉ giao hàng và ảnh avatar demo.
+
 1. Từ quán Người 1 vừa mở, cho xem menu theo danh mục, trạng thái hết hàng và voucher quán.
 2. Mở chi tiết món, đánh giá món; thêm món với số lượng/ghi chú.
 3. Mở CartDrawer, thay số lượng và giải thích quy tắc một quán.

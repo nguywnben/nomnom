@@ -355,8 +355,40 @@ router.delete('/addresses/:id', ensureCustomer, async (req, res, next) => {
       return res.status(404).json({ error: 'Address not found' });
     }
 
-    // Always allow delete based on requirement
+    const wasDefault = Boolean(addrList[0].is_default);
+
+    // 1. Tách liên kết khỏi customer_profiles nếu đang là default_address_id
+    await connection.query(
+      'UPDATE customer_profiles SET default_address_id = NULL WHERE customer_id = ? AND default_address_id = ?',
+      [userId, id]
+    );
+
+    // 2. Tách liên kết khỏi các đơn hàng cũ (đơn hàng đã có delivery_address_snapshot độc lập)
+    await connection.query(
+      'UPDATE orders SET delivery_address_id = NULL WHERE delivery_address_id = ?',
+      [id]
+    );
+
+    // 3. Xóa địa chỉ khỏi sổ địa chỉ cá nhân
     await connection.query('DELETE FROM customer_addresses WHERE id = ? AND customer_id = ?', [id, userId]);
+
+    // 4. Nếu địa chỉ vừa xóa là mặc định, tự động chuyển địa chỉ còn lại gần nhất thành mặc định mới
+    if (wasDefault) {
+      const [remaining] = await connection.query(
+        'SELECT id FROM customer_addresses WHERE customer_id = ? ORDER BY created_at DESC LIMIT 1',
+        [userId]
+      );
+      if (remaining.length > 0) {
+        await connection.query(
+          'UPDATE customer_addresses SET is_default = 1 WHERE id = ?',
+          [remaining[0].id]
+        );
+        await connection.query(
+          'UPDATE customer_profiles SET default_address_id = ? WHERE customer_id = ?',
+          [remaining[0].id, userId]
+        );
+      }
+    }
 
     await connection.commit();
     res.json({ success: true });

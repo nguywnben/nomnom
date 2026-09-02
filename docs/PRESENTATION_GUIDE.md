@@ -5,10 +5,11 @@
 ## Cách sử dụng bộ tài liệu
 
 1. Cả nhóm đọc phần 1–8 và 12 trong [`PRESENTATION_LIBRARY.md`](./PRESENTATION_LIBRARY.md).
-2. Mỗi người học sâu cẩm nang riêng trong `docs/presentation/`.
-3. Khi diễn tập, dùng tài khoản và dữ liệu đã chuẩn bị; không tạo/xóa hàng loạt dữ liệu seed.
-4. COD là luồng chính ổn định. VNPay dùng live chỉ khi preflight thành công, nếu không dùng slide/video.
-5. Không nói “WebSocket/realtime tức thời”: Tracking, Chat và Merchant Orders hiện cập nhật gần thời gian thực bằng polling.
+2. **Kho dữ liệu thực tế để copy-paste khi demo trực tiếp:** Mở ngay [`docs/presentation/00-KHO-DU-LIEU-COPY-PASTE.md`](./presentation/00-KHO-DU-LIEU-COPY-PASTE.md) (kèm ảnh mẫu tại `docs/presentation/sample-images/`).
+3. Mỗi người học sâu cẩm nang riêng trong `docs/presentation/`.
+4. Khi diễn tập, dùng tài khoản và dữ liệu đã chuẩn bị; không tạo/xóa hàng loạt dữ liệu seed.
+5. COD là luồng chính ổn định. VNPay dùng live chỉ khi preflight thành công, nếu không dùng slide/video.
+6. Không nói “WebSocket/realtime tức thời”: Tracking, Chat và Merchant Orders hiện cập nhật gần thời gian thực bằng polling.
 
 ## Thông điệp mở đầu bắt buộc
 

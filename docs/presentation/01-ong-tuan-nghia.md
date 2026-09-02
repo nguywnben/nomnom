@@ -19,11 +19,13 @@ Ghi nhớ: refresh token hiện nằm ở local/session storage; đây là giớ
 
 ## Kịch bản demo
 
+> 📋 **Kho dữ liệu copy-paste sẵn:** Mở [`./00-KHO-DU-LIEU-COPY-PASTE.md`](./00-KHO-DU-LIEU-COPY-PASTE.md#nguoi-1-ong-tuan-nghia--pham-vi-auth--kham-pha) để lấy thông tin đăng ký, đăng nhập và từ khóa tìm kiếm.
+
 1. Nói bài toán và ba vai trò; nhấn mạnh nhà hàng tự giao/thuê ngoài.
-2. Từ landing chỉ CTA, FAQ và link pháp lý; không mở hết.
-3. Mô tả nhanh đăng ký OTP và đăng nhập điều hướng theo role bằng slide.
-4. Đăng nhập sẵn Customer, mở Home; chỉ nguồn banner/cuisine/quán/món từ DB.
-5. Tìm một món, áp một bộ lọc và mở quán để bàn giao Người 2.
+2. Từ landing chỉ CTA, FAQ và link pháp lý; bấm "Đăng ký" mở form `/register`.
+3. Mở tab `https://mail.tm/`, lấy email tạm $\rightarrow$ điền form đăng ký $\rightarrow$ nhận mã OTP thật từ hộp thư Mail.tm và nhập xác thực.
+4. Đăng nhập trực tiếp bằng chính tài khoản vừa tạo (để Người 2, 3, 4 tiếp tục sử dụng xuyên suốt).
+5. Mở Home; chỉ nguồn banner/cuisine/quán/món từ DB $\rightarrow$ Tìm một món, áp bộ lọc và mở quán để bàn giao Người 2.
 
 ## Trường hợp biên cần trả lời
 

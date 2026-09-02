@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext.jsx';
 import Icon from './Icon.jsx';
 import clsx from 'clsx';
@@ -25,14 +26,16 @@ const icons = {
 
 export default function ToastViewport() {
   const { toasts, dismissToast } = useApp();
-  return (
+  if (!toasts || toasts.length === 0) return null;
+
+  const content = (
     // Mobile: top, below safe-area + ~12px breathing room from the mobile top
     // bar. Desktop (md+): original bottom-right anchored stack.
     <div
       role="status"
       aria-live="polite"
       className={clsx(
-        'pointer-events-none fixed z-50 flex flex-col gap-xs',
+        'pointer-events-none fixed z-[100] flex flex-col gap-xs',
         // mobile (default)
         'inset-x-base top-[calc(env(safe-area-inset-top,0px)+12px)] items-center',
         // desktop overrides
@@ -84,4 +87,8 @@ export default function ToastViewport() {
       ))}
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(content, document.body)
+    : content;
 }

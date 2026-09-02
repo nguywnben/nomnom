@@ -435,7 +435,6 @@ export default function ContentManagement() {
                     ? 'Thử tìm kiếm với từ khóa khác.'
                     : 'Tạo loại đầu tiên để quán có thể lựa chọn khi đăng ký.'
                 }
-                action={!cuisineSearchQuery && <Button leadingIcon="plus" size="sm" onClick={openCreateCuisine}>Thêm loại</Button>}
               />
             ) : (
               <div className="grid gap-base md:grid-cols-2 xl:grid-cols-4">

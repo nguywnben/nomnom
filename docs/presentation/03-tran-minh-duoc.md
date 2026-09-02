@@ -18,6 +18,8 @@ Giải thích phần có rủi ro nghiệp vụ cao nhất: checkout, khoảng c
 
 ## Kịch bản demo
 
+> 📋 **Kho dữ liệu copy-paste sẵn:** Mở [`./00-KHO-DU-LIEU-COPY-PASTE.md`](./00-KHO-DU-LIEU-COPY-PASTE.md#nguoi-3-tran-minh-duoc--checkout-van-chuyen--thanh-toan) để lấy thông tin địa chỉ checkout, ghi chú đơn hàng và thông tin thẻ test VNPay Sandbox.
+
 1. Chọn địa chỉ và chỉ khoảng cách, ETA, nguồn quote; áp voucher hợp lệ.
 2. Giải thích công thức tổng và việc server tính lại.
 3. Luồng chính dùng COD để ổn định; nhấn đặt một lần và mở success.

@@ -23,6 +23,8 @@ Các URL `/admin/payouts`, `/admin/customer-home`, `/admin/cuisines`, `/admin/co
 
 ## Kịch bản demo
 
+> 📋 **Kho dữ liệu copy-paste sẵn:** Mở [`./00-KHO-DU-LIEU-COPY-PASTE.md`](./00-KHO-DU-LIEU-COPY-PASTE.md#nguoi-6-nguyen-cong-ben--admin-doi-soat--ha-tang) để lấy lý do từ chối quán, lý do khóa tài khoản vi phạm, mã tham chiếu duyệt payout và thêm danh mục ẩm thực mới.
+
 1. Overview: nêu KPI và mốc dữ liệu seed gần ngày báo cáo.
 2. Restaurants: mở một hồ sơ/yêu cầu địa chỉ, giải thích approve/reject + notification + audit.
 3. Financial: mở báo cáo và tab payout, giải thích số dư/commission/refund.

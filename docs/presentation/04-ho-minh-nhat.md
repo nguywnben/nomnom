@@ -18,6 +18,8 @@ Không nói có GPS tài xế hoặc WebSocket. Icon xe chỉ biểu thị giai 
 
 ## Kịch bản demo
 
+> 📋 **Kho dữ liệu copy-paste sẵn:** Mở [`./00-KHO-DU-LIEU-COPY-PASTE.md`](./00-KHO-DU-LIEU-COPY-PASTE.md#nguoi-4-ho-minh-nhat--theo-doi-chat--danh-gia) để lấy nội dung tin nhắn chat 1-1 và bài đánh giá 5 sao cho quán và món ăn.
+
 1. Mở đơn vừa tạo ở danh sách và tracking.
 2. Chuyển nhanh sang cửa sổ Merchant để Người 5 cập nhật hoặc dùng đơn đã chuẩn bị sẵn; quay lại cho thấy polling cập nhật.
 3. Mở chat, gửi một tin ngắn và chỉ lịch sử gắn với đơn.

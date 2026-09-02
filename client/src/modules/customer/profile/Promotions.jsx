@@ -357,11 +357,6 @@ export default function Promotions() {
                   ? 'Bạn chưa lưu mã khuyến mãi nào của quán ăn. Hãy khám phá thực đơn quán yêu thích để lưu mã nhé!'
                   : 'Hiện tại chưa có mã khuyến mãi nào trong mục này.'
               }
-              action={
-                activeTab === 'merchant' ? (
-                  <Button onClick={() => nav('/app/search')}>Khám phá quán ăn</Button>
-                ) : undefined
-              }
             />
           ) : (
             <>
