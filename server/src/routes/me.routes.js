@@ -524,11 +524,8 @@ router.get('/orders', ensureCustomer, async (req, res, next) => {
 });
 
 router.post('/orders/:id/cancel', ensureCustomer, async (req, res, next) => {
-  const orderId = Number(req.params.id);
-  if (!Number.isInteger(orderId) || orderId <= 0) {
-    return res.status(400).json({ error: 'Mã đơn hàng không hợp lệ.' });
-  }
-
+  const idOrCode = String(req.params.id ?? '').trim();
+  const isDigits = /^\d+$/.test(idOrCode);
   const reason = String(req.body?.reason ?? '').trim().slice(0, 500)
     || 'Khách hàng chủ động hủy trước khi quán xử lý.';
   const connection = await db.getConnection();
@@ -536,8 +533,8 @@ router.post('/orders/:id/cancel', ensureCustomer, async (req, res, next) => {
     const { userId } = req.auth;
     await connection.beginTransaction();
     const [orders] = await connection.query(
-      'SELECT * FROM orders WHERE id = ? AND customer_id = ? FOR UPDATE',
-      [orderId, userId],
+      `SELECT * FROM orders WHERE customer_id = ? AND ${isDigits ? '(id = ? OR order_code = ?)' : 'order_code = ?'} FOR UPDATE`,
+      isDigits ? [userId, idOrCode, idOrCode] : [userId, idOrCode],
     );
 
     if (orders.length === 0) {

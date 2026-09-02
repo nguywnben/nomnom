@@ -401,7 +401,6 @@ router.get('/', requireAuth, async (req, res, next) => {
       const reviewedMenuItemIds = orderReviews
         .filter((review) => review.menu_item_id !== null)
         .map((review) => Number(review.menu_item_id));
-      const restaurantReview = orderReviews.find((review) => review.menu_item_id === null);
       const uniqueOrderItemIds = [...new Set(orderItems.map((item) => Number(item.menu_item_id)))];
       return {
         ...o,
@@ -423,16 +422,17 @@ router.get('/', requireAuth, async (req, res, next) => {
 router.get('/:idOrCode', requireAuth, async (req, res, next) => {
   try {
     const { userId } = req.auth;
-    const { idOrCode } = req.params;
+    const idOrCode = String(req.params.idOrCode ?? '').trim();
 
+    const isDigits = /^\d+$/.test(idOrCode);
     let query = `SELECT o.* FROM orders o WHERE o.customer_id = ? AND `;
     let params = [userId];
 
-    if (idOrCode.startsWith('ORD-')) {
-      query += `o.order_code = ?`;
-      params.push(idOrCode);
+    if (isDigits) {
+      query += `(o.id = ? OR o.order_code = ?)`;
+      params.push(idOrCode, idOrCode);
     } else {
-      query += `o.id = ?`;
+      query += `o.order_code = ?`;
       params.push(idOrCode);
     }
 
@@ -449,17 +449,39 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
          oi.id,
          oi.menu_item_id AS menuItemId,
          oi.item_name_snapshot AS name,
-         oi.unit_price_snapshot AS unitPrice,
+         oi.unit_price_snapshot AS price,
          oi.quantity,
-         oi.line_subtotal AS lineSubtotal,
+         oi.line_subtotal AS subtotal,
          oi.note,
-         m.image_url AS imageUrl
+         mi.image_url AS image
        FROM order_items oi
-       LEFT JOIN menu_items m ON oi.menu_item_id = m.id
+       LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
        WHERE oi.order_id = ?`,
       [order.id]
     );
     order.items = items;
+
+    // Lấy thông tin logs
+    const [logs] = await pool.query(
+      `SELECT to_status AS status, note, created_at AS \`at\`
+       FROM order_status_logs
+       WHERE order_id = ?
+       ORDER BY created_at ASC`,
+      [order.id]
+    );
+    order.logs = logs;
+
+    // Map các mốc thời gian từ logs vào order object để timeline render chính xác
+    logs.forEach(log => {
+      if (log.status === 'placed') order.placed_at = log.at;
+      if (log.status === 'accepted') order.accepted_at = log.at;
+      if (log.status === 'preparing') order.preparing_at = log.at;
+      if (log.status === 'ready_for_pickup') order.ready_for_pickup_at = log.at;
+      if (log.status === 'picked_up') order.picked_up_at = log.at;
+      if (log.status === 'delivering') order.delivering_at = log.at;
+      if (log.status === 'delivered') order.delivered_at = log.at;
+      if (log.status === 'cancelled') order.cancelled_at = log.at;
+    });
 
     const [orderReviews] = await pool.query(
       'SELECT id, menu_item_id FROM reviews WHERE order_id = ?',
@@ -490,14 +512,14 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
 
 router.post('/:idOrCode/confirm-delivery', requireAuth, ensureCustomer, async (req, res, next) => {
   const { userId } = req.auth;
-  const idOrCode = String(req.params.idOrCode ?? '');
+  const idOrCode = String(req.params.idOrCode ?? '').trim();
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const isCode = idOrCode.startsWith('ORD-');
+    const isDigits = /^\d+$/.test(idOrCode);
     const [rows] = await connection.query(
-      `SELECT * FROM orders WHERE customer_id = ? AND ${isCode ? 'order_code' : 'id'} = ? FOR UPDATE`,
-      [userId, idOrCode],
+      `SELECT * FROM orders WHERE customer_id = ? AND ${isDigits ? '(id = ? OR order_code = ?)' : 'order_code = ?'} FOR UPDATE`,
+      isDigits ? [userId, idOrCode, idOrCode] : [userId, idOrCode],
     );
     const order = rows[0];
     if (!order) {
@@ -540,19 +562,20 @@ router.post('/:idOrCode/review', requireAuth, async (req, res, next) => {
   const connection = await pool.getConnection();
   try {
     const { userId } = req.auth;
-    const { idOrCode } = req.params;
+    const idOrCode = String(req.params.idOrCode ?? '').trim();
 
     await connection.beginTransaction();
 
     // 1. Tìm đơn hàng
+    const isDigits = /^\d+$/.test(idOrCode);
     let query = `SELECT * FROM orders WHERE customer_id = ? AND `;
     let params = [userId];
 
-    if (idOrCode.startsWith('ORD-')) {
-      query += `order_code = ?`;
-      params.push(idOrCode);
+    if (isDigits) {
+      query += `(id = ? OR order_code = ?)`;
+      params.push(idOrCode, idOrCode);
     } else {
-      query += `id = ?`;
+      query += `order_code = ?`;
       params.push(idOrCode);
     }
 

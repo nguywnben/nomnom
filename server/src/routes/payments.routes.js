@@ -40,17 +40,18 @@ async function createVnpayPayment(req, res, next) {
     });
   }
 
-  const orderId = Number(req.body?.orderId);
-  if (!Number.isInteger(orderId) || orderId <= 0) {
+  const rawOrderId = String(req.body?.orderId ?? req.body?.id ?? '').trim();
+  if (!rawOrderId) {
     return res.status(400).json({ error: 'A valid orderId is required.' });
   }
 
+  const isDigits = /^\d+$/.test(rawOrderId);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const [orders] = await connection.query(
-      'SELECT * FROM orders WHERE id = ? AND customer_id = ? FOR UPDATE',
-      [orderId, req.auth.userId],
+      `SELECT * FROM orders WHERE customer_id = ? AND ${isDigits ? '(id = ? OR order_code = ?)' : 'order_code = ?'} FOR UPDATE`,
+      isDigits ? [req.auth.userId, rawOrderId, rawOrderId] : [req.auth.userId, rawOrderId],
     );
     const order = orders[0];
 
