@@ -6,6 +6,7 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Modal from '../../components/Modal.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 import { Textarea } from '../../components/Input.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
@@ -93,8 +94,8 @@ function groupOrders(orders) {
 }
 
 export default function MerchantOrders() {
-  const { pushToast } = useApp();
   const navigate = useNavigate();
+  const { user, pushToast } = useApp();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(todayIsoDate);
@@ -244,6 +245,10 @@ export default function MerchantOrders() {
   };
 
   const openCustomerChat = async (order) => {
+    if (user && Number(order.customer_id || order.customerId) === Number(user.id)) {
+      pushToast({ kind: 'warning', title: 'Không thể mở trò chuyện', message: 'Bạn không thể tạo cuộc trò chuyện với chính mình.' });
+      return;
+    }
     try {
       const response = await createOrderConversationApi(order.id, 'customer');
       navigate('/chat/' + response.conversation.id);
@@ -299,7 +304,32 @@ export default function MerchantOrders() {
       )}
 
       {shouldShowInitialLoader(loading, orders) ? (
-        <div className="py-xl text-center text-body-md text-body">Đang tải đơn hàng…</div>
+        <div className="grid grid-cols-1 gap-base sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-sm">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-6 w-24 rounded-pill" />
+                <Skeleton className="h-4 w-6" />
+              </div>
+              <div className="space-y-sm">
+                {Array.from({ length: 2 }).map((_, j) => (
+                  <Card key={j} padded className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-3.5 w-14" />
+                    </div>
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-4 w-full" />
+                    <div className="border-t border-hairline pt-2 flex justify-between items-center">
+                      <Skeleton className="h-5 w-20" />
+                      <Skeleton className="h-7 w-20 rounded-md" />
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="-mx-base flex gap-base overflow-x-auto px-base pb-2 scrollbar-hide md:mx-0 md:px-0 md:overflow-visible lg:grid lg:grid-cols-4">
           {COLUMNS.map((col) => {
@@ -334,7 +364,7 @@ export default function MerchantOrders() {
                           setCancelReason('');
                           setCancelError('');
                         }}
-                        onChat={() => openCustomerChat(order)}
+                        onChat={user && Number(order.customer_id || order.customerId) === Number(user.id) ? null : () => openCustomerChat(order)}
                         onPrint={() => printOrderReceipt(order)}
                       />
                     ))}
@@ -453,15 +483,17 @@ function OrderCard({ order, busy, isToday = true, onAction, onCancel, onChat, on
         )}
 
         <div className="flex items-center gap-1.5">
-          <Button
-            variant="secondary"
-            size="sm"
-            leadingIcon="chat"
-            className="flex-1 !px-2 text-caption font-medium"
-            onClick={onChat}
-          >
-            Nhắn tin
-          </Button>
+          {onChat && (
+            <Button
+              variant="secondary"
+              size="sm"
+              leadingIcon="chat"
+              className="flex-1 !px-2 text-caption font-medium"
+              onClick={onChat}
+            >
+              Nhắn tin
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"

@@ -33,6 +33,7 @@ export default function ChatWidget() {
   const location = useLocation();
 
   const [conversations, setConversations] = useState([]);
+  const [currentConversation, setCurrentConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
@@ -71,6 +72,9 @@ export default function ChatWidget() {
     try {
       const res = await fetchChatMessagesApi(convId);
       setMessages(res.data || []);
+      if (res.conversation) {
+        setCurrentConversation(res.conversation);
+      }
       // Tự động đánh dấu đã đọc
       markChatReadApi(convId).catch(() => {});
     } catch (err) {
@@ -124,8 +128,8 @@ export default function ChatWidget() {
   // Cuộc trò chuyện đang chọn
   const activeConversation = useMemo(() => {
     if (!activeChatId) return null;
-    return conversations.find((c) => String(c.id) === String(activeChatId)) || null;
-  }, [activeChatId, conversations]);
+    return conversations.find((c) => String(c.id) === String(activeChatId)) || currentConversation || null;
+  }, [activeChatId, conversations, currentConversation]);
 
   // Không hiển thị widget khi đang đứng trong trang Chat toàn màn hình
   if (!user || location.pathname.startsWith('/chat')) {

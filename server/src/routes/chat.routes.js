@@ -46,7 +46,7 @@ router.get('/conversations', async (req, res, next) => {
   try {
     const userId = req.auth.userId;
     const [rows] = await pool.query(
-      CONVERSATION_SELECT + ", (SELECT COUNT(*) FROM chat_messages um WHERE um.conversation_id = c.id AND um.sender_user_id <> ? AND um.read_at IS NULL) AS unread_count" + CONVERSATION_JOINS + ' WHERE c.participant_one_user_id = ? OR c.participant_two_user_id = ? ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC',
+      CONVERSATION_SELECT + ", (SELECT COUNT(*) FROM chat_messages um WHERE um.conversation_id = c.id AND um.sender_user_id <> ? AND um.read_at IS NULL) AS unread_count" + CONVERSATION_JOINS + ' WHERE (c.participant_one_user_id = ? OR c.participant_two_user_id = ?) AND (c.last_message_at IS NOT NULL OR EXISTS (SELECT 1 FROM chat_messages cm WHERE cm.conversation_id = c.id)) ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC',
       [userId, userId, userId],
     );
     return res.json({ data: rows.map((row) => serializeConversation(row, userId)) });
@@ -104,6 +104,10 @@ router.post('/conversations', async (req, res, next) => {
     if (userId !== participantOneId && userId !== participantTwoId) {
       await connection.rollback();
       return res.status(403).json({ error: 'You are not a participant in this order.' });
+    }
+    if (participantOneId === participantTwoId) {
+      await connection.rollback();
+      return res.status(400).json({ error: 'Bạn không thể tạo cuộc trò chuyện với chính mình.' });
     }
     const [existing] = await connection.query(
       'SELECT id FROM conversations WHERE order_id = ? AND participant_one_user_id = ? AND participant_two_user_id = ? LIMIT 1 FOR UPDATE',
@@ -169,12 +173,14 @@ router.post('/conversations/:id/messages', async (req, res, next) => {
     );
     await connection.query('UPDATE conversations SET last_message_at = NOW() WHERE id = ?', [conversation.id]);
     const recipientId = Number(conversation.participant_one_user_id) === Number(req.auth.userId)
-      ? conversation.participant_two_user_id
-      : conversation.participant_one_user_id;
-    await connection.query(
-      "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'system', 'New order message', ?, ?)",
-      [recipientId, text.slice(0, 500), '/chat/' + conversation.id],
-    );
+      ? Number(conversation.participant_two_user_id)
+      : Number(conversation.participant_one_user_id);
+    if (recipientId && recipientId !== Number(req.auth.userId)) {
+      await connection.query(
+        "INSERT INTO notifications (user_id, type, title, body, link_url) VALUES (?, 'system', 'New order message', ?, ?)",
+        [recipientId, text.slice(0, 500), '/chat/' + conversation.id],
+      );
+    }
     const [messages] = await connection.query(
       'SELECT m.id, m.sender_user_id, m.body, m.read_at, m.created_at, u.full_name AS sender_name, u.avatar_url AS sender_avatar FROM chat_messages m JOIN users u ON u.id = m.sender_user_id WHERE m.id = ?',
       [result.insertId],

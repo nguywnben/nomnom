@@ -56,8 +56,8 @@ export default function ChatScreen() {
       const list = response.data || [];
       setConversations(list);
       setActiveId((current) => {
+        if (id && id !== 'inbox') return Number(id);
         if (current && list.some((item) => item.id === current)) return current;
-        if (id && id !== 'inbox' && list.some((item) => item.id === Number(id))) return Number(id);
         return list[0]?.id || null;
       });
       setError('');
@@ -140,8 +140,12 @@ export default function ChatScreen() {
   // Group conversations by partner / restaurant so one restaurant doesn't create duplicate entries
   const groupedConversations = useMemo(() => {
     const groups = new Map();
+    const allConvs = [...conversations];
+    if (active && !allConvs.some((c) => c.id === active.id)) {
+      allConvs.push(active);
+    }
 
-    for (const conv of conversations) {
+    for (const conv of allConvs) {
       // Group by restaurantId if present, otherwise by other participant user id
       const key = conv.restaurantId
         ? `rest_${conv.restaurantId}`
@@ -185,7 +189,7 @@ export default function ChatScreen() {
     }
 
     return list;
-  }, [conversations, searchQuery]);
+  }, [conversations, searchQuery, active]);
 
   // Find the currently active group
   const activeGroup = useMemo(() => {

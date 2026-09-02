@@ -5,6 +5,7 @@ import Badge from '../../components/Badge.jsx';
 import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Image from '../../components/Image.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 import { apiGet, apiPost, confirmOrderDeliveryApi, createOrderConversationApi } from '../../lib/api.js';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { orderStatusLabel, orderStatusTone } from '../../lib/orderStatus.js';
@@ -104,10 +105,18 @@ export default function CustomerTracking() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const { openChatPopup } = useApp();
+  const { user, openChatPopup } = useApp();
+
+  const isSelfOrder = Boolean(
+    user && order && (
+      Number(user.id) === Number(order.restaurant?.owner_user_id) ||
+      Number(user.id) === Number(order.owner_user_id) ||
+      Number(user.id) === Number(order.restaurantOwnerId)
+    )
+  );
 
   const openChat = async () => {
-    if (!order || chatting) return;
+    if (!order || chatting || isSelfOrder) return;
     setChatting(true);
     try {
       const res = await createOrderConversationApi(order.id, 'merchant');
@@ -262,7 +271,7 @@ export default function CustomerTracking() {
   }, [order, timelineByStatus, nowTick]);
 
   if (loading) {
-    return <div className="container-page py-section text-center">Đang tải...</div>;
+    return <TrackingSkeleton />;
   }
 
   if (!order) {
@@ -292,7 +301,7 @@ export default function CustomerTracking() {
           <Badge tone={orderStatusTone(activeStatus)} dot size="md">
             {orderStatusLabel(activeStatus)}
           </Badge>
-          {!isTerminal && (
+          {!isTerminal && !isSelfOrder && (
             <Button
               size="sm"
               variant="secondary"
@@ -519,6 +528,68 @@ export default function CustomerTracking() {
               </Button>
             </Card>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TrackingSkeleton() {
+  return (
+    <div className="container-page py-xl space-y-base">
+      <Skeleton className="h-5 w-32" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-8 w-56" />
+        </div>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-7 w-24 rounded-pill" />
+          <Skeleton className="h-9 w-32 rounded-lg" />
+        </div>
+      </div>
+
+      <div className="grid gap-xl lg:grid-cols-[1fr_360px]">
+        <div className="space-y-base">
+          <Card padded className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-6 w-20" />
+            </div>
+            <Skeleton className="h-3 w-full rounded-full" />
+            <div className="grid grid-cols-4 gap-2 pt-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <Skeleton className="h-7 w-7 rounded-full" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card padded className="space-y-3">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </Card>
+        </div>
+
+        <div className="space-y-base">
+          <Card padded className="space-y-3">
+            <Skeleton className="h-6 w-36" />
+            <div className="space-y-2 pt-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-hairline pt-3 flex justify-between">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-5 w-24" />
+            </div>
+          </Card>
         </div>
       </div>
     </div>

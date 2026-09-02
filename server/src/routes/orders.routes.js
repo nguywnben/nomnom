@@ -477,7 +477,7 @@ router.get('/:idOrCode', requireAuth, async (req, res, next) => {
 
     // Lấy thông tin nhà hàng liên quan
     const [rests] = await pool.query(
-      `SELECT id, name, address_line, banner_url, phone FROM restaurants WHERE id = ?`,
+      `SELECT id, name, address_line, banner_url, phone, owner_user_id FROM restaurants WHERE id = ?`,
       [order.restaurant_id]
     );
     order.restaurant = rests[0];
