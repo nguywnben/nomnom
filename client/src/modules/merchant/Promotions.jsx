@@ -5,6 +5,8 @@ import Card from '../../components/Card.jsx';
 import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import {
   createMerchantVoucherApi,
@@ -286,9 +288,7 @@ export default function MerchantPromotions() {
       </div>
 
       {loading ? (
-        <Card padded>
-          <div className="py-xl text-center text-body">Đang tải voucher...</div>
-        </Card>
+        <TableSkeleton rows={4} cols={5} />
       ) : error ? (
         <Card padded>
           <div className="space-y-sm text-center">
@@ -298,16 +298,17 @@ export default function MerchantPromotions() {
           </div>
         </Card>
       ) : vouchers.length === 0 ? (
-        <Card padded>
-          <div className="py-xl text-center space-y-sm">
-            <Button leadingIcon="plus" size="sm" onClick={openCreate}>Tạo voucher</Button>
-          </div>
-        </Card>
+        <EmptyState
+          icon="gift"
+          title="Chưa có chương trình khuyến mãi nào"
+          message="Tạo mã giảm giá riêng, ưu đãi món ăn hoặc chương trình quà tặng để thu hút khách hàng mới và tăng đơn đặt lại cho quán."
+        />
       ) : filteredVouchers.length === 0 ? (
-        <Card padded>
-          <div className="py-xl text-center space-y-sm">
-            <div className="text-title-md text-ink">Không tìm thấy voucher phù hợp</div>
-            <p className="text-body text-body-sm">Thử thay đổi từ khóa tìm kiếm hoặc bỏ bớt bộ lọc.</p>
+        <EmptyState
+          icon="search"
+          title="Không tìm thấy voucher phù hợp"
+          message="Thử thay đổi từ khóa tìm kiếm hoặc bỏ bớt các bộ lọc."
+          action={
             <Button
               variant="secondary"
               size="sm"
@@ -319,8 +320,8 @@ export default function MerchantPromotions() {
             >
               Đặt lại bộ lọc
             </Button>
-          </div>
-        </Card>
+          }
+        />
       ) : (
         <div className="grid gap-base lg:grid-cols-2 xl:grid-cols-3">
           {filteredVouchers.map((voucher) => {

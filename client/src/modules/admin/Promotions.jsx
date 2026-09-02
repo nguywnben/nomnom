@@ -6,6 +6,8 @@ import Icon from '../../components/Icon.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Tabs from '../../components/Tabs.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import {
   createAdminVoucherApi,
@@ -275,9 +277,7 @@ export default function AdminPromotions() {
 
       {/* List */}
       {shouldShowInitialLoader(loading, vouchers) ? (
-        <Card padded>
-          <div className="py-xl text-center text-body">Đang tải danh sách voucher…</div>
-        </Card>
+        <TableSkeleton rows={5} cols={5} />
       ) : error && vouchers.length === 0 ? (
         <Card padded>
           <div className="py-xl text-center space-y-sm">
@@ -287,12 +287,11 @@ export default function AdminPromotions() {
           </div>
         </Card>
       ) : vouchers.length === 0 ? (
-        <Card padded>
-          <div className="py-xl text-center space-y-sm">
-            <div className="text-title-md text-ink">Chưa có mã khuyến mãi nào</div>
-            <Button leadingIcon="plus" size="sm" onClick={openCreate}>Tạo voucher</Button>
-          </div>
-        </Card>
+        <EmptyState
+          icon="gift"
+          title="Chưa có mã khuyến mãi nào"
+          message="Tạo voucher toàn sàn hoặc voucher liên kết nhà hàng để thúc đẩy nhu cầu đặt món."
+        />
       ) : (
         <div className="grid gap-base lg:grid-cols-2 xl:grid-cols-3">
           {vouchers.map((v) => {

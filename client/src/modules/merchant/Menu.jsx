@@ -8,6 +8,8 @@ import Image from '../../components/Image.jsx';
 import Input, { Select, Textarea } from '../../components/Input.jsx';
 import Modal from '../../components/Modal.jsx';
 import Switch from '../../components/Switch.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
+import EmptyState from '../../components/EmptyState.jsx';
 import ImageUploader from '../../components/ImageUploader.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
@@ -467,12 +469,58 @@ export default function MerchantMenu() {
       </div>
 
       {loading ? (
-        <div className="py-xxl text-center text-body">Đang tải thực đơn…</div>
-      ) : filteredCategories.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-hairline-strong py-xxl text-center text-body space-y-2">
-          <div className="text-body-md font-medium text-ink">Chưa có món ăn nào phù hợp</div>
-          <div className="text-caption text-body">Hãy thử đổi từ khóa tìm kiếm hoặc chọn bộ lọc khác.</div>
+        <div className="space-y-lg">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i} padded className="space-y-sm overflow-hidden">
+              <div className="flex items-center justify-between border-b border-hairline pb-3">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-6 w-36" />
+                  <Skeleton className="h-5 w-16 rounded-pill" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 w-20 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+              </div>
+              <div className="divide-y divide-hairline">
+                {Array.from({ length: 3 }).map((_, j) => (
+                  <div key={j} className="flex items-center justify-between py-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-14 w-14 rounded-lg" />
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3.5 w-20" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-6 w-12 rounded-full" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
         </div>
+      ) : filteredCategories.length === 0 ? (
+        <EmptyState
+          icon="search"
+          title="Không tìm thấy món ăn nào phù hợp"
+          message="Hãy thử đổi từ khóa tìm kiếm hoặc chọn bộ lọc danh mục khác."
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setQuery('');
+                setStatusFilter('all');
+                setSelectedCategoryTab('all');
+              }}
+            >
+              Đặt lại bộ lọc
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-lg">
           {filteredCategories.map((cat) => (

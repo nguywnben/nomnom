@@ -8,6 +8,7 @@ import Icon from '../../components/Icon.jsx';
 import Modal from '../../components/Modal.jsx';
 import Pagination from '../../components/Pagination.jsx';
 import Tabs from '../../components/Tabs.jsx';
+import TableSkeleton from '../../components/TableSkeleton.jsx';
 import { formatVnd } from '../../lib/formatVnd.js';
 import { downloadCsv } from '../../lib/csv.js';
 import { shouldShowInitialLoader } from '../../lib/contentTabs.js';
@@ -429,11 +430,13 @@ export default function AdminOrders() {
       </div>
 
       {shouldShowInitialLoader(loading, orders) ? (
-        <Card padded className="text-center text-body py-xxl">
-          Đang tải thông tin đơn hàng...
-        </Card>
+        <TableSkeleton rows={6} cols={6} />
       ) : orders.length === 0 ? (
-        <EmptyState icon="package" title="Không có đơn phù hợp" />
+        <EmptyState
+          icon="package"
+          title="Không tìm thấy đơn hàng phù hợp"
+          message="Thử thay đổi bộ lọc ngày, trạng thái đơn hoặc từ khóa tìm kiếm."
+        />
       ) : (
         <Card padded={false} className="overflow-hidden">
           <table className="hidden w-full text-left text-body-sm md:table">

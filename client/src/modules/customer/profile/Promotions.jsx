@@ -8,6 +8,8 @@ import Input from '../../../components/Input.jsx';
 import Modal from '../../../components/Modal.jsx';
 import Tabs from '../../../components/Tabs.jsx';
 import Pagination from '../../../components/Pagination.jsx';
+import EmptyState from '../../../components/EmptyState.jsx';
+import Skeleton from '../../../components/Skeleton.jsx';
 import { useApp } from '../../../context/AppContext.jsx';
 import { fetchMyVouchersApi, saveVoucherApi, deleteExpiredVouchersApi, deleteSavedVoucherApi } from '../../../lib/api.js';
 import { formatVnd } from '../../../lib/formatVnd.js';
@@ -331,19 +333,36 @@ export default function Promotions() {
 
         <div className="flex flex-col gap-sm">
           {loading ? (
-            <Card padded>
-              <div className="text-body-sm text-body py-8 text-center animate-pulse">
-                Đang tải danh sách khuyến mãi...
-              </div>
-            </Card>
+            <div className="flex flex-col gap-sm">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} padded className="flex flex-col sm:flex-row sm:items-center justify-between gap-base">
+                  <div className="flex items-center gap-base">
+                    <Skeleton className="h-12 w-12 shrink-0 rounded-lg" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-9 w-24 shrink-0 rounded-md" />
+                </Card>
+              ))}
+            </div>
           ) : filteredVouchers.length === 0 ? (
-            <Card padded>
-              <div className="text-body-sm text-body py-8 text-center">
-                {activeTab === 'merchant'
+            <EmptyState
+              icon="gift"
+              title="Chưa có mã khuyến mãi"
+              message={
+                activeTab === 'merchant'
                   ? 'Bạn chưa lưu mã khuyến mãi nào của quán ăn. Hãy khám phá thực đơn quán yêu thích để lưu mã nhé!'
-                  : 'Hiện tại chưa có mã khuyến mãi nào trong mục này.'}
-              </div>
-            </Card>
+                  : 'Hiện tại chưa có mã khuyến mãi nào trong mục này.'
+              }
+              action={
+                activeTab === 'merchant' ? (
+                  <Button onClick={() => nav('/app/search')}>Khám phá quán ăn</Button>
+                ) : undefined
+              }
+            />
           ) : (
             <>
               {/* Danh sách mã còn khả dụng */}
