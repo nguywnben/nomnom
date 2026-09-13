@@ -34,24 +34,27 @@ export default function DemoBanner() {
   };
 
   return (
-    <div className="bg-[#121316] border-b border-[#27272a] h-9 px-base text-caption text-[#e4e4e7] flex items-center justify-between gap-sm sticky top-0 z-[60] shadow-sm select-none">
-      <div className="flex items-center gap-xs mx-auto text-center font-medium truncate">
-        <span className="inline-flex items-center justify-center bg-amber-400 text-black text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 shadow-xs">
-          Demo
-        </span>
-        <span className="truncate text-[#d4d4d8] text-[12px]">
-          Môi trường trải nghiệm NomNom: Bạn có thể tự do đặt món và thử mọi tính năng. Dữ liệu mẫu được bảo vệ và tự động làm mới hàng ngày.
-        </span>
+    <>
+      <div className="fixed top-0 inset-x-0 z-[60] h-9 bg-white border-b border-hairline px-base text-caption text-ink flex items-center justify-between gap-sm shadow-xs select-none">
+        <div className="flex items-center gap-xs mx-auto text-center font-medium truncate">
+          <span className="inline-flex items-center justify-center bg-primary text-on-primary text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0">
+            Demo
+          </span>
+          <span className="truncate text-ink text-[12px]">
+            Môi trường trải nghiệm NomNom: Bạn có thể tự do đặt món và thử mọi tính năng. Dữ liệu mẫu được bảo vệ và tự động làm mới hàng ngày.
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="text-muted hover:text-ink p-1 rounded transition-colors shrink-0"
+          aria-label="Đóng thông báo"
+          title="Đóng thông báo"
+        >
+          <Icon name="x" size={14} />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={handleDismiss}
-        className="text-[#a1a1aa] hover:text-white p-1 rounded transition-colors shrink-0"
-        aria-label="Đóng thông báo"
-        title="Đóng thông báo"
-      >
-        <Icon name="x" size={14} />
-      </button>
-    </div>
+      <div className="h-9 shrink-0 pointer-events-none" aria-hidden="true" />
+    </>
   );
 }
