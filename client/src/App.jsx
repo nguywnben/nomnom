@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import ToastViewport from './components/Toast.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import DemoBanner from './components/DemoBanner.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import RedirectIfAuthed from './components/RedirectIfAuthed.jsx';
 import Landing from './pages/Landing.jsx';
@@ -88,6 +89,7 @@ function SuspenseRoute({ children }) {
 export default function App() {
   return (
     <ErrorBoundary>
+      <DemoBanner />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/faq" element={<PartnerFaq />} />

@@ -85,9 +85,10 @@ export default function TopNav() {
 
   return (
     <header
+      style={{ top: 'var(--demo-banner-height, 0px)' }}
       className={clsx(
         'hidden md:block',
-        heroOverlay ? 'fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300 ease-out' : 'sticky top-0 z-30',
+        heroOverlay ? 'fixed inset-x-0 z-50 transition-[background-color,border-color,top] duration-200 ease-out' : 'sticky z-30',
         heroOverlay
           ? headerElevated
             ? 'border-b border-hairline bg-canvas/90 backdrop-blur'

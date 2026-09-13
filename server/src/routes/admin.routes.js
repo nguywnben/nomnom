@@ -15,6 +15,10 @@ import {
   insertNotification,
   serializeRestaurantRow,
 } from '../lib/adminApprovals.js';
+import {
+  assertNotProtectedDemoUser,
+  assertNotProtectedDemoRestaurant,
+} from '../lib/demoGuard.js';
 
 const router = Router();
 
@@ -597,6 +601,10 @@ router.patch('/users/:id/status', async (req, res, next) => {
       return res.status(400).json({ error: 'Bạn không thể tự đình chỉ hoặc khóa tài khoản của chính mình.' });
     }
 
+    if (['suspended', 'banned'].includes(status)) {
+      assertNotProtectedDemoUser({ userId: id });
+    }
+
     let expiresAt = null;
     let reasonValue = null;
     if (status === 'suspended') {
@@ -691,6 +699,8 @@ router.post('/users/:id/reset-password', async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ error: 'Người dùng không tồn tại.' });
     }
+
+    assertNotProtectedDemoUser({ userId: id, email: user.email });
 
     const newPassword = rawPassword || generateRandomPassword();
     if (newPassword.length < 8) {
@@ -1238,6 +1248,7 @@ router.patch('/restaurants/:id/status', async (req, res, next) => {
     }
 
     if (status === 'suspended') {
+      assertNotProtectedDemoRestaurant(restaurantId);
       await conn.query(
         'UPDATE restaurants SET status = ?, rejection_reason = ? WHERE id = ?',
         ['suspended', reason?.trim() || 'Tạm khóa do vi phạm quy định', restaurantId],

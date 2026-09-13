@@ -707,3 +707,12 @@ export function fetchMenuItemReviewsApi(id, { page = 1, limit = 10, rating, sort
   if (rating) params.set('rating', String(rating));
   return apiGet(`/api/v1/menu-items/${encodeURIComponent(id)}/reviews?${params.toString()}`);
 }
+
+export function fetchDemoStatusApi() {
+  return apiGet('/api/v1/demo/status');
+}
+
+export function resetDemoDatabaseApi() {
+  return apiPost('/api/v1/demo/reset', {});
+}
+

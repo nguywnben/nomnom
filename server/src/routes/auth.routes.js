@@ -24,6 +24,7 @@ import {
 } from '../lib/registration.js';
 import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
+import { assertNotProtectedDemoUser } from '../lib/demoGuard.js';
 
 const router = Router();
 
@@ -244,6 +245,7 @@ router.post('/forgot-password/send-code', async (req, res, next) => {
     if (!email) {
       return res.status(400).json({ error: 'Email là bắt buộc.' });
     }
+    assertNotProtectedDemoUser({ email });
 
     const meta = await createAndSendResetOtp(email);
     res.json({
@@ -271,6 +273,7 @@ router.post('/forgot-password/resend-code', async (req, res, next) => {
     if (!email) {
       return res.status(400).json({ error: 'Email là bắt buộc.' });
     }
+    assertNotProtectedDemoUser({ email });
 
     const meta = await createAndSendResetOtp(email);
     res.json({
@@ -338,6 +341,8 @@ router.post('/forgot-password/reset', async (req, res, next) => {
     } catch {
       return res.status(400).json({ error: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.' });
     }
+
+    assertNotProtectedDemoUser({ userId: payload.userId, email: payload.email });
 
     await applyPasswordReset(payload.userId, payload.email, password);
     res.json({ ok: true, message: 'Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.' });

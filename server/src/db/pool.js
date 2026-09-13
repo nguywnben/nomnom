@@ -4,7 +4,40 @@ import mysql from 'mysql2/promise';
 function resolveConfig() {
   const url = process.env.MYSQL_URL?.trim();
   if (url?.startsWith('mysql://')) {
-    return { mode: 'MYSQL_URL', poolConfig: url };
+    try {
+      const parsed = new URL(url);
+      let ssl;
+      const sslParam = parsed.searchParams.get('ssl');
+      if (sslParam) {
+        try {
+          ssl = JSON.parse(sslParam);
+        } catch {
+          ssl = sslParam === 'true' ? {} : undefined;
+        }
+      } else if (parsed.hostname.includes('tidbcloud.com') || process.env.MYSQL_SSL === 'true') {
+        ssl = { minVersion: 'TLSv1.2', rejectUnauthorized: true };
+      }
+
+      return {
+        mode: 'MYSQL_URL',
+        poolConfig: {
+          host: parsed.hostname,
+          port: Number(parsed.port || 3306),
+          user: decodeURIComponent(parsed.username),
+          password: decodeURIComponent(parsed.password),
+          database: parsed.pathname.replace(/^\//, '') || undefined,
+          waitForConnections: true,
+          connectionLimit: 10,
+          charset: 'utf8mb4',
+          ...(ssl ? { ssl } : {}),
+        },
+        user: decodeURIComponent(parsed.username),
+        host: parsed.hostname,
+        database: parsed.pathname.replace(/^\//, ''),
+      };
+    } catch {
+      return { mode: 'MYSQL_URL', poolConfig: url };
+    }
   }
 
   // Reference từ service MySQL Railway: MYSQLHOST, MYSQLPASSWORD, ...

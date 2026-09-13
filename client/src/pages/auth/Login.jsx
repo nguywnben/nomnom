@@ -63,6 +63,50 @@ export default function LoginPage() {
         </div>
         {error && <p className="text-caption text-error" role="alert">{error}</p>}
         <Button type="submit" loading={loading} className="mt-xs">Đăng nhập</Button>
+
+        <div className="mt-sm pt-sm border-t border-hairline">
+          <p className="text-caption text-ink-secondary mb-xs text-center font-medium">
+            Tài khoản trải nghiệm nhanh (Demo):
+          </p>
+          <div className="grid grid-cols-3 gap-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('khachhang@nomnom.local');
+                setPassword('password123');
+                setError('');
+              }}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-md border border-hairline-strong bg-surface-card hover:bg-canvas-soft hover:border-black transition-colors text-caption"
+            >
+              <span className="font-semibold text-ink text-[13px]">Khách hàng</span>
+              <span className="text-[11px] text-ink-muted">Khách đặt món</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('nhahang@nomnom.local');
+                setPassword('password123');
+                setError('');
+              }}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-md border border-hairline-strong bg-surface-card hover:bg-canvas-soft hover:border-black transition-colors text-caption"
+            >
+              <span className="font-semibold text-ink text-[13px]">Nhà hàng</span>
+              <span className="text-[11px] text-ink-muted">Quán nhận đơn</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('admin@nomnom.local');
+                setPassword('password123');
+                setError('');
+              }}
+              className="flex flex-col items-center justify-center py-2 px-1 rounded-md border border-hairline-strong bg-surface-card hover:bg-canvas-soft hover:border-black transition-colors text-caption"
+            >
+              <span className="font-semibold text-ink text-[13px]">Quản trị viên</span>
+              <span className="text-[11px] text-ink-muted">Admin đối soát</span>
+            </button>
+          </div>
+        </div>
       </form>
     </AuthLayout>
   );

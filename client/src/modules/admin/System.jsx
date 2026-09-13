@@ -15,6 +15,8 @@ import {
   fetchAdminAuditLogs,
   fetchAdminConfigApi,
   updateAdminConfigApi,
+  fetchDemoStatusApi,
+  resetDemoDatabaseApi,
 } from '../../lib/api.js';
 
 const CONFIG_LABELS = {
@@ -160,6 +162,51 @@ export default function System() {
   };
 
   // ---------------------------------------------------------------------------
+  // DEMO RESET STATUS & HANDLER
+  // ---------------------------------------------------------------------------
+  const [demoStatus, setDemoStatus] = useState(null);
+  const [demoResetting, setDemoResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const loadDemoStatus = useCallback(async () => {
+    try {
+      const res = await fetchDemoStatusApi();
+      setDemoStatus(res);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'config') {
+      loadDemoStatus();
+    }
+  }, [activeTab, loadDemoStatus]);
+
+  const handleDemoReset = async () => {
+    setDemoResetting(true);
+    try {
+      const res = await resetDemoDatabaseApi();
+      pushToast({
+        kind: 'success',
+        title: 'Khôi phục thành công',
+        message: res.message || 'Cơ sở dữ liệu mẫu đã được làm mới.',
+      });
+      setShowResetConfirm(false);
+      loadConfig();
+      loadDemoStatus();
+    } catch (err) {
+      pushToast({
+        kind: 'error',
+        title: 'Khôi phục thất bại',
+        message: err.message || 'Không thể khôi phục dữ liệu mẫu lúc này.',
+      });
+    } finally {
+      setDemoResetting(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // TAB 2: NHẬT KÝ HOẠT ĐỘNG (AUDIT LOGS)
   // ---------------------------------------------------------------------------
   const [logItems, setLogItems] = useState([]);
@@ -299,6 +346,36 @@ export default function System() {
                   </Card>
                 );
               })}
+
+              {/* Card Quản lý Dữ liệu Mẫu (Demo Reset) */}
+              <div className="lg:col-span-2">
+                <Card padded className="border border-hairline-strong bg-canvas-soft/40">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-base">
+                    <div>
+                      <div className="flex items-center gap-xs">
+                        <span className="text-title-md text-ink font-semibold">Khôi phục Dữ liệu Mẫu (Demo Reset)</span>
+                        <Badge tone="preview">Chế độ Demo</Badge>
+                      </div>
+                      <p className="mt-1 text-caption text-body max-w-2xl">
+                        Nạp lại toàn bộ cơ sở dữ liệu mẫu từ bản sao lưu sạch ban đầu. Các đơn hàng hoặc thao tác thử nghiệm sẽ được đặt lại sạch sẽ.
+                      </p>
+                      {demoStatus?.lastResetAt && (
+                        <p className="mt-xs text-[11px] text-ink-muted">
+                          Lần khôi phục gần nhất: {formatTimestamp(demoStatus.lastResetAt)}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      leadingIcon="refresh"
+                      loading={demoResetting}
+                      onClick={() => setShowResetConfirm(true)}
+                    >
+                      Khôi phục dữ liệu gốc
+                    </Button>
+                  </div>
+                </Card>
+              </div>
             </div>
           )}
         </div>
@@ -472,6 +549,36 @@ export default function System() {
                 </div>
               </div>
             )}
+          </Modal>
+
+          {/* Modal xác nhận khôi phục dữ liệu mẫu */}
+          <Modal
+            open={showResetConfirm}
+            onClose={() => !demoResetting && setShowResetConfirm(false)}
+            title="Xác nhận khôi phục dữ liệu mẫu"
+            size="sm"
+            footer={
+              <div className="flex items-center justify-end gap-xs w-full">
+                <Button
+                  variant="secondary"
+                  disabled={demoResetting}
+                  onClick={() => setShowResetConfirm(false)}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  variant="critical"
+                  loading={demoResetting}
+                  onClick={handleDemoReset}
+                >
+                  Xác nhận khôi phục
+                </Button>
+              </div>
+            }
+          >
+            <p className="text-body-sm text-ink">
+              Thao tác này sẽ nạp lại dữ liệu mẫu gốc từ bản snapshot sạch. Mọi đơn hàng hoặc thay đổi vừa thực hiện sẽ được đặt lại về trạng thái ban đầu. Bạn có chắc chắn muốn tiếp tục?
+            </p>
           </Modal>
         </div>
       )}

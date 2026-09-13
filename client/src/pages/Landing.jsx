@@ -113,8 +113,9 @@ export default function Landing() {
     <div className="bg-canvas">
       {/* ---- Top bar ------------------------------------------------------ */}
       <header
+        style={{ top: 'var(--demo-banner-height, 0px)' }}
         className={clsx(
-          'fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300 ease-out',
+          'fixed inset-x-0 z-50 transition-[background-color,border-color,top] duration-200 ease-out',
           headerElevated
             ? 'border-b border-hairline bg-canvas/90 backdrop-blur'
             : 'border-b border-transparent bg-transparent shadow-none',

@@ -20,6 +20,8 @@ import adminFinanceRoutes from './routes/admin-finance.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import shippingRoutes from './routes/shipping.routes.js';
 import locationsRoutes from './routes/locations.routes.js';
+import demoRoutes from './routes/demo.routes.js';
+import { resetDemoDatabase } from './lib/demoReset.js';
 import { ensureWave5Schema } from './lib/wave5Schema.js';
 import { DEFAULT_HOME_PAGE_CONFIG } from './lib/homePageConfig.js';
 import { creditMerchantForDeliveredOrder } from './lib/merchantOrders.js';
@@ -67,6 +69,7 @@ app.use('/api/v1/vouchers', vouchersRoutes);
 app.use('/api/v1/menu-items', menuItemsRoutes);
 app.use('/api/v1/shipping', shippingRoutes);
 app.use('/api/v1/locations', locationsRoutes);
+app.use('/api/v1/demo', demoRoutes);
 
 app.use((err, _req, res, _next) => {
   if (err?.message === 'Request aborted' || err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') {
@@ -624,6 +627,29 @@ async function ensureRestaurantAddressChangeCoordinates() {
   }
 }
 
+function startDemoAutoResetWorker() {
+  if (process.env.ENABLE_DEMO_AUTO_RESET !== 'true') return;
+
+  console.log('[Demo] Bật cơ chế tự động khôi phục dữ liệu mẫu lúc 03:00 (GMT+7) hàng ngày.');
+  let lastResetDate = null;
+
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const vnHours = (now.getUTCHours() + 7) % 24;
+      const todayStr = now.toISOString().slice(0, 10);
+
+      if (vnHours === 3 && lastResetDate !== todayStr) {
+        lastResetDate = todayStr;
+        console.log('[Demo Worker] Đang tự động khôi phục cơ sở dữ liệu mẫu lúc 03:00...');
+        await resetDemoDatabase();
+      }
+    } catch (err) {
+      console.error('[Demo Worker] Lỗi khi tự động khôi phục dữ liệu:', err.message);
+    }
+  }, 10 * 60 * 1000);
+}
+
 async function start() {
   try {
     await verifyDbConnection();
@@ -651,6 +677,7 @@ async function start() {
   app.listen(port, () => {
     console.log(`NomNom API http://localhost:${port}`);
     startOrderExpiryWorker();
+    startDemoAutoResetWorker();
   });
 }
 

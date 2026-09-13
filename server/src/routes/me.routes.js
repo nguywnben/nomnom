@@ -6,6 +6,7 @@ import { normalizeRoles } from '../lib/roles.js';
 import { loadPartnerAccess } from '../lib/partnerAccess.js';
 import { geocodeVietnamAddress } from '../lib/addressGeocoding.js';
 import { validateCustomerCancellation } from '../lib/customerCancellation.js';
+import { assertNotProtectedDemoUser } from '../lib/demoGuard.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -124,6 +125,8 @@ router.patch('/', async (req, res, next) => {
 router.post('/change-password', async (req, res, next) => {
   try {
     const { userId } = req.auth;
+    assertNotProtectedDemoUser({ userId });
+
     const currentPassword = String(req.body?.currentPassword ?? '');
     const newPassword = String(req.body?.newPassword ?? '');
 
